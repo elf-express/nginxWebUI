@@ -1,7 +1,9 @@
 // 國家存取控制
 var geoCountries = [];
-var selectedCodes = new Set ? new Set() : {};
+var selectedCodes = new Set();
 var currentGeoRuleId = null;
+var geoForm = null;
+var geoElement = null;
 
 // 大洲名稱 i18n
 var continentNames = {
@@ -15,8 +17,8 @@ var continentNames = {
 
 // 初始化
 layui.use(['element', 'form'], function() {
-    var element = layui.element;
-    var form = layui.form;
+    geoElement = layui.element;
+    geoForm = layui.form;
 
     // 檢查 GeoIP2 模組
     $.get(ctx + '/adminPage/geo/hasGeoIp2', function(data) {
@@ -28,15 +30,15 @@ layui.use(['element', 'form'], function() {
         }
     });
 
-    loadGeoData(form, element);
+    loadGeoData();
 });
 
-function loadGeoData(formObj, elementObj) {
+function loadGeoData() {
     // 載入國家清單
     $.get(ctx + '/adminPage/geo/countries', function(data) {
         if (data.success) {
             geoCountries = data.obj;
-            renderCountries(formObj, elementObj);
+            renderCountries();
         }
     });
 
@@ -48,19 +50,17 @@ function loadGeoData(formObj, elementObj) {
             $("input[name='geoMode'][value='" + rule.mode + "']").prop('checked', true);
             if (rule.countries) {
                 rule.countries.split(',').forEach(function(code) {
-                    if (typeof selectedCodes.add === 'function') {
-                        selectedCodes.add(code.trim());
-                    }
+                    selectedCodes.add(code.trim());
                 });
             }
-            if (formObj) formObj.render('radio');
+            if (geoForm) geoForm.render('radio');
             updateSelectedDisplay();
-            updateCheckboxes(formObj);
+            updateCheckboxes();
         }
     });
 }
 
-function renderCountries(formObj, elementObj) {
+function renderCountries() {
     var html = '';
     geoCountries.forEach(function(continent) {
         var name = continentNames[continent.key] || continent.key;
@@ -72,27 +72,27 @@ function renderCountries(formObj, elementObj) {
         html += '<div style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;">';
 
         continent.countries.forEach(function(c) {
-            var checked = (typeof selectedCodes.has === 'function' && selectedCodes.has(c.code)) ? ' checked' : '';
-            html += '<label style="width:170px;cursor:pointer;display:inline-flex;align-items:center;" class="geo-country-item" data-code="' + c.code + '" data-name="' + c.nameZh + ' ' + c.nameEn + '">';
-            html += '<input type="checkbox" lay-skin="primary" lay-filter="geoCountry" value="' + c.code + '"' + checked + '>';
-            html += ' ' + c.code + ' ' + c.nameZh;
-            html += '</label>';
+            var checked = selectedCodes.has(c.code) ? ' checked' : '';
+            html += '<div style="width:170px;display:inline-block;" class="geo-country-item" data-code="' + c.code + '" data-name="' + c.nameZh + ' ' + c.nameEn + '">';
+            html += '<input type="checkbox" lay-skin="primary" lay-filter="geoCountry" value="' + c.code + '" title="' + c.code + ' ' + c.nameZh + '"' + checked + '>';
+            html += '</div>';
         });
 
         html += '</div></div></div>';
     });
 
     $('#geoCountries').html(html);
-    if (elementObj) elementObj.render('collapse');
-    if (formObj) formObj.render('checkbox');
+    if (geoElement) geoElement.render('collapse');
+    // 渲染 geoForm 內的 checkbox 和 radio
+    if (geoForm) {
+        geoForm.render(null, 'geoForm');
 
-    // 監聽 checkbox 變化
-    if (formObj) {
-        formObj.on('checkbox(geoCountry)', function(data) {
+        // 監聽 checkbox 變化
+        geoForm.on('checkbox(geoCountry)', function(data) {
             if (data.elem.checked) {
                 selectedCodes.add(data.value);
             } else {
-                selectedCodes['delete'](data.value);
+                selectedCodes.delete(data.value);
             }
             updateSelectedDisplay();
         });
@@ -129,17 +129,16 @@ function selectContinent(key) {
     updateSelectedDisplay();
 }
 
-function updateCheckboxes(formObj) {
+function updateCheckboxes() {
     $('input[lay-filter="geoCountry"]').each(function() {
-        $(this).prop('checked', typeof selectedCodes.has === 'function' && selectedCodes.has($(this).val()));
+        $(this).prop('checked', selectedCodes.has($(this).val()));
     });
-    var f = formObj || (typeof form !== 'undefined' ? form : null);
-    if (f) f.render('checkbox');
+    if (geoForm) geoForm.render(null, 'geoForm');
 }
 
 function updateSelectedDisplay() {
     var html = '';
-    var codes = typeof selectedCodes.forEach === 'function' ? selectedCodes : [];
+    var codes = selectedCodes;
     codes.forEach(function(code) {
         html += '<span class="layui-badge layui-bg-blue" style="margin:3px;cursor:pointer;" onclick="removeCountry(\'' + code + '\')">' +
                 code + ' &times;</span>';
@@ -151,7 +150,7 @@ function updateSelectedDisplay() {
 }
 
 function removeCountry(code) {
-    selectedCodes['delete'](code);
+    selectedCodes.delete(code);
     updateCheckboxes();
     updateSelectedDisplay();
 }
@@ -159,11 +158,9 @@ function removeCountry(code) {
 function saveGeoRule() {
     var mode = $("input[name='geoMode']:checked").val();
     var countries = [];
-    if (typeof selectedCodes.forEach === 'function') {
-        selectedCodes.forEach(function(code) {
-            countries.push(code);
-        });
-    }
+    selectedCodes.forEach(function(code) {
+        countries.push(code);
+    });
 
     $.post(ctx + '/adminPage/geo/addOver', {
         id: currentGeoRuleId || '',
@@ -181,9 +178,7 @@ function saveGeoRule() {
 }
 
 function clearGeoRule() {
-    if (typeof selectedCodes.clear === 'function') {
-        selectedCodes.clear();
-    }
+    selectedCodes.clear();
     updateCheckboxes();
     updateSelectedDisplay();
 }

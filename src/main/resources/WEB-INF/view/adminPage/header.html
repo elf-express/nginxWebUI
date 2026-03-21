@@ -33,16 +33,17 @@
 <#include '/adminPage/select_lang.html'/>
 
 <script>
-// 取得 Nginx 版本資訊
-$(function() {
+// 取得 Nginx 版本資訊（延遲到 jQuery 載入後執行）
+window.addEventListener('load', function() {
+    if (typeof $ === 'undefined') return;
     $.get(ctx + '/adminPage/monitor/nginxInfo', function(data) {
         if (data.success && data.obj) {
             var version = data.obj.version;
             var modules = data.obj.modules;
             if (version) {
                 var text = 'Nginx ' + version + ' (' + modules.length + ' ${nginxStr.moduleCount})';
-                $('#nginxVersionLink').text(text);
-                $('#nginxVersionItem').show();
+                document.getElementById('nginxVersionLink').textContent = text;
+                document.getElementById('nginxVersionItem').style.display = '';
                 window._nginxModules = modules;
             }
         }
