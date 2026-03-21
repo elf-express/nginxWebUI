@@ -21,56 +21,96 @@
 		<div class="layui-body">
 			<!-- 内容主体区域 -->
 			<div style="padding: 15px">
-				<fieldset class="layui-elem-field layui-field-title">
-					<legend>${menuStr.denyAllow}</legend>
-				</fieldset>
-
-				<form action="${ctx}/adminPage/denyAllow" id="searchForm" method="post">
-					<div class="layui-inline">
-						<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="add()">${commonStr.add}</button>
-					</div>
-
-					<div class="layui-inline">
-						<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="delMany()">${commonStr.delAll}</button>
-					</div>
-
-					<input type="hidden" name="curr" value="${page.curr}">
-					<input type="hidden" name="limit" value="${page.limit}">
-				</form>
-
-				<table class="layui-table layui-form" lay-size="sm">
-					<thead>
-						<tr>
-							<th style="width: 20px;">
-								<input type="checkbox" id="checkAll" lay-filter="checkAll" lay-skin="primary">
-							</th>
-							<th>${denyAllowStr.name}</th>
-							<th>${denyAllowStr.ipCount}</th>
-							<th>${commonStr.operation}</th>
-						</tr>
-					</thead>
-					<tbody>
-						<#list page.records as ext>
-						<tr>
-							<td>
-								<input type="checkbox" name="ids" title="" lay-skin="primary" value="${ext.denyAllow.id}">
-							</td>
-							<td>${ext.denyAllow.name}</td>
-							<td>${ext.ipCount}</td>
-							<td>
+				<div class="layui-tab layui-tab-brief" lay-filter="denyAllowTab">
+					<ul class="layui-tab-title">
+						<li class="layui-this">${menuStr.denyAllow}</li>
+						<li>${geoStr.title}</li>
+					</ul>
+					<div class="layui-tab-content">
+						<div class="layui-tab-item layui-show">
+							<form action="${ctx}/adminPage/denyAllow" id="searchForm" method="post">
 								<div class="layui-inline">
-									<button type="button" class="layui-btn layui-btn-sm " onclick="edit('${ext.denyAllow.id}')">${commonStr.edit}</button>
+									<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="add()">${commonStr.add}</button>
 								</div>
 
 								<div class="layui-inline">
-									<button type="button" class="layui-btn layui-btn-sm layui-btn-danger " onclick="del('${ext.denyAllow.id}')">${commonStr.del}</button>
+									<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="delMany()">${commonStr.delAll}</button>
 								</div>
-							</td>
-						</tr>
-						</#list>
-					</tbody>
-				</table>
-				<div id="pageInfo"></div>
+
+								<input type="hidden" name="curr" value="${page.curr}">
+								<input type="hidden" name="limit" value="${page.limit}">
+							</form>
+
+							<table class="layui-table layui-form" lay-size="sm">
+								<thead>
+									<tr>
+										<th style="width: 20px;">
+											<input type="checkbox" id="checkAll" lay-filter="checkAll" lay-skin="primary">
+										</th>
+										<th>${denyAllowStr.name}</th>
+										<th>${denyAllowStr.ipCount}</th>
+										<th>${commonStr.operation}</th>
+									</tr>
+								</thead>
+								<tbody>
+									<#list page.records as ext>
+									<tr>
+										<td>
+											<input type="checkbox" name="ids" title="" lay-skin="primary" value="${ext.denyAllow.id}">
+										</td>
+										<td>${ext.denyAllow.name}</td>
+										<td>${ext.ipCount}</td>
+										<td>
+											<div class="layui-inline">
+												<button type="button" class="layui-btn layui-btn-sm " onclick="edit('${ext.denyAllow.id}')">${commonStr.edit}</button>
+											</div>
+
+											<div class="layui-inline">
+												<button type="button" class="layui-btn layui-btn-sm layui-btn-danger " onclick="del('${ext.denyAllow.id}')">${commonStr.del}</button>
+											</div>
+										</td>
+									</tr>
+									</#list>
+								</tbody>
+							</table>
+							<div id="pageInfo"></div>
+						</div>
+						<div class="layui-tab-item" id="geoTabContent">
+							<div id="geoNoGeoIp" style="display:none;padding:20px;">
+								<div class="layui-bg-red" style="padding:15px;border-radius:5px;">
+									${geoStr.noGeoip}
+								</div>
+							</div>
+							<div id="geoForm" class="layui-form">
+								<div class="layui-form-item" style="margin-top:15px;">
+									<label class="layui-form-label">${geoStr.mode}</label>
+									<div class="layui-input-block">
+										<input type="radio" name="geoMode" value="0" title="${geoStr.allow}" checked>
+										<input type="radio" name="geoMode" value="1" title="${geoStr.deny}">
+									</div>
+								</div>
+								<div class="layui-form-item">
+									<label class="layui-form-label">${geoStr.search}</label>
+									<div class="layui-input-block">
+										<input type="text" id="geoSearch" class="layui-input" placeholder="${geoStr.search}..." autocomplete="off">
+									</div>
+								</div>
+								<div class="layui-collapse" id="geoCountries" lay-accordion>
+								</div>
+								<div class="layui-form-item" style="margin-top:15px;">
+									<label class="layui-form-label">${geoStr.selected}</label>
+									<div class="layui-input-block" id="selectedCountries">
+										<span style="color:#999;">--</span>
+									</div>
+								</div>
+								<div class="layui-form-item" style="text-align:center;">
+									<button type="button" class="layui-btn layui-btn-normal" onclick="saveGeoRule()">${commonStr.submit}</button>
+									<button type="button" class="layui-btn layui-btn-danger" onclick="clearGeoRule()">${geoStr.clearAll}</button>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -86,7 +126,7 @@
 						<input type="text" name="name" id="name" class="layui-input">
 					</div>
 				</div>
-				
+
 				<div class="layui-form-item">
 					<label class="layui-form-label">${denyAllowStr.ipTip}</label>
 					<div class="layui-input-block">
@@ -105,6 +145,7 @@
 	</div>
 	<#include '/adminPage/script.html'/>
 	<script src="${ctx}/js/adminPage/denyAllow/index.js?v=${jsrandom}" type="text/javascript"></script>
+	<script src="${ctx}/js/adminPage/denyAllow/geo.js?v=${jsrandom}" type="text/javascript"></script>
 
 
 </body>
