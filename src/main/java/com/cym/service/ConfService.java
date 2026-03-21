@@ -24,6 +24,7 @@ import com.cym.model.Basic;
 import com.cym.model.Cert;
 import com.cym.model.CertCode;
 import com.cym.model.DenyAllow;
+import com.cym.model.GeoRule;
 import com.cym.model.Http;
 import com.cym.model.Location;
 import com.cym.model.Param;
@@ -132,6 +133,49 @@ public class ConfService {
 
 			// 黑白名单
 			buildDenyAllow(ngxBlockHttp, "http", "http", confExt);
+
+			// 國家存取控制 — map 指令放在 http block
+			List<GeoRule> geoRules = sqlHelper.findAll(GeoRule.class);
+			for (GeoRule rule : geoRules) {
+				if (rule.getEnable() == null || !rule.getEnable() || StrUtil.isEmpty(rule.getCountries())) {
+					continue;
+				}
+
+				// 生成唯一的 map 變數名
+				String idPart = StrUtil.isEmpty(rule.getServerId()) ? "global" : rule.getServerId().replace("-", "");
+				if (idPart.length() > 12) idPart = idPart.substring(0, 12);
+				String mapVarName = "geo_block_" + idPart;
+
+				// 建立 map block: map $geoip2_data_country_code $geo_block_xxx { ... }
+				NgxBlock mapBlock = new NgxBlock();
+				mapBlock.addValue("map $geoip2_data_country_code $" + mapVarName);
+
+				// default 值
+				NgxParam defaultParam = new NgxParam();
+				if (rule.getMode() == 0) {
+					// 白名單：預設封鎖(1)，列出的允許(0)
+					defaultParam.addValue("default 1");
+				} else {
+					// 黑名單：預設允許(0)，列出的封鎖(1)
+					defaultParam.addValue("default 0");
+				}
+				mapBlock.addEntry(defaultParam);
+
+				// 國家代碼
+				String[] codes = rule.getCountries().split(",");
+				for (String code : codes) {
+					NgxParam codeParam = new NgxParam();
+					if (rule.getMode() == 0) {
+						codeParam.addValue(code.trim() + " 0");
+					} else {
+						codeParam.addValue(code.trim() + " 1");
+					}
+					mapBlock.addEntry(codeParam);
+				}
+
+				ngxBlockHttp.addEntry(mapBlock);
+				hasHttp = true;
+			}
 
 			// 添加upstream
 			NgxParam ngxParam;
@@ -612,6 +656,34 @@ public class ConfService {
 
 			// IP黑白名单
 			buildDenyAllow(ngxBlockServer, "server", server.getId(), confExt);
+
+			// 國家存取控制 — if 指令放在 server block
+			{
+				// 先查 server 專屬規則
+				ConditionAndWrapper geoCondition = new ConditionAndWrapper();
+				geoCondition.eq("serverId", server.getId()).eq("enable", true);
+				GeoRule geoRule = sqlHelper.findOneByQuery(geoCondition, GeoRule.class);
+
+				if (geoRule == null) {
+					// 再查全域規則
+					ConditionAndWrapper globalCondition = new ConditionAndWrapper();
+					globalCondition.isNull("serverId").eq("enable", true);
+					geoRule = sqlHelper.findOneByQuery(globalCondition, GeoRule.class);
+				}
+
+				if (geoRule != null && StrUtil.isNotEmpty(geoRule.getCountries())) {
+					String idPart = StrUtil.isEmpty(geoRule.getServerId()) ? "global" : geoRule.getServerId().replace("-", "");
+					if (idPart.length() > 12) idPart = idPart.substring(0, 12);
+					String mapVarName = "geo_block_" + idPart;
+
+					NgxBlock ifBlock = new NgxBlock();
+					ifBlock.addValue("if ($" + mapVarName + " = 1)");
+					NgxParam returnParam = new NgxParam();
+					returnParam.addValue("return 403");
+					ifBlock.addEntry(returnParam);
+					ngxBlockServer.addEntry(ifBlock);
+				}
+			}
 
 			// 自定义参数
 			String type = "server";
