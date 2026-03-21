@@ -116,15 +116,14 @@ public class InitConfig {
 			List<Basic> basics = new ArrayList<Basic>();
 			basics.add(new Basic("worker_processes", "auto", 1l));
 			basics.add(new Basic("events", "{\r\n    worker_connections  1024;\r\n    accept_mutex on;\r\n}", 2l));
-			// 載入動態模組
+			// 載入動態模組（stream_module 必須在 stream_geoip2_module 之前）
+			basics.add(new Basic("load_module", "/usr/lib/nginx/modules/ngx_stream_module.so", -10l));
+			basics.add(new Basic("load_module", "/usr/lib/nginx/modules/ngx_stream_geoip2_module.so", -9l));
 			basics.add(new Basic("load_module", "/usr/lib/nginx/modules/ngx_http_geoip2_module.so", 0l));
 			basics.add(new Basic("load_module", "/usr/lib/nginx/modules/ngx_http_brotli_filter_module.so", 0l));
 			basics.add(new Basic("load_module", "/usr/lib/nginx/modules/ngx_http_brotli_static_module.so", 0l));
 			basics.add(new Basic("load_module", "/usr/lib/nginx/modules/ngx_http_headers_more_filter_module.so", 0l));
 			basics.add(new Basic("load_module", "/usr/lib/nginx/modules/ngx_http_cache_purge_module.so", 0l));
-			basics.add(new Basic("load_module", "/usr/lib/nginx/modules/ngx_http_auth_jwt_module.so", 0l));
-			basics.add(new Basic("load_module", "/usr/lib/nginx/modules/ngx_stream_module.so", 0l));
-			basics.add(new Basic("load_module", "/usr/lib/nginx/modules/ngx_stream_geoip2_module.so", 0l));
 			sqlHelper.insertAll(basics);
 		}
 
@@ -163,6 +162,10 @@ public class InitConfig {
 
 			// 日誌格式（含真實 IP + GeoIP）
 			https.add(new Http("log_format", "main '$remote_addr - $remote_user [$time_local] \"$request\" '\r\n                      '$status $body_bytes_sent \"$http_referer\" '\r\n                      '\"$http_user_agent\" \"$geoip2_data_country_code\" \"$geoip2_data_city_name\"'", seq++));
+
+			// 預設開啟日誌（供 Promtail / CrowdSec 收集）
+			https.add(new Http("access_log", homeConfig.home + "log/access.log main", seq++));
+			https.add(new Http("error_log", homeConfig.home + "log/error.log", seq++));
 
 			sqlHelper.insertAll(https);
 		}
