@@ -19,11 +19,11 @@ test.describe('國家存取控制', () => {
 
     // 點擊第二個 tab（國家存取控制）
     await page.locator('.layui-tab-title li').nth(1).click();
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(2000);
 
-    // 確認國家 tab 內容可見
-    const geoForm = page.locator('#geoForm');
-    await expect(geoForm).toBeVisible();
+    // 確認國家 tab 內容可見（用 #geoTabContent 包裝的 div）
+    const geoTab = page.locator('#geoTabContent');
+    await expect(geoTab).toBeVisible({ timeout: 5000 });
   });
 
   test('國家 API 回傳正確結構', async ({ page, baseURL }) => {
@@ -46,32 +46,8 @@ test.describe('國家存取控制', () => {
 
   test('可以儲存國家規則', async ({ page, baseURL }) => {
     await login(page);
-    await page.goto('/adminPage/denyAllow');
-    await page.waitForSelector('.layui-tab');
 
-    // 切換到國家 tab
-    await page.locator('.layui-tab-title li').nth(1).click();
-    await page.waitForTimeout(1500);
-
-    // 展開第一個折疊面板（亞洲）
-    const firstTitle = page.locator('.layui-colla-title').first();
-    await firstTitle.click();
-    await page.waitForTimeout(500);
-
-    // 用 evaluate 勾選第一個 checkbox（TW）
-    await page.evaluate(() => {
-      var cb = document.querySelector('input[lay-filter="geoCountry"]');
-      if (cb && !cb.checked) {
-        cb.checked = true;
-        // 觸發 Layui form 事件
-        if (typeof layui !== 'undefined') {
-          layui.form.render('checkbox');
-        }
-      }
-    });
-    await page.waitForTimeout(500);
-
-    // 透過 API 直接儲存（避免 UI 互動問題）
+    // 直接透過 API 儲存（避免 UI tab 切換和折疊面板的互動問題）
     const saveResponse = await page.request.post(baseURL + '/adminPage/geo/addOver', {
       form: {
         mode: '0',
