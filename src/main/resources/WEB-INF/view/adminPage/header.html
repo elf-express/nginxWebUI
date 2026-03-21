@@ -1,11 +1,9 @@
 <div class="layui-header">
 	<div class="layui-logo" >${projectName} ${currentVersion}</div>
 	<ul class="layui-nav layui-layout-right">
-	
-		<li class="layui-nav-item">
-			<a href="https://pro.nginxwebui.cn" target="_blank" style="color: red;font-weight: bolder;"> ${commonStr.pro} </a>
+		<li class="layui-nav-item" id="nginxVersionItem" style="display:none;">
+			<a href="javascript:showModuleList()" style="color: #01AAED;" id="nginxVersionLink"></a>
 		</li>
-		
 		<li class="layui-nav-item">
 			<a href="javascript:" style="color: white;">${commonStr.currentUser}: ${admin.name}</a>
 		</li>
@@ -33,3 +31,37 @@
 </div>
 
 <#include '/adminPage/select_lang.html'/>
+
+<script>
+// 取得 Nginx 版本資訊
+$(function() {
+    $.get(ctx + '/adminPage/monitor/nginxInfo', function(data) {
+        if (data.success && data.obj) {
+            var version = data.obj.version;
+            var modules = data.obj.modules;
+            if (version) {
+                var text = 'Nginx ' + version + ' (' + modules.length + ' ${nginxStr.moduleCount})';
+                $('#nginxVersionLink').text(text);
+                $('#nginxVersionItem').show();
+                window._nginxModules = modules;
+            }
+        }
+    });
+});
+
+function showModuleList() {
+    var modules = window._nginxModules || [];
+    var html = '<div style="padding:15px;">';
+    html += '<table class="layui-table" lay-size="sm"><thead><tr><th>#</th><th>${nginxStr.modules}</th></tr></thead><tbody>';
+    for (var i = 0; i < modules.length; i++) {
+        html += '<tr><td>' + (i+1) + '</td><td>' + modules[i] + '</td></tr>';
+    }
+    html += '</tbody></table></div>';
+    layer.open({
+        type: 1,
+        title: '${nginxStr.moduleList}',
+        area: ['500px', '500px'],
+        content: html
+    });
+}
+</script>
