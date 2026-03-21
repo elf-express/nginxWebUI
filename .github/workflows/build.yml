@@ -69,7 +69,7 @@ jobs:
       - name: Extract version
         id: version
         run: |
-          VER=$(grep '<version>' pom.xml | head -1 | grep -oP '\d+\.\d+\.\d+')
+          VER=$(grep -A1 'artifactId>nginxWebUI' pom.xml | grep version | grep -oP '\d+\.\d+\.\d+')
           echo "VERSION=$VER" >> "$GITHUB_OUTPUT"
 
       - name: Build and Push
