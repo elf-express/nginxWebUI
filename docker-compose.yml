@@ -1,7 +1,7 @@
 services:
   nginxwebui:
     build: .
-    image: nginxwebui:5.0.0
+    image: ghcr.io/elf-express/nginxwebui:5.0.0
     container_name: nginxwebui-5.0.0
     restart: unless-stopped
     ports:
@@ -10,6 +10,7 @@ services:
       - "443:443"
     volumes:
       - nginxwebui_data:/home/nginxWebUI
+      - nginxwebui_log:/home/nginxWebUI/log
     environment:
       - JVM_XMX=256m
       - BOOT_OPTIONS=--spring.database.type=postgresql --spring.datasource.url=jdbc:postgresql://postgres:5432/nginxwebui --spring.datasource.username=nginxwebui --spring.datasource.password=nginxwebui123
@@ -47,7 +48,7 @@ services:
     container_name: nginxwebui-5.0.0-promtail
     restart: unless-stopped
     volumes:
-      - nginxwebui_data:/var/log/nginx:ro
+      - nginxwebui_log:/var/log/nginx:ro
       - ./promtail-config.yml:/etc/promtail/config.yml:ro
     command: -config.file=/etc/promtail/config.yml
     depends_on:
@@ -91,7 +92,7 @@ services:
     container_name: nginxwebui-5.0.0-crowdsec
     restart: unless-stopped
     volumes:
-      - nginxwebui_data:/var/log/nginx:ro
+      - nginxwebui_log:/var/log/nginx:ro
       - crowdsec_data:/var/lib/crowdsec/data
       - crowdsec_config:/etc/crowdsec
       - ./crowdsec/acquis.yml:/etc/crowdsec/acquis.yaml:ro
@@ -120,6 +121,8 @@ services:
 volumes:
   nginxwebui_data:
     name: nginxwebui_data
+  nginxwebui_log:
+    name: nginxwebui_log
   postgres_data:
     name: nginxwebui_postgres_data
   loki_data:

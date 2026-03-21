@@ -9,17 +9,26 @@ clients:
   - url: http://loki:3100/loki/api/v1/push
 
 scrape_configs:
-  - job_name: nginx
+  - job_name: nginx-access
     static_configs:
       - targets:
           - localhost
         labels:
           job: nginx
-          __path__: /var/log/nginx/**/*.log
+          type: access
+          __path__: /var/log/nginx/access.log
     pipeline_stages:
       - regex:
           expression: '^(?P<remote_addr>[\w\.]+) - (?P<remote_user>[^ ]*) \[(?P<time_local>[^\]]+)\] "(?P<method>\w+) (?P<request>[^ ]+) (?P<protocol>[^"]+)" (?P<status>\d+) (?P<body_bytes_sent>\d+) "(?P<http_referer>[^"]*)" "(?P<http_user_agent>[^"]*)"'
       - labels:
           method:
           status:
-          request:
+
+  - job_name: nginx-error
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: nginx
+          type: error
+          __path__: /var/log/nginx/error.log
