@@ -396,14 +396,19 @@ public class InitConfig {
 		});
 
 		// ── 限流 Rate Limiting ──
-		addTemplate("Rate Limit", "server", new String[][] {
+		// limit_req_zone / limit_conn_zone 只能放在 http block，不能放在 server block
+		addTemplate("Rate Limit (http)", "http", new String[][] {
 			{ "limit_req_zone", "$binary_remote_addr zone=req_limit:10m rate=10r/s" },
+		});
+		addTemplate("Rate Limit (server)", "server", new String[][] {
 			{ "limit_req", "zone=req_limit burst=20 nodelay" },
 			{ "limit_req_status", "429" },
 		});
 
-		addTemplate("Connection Limit", "server", new String[][] {
+		addTemplate("Connection Limit (http)", "http", new String[][] {
 			{ "limit_conn_zone", "$binary_remote_addr zone=conn_limit:10m" },
+		});
+		addTemplate("Connection Limit (server)", "server", new String[][] {
 			{ "limit_conn", "conn_limit 50" },
 			{ "limit_conn_status", "429" },
 		});
