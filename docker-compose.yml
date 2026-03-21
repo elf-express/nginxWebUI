@@ -96,9 +96,12 @@ services:
       - crowdsec_data:/var/lib/crowdsec/data
       - crowdsec_config:/etc/crowdsec
       - ./crowdsec/acquis.yml:/etc/crowdsec/acquis.yaml:ro
+      - ./crowdsec/abuseipdb.yaml:/etc/crowdsec/notifications/abuseipdb.yaml:ro
+      - ./crowdsec/profiles.yaml:/etc/crowdsec/profiles.yaml:ro
     environment:
       - COLLECTIONS=crowdsecurity/nginx crowdsecurity/http-cve crowdsecurity/base-http-scenarios
       - BOUNCER_KEY_nginx=${CROWDSEC_BOUNCER_KEY}
+      - ABUSEIPDB_API_KEY=${ABUSEIPDB_API_KEY}
     healthcheck:
       test: ["CMD", "cscli", "version"]
       interval: 15s
