@@ -53,7 +53,8 @@ public class NginxService {
 				nginxExe = "nginx";
 			}
 
-			String result = RuntimeUtil.execForStr(nginxExe, "-v");
+			// nginx -v 輸出到 stderr，需要 2>&1 重導向
+			String result = RuntimeUtil.execForStr("/bin/sh", "-c", nginxExe + " -v 2>&1");
 			if (StrUtil.isEmpty(result)) {
 				return null;
 			}
