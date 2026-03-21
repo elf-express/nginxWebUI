@@ -1,4 +1,29 @@
+// CodeMirror 編輯器實例
+var cmLeft = null;
+var cmRight = null;
+
+// CodeMirror 通用配置
+var cmOptions = {
+	mode: 'nginx',
+	theme: 'monokai',
+	lineNumbers: true,
+	lineWrapping: false,
+	tabSize: 4,
+	indentUnit: 4,
+	matchBrackets: true,
+};
+
 $(function() {
+	// 初始化左側 CodeMirror（可編輯）
+	cmLeft = CodeMirror.fromTextArea(document.getElementById('nginxContent'), Object.assign({}, cmOptions, {
+		readOnly: false
+	}));
+
+	// 初始化右側 CodeMirror（唯讀）
+	cmRight = CodeMirror.fromTextArea(document.getElementById('org'), Object.assign({}, cmOptions, {
+		readOnly: true
+	}));
+
 	loadOrg();
 	loadConf();
 
@@ -48,7 +73,7 @@ function nginxStatus() {
 function buildJson() {
 	var json = {};
 	json.nginxPath = $("#nginxPath").val();
-	json.nginxContent = Base64.encode($("#nginxContent").val());
+	json.nginxContent = Base64.encode(cmLeft.getValue());
 	json.subContent = [];
 	json.subName = [];
 	$("textarea[name='subContent']").each(function() {
@@ -100,31 +125,29 @@ function loadConf() {
 		},
 		dataType: 'json',
 		success: function(data) {
-			//layer.closeAll();
 			if (data.success) {
 				var confExt = data.obj
-				$("#nginxContent").val(confExt.conf)
+				cmLeft.setValue(confExt.conf);
 
 				var html = "";
 				for (var i = 0; i < confExt.fileList.length; i++) {
 					var confFile = confExt.fileList[i];
 					var uuid = confFile.name.replace(/\./g, "-");
-					html += `<div class="title" onclick="showHide('${uuid}')">${confFile.name} ▼</div>
-							<textarea lang="${uuid}" class="layui-textarea conf sub" name="subContent" style="height: 200px; resize: none;"  spellcheck="false">${confFile.conf}</textarea>
-							<input type="hidden" name="subName" value="${confFile.name}">
-					`;
+					html += '<div class="title" onclick="showHide(\'' + uuid + '\')">' + confFile.name + ' ▼</div>'
+							+ '<textarea lang="' + uuid + '" class="layui-textarea conf sub" name="subContent" style="height: 200px; resize: none;" spellcheck="false">' + confFile.conf + '</textarea>'
+							+ '<input type="hidden" name="subName" value="' + confFile.name + '">';
 				}
 
 				$("#nginxContentOther").html(html);
 
-				$(".conf").setTextareaCount();
-				$(".sub").parent().hide();
+				$(".sub").each(function() {
+					$(this).parent().hide();
+				});
 			} else {
 				layer.alert(data.msg);
 			}
 		},
 		error: function() {
-			//layer.closeAll();
 			layer.alert(commonStr.errorInfo);
 		}
 	});
@@ -142,19 +165,20 @@ function loadOrg() {
 		success: function(data) {
 			if (data.success) {
 				var confExt = data.obj
-				$("#org").val(confExt.conf);
+				cmRight.setValue(confExt.conf);
 
 				var html = "";
 				for (var i = 0; i < confExt.fileList.length; i++) {
 					var confFile = confExt.fileList[i];
 					var uuid = confFile.name.replace(/\./g, "-");
-					html += `<div class="title" onclick="showHide('${uuid}')">${confFile.name} ▼</div>
-					<textarea lang="${uuid}" class="layui-textarea org sub" style="height: 200px; resize: none; background-color: #ededed;" readonly="readonly" spellcheck="false">${confFile.conf}</textarea>`;
+					html += '<div class="title" onclick="showHide(\'' + uuid + '\')">' + confFile.name + ' ▼</div>'
+					+ '<textarea lang="' + uuid + '" class="layui-textarea org sub" style="height: 200px; resize: none; background-color: #ededed;" readonly="readonly" spellcheck="false">' + confFile.conf + '</textarea>';
 				}
 				$("#orgOther").html(html);
 
-				$(".org").setTextareaCount();
-				$(".sub").parent().hide();
+				$(".sub").each(function() {
+					$(this).parent().hide();
+				});
 			} else {
 				layer.alert(data.msg);
 			}
@@ -167,10 +191,10 @@ function loadOrg() {
 
 function showHide(id) {
 
-	if ($(`textarea[lang="${id}"]`).parent().is(':hidden')) {
-		$(`textarea[lang="${id}"]`).parent().show();
+	if ($('textarea[lang="' + id + '"]').parent().is(':hidden')) {
+		$('textarea[lang="' + id + '"]').parent().show();
 	} else {
-		$(`textarea[lang="${id}"]`).parent().hide();
+		$('textarea[lang="' + id + '"]').parent().hide();
 	}
 
 }
@@ -283,10 +307,7 @@ function saveCmd() {
 		dataType: 'json',
 		success: function(data) {
 			if (data.success) {
-				//var map = data.obj;
-				//$("#nginxExe").val(map.nginxExe);
-				//$("#nginxDir").val(map.nginxDir);
-				//$("#nginxPath").val(map.nginxPath);
+
 			}
 		},
 		error: function() {
@@ -305,49 +326,37 @@ function selectRootCustom(inputId) {
 
 		if (inputId == 'nginxPath') {
 			loadOrg();
-			//$("#target").html(val);
 		}
 	});
 }
 
 
 function diffUsingJS() {
-	// get the baseText and newText values from the two textboxes, and split them into lines
-	var base = difflib.stringAsLines($("#org").val());
-	var newtxt = difflib.stringAsLines($("#nginxContent").val());
+	// get the baseText and newText values from the two CodeMirror editors
+	var base = difflib.stringAsLines(cmRight.getValue());
+	var newtxt = difflib.stringAsLines(cmLeft.getValue());
 
-	// create a SequenceMatcher instance that diffs the two sets of lines
 	var sm = new difflib.SequenceMatcher(base, newtxt);
-
-	// get the opcodes from the SequenceMatcher instance
-	// opcodes is a list of 3-tuples describing what changes should be made to the base text
-	// in order to yield the new text
 	var opcodes = sm.get_opcodes();
 	var diffoutputdiv = $("#diffoutput");
 	while (diffoutputdiv.firstChild) {
 		diffoutputdiv.removeChild(diffoutputdiv.firstChild);
 	}
-	//var contextSize = $("contextSize").value;
-	//contextSize = contextSize ? contextSize : null;
 
-	// build the diff view and add it to the current DOM
 	diffoutputdiv.html("");
 	diffoutputdiv.append(diffview.buildView({
 		baseTextLines: base,
 		newTextLines: newtxt,
 		opcodes: opcodes,
-		// set the display titles for each resource
 		baseTextName: confStr.build,
 		newTextName: confStr.target,
-		//contextSize: contextSize,
 		viewType: 1
 	}));
 
-	// scroll down to the diff view window.
 	layer.open({
 		type: 1,
 		title: false,
-		area: ['1000px', '90%'], //宽高
+		area: ['1000px', '90%'],
 		content: $('#diffoutput')
 	});
 }
@@ -402,7 +411,7 @@ function runCmd(type) {
 				layer.open({
 					type: 1,
 					title: confStr.runCmd,
-					area: ['750px', '400px'], //宽高
+					area: ['750px', '400px'],
 					content: $('#cmdForm')
 				});
 			}
@@ -417,7 +426,6 @@ function runCmd(type) {
 }
 
 function runCmdOver() {
-	//debugger;
 	var cmd = "";
 	var type = "";
 	$("input[name='cmd']").each(function() {
@@ -453,7 +461,7 @@ function runCmdOver() {
 				});
 			}
 
-			setTimeout(() => {
+			setTimeout(function() {
 				nginxStatus();
 			}, 3000);
 		},

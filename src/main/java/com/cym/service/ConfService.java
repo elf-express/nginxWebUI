@@ -287,7 +287,7 @@ public class ConfService {
 				ngxConfig.addEntry(ngxBlockStream);
 			}
 
-			String conf = ToolUtils.handleConf(new NgxDumper(ngxConfig).dump());
+			String conf = ToolUtils.formatConf(ToolUtils.handleConf(new NgxDumper(ngxConfig).dump()));
 			// 将多个;替换成单一;
 			while (conf.contains(";;")) {
 				conf = conf.replaceAll(";;", ";");
@@ -983,7 +983,7 @@ public class ConfService {
 		NgxConfig ngxConfig = new NgxConfig();
 		ngxConfig.addEntry(ngxBlockServer);
 
-		return ToolUtils.handleConf(new NgxDumper(ngxConfig).dump());
+		return ToolUtils.formatConf(ToolUtils.handleConf(new NgxDumper(ngxConfig).dump()));
 	}
 
 	private String buildStr(List<String> strs) {

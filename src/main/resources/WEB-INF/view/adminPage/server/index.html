@@ -389,8 +389,8 @@
 								<label class="layui-form-label">${serverStr.protocols}</label>
 
 								<div class="layui-input-inline" style="width: 400px;">
-									<input type="checkbox" class="protocols" id="TLSv1" lay-skin="primary" value="TLSv1" title="TLSv1">
-									<input type="checkbox" class="protocols" id="TLSv1_1" lay-skin="primary" value="TLSv1.1" title="TLSv1.1">
+									<input type="checkbox" class="protocols" id="TLSv1" lay-skin="primary" value="TLSv1" title="TLSv1 (${serverStr.deprecated})">
+									<input type="checkbox" class="protocols" id="TLSv1_1" lay-skin="primary" value="TLSv1.1" title="TLSv1.1 (${serverStr.deprecated})">
 									<input type="checkbox" class="protocols" id="TLSv1_2" lay-skin="primary" value="TLSv1.2" title="TLSv1.2">
 									<input type="checkbox" class="protocols" id="TLSv1_3" lay-skin="primary" value="TLSv1.3" title="TLSv1.3">
 								</div>
@@ -474,6 +474,9 @@
 				<div class="layui-inline">
 				<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="selectTemplateAsParam('paramList')">${serverStr.addTemplateAsParam}</button>
 				</div>
+				<div class="layui-inline">
+				<button type="button" class="layui-btn layui-btn-sm layui-btn-warm" onclick="showBatchInput()">${serverStr.batchInput}</button>
+				</div>
 			</div>
 			<div>
 				<input type="hidden" id="targertId">
@@ -495,6 +498,26 @@
 			<div class="layui-form-item center">
 				<button type="button" class="layui-btn layui-btn-normal" onclick="addParamOver()">${commonStr.submit}</button>
 				<button type="button" class="layui-btn" onclick="layer.close(paramIndex)">${commonStr.close}</button>
+			</div>
+		</div>
+
+		<div id="batchInputDiv" style="display: none; padding: 15px;">
+			<div class="layui-form-item">
+				<label class="layui-form-label" style="width: auto; padding: 0;">${serverStr.batchInputHint}</label>
+			</div>
+			<div class="layui-form-item">
+				<div style="background: #f6f6f6; padding: 8px; border-radius: 4px; margin-bottom: 10px; font-family: monospace; font-size: 12px; color: #666;">
+					proxy_set_header X-Real-IP $remote_addr<br>
+					client_max_body_size 100m<br>
+					proxy_read_timeout 600s
+				</div>
+			</div>
+			<div class="layui-form-item">
+				<textarea id="batchInputText" class="layui-textarea" rows="10" placeholder="proxy_set_header X-Real-IP $remote_addr&#10;client_max_body_size 100m&#10;proxy_read_timeout 600s"></textarea>
+			</div>
+			<div class="layui-form-item center">
+				<button type="button" class="layui-btn layui-btn-normal" onclick="parseBatchInput()">${serverStr.batchInputConfirm}</button>
+				<button type="button" class="layui-btn" onclick="closeBatchInput()">${commonStr.close}</button>
 			</div>
 		</div>
 

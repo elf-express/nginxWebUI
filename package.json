@@ -1,0 +1,24 @@
+{
+  "name": "nginxwebui",
+  "version": "1.0.0",
+  "description": "nginx网页配置工具",
+  "main": "test_login.js",
+  "scripts": {
+    "test": "npx playwright test --config=tests/e2e/playwright.config.js",
+    "test:fast": "npx playwright test --config=tests/e2e/playwright.config.js --headed=false",
+    "report": "npx playwright show-report tests/playwright-report/html --port 9400"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://gitee.com/cym1102/nginxWebUI.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "playwright": "^1.58.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2"
+  }
+}

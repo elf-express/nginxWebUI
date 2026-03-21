@@ -18,6 +18,51 @@ public class ToolUtils {
 	}
 
 	/**
+	 * 按nginx规范重新缩进conf内容，每层嵌套缩进4个空格
+	 *
+	 * @param conf
+	 * @return
+	 */
+	public static String formatConf(String conf) {
+		if (StrUtil.isEmpty(conf)) {
+			return conf;
+		}
+
+		String[] lines = conf.split("\n");
+		StringBuilder sb = new StringBuilder();
+		int indent = 0;
+
+		for (String line : lines) {
+			String trimmed = line.trim();
+			if (trimmed.isEmpty()) {
+				sb.append("\n");
+				continue;
+			}
+
+			// 遇到 } 先减少缩进
+			if (trimmed.startsWith("}")) {
+				indent--;
+				if (indent < 0) {
+					indent = 0;
+				}
+			}
+
+			// 添加缩进
+			for (int i = 0; i < indent; i++) {
+				sb.append("    ");
+			}
+			sb.append(trimmed).append("\n");
+
+			// 遇到 { 结尾增加缩进
+			if (trimmed.endsWith("{")) {
+				indent++;
+			}
+		}
+
+		return sb.toString().trim();
+	}
+
+	/**
 	 * 处理路径的斜杠和空格
 	 * 
 	 * @param path

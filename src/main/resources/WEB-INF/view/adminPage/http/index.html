@@ -43,7 +43,10 @@ input[name='param']{
 						</div>
 						<div class="layui-inline">
 							<button type="button" class="layui-btn layui-btn-sm" onclick="selectTemplateAsHttp()">${upstreamStr.selectTemplateAsParam}</button>
-						</div>	
+						</div>
+						<div class="layui-inline">
+							<button type="button" class="layui-btn layui-btn-sm layui-btn-warm" onclick="showBatchInput()">${serverStr.batchInput}</button>
+						</div>
 						<div class="layui-inline">
 							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="preview(null,'http')">${commonStr.preview}</button>
 						</div>
@@ -311,6 +314,26 @@ input[name='param']{
 			</div>
 		</div>
 		
+	</div>
+
+	<div id="batchInputDiv" style="display: none; padding: 15px;">
+		<div class="layui-form-item">
+			<label class="layui-form-label" style="width: auto; padding: 0;">${serverStr.batchInputHint}</label>
+		</div>
+		<div class="layui-form-item">
+			<div style="background: #f6f6f6; padding: 8px; border-radius: 4px; margin-bottom: 10px; font-family: monospace; font-size: 12px; color: #666;">
+				gzip on<br>
+				keepalive_timeout 65<br>
+				client_max_body_size 100m
+			</div>
+		</div>
+		<div class="layui-form-item">
+			<textarea id="batchInputText" class="layui-textarea" rows="10" placeholder="gzip on&#10;keepalive_timeout 65&#10;client_max_body_size 100m"></textarea>
+		</div>
+		<div class="layui-form-item center">
+			<button type="button" class="layui-btn layui-btn-normal" onclick="parseBatchInput()">${serverStr.batchInputConfirm}</button>
+			<button type="button" class="layui-btn" onclick="closeBatchInput()">${commonStr.close}</button>
+		</div>
 	</div>
 
 	<#include '/adminPage/script.html'/>

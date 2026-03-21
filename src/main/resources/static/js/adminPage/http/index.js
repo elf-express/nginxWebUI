@@ -99,6 +99,81 @@ function addOver() {
 	});
 }
 
+var batchInputIndex;
+function showBatchInput() {
+	$("#batchInputText").val("");
+	batchInputIndex = layer.open({
+		type: 1,
+		title: serverStr.batchInputTitle,
+		area: ['700px', '500px'],
+		content: $('#batchInputDiv')
+	});
+}
+
+function closeBatchInput() {
+	layer.close(batchInputIndex);
+}
+
+function parseBatchInput() {
+	var text = $("#batchInputText").val();
+	if (!text || text.trim() === "") {
+		closeBatchInput();
+		return;
+	}
+
+	var lines = text.split("\n");
+	var items = [];
+	for (var i = 0; i < lines.length; i++) {
+		var line = lines[i].trim();
+		if (line === "") continue;
+
+		if (line.endsWith(";")) {
+			line = line.substring(0, line.length - 1).trim();
+		}
+
+		var name = "";
+		var value = "";
+		var spaceIndex = line.indexOf(" ");
+		if (spaceIndex > 0) {
+			name = line.substring(0, spaceIndex);
+			value = line.substring(spaceIndex + 1).trim();
+		} else {
+			name = line;
+			value = "";
+		}
+		items.push({name: name, value: value});
+	}
+
+	if (items.length === 0) {
+		closeBatchInput();
+		return;
+	}
+
+	closeBatchInput();
+
+	var completed = 0;
+	for (var j = 0; j < items.length; j++) {
+		$.ajax({
+			type: 'POST',
+			url: ctx + '/adminPage/http/addOver',
+			data: {name: items[j].name, value: items[j].value},
+			dataType: 'json',
+			success: function(data) {
+				completed++;
+				if (completed >= items.length) {
+					location.reload();
+				}
+			},
+			error: function() {
+				completed++;
+				if (completed >= items.length) {
+					location.reload();
+				}
+			}
+		});
+	}
+}
+
 function edit(id) {
 	$("#id").val(id);
 

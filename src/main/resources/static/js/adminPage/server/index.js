@@ -205,7 +205,9 @@ function add() {
 	$("#denyId option:first").prop("selected", true);
 	$("#allowId option:first").prop("selected", true);
 
-	$(".protocols").prop("checked", true);
+	$(".protocols").prop("checked", false);
+	$("#TLSv1_2").prop("checked", true);
+	$("#TLSv1_3").prop("checked", true);
 
 	checkProxyType(0);
 	checkSsl(0);
@@ -920,6 +922,99 @@ function addParam() {
 	form.render();
 }
 
+var batchInputIndex;
+function showBatchInput() {
+	$("#batchInputText").val("");
+	batchInputIndex = layer.open({
+		type: 1,
+		title: serverStr.batchInputTitle,
+		area: ['700px', '500px'],
+		content: $('#batchInputDiv')
+	});
+}
+
+function closeBatchInput() {
+	layer.close(batchInputIndex);
+}
+
+function parseBatchInput() {
+	var text = $("#batchInputText").val();
+	if (!text || text.trim() === "") {
+		closeBatchInput();
+		return;
+	}
+
+	var lines = text.split("\n");
+	for (var i = 0; i < lines.length; i++) {
+		var line = lines[i].trim();
+		if (line === "") continue;
+
+		// 去除行末分号
+		if (line.endsWith(";")) {
+			line = line.substring(0, line.length - 1).trim();
+		}
+
+		// 按第一个空格拆分 name 和 value
+		var name = "";
+		var value = "";
+		var spaceIndex = line.indexOf(" ");
+		if (spaceIndex > 0) {
+			name = line.substring(0, spaceIndex);
+			value = line.substring(spaceIndex + 1).trim();
+		} else {
+			name = line;
+			value = "";
+		}
+
+		addParamWithValue(name, value);
+	}
+
+	closeBatchInput();
+}
+
+function addParamWithValue(name, value) {
+	var uuid = guid();
+
+	var html = `
+	<tr name="param" id="${uuid}">
+		<td>
+			<textarea  name="name" class="layui-textarea">${escapeHtml(name)}</textarea>
+		</td>
+		<td style="width: 40%;">
+			<textarea  name="value" class="layui-textarea">${escapeHtml(value)}</textarea>
+		</td>
+		<td style="width: 100px;">
+			<select name="position" style="height: 30px;">
+				<option value="0" selected>${serverStr.paramAppend}</option>
+				<option value="1">${serverStr.paramPrepend}</option>
+			</select>
+		</td>
+		<td>
+			<div class="layui-inline">
+				<button type="button" class="layui-btn layui-btn-sm layui-btn-danger" onclick="delTr('${uuid}')">${commonStr.del}</button>
+			</div>
+			<div class="layui-inline">
+				<button type="button" class="layui-btn layui-btn-normal layui-btn-sm" onclick="setParamOrder('${uuid}', -1)">${commonStr.up}</button>
+			</div>
+			<div class="layui-inline">
+				<button type="button" class="layui-btn layui-btn-normal layui-btn-sm" onclick="setParamOrder('${uuid}', 1)">${commonStr.down}</button>
+			</div>
+		</td>
+	</tr>
+	`;
+
+	$("#paramList").append(html);
+	form.render();
+}
+
+function escapeHtml(text) {
+	if (!text) return "";
+	return text.replace(/&/g, "&amp;")
+	           .replace(/</g, "&lt;")
+	           .replace(/>/g, "&gt;")
+	           .replace(/"/g, "&quot;")
+	           .replace(/'/g, "&#039;");
+}
 
 function addParamOver() {
 

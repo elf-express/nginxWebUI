@@ -6,7 +6,25 @@
 .layui-form-label{
 	width: 120px;
 }
-
+.pass-toggle {
+	position: absolute;
+	right: 10px;
+	top: 50%;
+	transform: translateY(-50%);
+	cursor: pointer;
+	color: #999;
+	font-size: 18px;
+	z-index: 1;
+}
+.pass-toggle:hover {
+	color: #333;
+}
+.pass-wrap {
+	position: relative;
+}
+.pass-wrap input {
+	padding-right: 35px;
+}
 </style>
 </head>
 <body style="background-image: url('${ctx}/img/background.svg'); background-size: cover;">
@@ -23,8 +41,9 @@
 				</div>
 				<div class="layui-form-item">
 					<label class="layui-form-label">${loginStr.pass}</label>
-					<div class="layui-input-inline">
+					<div class="layui-input-inline pass-wrap">
 						<input type="password" name="pass" id="pass" class="layui-input" value="" onkeyup="getKey()">
+						<i class="layui-icon layui-icon-eye-invisible pass-toggle" id="passToggle" onclick="togglePass()"></i>
 					</div>
 				</div>
 

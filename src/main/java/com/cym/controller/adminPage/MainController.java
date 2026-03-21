@@ -129,7 +129,7 @@ public class MainController extends BaseController {
 		NgxConfig ngxConfig = new NgxConfig();
 		ngxConfig.addEntry(ngxBlock);
 
-		String conf = ToolUtils.handleConf(new NgxDumper(ngxConfig).dump());
+		String conf = ToolUtils.formatConf(ToolUtils.handleConf(new NgxDumper(ngxConfig).dump()));
 
 		return renderSuccess(conf);
 	}

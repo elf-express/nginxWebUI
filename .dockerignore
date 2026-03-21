@@ -2,3 +2,4 @@
 !target/nginxWebUI-*.jar
 !Dockerfile
 !entrypoint.sh
+!scripts/

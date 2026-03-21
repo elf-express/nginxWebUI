@@ -20,9 +20,12 @@ import org.slf4j.LoggerFactory;
 import com.cym.model.Admin;
 import com.cym.model.Basic;
 import com.cym.model.Http;
+import com.cym.model.Param;
+import com.cym.model.Template;
 import com.cym.service.BasicService;
 import com.cym.service.ConfService;
 import com.cym.service.SettingService;
+import com.cym.service.TemplateService;
 import com.cym.sqlhelper.config.DataSourceEmbed;
 import com.cym.sqlhelper.config.Table;
 import com.cym.sqlhelper.utils.ConditionAndWrapper;
@@ -66,6 +69,8 @@ public class InitConfig {
 	JdbcTemplate jdbcTemplate;
 	@Inject
 	ConfService confService;
+	@Inject
+	TemplateService templateService;
 	@Inject
 	DataSourceEmbed dataSourceEmbed;
 	@Inject("${project.beanPackage}")
@@ -111,6 +116,15 @@ public class InitConfig {
 			List<Basic> basics = new ArrayList<Basic>();
 			basics.add(new Basic("worker_processes", "auto", 1l));
 			basics.add(new Basic("events", "{\r\n    worker_connections  1024;\r\n    accept_mutex on;\r\n}", 2l));
+			// 載入動態模組
+			basics.add(new Basic("load_module", "/usr/lib/nginx/modules/ngx_http_geoip2_module.so", 0l));
+			basics.add(new Basic("load_module", "/usr/lib/nginx/modules/ngx_http_brotli_filter_module.so", 0l));
+			basics.add(new Basic("load_module", "/usr/lib/nginx/modules/ngx_http_brotli_static_module.so", 0l));
+			basics.add(new Basic("load_module", "/usr/lib/nginx/modules/ngx_http_headers_more_filter_module.so", 0l));
+			basics.add(new Basic("load_module", "/usr/lib/nginx/modules/ngx_http_cache_purge_module.so", 0l));
+			basics.add(new Basic("load_module", "/usr/lib/nginx/modules/ngx_http_auth_jwt_module.so", 0l));
+			basics.add(new Basic("load_module", "/usr/lib/nginx/modules/ngx_stream_module.so", 0l));
+			basics.add(new Basic("load_module", "/usr/lib/nginx/modules/ngx_stream_geoip2_module.so", 0l));
 			sqlHelper.insertAll(basics);
 		}
 
@@ -118,9 +132,45 @@ public class InitConfig {
 		count = sqlHelper.findAllCount(Http.class);
 		if (count == 0) {
 			List<Http> https = new ArrayList<Http>();
-			https.add(new Http("include", "mime.types", 0l));
-			https.add(new Http("default_type", "application/octet-stream", 1l));
+			long seq = 0;
+			https.add(new Http("include", "mime.types", seq++));
+			https.add(new Http("default_type", "application/octet-stream", seq++));
+
+			// Real IP（Cloudflare）
+			https.add(new Http("include", "/etc/nginx/geoip/realip.conf", seq++));
+
+			// GeoIP2（國家、城市、ASN）
+			https.add(new Http("geoip2", "/etc/nginx/geoip/GeoLite2-Country.mmdb {\r\n    auto_reload 60m;\r\n    $geoip2_data_country_code country iso_code;\r\n    $geoip2_data_country_name country names en;\r\n}", seq++));
+			https.add(new Http("geoip2", "/etc/nginx/geoip/GeoLite2-City.mmdb {\r\n    auto_reload 60m;\r\n    $geoip2_data_city_name city names en;\r\n}", seq++));
+			https.add(new Http("geoip2", "/etc/nginx/geoip/GeoLite2-ASN.mmdb {\r\n    auto_reload 60m;\r\n    $geoip2_data_asn autonomous_system_number;\r\n    $geoip2_data_asn_org autonomous_system_organization;\r\n}", seq++));
+
+			// Gzip 壓縮
+			https.add(new Http("gzip", "on", seq++));
+			https.add(new Http("gzip_min_length", "1k", seq++));
+			https.add(new Http("gzip_comp_level", "5", seq++));
+			https.add(new Http("gzip_types", "text/plain application/json application/javascript text/css application/xml text/javascript application/x-httpd-php image/svg+xml", seq++));
+
+			// Brotli 壓縮（比 gzip 更高效）
+			https.add(new Http("brotli", "on", seq++));
+			https.add(new Http("brotli_comp_level", "6", seq++));
+			https.add(new Http("brotli_types", "text/plain application/json application/javascript text/css application/xml text/javascript image/svg+xml", seq++));
+
+			// 安全 Headers
+			https.add(new Http("add_header", "X-Frame-Options SAMEORIGIN", seq++));
+			https.add(new Http("add_header", "X-Content-Type-Options nosniff", seq++));
+			https.add(new Http("add_header", "X-XSS-Protection \"1; mode=block\"", seq++));
+			https.add(new Http("add_header", "Referrer-Policy \"strict-origin-when-cross-origin\"", seq++));
+
+			// 日誌格式（含真實 IP + GeoIP）
+			https.add(new Http("log_format", "main '$remote_addr - $remote_user [$time_local] \"$request\" '\r\n                      '$status $body_bytes_sent \"$http_referer\" '\r\n                      '\"$http_user_agent\" \"$geoip2_data_country_code\" \"$geoip2_data_city_name\"'", seq++));
+
 			sqlHelper.insertAll(https);
+		}
+
+		// 初始化预设模板
+		Long templateCount = sqlHelper.findAllCount(Template.class);
+		if (templateCount == 0) {
+			initDefaultTemplates();
 		}
 
 		// 释放基础nginx配置文件
@@ -286,6 +336,124 @@ public class InitConfig {
 		} catch (Exception e) {
 			logger.error(e.getMessage(), e);
 		}
+	}
+
+	private void initDefaultTemplates() {
+		// ── 代理類 ──
+		addTemplate("WebSocket Proxy", "location", new String[][] {
+			{ "proxy_http_version", "1.1" },
+			{ "proxy_set_header", "Upgrade $http_upgrade" },
+			{ "proxy_set_header", "Connection \"upgrade\"" },
+		});
+
+		addTemplate("Proxy Headers", "location", new String[][] {
+			{ "proxy_set_header", "Host $host" },
+			{ "proxy_set_header", "X-Real-IP $remote_addr" },
+			{ "proxy_set_header", "X-Forwarded-For $proxy_add_x_forwarded_for" },
+			{ "proxy_set_header", "X-Forwarded-Proto $scheme" },
+			{ "proxy_set_header", "X-Forwarded-Host $http_host" },
+			{ "proxy_set_header", "X-Forwarded-Port $server_port" },
+		});
+
+		addTemplate("Large File Upload", "server", new String[][] {
+			{ "client_max_body_size", "500m" },
+			{ "proxy_read_timeout", "600s" },
+			{ "proxy_send_timeout", "600s" },
+			{ "proxy_connect_timeout", "600s" },
+			{ "proxy_request_buffering", "off" },
+		});
+
+		// ── 緩存類 ──
+		addTemplate("Static File Cache", "location", new String[][] {
+			{ "expires", "30d" },
+			{ "add_header", "Cache-Control \"public, no-transform\"" },
+			{ "access_log", "off" },
+		});
+
+		addTemplate("Proxy Cache", "location", new String[][] {
+			{ "proxy_cache_valid", "200 302 1h" },
+			{ "proxy_cache_valid", "404 1m" },
+			{ "proxy_cache_use_stale", "error timeout updating http_500 http_502 http_503 http_504" },
+			{ "add_header", "X-Cache-Status $upstream_cache_status" },
+		});
+
+		// ── 跨域 CORS ──
+		addTemplate("CORS Allow All", "location", new String[][] {
+			{ "add_header", "Access-Control-Allow-Origin *" },
+			{ "add_header", "Access-Control-Allow-Methods \"GET, POST, PUT, DELETE, OPTIONS\"" },
+			{ "add_header", "Access-Control-Allow-Headers \"DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization\"" },
+			{ "add_header", "Access-Control-Max-Age 1728000" },
+		});
+
+		addTemplate("CORS Specific Origin", "server", new String[][] {
+			{ "add_header", "Access-Control-Allow-Origin $http_origin" },
+			{ "add_header", "Access-Control-Allow-Methods \"GET, POST, PUT, DELETE, OPTIONS\"" },
+			{ "add_header", "Access-Control-Allow-Headers \"DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization\"" },
+			{ "add_header", "Access-Control-Allow-Credentials true" },
+		});
+
+		// ── 限流 Rate Limiting ──
+		addTemplate("Rate Limit", "server", new String[][] {
+			{ "limit_req_zone", "$binary_remote_addr zone=req_limit:10m rate=10r/s" },
+			{ "limit_req", "zone=req_limit burst=20 nodelay" },
+			{ "limit_req_status", "429" },
+		});
+
+		addTemplate("Connection Limit", "server", new String[][] {
+			{ "limit_conn_zone", "$binary_remote_addr zone=conn_limit:10m" },
+			{ "limit_conn", "conn_limit 50" },
+			{ "limit_conn_status", "429" },
+		});
+
+		// ── 安全類 ──
+		addTemplate("Security Headers (HSTS)", "server", new String[][] {
+			{ "add_header", "Strict-Transport-Security \"max-age=31536000; includeSubDomains; preload\" always" },
+			{ "add_header", "Content-Security-Policy \"default-src 'self'\"" },
+			{ "add_header", "Permissions-Policy \"camera=(), microphone=(), geolocation=()\"" },
+		});
+
+		addTemplate("Hide Server Info", "server", new String[][] {
+			{ "server_tokens", "off" },
+			{ "more_clear_headers", "Server" },
+			{ "more_clear_headers", "X-Powered-By" },
+		});
+
+		addTemplate("Block Sensitive Paths", "location", new String[][] {
+			{ "deny", "all" },
+			{ "return", "404" },
+		});
+
+		// ── GeoIP 存取控制 ──
+		addTemplate("GeoIP Allow TW Only", "server", new String[][] {
+			{ "if", "($geoip2_data_country_code != \"TW\") {\r\n        return 403;\r\n    }" },
+		});
+
+		addTemplate("GeoIP Log Country", "server", new String[][] {
+			{ "add_header", "X-Country $geoip2_data_country_code" },
+			{ "add_header", "X-City $geoip2_data_city_name" },
+		});
+
+		// ── CrowdSec Bouncer ──
+		addTemplate("CrowdSec Auth Request", "server", new String[][] {
+			{ "auth_request", "/crowdsec-check" },
+			{ "auth_request_set", "$auth_status $upstream_status" },
+		});
+	}
+
+	private void addTemplate(String name, String def, String[][] params) {
+		Template template = new Template();
+		template.setName(name);
+		template.setDef(def);
+
+		List<Param> paramList = new ArrayList<>();
+		for (String[] pair : params) {
+			Param param = new Param();
+			param.setName(pair[0]);
+			param.setValue(pair[1]);
+			paramList.add(param);
+		}
+
+		templateService.addOver(template, paramList);
 	}
 
 	private void addAdmin() {

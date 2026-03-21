@@ -181,6 +181,18 @@ function addAdmin() {
 	});
 }
 
+function togglePass() {
+	var passInput = $("#pass");
+	var icon = $("#passToggle");
+	if (passInput.attr("type") === "password") {
+		passInput.attr("type", "text");
+		icon.removeClass("layui-icon-eye-invisible").addClass("layui-icon-eye");
+	} else {
+		passInput.attr("type", "password");
+		icon.removeClass("layui-icon-eye").addClass("layui-icon-eye-invisible");
+	}
+}
+
 function getKey() {
 	if (event.keyCode == 13) {
 		getAuth();

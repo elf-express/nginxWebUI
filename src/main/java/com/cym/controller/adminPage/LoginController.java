@@ -289,6 +289,9 @@ public class LoginController extends BaseController {
 		return renderSuccess();
 	}
 
+	@Inject("${project.testCaptcha:}")
+	private String testCaptcha;
+
 	@Mapping("/getCode")
 	public void getCode() throws Exception {
 		Context.current().headerAdd("Pragma", "No-cache");
@@ -298,7 +301,13 @@ public class LoginController extends BaseController {
 
 		SpecCaptcha specCaptcha = new SpecCaptcha(100, 40, 4);
 		specCaptcha.setCharType(Captcha.TYPE_ONLY_NUMBER);
-		Context.current().sessionSet("captcha", specCaptcha.text().toLowerCase());
+
+		// 測試模式：使用固定驗證碼（僅在啟動參數指定 --project.testCaptcha=xxxx 時生效）
+		if (cn.hutool.core.util.StrUtil.isNotEmpty(testCaptcha)) {
+			Context.current().sessionSet("captcha", testCaptcha);
+		} else {
+			Context.current().sessionSet("captcha", specCaptcha.text().toLowerCase());
+		}
 		specCaptcha.out(Context.current().outputStream());
 	}
 
