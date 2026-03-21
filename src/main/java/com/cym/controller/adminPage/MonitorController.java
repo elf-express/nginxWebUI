@@ -1,6 +1,8 @@
 package com.cym.controller.adminPage;
 
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.noear.solon.annotation.Controller;
 import org.noear.solon.annotation.Inject;
@@ -12,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import com.cym.ext.MonitorInfo;
 import com.cym.ext.NetworkInfo;
 import com.cym.service.MonitorService;
+import com.cym.service.NginxService;
 import com.cym.service.SettingService;
 import com.cym.utils.BaseController;
 import com.cym.utils.JsonResult;
@@ -29,6 +32,8 @@ public class MonitorController extends BaseController {
 	MonitorService monitorService;
 	@Inject
 	SettingService settingService;
+	@Inject
+	NginxService nginxService;
 	Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	@Mapping("")
@@ -89,6 +94,15 @@ public class MonitorController extends BaseController {
 		settingService.set("nginxDir", nginxDir);
 		settingService.set("nginxExe", nginxExe);
 		return renderSuccess();
+	}
+
+	@Mapping("nginxInfo")
+	public JsonResult nginxInfo() {
+		Map<String, Object> info = new HashMap<>();
+		info.put("version", nginxService.getNginxVersion());
+		info.put("modules", nginxService.getAvailableModules());
+		info.put("hasGeoIp2", nginxService.hasGeoIp2Module());
+		return renderSuccess(info);
 	}
 
 }
