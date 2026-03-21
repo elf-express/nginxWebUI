@@ -77,6 +77,8 @@ public class ConfService {
 	CertService certService;
 	@Inject
 	DenyAllowService denyAllowService;
+	@Inject
+	NginxService nginxService;
 
 	public synchronized ConfExt buildConf(Boolean decompose, Boolean check) {
 		ConfExt confExt = new ConfExt();
@@ -90,9 +92,22 @@ public class ConfService {
 
 			NgxConfig ngxConfig = new NgxConfig();
 
-			// 获取基本参数
+			// 自動偵測模組並生成 load_module（Linux 環境）
+			if (SystemTool.isLinux()) {
+				List<String> modulePaths = nginxService.getModulePaths();
+				for (String path : modulePaths) {
+					NgxParam ngxParam = new NgxParam();
+					ngxParam.addValue("load_module " + path);
+					ngxConfig.addEntry(ngxParam);
+				}
+			}
+
+			// 获取基本参数（跳過 load_module，已由自動偵測處理）
 			List<Basic> basicList = sqlHelper.findAll(new Sort("seq", Direction.ASC), Basic.class);
 			for (Basic basic : basicList) {
+				if ("load_module".equals(basic.getName().trim())) {
+					continue; // 跳過，由自動偵測處理
+				}
 				NgxParam ngxParam = new NgxParam();
 				ngxParam.addValue(basic.getName().trim() + " " + basic.getValue().trim());
 				ngxConfig.addEntry(ngxParam);

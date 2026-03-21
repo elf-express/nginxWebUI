@@ -116,14 +116,7 @@ public class InitConfig {
 			List<Basic> basics = new ArrayList<Basic>();
 			basics.add(new Basic("worker_processes", "auto", 1l));
 			basics.add(new Basic("events", "{\r\n    worker_connections  1024;\r\n    accept_mutex on;\r\n}", 2l));
-			// 載入動態模組（stream_module 必須在 stream_geoip2_module 之前）
-			basics.add(new Basic("load_module", "/usr/lib/nginx/modules/ngx_stream_module.so", -10l));
-			basics.add(new Basic("load_module", "/usr/lib/nginx/modules/ngx_stream_geoip2_module.so", -9l));
-			basics.add(new Basic("load_module", "/usr/lib/nginx/modules/ngx_http_geoip2_module.so", 0l));
-			basics.add(new Basic("load_module", "/usr/lib/nginx/modules/ngx_http_brotli_filter_module.so", 0l));
-			basics.add(new Basic("load_module", "/usr/lib/nginx/modules/ngx_http_brotli_static_module.so", 0l));
-			basics.add(new Basic("load_module", "/usr/lib/nginx/modules/ngx_http_headers_more_filter_module.so", 0l));
-			basics.add(new Basic("load_module", "/usr/lib/nginx/modules/ngx_http_cache_purge_module.so", 0l));
+			// load_module 由 ConfService 自動偵測容器內模組並按依賴排序載入，不再手動預設
 			sqlHelper.insertAll(basics);
 		}
 
