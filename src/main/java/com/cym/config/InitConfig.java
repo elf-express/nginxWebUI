@@ -153,6 +153,9 @@ public class InitConfig {
 			https.add(new Http("add_header", "X-XSS-Protection \"1; mode=block\"", seq++));
 			https.add(new Http("add_header", "Referrer-Policy \"strict-origin-when-cross-origin\"", seq++));
 
+			// Proxy Headers Hash（避免 warn）
+			https.add(new Http("proxy_headers_hash_max_size", "1024", seq++));
+
 			// 日誌格式（含真實 IP + GeoIP）
 			https.add(new Http("log_format", "main '$remote_addr - $remote_user [$time_local] \"$request\" '\r\n                      '$status $body_bytes_sent \"$http_referer\" '\r\n                      '\"$http_user_agent\" \"$geoip2_data_country_code\" \"$geoip2_data_city_name\"'", seq++));
 
