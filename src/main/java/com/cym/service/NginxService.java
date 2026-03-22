@@ -25,6 +25,31 @@ public class NginxService {
 
 	private static final String MODULE_DIR = "/usr/lib/nginx/modules";
 
+	/**
+	 * 已知安全的模組白名單（按依賴順序排列）
+	 * 只有在此清單中且容器內實際存在的模組才會被載入
+	 */
+	private static final List<String> SAFE_MODULES = Arrays.asList(
+		// stream 核心（必須最先載入，其他 stream 模組依賴它）
+		"ngx_stream_module.so",
+		// GeoIP2（stream_geoip2 依賴 stream_module）
+		"ngx_stream_geoip2_module.so",
+		"ngx_http_geoip2_module.so",
+		// NDK（必須在 lua 之前，lua 依賴 ndk）
+		"ndk_http_module.so",
+		// Lua（依賴 ndk）
+		"ngx_http_lua_module.so",
+		// 壓縮
+		"ngx_http_brotli_filter_module.so",
+		"ngx_http_brotli_static_module.so",
+		"ngx_http_zstd_filter_module.so",
+		"ngx_http_zstd_static_module.so",
+		// Headers
+		"ngx_http_headers_more_filter_module.so",
+		// Cache
+		"ngx_http_cache_purge_module.so"
+	);
+
 	/** Dependency map: key depends on value (value must load first) */
 	private static final Map<String, String> DEPENDENCY_MAP = new HashMap<>();
 
@@ -33,6 +58,7 @@ public class NginxService {
 		DEPENDENCY_MAP.put("ngx_stream_geoip_module.so", "ngx_stream_module.so");
 		DEPENDENCY_MAP.put("ngx_stream_js_module.so", "ngx_stream_module.so");
 		DEPENDENCY_MAP.put("ngx_stream_keyval_module.so", "ngx_stream_module.so");
+		DEPENDENCY_MAP.put("ngx_http_lua_module.so", "ndk_http_module.so");
 	}
 
 	@Inject
@@ -78,10 +104,46 @@ public class NginxService {
 	}
 
 	/**
-	 * Scan /usr/lib/nginx/modules/*.so and return sorted list of module filenames.
-	 * Sorted using topological dependency ordering.
+	 * 回傳容器內實際存在且在白名單中的模組，按依賴順序排列。
+	 * 白名單機制避免載入未知模組造成衝突。
 	 */
 	public List<String> getAvailableModules() {
+		List<String> modules = new ArrayList<>();
+
+		if (!SystemTool.isLinux()) {
+			return modules;
+		}
+
+		File dir = new File(MODULE_DIR);
+		if (!dir.exists() || !dir.isDirectory()) {
+			return modules;
+		}
+
+		// 掃描容器內實際存在的 .so 檔案
+		File[] files = dir.listFiles((d, name) -> name.endsWith(".so"));
+		if (files == null) {
+			return modules;
+		}
+
+		Set<String> existingModules = new HashSet<>();
+		for (File f : files) {
+			existingModules.add(f.getName());
+		}
+
+		// 按白名單順序，只載入實際存在的模組（白名單已按依賴順序排列）
+		for (String safe : SAFE_MODULES) {
+			if (existingModules.contains(safe)) {
+				modules.add(safe);
+			}
+		}
+
+		return modules;
+	}
+
+	/**
+	 * 回傳容器內所有 .so 模組（含不在白名單的），供 Header 顯示用
+	 */
+	public List<String> getAllModules() {
 		List<String> modules = new ArrayList<>();
 
 		if (!SystemTool.isLinux()) {
@@ -98,12 +160,11 @@ public class NginxService {
 			return modules;
 		}
 
-		Set<String> moduleSet = new HashSet<>();
 		for (File f : files) {
-			moduleSet.add(f.getName());
+			modules.add(f.getName());
 		}
-
-		return topologicalSort(moduleSet);
+		modules.sort(String::compareTo);
+		return modules;
 	}
 
 	/**
@@ -126,36 +187,4 @@ public class NginxService {
 		return modules.contains("ngx_http_geoip2_module.so");
 	}
 
-	/**
-	 * Topological sort: dependencies come before dependents, remaining sorted alphabetically.
-	 */
-	private List<String> topologicalSort(Set<String> moduleSet) {
-		List<String> result = new ArrayList<>();
-		Set<String> visited = new HashSet<>();
-
-		// Sort alphabetically first, then apply topological ordering
-		List<String> sorted = new ArrayList<>(moduleSet);
-		sorted.sort(String::compareTo);
-
-		for (String module : sorted) {
-			visit(module, moduleSet, visited, result);
-		}
-
-		return result;
-	}
-
-	private void visit(String module, Set<String> moduleSet, Set<String> visited, List<String> result) {
-		if (visited.contains(module)) {
-			return;
-		}
-		visited.add(module);
-
-		// If this module has a dependency, visit the dependency first
-		String dependency = DEPENDENCY_MAP.get(module);
-		if (dependency != null && moduleSet.contains(dependency)) {
-			visit(dependency, moduleSet, visited, result);
-		}
-
-		result.add(module);
-	}
 }

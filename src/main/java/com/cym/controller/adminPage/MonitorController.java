@@ -100,7 +100,7 @@ public class MonitorController extends BaseController {
 	public JsonResult nginxInfo() {
 		Map<String, Object> info = new HashMap<>();
 		info.put("version", nginxService.getNginxVersion());
-		info.put("modules", nginxService.getAvailableModules());
+		info.put("modules", nginxService.getAllModules());
 		info.put("hasGeoIp2", nginxService.hasGeoIp2Module());
 		return renderSuccess(info);
 	}
