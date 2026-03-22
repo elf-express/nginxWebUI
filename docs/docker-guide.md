@@ -207,7 +207,100 @@ nginxwebui_crowdsec_config → /etc/crowdsec
 | `BOUNCER_KEY_nginx` | Bouncer 認證金鑰（從 .env 讀取） |
 | `ABUSEIPDB_API_KEY` | AbuseIPDB 回報金鑰（從 .env 讀取） |
 
-## 七、日常操作
+## 七、開發者構建流程
+
+### 完整流程圖
+
+```
+原始碼修改
+  ↓
+mvn clean package -DskipTests          # 編譯 JAR
+  ↓
+┌─ 本機測試 ─────────────────────────┐
+│ docker compose up -d --build       │  ← 用 Dockerfile 本機 build image
+│ npm test                           │  ← 跑 Playwright 測試
+└────────────────────────────────────┘
+  ↓
+git push origin master                 # 推到 GitHub
+  ↓
+┌─ CI/CD（GitHub Actions 自動執行）──┐
+│ 1. mvn clean package               │
+│ 2. docker buildx（amd64 + arm64）  │
+│ 3. push → ghcr.io/elf-express/     │
+│    nginxwebui:5.0.0                 │
+│    nginxwebui:latest                │
+└────────────────────────────────────┘
+  ↓
+部署機 docker compose up -d           # 自動拉新 image
+```
+
+### 本機開發（Windows）
+
+```bash
+# 1. 編譯
+mvn clean package -DskipTests
+
+# 2. 本機 Docker 啟動（會用 Dockerfile 從原始碼 build image）
+docker compose up -d --build
+
+# 3. 確認所有服務健康
+docker compose ps
+
+# 4. 跑自動化測試
+npm test
+
+# 5. 看測試報告
+npm run report
+```
+
+### 手動構建 Docker Image
+
+```bash
+# 1. 編譯 JAR（必須先做，Dockerfile 會 COPY target/*.jar）
+mvn clean package -DskipTests
+
+# 2. 構建 image
+docker build -t ghcr.io/elf-express/nginxwebui:5.0.0 .
+
+# 3. 登入 GitHub Container Registry
+echo $GITHUB_TOKEN | docker login ghcr.io -u 你的帳號 --password-stdin
+
+# 4. 推送
+docker push ghcr.io/elf-express/nginxwebui:5.0.0
+docker tag ghcr.io/elf-express/nginxwebui:5.0.0 ghcr.io/elf-express/nginxwebui:latest
+docker push ghcr.io/elf-express/nginxwebui:latest
+```
+
+### CI/CD 自動構建（GitHub Actions）
+
+推送到 `master` 分支會自動觸發 `.github/workflows/build.yml`：
+
+1. **Build Job** — 編譯 JAR，上傳為 artifact
+2. **Docker Job** — Build multi-arch image（amd64 + arm64），push 到 ghcr.io
+
+版本號從 `pom.xml` 的 `<version>` 自動提取。
+
+### 關鍵檔案說明
+
+| 檔案 | 用途 |
+|------|------|
+| `Dockerfile` | 基於 Alpine 3.22，安裝 Nginx + JRE8 + 所有模組 |
+| `entrypoint.sh` | 容器啟動入口，用 tini + exec java |
+| `scripts/update-geoip-cf.sh` | 定期更新 GeoIP 資料庫 + Cloudflare IP |
+| `.github/workflows/build.yml` | CI/CD 自動構建 + 推送 image |
+| `pom.xml` | Maven 配置，版本號在這裡改 |
+
+### 升版 Checklist
+
+1. 修改 `pom.xml` 的 `<version>`（如 `5.0.0` → `5.1.0`）
+2. 修改 `docker-compose.yml` 的 `image` 和所有 `container_name` 版本號
+3. 修改 `tests/e2e/helpers.js` 的 `JAR_PATH`（如有改 JAR 檔名）
+4. 編譯測試：`mvn clean package -DskipTests && npm test`
+5. 提交推送：`git push origin master`
+6. CI 自動構建並推送 image
+7. 部署機：`docker compose pull && docker compose up -d`
+
+## 八、日常操作（部署環境）
 
 ### CrowdSec 管理
 ```bash
@@ -257,7 +350,7 @@ docker compose up -d
 docker compose ps
 ```
 
-## 八、entrypoint.sh 規範
+## 九、entrypoint.sh 規範
 
 ```bash
 #!/bin/sh
@@ -271,7 +364,7 @@ exec java -Xmx${JVM_XMX:-256m} -jar -Dfile.encoding=UTF-8 nginxWebUI.jar ${BOOT_
 - 使用 `exec` 確保 Java 進程接收信號
 - 使用 `${JVM_XMX:-256m}` 支持環境變數覆蓋
 
-## 九、Dockerfile 規範
+## 十、Dockerfile 規範
 
 ### 必要元素
 - `HEALTHCHECK` — 必須配置
@@ -284,7 +377,7 @@ exec java -Xmx${JVM_XMX:-256m} -jar -Dfile.encoding=UTF-8 nginxWebUI.jar ${BOOT_
 - 開發工具（node_modules/）
 - IDE 配置（.idea/, .vscode/）
 
-## 十、.dockerignore
+## 十一、.dockerignore
 
 ```
 .git
