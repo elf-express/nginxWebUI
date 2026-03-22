@@ -1,31 +1,113 @@
-# Docker 容器構建方案
+# Docker 容器構建與部署方案
 
 > 本方案為**強制性**標準，所有容器構建必須遵守。
 
 ## 一、Stack 架構
 
 ```
-┌──────────────────────────────────────────────────┐
-│              nginxWebUI Docker Stack              │
-├──────────────┬──────────┬────────────────────────┤
-│  nginxwebui  │ postgres │     日誌監控            │
-│  :8080       │ PG 18    │                        │
-│  :80 / :443  │ (內部)   │  promtail → loki       │
-│              │          │              ↓          │
-│              │          │           grafana       │
-│              │          │           :3000         │
-└──────────────┴──────────┴────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                   nginxWebUI Docker Stack                     │
+├──────────────┬──────────┬─────────────┬─────────────────────┤
+│  nginxwebui  │ postgres │  日誌監控    │  安全防護            │
+│  :8080       │ PG 18    │             │                     │
+│  :80 / :443  │ (內部)   │ promtail    │ crowdsec            │
+│              │          │   ↓         │   ↓                 │
+│              │          │ loki        │ crowdsec-bouncer    │
+│              │          │   ↓         │   → AbuseIPDB 回報  │
+│              │          │ grafana     │                     │
+│              │          │ :3000       │                     │
+└──────────────┴──────────┴─────────────┴─────────────────────┘
+```
+
+### 安全防護鏈路（請求處理順序）
+```
+外部請求 → Nginx
+  → 第一層：GeoIP 國家封鎖（map + if，O(1) hash，最快）
+  → 第二層：IP 黑白名單（deny/allow）
+  → 第三層：CrowdSec Bouncer（auth_request，行為分析）
+  → 通過 → 代理到後端服務
+```
+
+### 日誌鏈路
+```
+Nginx access_log → nginxwebui_log volume
+  → Promtail 收集 → Loki 儲存 → Grafana 顯示
+  → CrowdSec 讀取 → 分析攻擊模式 → 自動封鎖 + 回報 AbuseIPDB
 ```
 
 | 服務 | 鏡像 | 端口 | 用途 |
 |------|------|------|------|
-| nginxwebui | 自建 | 8080, 80, 443 | Nginx 管理 UI |
+| nginxwebui | ghcr.io/elf-express/nginxwebui | 8080, 80, 443 | Nginx 管理 UI |
 | postgres | postgres:18-alpine | 內部 5432 | 資料庫 |
 | loki | grafana/loki:3.5.0 | 內部 3100 | 日誌存儲 |
 | promtail | grafana/promtail:3.5.0 | 內部 | 日誌收集 |
 | grafana | grafana/grafana:11.6.0 | 3000 | 日誌圖表 |
+| crowdsec | crowdsecurity/crowdsec | 內部 8080 | 威脅偵測 |
+| crowdsec-bouncer | fbonalair/traefik-crowdsec-bouncer | 內部 8181 | IP 攔截 |
 
-## 二、命名規範（強制）
+## 二、部署指南
+
+### 部署檔案清單
+
+部署到任何環境（LXC / VM / 實體機）只需要以下 **7 個檔案**：
+
+```
+/opt/nginxwebui/
+├── docker-compose.yml          # Stack 編排
+├── .env                        # 敏感設定（API Key、Bouncer Key）
+├── promtail-config.yml         # Promtail 日誌收集配置
+├── grafana-datasources.yml     # Grafana 數據源自動配置
+└── crowdsec/
+    ├── acquis.yml              # CrowdSec 日誌來源設定
+    ├── abuseipdb.yaml          # AbuseIPDB 回報設定
+    └── profiles.yaml           # CrowdSec 告警處理設定
+```
+
+**不需要**原始碼、Dockerfile、JAR 檔 — Image 從 ghcr.io 拉取。
+
+### 部署步驟
+
+```bash
+# 1. 在目標機器建立目錄
+mkdir -p /opt/nginxwebui/crowdsec
+
+# 2. 從開發機傳送檔案（Windows PowerShell）
+scp docker-compose.yml .env promtail-config.yml grafana-datasources.yml root@目標IP:/opt/nginxwebui/
+scp crowdsec/acquis.yml crowdsec/abuseipdb.yaml crowdsec/profiles.yaml root@目標IP:/opt/nginxwebui/crowdsec/
+
+# 3. 在目標機器啟動
+cd /opt/nginxwebui
+docker compose up -d
+
+# 4. 確認所有服務健康
+docker compose ps
+```
+
+### .env 檔案內容
+
+```bash
+# CrowdSec Bouncer 金鑰（首次部署後從 CrowdSec 取得）
+CROWDSEC_BOUNCER_KEY=your-bouncer-key-here
+
+# AbuseIPDB API 金鑰（從 abuseipdb.com 取得）
+ABUSEIPDB_API_KEY=your-api-key-here
+```
+
+**安全提醒：** `.env` 包含敏感金鑰，不要上傳到 Git。
+
+### 首次部署後設定
+
+1. **登入 nginxWebUI** — `http://目標IP:8080`
+2. **設定管理員帳號密碼**
+3. **啟用配置** — 校驗 → 替換 → 重新裝載
+4. **登入 Grafana** — `http://目標IP:3000`（admin/admin），修改密碼
+5. **確認 CrowdSec**：
+   ```bash
+   docker exec nginxwebui-5.0.0-crowdsec cscli bouncers list
+   docker exec nginxwebui-5.0.0-crowdsec cscli collections list
+   ```
+
+## 三、命名規範（強制）
 
 ### container_name
 ```
@@ -39,6 +121,8 @@ nginxwebui-5.0.0-postgres
 nginxwebui-5.0.0-loki
 nginxwebui-5.0.0-promtail
 nginxwebui-5.0.0-grafana
+nginxwebui-5.0.0-crowdsec
+nginxwebui-5.0.0-bouncer
 ```
 
 ### volume name
@@ -48,21 +132,24 @@ nginxwebui-5.0.0-grafana
 例：
 ```
 nginxwebui_data
+nginxwebui_log
 nginxwebui_postgres_data
 nginxwebui_loki_data
 nginxwebui_grafana_data
+nginxwebui_crowdsec_data
+nginxwebui_crowdsec_config
 ```
 
 ### 升版時
 只改 container_name 的版本號，volume 名稱**不變**（資料保留）。
 
-## 三、啟動順序（強制）
+## 四、啟動順序（強制）
 
 ```
 1. postgres    ──健康檢查通過──→  2. nginxwebui
-
 3. loki        ──健康檢查通過──→  4. grafana
                                   5. promtail
+6. crowdsec    ──健康檢查通過──→  7. crowdsec-bouncer
 ```
 
 ### 健康檢查配置
@@ -71,66 +158,26 @@ nginxwebui_grafana_data
 | postgres | `pg_isready -U nginxwebui` | 10s | 10s |
 | nginxwebui | `curl -sf http://localhost:8080` | 30s | 30s |
 | loki | `wget -qO- http://localhost:3100/ready` | 15s | 20s |
+| crowdsec | `cscli version` | 15s | 30s |
 
 ### depends_on 規則
 - **必須**使用 `condition: service_healthy`
 - **禁止**只寫 `depends_on: - xxx`（不等健康檢查）
 
-## 四、檔案清單（強制）
+## 五、Volume 架構
 
 ```
-專案根目錄/
-├── Dockerfile              # 主服務鏡像
-├── docker-compose.yml      # Stack 編排
-├── entrypoint.sh           # 容器入口（必須 LF 換行）
-├── promtail-config.yml     # Promtail 日誌收集配置
-├── grafana-datasources.yml # Grafana 數據源自動配置
-└── .dockerignore           # 構建排除
+nginxwebui_data     → /home/nginxWebUI         # 應用資料（配置、資料庫備份）
+nginxwebui_log      → /home/nginxWebUI/log      # Nginx 日誌（共享給 Promtail/CrowdSec）
+                    → /var/log/nginx（Promtail/CrowdSec 讀取端）
+nginxwebui_postgres_data → /var/lib/postgresql/data
+nginxwebui_loki_data     → /loki
+nginxwebui_grafana_data  → /var/lib/grafana
+nginxwebui_crowdsec_data → /var/lib/crowdsec/data
+nginxwebui_crowdsec_config → /etc/crowdsec
 ```
 
-## 五、指令
-
-### 構建與啟動
-```bash
-# 1. 編譯 jar（必須先做）
-mvn clean package -DskipTests
-
-# 2. 構建鏡像 + 啟動全部服務
-docker compose up -d --build
-
-# 3. 確認所有服務狀態
-docker compose ps
-```
-
-### 日常操作
-```bash
-# 查看日誌
-docker logs nginxwebui-5.0.0
-docker logs nginxwebui-5.0.0-postgres
-
-# 重啟單一服務
-docker compose restart nginxwebui
-
-# 停止全部
-docker compose down
-
-# 停止並刪除資料（危險！）
-docker compose down -v
-```
-
-### 升版流程
-```bash
-# 1. 拉新代碼 + 編譯
-git pull && mvn clean package -DskipTests
-
-# 2. 修改 docker-compose.yml 的 container_name 版本號
-
-# 3. 重新構建並啟動
-docker compose up -d --build
-
-# 4. 確認健康
-docker compose ps
-```
+**重點：** `nginxwebui_log` 是日誌共享 volume，nginxWebUI 寫入，Promtail 和 CrowdSec 以 `:ro` 唯讀掛載。
 
 ## 六、環境變數
 
@@ -138,7 +185,7 @@ docker compose ps
 | 變數 | 默認值 | 說明 |
 |------|--------|------|
 | `JVM_XMX` | `256m` | JVM 最大堆記憶體 |
-| `BOOT_OPTIONS` | （見 compose） | Spring Boot 啟動參數 |
+| `BOOT_OPTIONS` | （見 compose） | 啟動參數（資料庫連線等） |
 
 ### postgres
 | 變數 | 值 | 說明 |
@@ -153,7 +200,64 @@ docker compose ps
 | `GF_SECURITY_ADMIN_USER` | `admin` | 管理員帳號 |
 | `GF_SECURITY_ADMIN_PASSWORD` | `admin` | 管理員密碼（正式環境請修改） |
 
-## 七、entrypoint.sh 規範
+### crowdsec
+| 變數 | 說明 |
+|------|------|
+| `COLLECTIONS` | 安裝的偵測規則集（nginx, http-cve, base-http-scenarios） |
+| `BOUNCER_KEY_nginx` | Bouncer 認證金鑰（從 .env 讀取） |
+| `ABUSEIPDB_API_KEY` | AbuseIPDB 回報金鑰（從 .env 讀取） |
+
+## 七、日常操作
+
+### CrowdSec 管理
+```bash
+# 查看警報
+docker exec nginxwebui-5.0.0-crowdsec cscli alerts list
+
+# 查看被封鎖的 IP
+docker exec nginxwebui-5.0.0-crowdsec cscli decisions list
+
+# 手動封鎖 IP
+docker exec nginxwebui-5.0.0-crowdsec cscli decisions add --ip 1.2.3.4
+
+# 解除封鎖
+docker exec nginxwebui-5.0.0-crowdsec cscli decisions delete --ip 1.2.3.4
+
+# 查看偵測統計
+docker exec nginxwebui-5.0.0-crowdsec cscli metrics
+```
+
+### Grafana 查看日誌
+1. 開啟 `http://目標IP:3000`
+2. Explore → Data source: Loki
+3. 查詢：`{job="nginx"}`
+
+### 一般操作
+```bash
+# 查看日誌
+docker logs nginxwebui-5.0.0
+docker logs nginxwebui-5.0.0-crowdsec
+
+# 重啟單一服務
+docker compose restart nginxwebui
+
+# 停止全部
+docker compose down
+
+# 停止並刪除資料（危險！）
+docker compose down -v
+```
+
+### 升版流程
+```bash
+# 1. 修改 docker-compose.yml 的 image 版本號和 container_name
+# 2. 重新啟動
+docker compose up -d
+# 3. 確認健康
+docker compose ps
+```
+
+## 八、entrypoint.sh 規範
 
 ```bash
 #!/bin/sh
@@ -164,10 +268,10 @@ exec java -Xmx${JVM_XMX:-256m} -jar -Dfile.encoding=UTF-8 nginxWebUI.jar ${BOOT_
 **強制要求：**
 - 換行符必須為 **LF**（不可用 CRLF）
 - Windows 環境修改後執行：`sed -i 's/\r$//' entrypoint.sh`
-- 使用 `exec` 確保 Java 進程接收信號（tini 需要）
+- 使用 `exec` 確保 Java 進程接收信號
 - 使用 `${JVM_XMX:-256m}` 支持環境變數覆蓋
 
-## 八、Dockerfile 規範
+## 九、Dockerfile 規範
 
 ### 必要元素
 - `HEALTHCHECK` — 必須配置
@@ -179,44 +283,6 @@ exec java -Xmx${JVM_XMX:-256m} -jar -Dfile.encoding=UTF-8 nginxWebUI.jar ${BOOT_
 - 測試檔案（tests/）
 - 開發工具（node_modules/）
 - IDE 配置（.idea/, .vscode/）
-
-## 九、跟 AI 協作的提示詞（直接複製貼上）
-
-### 構建並啟動
-```
-請幫我構建 Docker 鏡像並啟動整個 stack。
-1. mvn clean package -DskipTests
-2. docker compose up -d --build
-3. docker compose ps 確認所有服務健康
-4. 告訴我各服務的訪問地址
-```
-
-### 升版
-```
-版本升級到 X.Y.Z：
-1. 修改 docker-compose.yml 的 container_name 版本號
-2. 修改 Dockerfile 或 pom.xml 的版本號
-3. 重新構建並啟動
-4. 確認所有服務健康
-```
-
-### 加新服務到 Stack
-```
-請在 docker-compose.yml 加入 [服務名稱]。
-遵守命名規範：
-- container_name: nginxwebui-{版本}-{服務名}
-- volume name: nginxwebui_{服務名}_data
-- 必須配置 healthcheck
-- 必須配置 depends_on 和啟動順序
-```
-
-### 排查問題
-```
-[服務名稱] 啟動失敗，請排查：
-1. docker compose ps 看狀態
-2. docker logs [container_name] 看日誌
-3. 找出原因並修復
-```
 
 ## 十、.dockerignore
 
