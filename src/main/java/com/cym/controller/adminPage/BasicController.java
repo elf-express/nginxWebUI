@@ -25,6 +25,9 @@ public class BasicController extends BaseController {
 	public ModelAndView index(ModelAndView modelAndView) {
 		List<Basic> basicList = basicService.findAll();
 
+		// 過濾掉 load_module（由系統自動管理，不在 UI 顯示）
+		basicList.removeIf(b -> "load_module".equals(b.getName()));
+
 		modelAndView.put("basicList", basicList);
 		modelAndView.view("/adminPage/basic/index.html");
 		return modelAndView;
