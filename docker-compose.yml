@@ -1,6 +1,5 @@
 services:
   nginxwebui:
-    build: .
     image: ghcr.io/elf-express/nginxwebui:5.0.0
     container_name: nginxwebui-5.0.0
     restart: unless-stopped

@@ -217,7 +217,9 @@ nginxwebui_crowdsec_config → /etc/crowdsec
 mvn clean package -DskipTests          # 編譯 JAR
   ↓
 ┌─ 本機測試 ─────────────────────────┐
-│ docker compose up -d --build       │  ← 用 Dockerfile 本機 build image
+│ docker compose -f docker-compose.yml │
+│   -f docker-compose.dev.yml        │
+│   up -d --build                    │  ← 用 Dockerfile 本機 build image
 │ npm test                           │  ← 跑 Playwright 測試
 └────────────────────────────────────┘
   ↓
@@ -240,8 +242,8 @@ git push origin master                 # 推到 GitHub
 # 1. 編譯
 mvn clean package -DskipTests
 
-# 2. 本機 Docker 啟動（會用 Dockerfile 從原始碼 build image）
-docker compose up -d --build
+# 2. 本機 Docker 啟動（使用 dev 覆蓋檔從原始碼 build image）
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 
 # 3. 確認所有服務健康
 docker compose ps
