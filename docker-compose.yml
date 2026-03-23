@@ -12,7 +12,7 @@ services:
       - nginxwebui_log:/home/nginxWebUI/log
     environment:
       - JVM_XMX=256m
-      - BOOT_OPTIONS=--spring.database.type=postgresql --spring.datasource.url=jdbc:postgresql://postgres:5432/nginxwebui --spring.datasource.username=nginxwebui --spring.datasource.password=nginxwebui123
+      - BOOT_OPTIONS=--spring.database.type=postgresql --spring.datasource.url=jdbc:postgresql://postgres:5432/nginxwebui --spring.datasource.username=nginxwebui --spring.datasource.password=nginxwebui123 --init.admin=${INIT_ADMIN:-admin} --init.pass=${INIT_PASS:-Admin123}
     depends_on:
       postgres:
         condition: service_healthy
