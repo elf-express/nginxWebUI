@@ -47,6 +47,18 @@ Nginx access_log → nginxwebui_log volume
 
 ## 二、部署指南
 
+### 前置條件
+
+部署機器需要安裝：
+- **Docker Engine** 24+（`docker --version` 確認）
+- **Docker Compose V2**（`docker compose version` 確認）
+- **Git**（方式 A 需要）
+
+如果沒有 Docker，先安裝：
+```bash
+curl -fsSL https://get.docker.com | sh
+```
+
 ### 部署檔案清單
 
 所有部署檔案已打包在 `deploy/` 目錄，部署到任何環境（LXC / VM / 實體機）只需要以下 **9 個檔案**：
@@ -67,84 +79,235 @@ deploy/
 
 **不需要**原始碼、Dockerfile、JAR 檔 — Image 從 ghcr.io 拉取。
 
-### 方式 A：從 GitHub 拉取（推薦）
+---
 
-在目標機器上直接從 GitHub 拉取 `deploy/` 目錄，不會下載原始碼：
+### 步驟 0：申請 GitHub Personal Access Token（PAT）
+
+> **為什麼需要？** 本專案的程式碼倉庫和 Docker Image（ghcr.io）都是**私有**的，拉取程式碼和 Image 都需要 Token 認證。
+
+#### 申請步驟：
+
+1. 登入 [GitHub.com](https://github.com)
+2. 點右上角**頭像** → **Settings**
+3. 左側選單滑到最底 → **Developer settings**
+4. 點 **Personal access tokens** → **Tokens (classic)**
+5. 點 **Generate new token** → **Generate new token (classic)**
+6. 填寫：
+   - **Note**：隨便填，例如 `deploy-nginxwebui`
+   - **Expiration**：建議選 90 days 或 No expiration
+   - **勾選權限**：
+     - [x] `repo`（整個區塊打勾，用於 git clone 私有倉庫）
+     - [x] `read:packages`（用於 docker pull 私有 Image）
+     - [x] `write:packages`（如果需要從開發機 docker push）
+7. 點 **Generate token**
+8. **立刻複製 Token**（格式：`ghp_xxxxxxxxxxxxxxxx`），離開頁面就看不到了
+
+> **重要：** 把 Token 存到安全的地方（密碼管理器、記事本），遺失只能重新申請。
+
+---
+
+### 步驟 1：在部署機登入 GitHub Container Registry
+
+> **為什麼？** Docker Image 存在 ghcr.io 私有倉庫，不登入會報 `denied` 錯誤。
 
 ```bash
-# 1. 用 sparse-checkout 只拉 deploy/ 目錄
+# 把 ghp_xxxx 換成你的 Token，elf-express 換成你的 GitHub 帳號
+echo "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxx" | docker login ghcr.io -u elf-express --password-stdin
+```
+
+看到 `Login Succeeded` 就成功了。登入資訊會存在機器上，以後不用重複登入。
+
+**常見錯誤：**
+| 錯誤訊息 | 原因 | 解法 |
+|----------|------|------|
+| `denied` | Token 沒有 `read:packages` 權限 | 重新申請 Token，勾選 `read:packages` |
+| `unauthorized` | Token 過期或打錯 | 確認 Token 正確且未過期 |
+| `403 Forbidden` | 用了密碼而不是 Token | GitHub 已停用密碼認證，必須用 PAT |
+
+---
+
+### 步驟 2：取得部署檔案
+
+**方式 A：從 GitHub 拉取（推薦）**
+
+```bash
+# 1. 建立安裝目錄
+mkdir -p /opt/nginxwebui
 cd /opt
+
+# 2. 用 sparse-checkout 只拉 deploy/ 目錄（不會下載原始碼）
+#    把 ghp_xxxx 換成你的 Token，elf-express 換成你的 GitHub 帳號
 git clone --depth 1 --filter=blob:none --sparse \
-  https://github.com/elf-express/nginxWebUI.git nginxwebui
-cd nginxwebui
+  https://elf-express:ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxx@github.com/elf-express/nginxWebUI.git \
+  nginxwebui-tmp
+
+# 3. 進入目錄，設定只拉 deploy/
+cd nginxwebui-tmp
 git sparse-checkout set deploy
 
-# 2. 把 deploy/ 內容搬到當前目錄，清除 git
-cp -r deploy/* . && cp -r deploy/crowdsec . && rm -rf deploy .git
+# 4. 把 deploy/ 內容搬到安裝目錄
+cp -r deploy/* /opt/nginxwebui/
+cp -r deploy/crowdsec /opt/nginxwebui/
 
-# 3. 設定敏感資訊
-cp .env.example .env
-nano .env   # 填入 CROWDSEC_BOUNCER_KEY 和 ABUSEIPDB_API_KEY
-
-# 4. 啟動
-docker compose up -d
-
-# 5. 確認所有服務健康
-docker compose ps
+# 5. 清理暫存（不需要原始碼）
+cd /opt
+rm -rf nginxwebui-tmp
 ```
 
-升版時重新拉取即可（volume 資料會保留）：
+**方式 B：從開發機 SCP 傳送（不需要 GitHub）**
 
+在**開發機**（Windows / Mac）上執行：
 ```bash
-cd /tmp
-git clone --depth 1 --filter=blob:none --sparse \
-  https://github.com/elf-express/nginxWebUI.git nginxwebui-update
-cd nginxwebui-update && git sparse-checkout set deploy
-cp -r deploy/* /opt/nginxwebui/ && cp -r deploy/crowdsec /opt/nginxwebui/
-rm -rf /tmp/nginxwebui-update
-cd /opt/nginxwebui && docker compose up -d
+# 把 deploy/ 目錄整個傳到部署機
+scp -r deploy/* root@192.168.25.220:/opt/nginxwebui/
+scp -r deploy/crowdsec root@192.168.25.220:/opt/nginxwebui/
 ```
 
-### 方式 B：從開發機 SCP 傳送
+---
+
+### 步驟 3：設定環境變數
 
 ```bash
-# 1. 從開發機一條指令傳送整個 deploy 目錄
-scp -r deploy/* root@目標IP:/opt/nginxwebui/
-# 2. 在目標機器設定敏感資訊
 cd /opt/nginxwebui
+
+# 複製範本
 cp .env.example .env
-nano .env   # 填入 CROWDSEC_BOUNCER_KEY 和 ABUSEIPDB_API_KEY
 
-# 3. 啟動
-docker compose up -d
-
-# 4. 確認所有服務健康
-docker compose ps
+# 編輯（用 nano 或 vi）
+nano .env
 ```
 
-### .env 檔案內容
-
+`.env` 內容說明：
 ```bash
-# CrowdSec Bouncer 金鑰（首次部署後從 CrowdSec 取得）
+# CrowdSec Bouncer 金鑰
+# → 首次部署先填任意值，啟動後再用以下指令取得真正的金鑰：
+#   docker exec nginx-webui-5.0.2-crowdsec cscli bouncers add nginx
+# → 把輸出的金鑰貼回來，然後 docker compose restart bouncer
 CROWDSEC_BOUNCER_KEY=your-bouncer-key-here
 
-# AbuseIPDB API 金鑰（從 abuseipdb.com 取得）
+# AbuseIPDB API 金鑰
+# → 到 https://www.abuseipdb.com 註冊帳號
+# → 登入後到 Account → API Keys → Create Key
 ABUSEIPDB_API_KEY=your-api-key-here
 ```
 
 **安全提醒：** `.env` 包含敏感金鑰，不要上傳到 Git。
 
-### 首次部署後設定
+---
 
-1. **登入 Nginx Web UI** — `http://目標IP:8080`
-2. **設定管理員帳號密碼**
-3. **啟用配置** — 校驗 → 替換 → 重新裝載
-4. **登入 Grafana** — `http://目標IP:3000`（admin/admin），修改密碼
-5. **確認 CrowdSec**：
-   ```bash
-   docker exec nginx-webui-5.0.1-crowdsec cscli bouncers list
-   docker exec nginx-webui-5.0.1-crowdsec cscli collections list
-   ```
+### 步驟 4：啟動 Docker Stack
+
+```bash
+cd /opt/nginxwebui
+
+# 啟動所有服務（背景執行）
+docker compose up -d
+
+# 等待約 30 秒讓所有服務啟動，然後確認狀態
+docker compose ps
+```
+
+正常結果：所有服務顯示 `Up` 或 `healthy`。
+
+**如果某個服務一直 restarting：**
+```bash
+# 看錯誤日誌
+docker logs nginx-webui-5.0.2-容器名
+
+# 常見問題：
+# postgres restarting → 資料庫初始化失敗，刪 volume 重來：
+#   docker compose down && docker volume rm nginxwebui_postgres_data && docker compose up -d
+# bouncer restarting → CROWDSEC_BOUNCER_KEY 不正確，見步驟 5
+```
+
+---
+
+### 步驟 5：首次部署後設定
+
+#### 5-1. 登入 Nginx Web UI
+
+1. 瀏覽器打開 `http://部署機IP:8080`
+2. 第一次進入會要求設定**管理員帳號密碼**
+3. 設定完成後登入
+
+#### 5-2. 啟用 Nginx 配置
+
+1. 左側選單 → **啟用配置**
+2. 點 **校驗** → 確認沒有錯誤
+3. 點 **替換** → **重新裝載**
+
+#### 5-3. 設定 CrowdSec Bouncer 金鑰
+
+```bash
+# 1. 取得金鑰（會印出一串亂碼）
+docker exec nginx-webui-5.0.2-crowdsec cscli bouncers add nginx
+
+# 2. 複製輸出的金鑰，貼到 .env
+nano /opt/nginxwebui/.env
+# 把 CROWDSEC_BOUNCER_KEY=your-bouncer-key-here 改成：
+# CROWDSEC_BOUNCER_KEY=貼上剛才的金鑰
+
+# 3. 重啟 bouncer 讓新金鑰生效
+docker compose restart bouncer
+
+# 4. 確認 bouncer 正常連線
+docker exec nginx-webui-5.0.2-crowdsec cscli bouncers list
+# 應該看到 nginx 狀態為 validated
+```
+
+#### 5-4. 登入 Grafana
+
+1. 瀏覽器打開 `http://部署機IP:3000`
+2. 帳號密碼：`admin` / `admin`
+3. 第一次登入會要求改密碼
+4. 左側選單 → **Dashboards** → **Nginx Monitor** 即可看到日誌儀表板
+
+#### 5-5. 確認所有服務
+
+```bash
+# 確認 CrowdSec 偵測規則已安裝
+docker exec nginx-webui-5.0.2-crowdsec cscli collections list
+
+# 確認 Promtail 正在收集日誌
+docker logs nginx-webui-5.0.2-promtail --tail 5
+
+# 確認所有服務健康
+docker compose ps
+```
+
+---
+
+### 升版流程
+
+當有新版本發佈時：
+
+```bash
+cd /opt/nginxwebui
+
+# 1. 取得新的部署檔案（方式 A 或 B 二選一）
+
+## 方式 A：從 GitHub 拉取
+cd /tmp
+git clone --depth 1 --filter=blob:none --sparse \
+  https://elf-express:ghp_xxxx你的Token@github.com/elf-express/nginxWebUI.git nginxwebui-update
+cd nginxwebui-update && git sparse-checkout set deploy
+cp -r deploy/* /opt/nginxwebui/ && cp -r deploy/crowdsec /opt/nginxwebui/
+rm -rf /tmp/nginxwebui-update
+
+## 方式 B：從開發機 SCP（在開發機執行）
+# scp -r deploy/* root@192.168.25.220:/opt/nginxwebui/
+# scp -r deploy/crowdsec root@192.168.25.220:/opt/nginxwebui/
+
+# 2. 拉取新 Image 並重啟（.env 不會被覆蓋）
+cd /opt/nginxwebui
+docker compose pull
+docker compose up -d
+
+# 3. 確認
+docker compose ps
+```
+
+> **注意：** `.env` 不會被覆蓋，你的金鑰設定會保留。Volume 資料（資料庫、日誌）也會保留。
 
 ## 三、命名規範（強制）
 
@@ -155,13 +318,13 @@ ABUSEIPDB_API_KEY=your-api-key-here
 ```
 例：
 ```
-nginx-webui-5.0.1
-nginx-webui-5.0.1-postgres
-nginx-webui-5.0.1-loki
-nginx-webui-5.0.1-promtail
-nginx-webui-5.0.1-grafana
-nginx-webui-5.0.1-crowdsec
-nginx-webui-5.0.1-bouncer
+nginx-webui-5.0.2
+nginx-webui-5.0.2-postgres
+nginx-webui-5.0.2-loki
+nginx-webui-5.0.2-promtail
+nginx-webui-5.0.2-grafana
+nginx-webui-5.0.2-crowdsec
+nginx-webui-5.0.2-bouncer
 ```
 
 ### volume name
@@ -268,7 +431,7 @@ git push origin master                 # 推到 GitHub
 │ 1. mvn clean package               │
 │ 2. docker buildx（amd64 + arm64）  │
 │ 3. push → ghcr.io/elf-express/     │
-│    nginxwebui:5.0.1                 │
+│    nginxwebui:5.0.2                 │
 │    nginxwebui:latest                │
 └────────────────────────────────────┘
   ↓
@@ -301,14 +464,14 @@ npm run report
 mvn clean package -DskipTests
 
 # 2. 構建 image
-docker build -t ghcr.io/elf-express/nginxwebui:5.0.1 .
+docker build -t ghcr.io/elf-express/nginxwebui:5.0.2 .
 
 # 3. 登入 GitHub Container Registry
 echo $GITHUB_TOKEN | docker login ghcr.io -u 你的帳號 --password-stdin
 
 # 4. 推送
-docker push ghcr.io/elf-express/nginxwebui:5.0.1
-docker tag ghcr.io/elf-express/nginxwebui:5.0.1 ghcr.io/elf-express/nginxwebui:latest
+docker push ghcr.io/elf-express/nginxwebui:5.0.2
+docker tag ghcr.io/elf-express/nginxwebui:5.0.2 ghcr.io/elf-express/nginxwebui:latest
 docker push ghcr.io/elf-express/nginxwebui:latest
 ```
 
@@ -346,19 +509,19 @@ docker push ghcr.io/elf-express/nginxwebui:latest
 ### CrowdSec 管理
 ```bash
 # 查看警報
-docker exec nginx-webui-5.0.1-crowdsec cscli alerts list
+docker exec nginx-webui-5.0.2-crowdsec cscli alerts list
 
 # 查看被封鎖的 IP
-docker exec nginx-webui-5.0.1-crowdsec cscli decisions list
+docker exec nginx-webui-5.0.2-crowdsec cscli decisions list
 
 # 手動封鎖 IP
-docker exec nginx-webui-5.0.1-crowdsec cscli decisions add --ip 1.2.3.4
+docker exec nginx-webui-5.0.2-crowdsec cscli decisions add --ip 1.2.3.4
 
 # 解除封鎖
-docker exec nginx-webui-5.0.1-crowdsec cscli decisions delete --ip 1.2.3.4
+docker exec nginx-webui-5.0.2-crowdsec cscli decisions delete --ip 1.2.3.4
 
 # 查看偵測統計
-docker exec nginx-webui-5.0.1-crowdsec cscli metrics
+docker exec nginx-webui-5.0.2-crowdsec cscli metrics
 ```
 
 ### Grafana 查看日誌
@@ -369,11 +532,14 @@ docker exec nginx-webui-5.0.1-crowdsec cscli metrics
 ### 一般操作
 ```bash
 # 查看日誌
-docker logs nginx-webui-5.0.1
-docker logs nginx-webui-5.0.1-crowdsec
+docker logs nginx-webui-5.0.2
+docker logs nginx-webui-5.0.2-crowdsec
 
 # 重啟單一服務
 docker compose restart nginxwebui
+
+# 查看即時日誌
+docker logs -f nginx-webui-5.0.2 --tail 50
 
 # 停止全部
 docker compose down
