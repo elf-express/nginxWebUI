@@ -1,0 +1,32 @@
+type: http
+name: abuseipdb
+log_level: info
+
+group_wait: 30s
+group_threshold: 5
+max_retry: 3
+timeout: 10s
+
+format: |
+  {{- range .}}
+  {{- $alert := .}}
+  {{- range .Decisions}}
+  {{- $categories := "14"}}
+  {{- if contains "ssh" $alert.Scenario}}{{$categories = "18,22"}}
+  {{- else if contains "http" $alert.Scenario}}{{$categories = "21"}}
+  {{- else if contains "scan" $alert.Scenario}}{{$categories = "14"}}
+  {{- else if contains "bruteforce" $alert.Scenario}}{{$categories = "18"}}
+  {{- else if contains "crawl" $alert.Scenario}}{{$categories = "21"}}
+  {{- end}}
+  ip={{.Value}}&categories={{$categories}}&comment=CrowdSec: {{$alert.Scenario}}&key=${ABUSEIPDB_API_KEY}
+  {{- end}}
+  {{- end}}
+
+url: https://api.abuseipdb.com/api/v2/report
+
+method: POST
+
+headers:
+  Key: ${ABUSEIPDB_API_KEY}
+  Accept: application/json
+  Content-Type: application/x-www-form-urlencoded

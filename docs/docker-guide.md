@@ -49,18 +49,20 @@ Nginx access_log → nginxwebui_log volume
 
 ### 部署檔案清單
 
-部署到任何環境（LXC / VM / 實體機）只需要以下 **7 個檔案**：
+所有部署檔案已打包在 `deploy/` 目錄，部署到任何環境（LXC / VM / 實體機）只需要以下 **9 個檔案**：
 
 ```
-/opt/nginxwebui/
-├── docker-compose.yml          # Stack 編排
-├── .env                        # 敏感設定（API Key、Bouncer Key）
-├── promtail-config.yml         # Promtail 日誌收集配置
-├── grafana-datasources.yml     # Grafana 數據源自動配置
+deploy/
+├── docker-compose.yml              # Stack 編排
+├── .env.example                    # 敏感設定範本（複製為 .env）
+├── promtail-config.yml             # Promtail 日誌收集配置
+├── grafana-datasources.yml         # Grafana 數據源自動配置
+├── grafana-dashboards.yml          # Grafana Dashboard 自動載入
+├── grafana-nginx-dashboard.json    # Nginx 監控儀表板
 └── crowdsec/
-    ├── acquis.yml              # CrowdSec 日誌來源設定
-    ├── abuseipdb.yaml          # AbuseIPDB 回報設定
-    └── profiles.yaml           # CrowdSec 告警處理設定
+    ├── acquis.yml                  # CrowdSec 日誌來源設定
+    ├── abuseipdb.yaml              # AbuseIPDB 回報設定
+    └── profiles.yaml               # CrowdSec 告警處理設定
 ```
 
 **不需要**原始碼、Dockerfile、JAR 檔 — Image 從 ghcr.io 拉取。
@@ -68,15 +70,15 @@ Nginx access_log → nginxwebui_log volume
 ### 部署步驟
 
 ```bash
-# 1. 在目標機器建立目錄
-mkdir -p /opt/nginxwebui/crowdsec
+# 1. 從開發機一條指令傳送整個 deploy 目錄
+scp -r deploy/* root@目標IP:/opt/nginxwebui/
 
-# 2. 從開發機傳送檔案（Windows PowerShell）
-scp docker-compose.yml .env promtail-config.yml grafana-datasources.yml root@目標IP:/opt/nginxwebui/
-scp crowdsec/acquis.yml crowdsec/abuseipdb.yaml crowdsec/profiles.yaml root@目標IP:/opt/nginxwebui/crowdsec/
-
-# 3. 在目標機器啟動
+# 2. 在目標機器設定敏感資訊
 cd /opt/nginxwebui
+cp .env.example .env
+nano .env   # 填入 CROWDSEC_BOUNCER_KEY 和 ABUSEIPDB_API_KEY
+
+# 3. 啟動
 docker compose up -d
 
 # 4. 確認所有服務健康
