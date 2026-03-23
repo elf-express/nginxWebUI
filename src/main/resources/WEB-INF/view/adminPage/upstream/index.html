@@ -58,11 +58,15 @@
 				<fieldset class="layui-elem-field layui-field-title">
 					<legend>${menuStr.upstream}</legend>
 				</fieldset>
+				<span class="layui-breadcrumb" style="margin-bottom:15px;display:block;">
+					<a href="${ctx}/adminPage/monitor">${commonStr.home}</a>
+					<a><cite>${menuStr.upstream}</cite></a>
+				</span>
 
 				<form action="${ctx}/adminPage/upstream" id="searchForm" method="post">
 					<div class="layui-form">
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="add()">${upstreamStr.add}</button>
+							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="add()"><i class="layui-icon layui-icon-add-circle-fine"></i> ${upstreamStr.add}</button>
 						</div>
 
 						<div class="layui-inline">
@@ -70,14 +74,14 @@
 						</div>
 
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="delMany()">${commonStr.delAll}</button>
+							<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="delMany()"><i class="layui-icon layui-icon-delete"></i> ${commonStr.delAll}</button>
 						</div>
 
 						<div class="layui-input-inline">
 							<input type="text" name="keywords" class="layui-input layui-input-sm" value="${keywords}" onkeydown="if(event.keyCode==13)return false;">
 						</div>
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm" onclick="search()">${commonStr.search}</button>
+							<button type="button" class="layui-btn layui-btn-sm" onclick="search()"><i class="layui-icon layui-icon-search"></i> ${commonStr.search}</button>
 						</div>
 
 
@@ -139,30 +143,38 @@
 							</#if>
 							<td>
 								<div class="layui-inline">
-									<button type="button" class="layui-btn layui-btn-sm layui-btn-normal " onclick="preview('${ext.upstream.id}','upstream')">${commonStr.preview}</button>
+									<button type="button" class="layui-btn layui-btn-sm layui-btn-normal " onclick="preview('${ext.upstream.id}','upstream')"><i class="layui-icon layui-icon-eye"></i> ${commonStr.preview}</button>
 								</div>
 								<div class="layui-inline">
-									<button type="button" class="layui-btn layui-btn-sm " onclick="edit('${ext.upstream.id}', false)">${commonStr.edit}</button>
-								</div>
-
-								<div class="layui-inline">
-									<button type="button" class="layui-btn layui-btn-sm " onclick="clone('${ext.upstream.id}')">${commonStr.clone}</button>
+									<button type="button" class="layui-btn layui-btn-sm " onclick="edit('${ext.upstream.id}', false)"><i class="layui-icon layui-icon-edit"></i> ${commonStr.edit}</button>
 								</div>
 
 								<div class="layui-inline">
-									<button type="button" class="layui-btn layui-btn-danger layui-btn-sm " onclick="del('${ext.upstream.id}')">${commonStr.del}</button>
+									<button type="button" class="layui-btn layui-btn-sm " onclick="clone('${ext.upstream.id}')"><i class="layui-icon layui-icon-file-b"></i> ${commonStr.clone}</button>
 								</div>
 
 								<div class="layui-inline">
-									<button type="button" class="layui-btn layui-btn-normal layui-btn-sm " onclick="setOrder('${ext.upstream.id}', 1)">${commonStr.up}</button>
+									<button type="button" class="layui-btn layui-btn-danger layui-btn-sm " onclick="del('${ext.upstream.id}')"><i class="layui-icon layui-icon-delete"></i> ${commonStr.del}</button>
 								</div>
 
 								<div class="layui-inline">
-									<button type="button" class="layui-btn layui-btn-normal layui-btn-sm " onclick="setOrder('${ext.upstream.id}', -1)">${commonStr.down}</button>
+									<button type="button" class="layui-btn layui-btn-normal layui-btn-sm " onclick="setOrder('${ext.upstream.id}', 1)"><i class="layui-icon layui-icon-up"></i> ${commonStr.up}</button>
+								</div>
+
+								<div class="layui-inline">
+									<button type="button" class="layui-btn layui-btn-normal layui-btn-sm " onclick="setOrder('${ext.upstream.id}', -1)"><i class="layui-icon layui-icon-down"></i> ${commonStr.down}</button>
 								</div>
 							</td>
 						</tr>
 						</#list>
+						<#if page.records?size == 0>
+						<tr>
+							<td colspan="99" class="empty-state">
+								<i class="layui-icon layui-icon-face-surprised"></i>
+								<p>${commonStr.noData}</p>
+							</td>
+						</tr>
+						</#if>
 					</tbody>
 				</table>
 				<div id="pageInfo"></div>

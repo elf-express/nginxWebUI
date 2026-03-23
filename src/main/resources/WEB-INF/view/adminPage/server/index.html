@@ -112,15 +112,19 @@
 				<fieldset class="layui-elem-field layui-field-title">
 					<legend>${menuStr.server}</legend>
 				</fieldset>
+				<span class="layui-breadcrumb" style="margin-bottom:15px;display:block;">
+					<a href="${ctx}/adminPage/monitor">${commonStr.home}</a>
+					<a><cite>${menuStr.server}</cite></a>
+				</span>
 
 				<form action="${ctx}/adminPage/server" id="searchForm" method="post">
 					<div class="layui-form">
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="add()">${serverStr.add}</button>
+							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="add()"><i class="layui-icon layui-icon-add-circle-fine"></i> ${serverStr.add}</button>
 						</div>
 
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm layui-input-inline" onclick="openImport()">${serverStr.importServer}</button>
+							<button type="button" class="layui-btn layui-btn-sm layui-input-inline" onclick="openImport()"><i class="layui-icon layui-icon-upload"></i> ${serverStr.importServer}</button>
 						</div>
 
 						<div class="layui-inline">
@@ -128,7 +132,7 @@
 						</div>
 
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="delMany()">${commonStr.delAll}</button>
+							<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="delMany()"><i class="layui-icon layui-icon-delete"></i> ${commonStr.delAll}</button>
 						</div>
 
 						<div class="layui-inline">
@@ -136,7 +140,7 @@
 						</div>
 
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm" onclick="search()">${commonStr.search}</button>
+							<button type="button" class="layui-btn layui-btn-sm" onclick="search()"><i class="layui-icon layui-icon-search"></i> ${commonStr.search}</button>
 						</div>
 
 						<input type="hidden" name="curr" value="${page.curr}">
@@ -222,31 +226,39 @@
 
 								<td>
 									<div class="layui-inline">
-										<button type="button" class="layui-btn layui-btn-sm layui-btn-normal " onclick="preview('${ext.server.id}','server')">${commonStr.preview}</button>
+										<button type="button" class="layui-btn layui-btn-sm layui-btn-normal " onclick="preview('${ext.server.id}','server')"><i class="layui-icon layui-icon-eye"></i> ${commonStr.preview}</button>
 									</div>
 
 									<div class="layui-inline">
-										<button type="button" class="layui-btn layui-btn-sm " onclick="edit('${ext.server.id}', false)">${commonStr.edit}</button>
+										<button type="button" class="layui-btn layui-btn-sm " onclick="edit('${ext.server.id}', false)"><i class="layui-icon layui-icon-edit"></i> ${commonStr.edit}</button>
 									</div>
 
 									<div class="layui-inline">
-										<button type="button" class="layui-btn layui-btn-sm " onclick="clone('${ext.server.id}')">${commonStr.clone}</button>
+										<button type="button" class="layui-btn layui-btn-sm " onclick="clone('${ext.server.id}')"><i class="layui-icon layui-icon-file-b"></i> ${commonStr.clone}</button>
 									</div>
 
 									<div class="layui-inline">
-										<button type="button" class="layui-btn layui-btn-danger layui-btn-sm " onclick="del('${ext.server.id}')">${commonStr.del}</button>
+										<button type="button" class="layui-btn layui-btn-danger layui-btn-sm " onclick="del('${ext.server.id}')"><i class="layui-icon layui-icon-delete"></i> ${commonStr.del}</button>
 									</div>
 
 									<div class="layui-inline">
-										<button type="button" class="layui-btn layui-btn-normal layui-btn-sm " onclick="setOrder('${ext.server.id}', 1)">${commonStr.up}</button>
+										<button type="button" class="layui-btn layui-btn-normal layui-btn-sm " onclick="setOrder('${ext.server.id}', 1)"><i class="layui-icon layui-icon-up"></i> ${commonStr.up}</button>
 									</div>
 
 									<div class="layui-inline">
-										<button type="button" class="layui-btn layui-btn-normal layui-btn-sm " onclick="setOrder('${ext.server.id}', -1)">${commonStr.down}</button>
+										<button type="button" class="layui-btn layui-btn-normal layui-btn-sm " onclick="setOrder('${ext.server.id}', -1)"><i class="layui-icon layui-icon-down"></i> ${commonStr.down}</button>
 									</div>
 								</td>
 							</tr>
 							</#list>
+							<#if page.records?size == 0>
+							<tr>
+								<td colspan="99" class="empty-state">
+									<i class="layui-icon layui-icon-face-surprised"></i>
+									<p>${commonStr.noData}</p>
+								</td>
+							</tr>
+							</#if>
 						</tbody>
 					</table>
 					<div id="pageInfo"></div>

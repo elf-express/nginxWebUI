@@ -72,3 +72,51 @@ textarea {
 	margin-top: 1px;
 	margin-bottom: 1px;
 }
+
+/* =============================================
+   v5.0.2 UI Polish
+   ============================================= */
+
+/* --- Menu Icons --- */
+.layui-nav-tree .layui-nav-child a .layui-icon {
+	font-size: 16px;
+	margin-right: 6px;
+	vertical-align: middle;
+}
+
+/* --- Button Icons --- */
+.layui-btn > .layui-icon {
+	font-size: 14px;
+	margin-right: 3px;
+	vertical-align: middle;
+}
+
+.layui-btn-sm > .layui-icon {
+	font-size: 12px;
+}
+
+/* --- Table Empty State --- */
+.empty-state {
+	text-align: center;
+	padding: 40px 20px !important;
+	color: #999;
+}
+
+.empty-state .layui-icon {
+	font-size: 48px;
+	color: #d2d2d2;
+	display: block;
+	margin-bottom: 10px;
+}
+
+.empty-state p {
+	font-size: 14px;
+	color: #999;
+	margin: 0;
+}
+
+/* --- Breadcrumb --- */
+.layui-body .layui-breadcrumb {
+	margin-bottom: 15px;
+	font-size: 13px;
+}

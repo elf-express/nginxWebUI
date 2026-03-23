@@ -16,15 +16,19 @@
 				<fieldset class="layui-elem-field layui-field-title">
 					<legend>${menuStr.basic}</legend>
 				</fieldset>
+				<span class="layui-breadcrumb" style="margin-bottom:15px;display:block;">
+					<a href="${ctx}/adminPage/monitor">${commonStr.home}</a>
+					<a><cite>${menuStr.basic}</cite></a>
+				</span>
 
 				<form action="${ctx}/adminPage/basic" id="searchForm" method="post">
 					<div class="layui-form">
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="add()">${basicStr.add}</button>
+							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="add()"><i class="layui-icon layui-icon-add-circle-fine"></i> ${basicStr.add}</button>
 						</div>
 
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="delMany()">${commonStr.delAll}</button>
+							<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="delMany()"><i class="layui-icon layui-icon-delete"></i> ${commonStr.delAll}</button>
 						</div>
 					</div>
 				</form>
@@ -50,20 +54,28 @@
 							<td style="width: 50%;">${basic.value}</td>
 							<td>
 								<div class="layui-inline">
-									<button type="button" class="layui-btn layui-btn-sm " onclick="edit('${basic.id}')">${commonStr.edit}</button>
+									<button type="button" class="layui-btn layui-btn-sm " onclick="edit('${basic.id}')"><i class="layui-icon layui-icon-edit"></i> ${commonStr.edit}</button>
 								</div>
 								<div class="layui-inline">
-									<button type="button" class="layui-btn layui-btn-danger layui-btn-sm " onclick="del('${basic.id}')">${commonStr.del}</button>
+									<button type="button" class="layui-btn layui-btn-danger layui-btn-sm " onclick="del('${basic.id}')"><i class="layui-icon layui-icon-delete"></i> ${commonStr.del}</button>
 								</div>
 								<div class="layui-inline">
-									<button type="button" class="layui-btn layui-btn-normal layui-btn-sm " onclick="setOrder('${basic.id}', -1)">${commonStr.up}</button>
+									<button type="button" class="layui-btn layui-btn-normal layui-btn-sm " onclick="setOrder('${basic.id}', -1)"><i class="layui-icon layui-icon-up"></i> ${commonStr.up}</button>
 								</div>
 								<div class="layui-inline">
-									<button type="button" class="layui-btn layui-btn-normal layui-btn-sm " onclick="setOrder('${basic.id}', 1)">${commonStr.down}</button>
+									<button type="button" class="layui-btn layui-btn-normal layui-btn-sm " onclick="setOrder('${basic.id}', 1)"><i class="layui-icon layui-icon-down"></i> ${commonStr.down}</button>
 								</div>
 							</td>
 						</tr>
 						</#list>
+						<#if basicList?size == 0>
+						<tr>
+							<td colspan="99" class="empty-state">
+								<i class="layui-icon layui-icon-face-surprised"></i>
+								<p>${commonStr.noData}</p>
+							</td>
+						</tr>
+						</#if>
 					</tbody>
 				</table>
 

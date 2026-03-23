@@ -59,6 +59,12 @@ input[type='radio']{
 				<fieldset class="layui-elem-field layui-field-title">
 					<legend>${menuStr.conf}</legend>
 				</fieldset>
+
+				<span class="layui-breadcrumb" style="margin-bottom:15px;display:block;">
+					<a href="${ctx}/adminPage/monitor">${commonStr.home}</a>
+					<a><cite>${menuStr.conf}</cite></a>
+				</span>
+
 				<form id="addForm">
 					<div class="layui-form">
 						<div>
@@ -85,26 +91,26 @@ input[type='radio']{
 
 						<div style="margin-top: 20px;">
 							<div class="layui-inline">
-								<button type="button" class="layui-btn layui-btn-sm" onclick="diffUsingJS()">${confStr.compare}</button>
+								<button type="button" class="layui-btn layui-btn-sm" onclick="diffUsingJS()"><i class="layui-icon layui-icon-spread-left"></i> ${confStr.compare}</button>
 							</div>
 							
 							<div class="layui-inline">
-								<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="check()">${confStr.verifyFile}</button>
+								<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="check()"><i class="layui-icon layui-icon-ok-circle"></i> ${confStr.verifyFile}</button>
 							</div>
 							
 							<div class="layui-inline">
-								<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="replace()">${confStr.replaceFile}</button>
+								<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="replace()"><i class="layui-icon layui-icon-refresh"></i> ${confStr.replaceFile}</button>
 							</div>
 							
 							<div class="layui-inline">
-								<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="reload()">${confStr.reload}</button>
+								<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="reload()"><i class="layui-icon layui-icon-refresh"></i> ${confStr.reload}</button>
 							</div>
 
 							<div class="layui-inline" id="editModeBtn">
-								<button type="button" class="layui-btn layui-btn-sm layui-btn-warm" onclick="enterEditMode()">${confStr.editMode}</button>
+								<button type="button" class="layui-btn layui-btn-sm layui-btn-warm" onclick="enterEditMode()"><i class="layui-icon layui-icon-edit"></i> ${confStr.editMode}</button>
 							</div>
 							<div class="layui-inline" id="exitEditBtn" style="display:none;">
-								<button type="button" class="layui-btn layui-btn-sm layui-btn-danger" onclick="exitEditMode()">${confStr.exitEdit}</button>
+								<button type="button" class="layui-btn layui-btn-sm layui-btn-danger" onclick="exitEditMode()"><i class="layui-icon layui-icon-close"></i> ${confStr.exitEdit}</button>
 							</div>
 
 							<div class="layui-inline">
@@ -115,16 +121,16 @@ input[type='radio']{
 							</div>
 
 							<div class="layui-inline" style="margin-left: 20px;">
-								<button type="button" class="layui-btn layui-btn-sm" onclick="runCmd('cmdStart')">${confStr.start}</button>
+								<button type="button" class="layui-btn layui-btn-sm" onclick="runCmd('cmdStart')"><i class="layui-icon layui-icon-play"></i> ${confStr.start}</button>
 							</div>
 							<div class="layui-inline">
-								<button type="button" class="layui-btn layui-btn-sm" onclick="runCmd('cmdStop')">${confStr.stop}</button>
+								<button type="button" class="layui-btn layui-btn-sm" onclick="runCmd('cmdStop')"><i class="layui-icon layui-icon-pause"></i> ${confStr.stop}</button>
 							</div>
 							<div class="layui-inline">
 								<label class="layui-form-label" style="width: 150px;" id="nginxStatus"></label>
 							</div>
 							<div class="layui-input-inline" >
-								<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="showBak()">${bakStr.bakFile}</button>
+								<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="showBak()"><i class="layui-icon layui-icon-file-b"></i> ${bakStr.bakFile}</button>
 							</div>
 
 						</div>
@@ -196,8 +202,8 @@ input[type='radio']{
 				</div>
 
 				<div class="layui-form-item" style="text-align: center;">
-					<button type="button" class="layui-btn layui-btn-normal" onclick="runCmdOver()">${commonStr.submit}</button>
-					<button type="button" class="layui-btn" onclick="layer.closeAll()">${commonStr.close}</button>
+					<button type="button" class="layui-btn layui-btn-normal" onclick="runCmdOver()"><i class="layui-icon layui-icon-ok"></i> ${commonStr.submit}</button>
+					<button type="button" class="layui-btn" onclick="layer.closeAll()"><i class="layui-icon layui-icon-close"></i> ${commonStr.close}</button>
 				</div>
 			</div>
 		</div>

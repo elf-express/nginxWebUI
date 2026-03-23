@@ -26,14 +26,19 @@
 					<legend>${menuStr.admin}</legend>
 				</fieldset>
 
+				<span class="layui-breadcrumb" style="margin-bottom:15px;display:block;">
+					<a href="${ctx}/adminPage/monitor">${commonStr.home}</a>
+					<a><cite>${menuStr.admin}</cite></a>
+				</span>
+
 				<form action="${ctx}/adminPage/admin" id="searchForm" method="post">
 					<div class="layui-form">
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="add()">${adminStr.add}</button>
+							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="add()"><i class="layui-icon layui-icon-add-circle-fine"></i> ${adminStr.add}</button>
 						</div>
 						
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="delMany()">${commonStr.delAll}</button>
+							<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="delMany()"><i class="layui-icon layui-icon-delete"></i> ${commonStr.delAll}</button>
 						</div>
 
 						<div class="layui-inline">
@@ -69,6 +74,14 @@
 						</tr>
 					</thead>
 					<tbody>
+						<#if page.records?size == 0>
+						<tr>
+							<td colspan="99" class="empty-state">
+								<i class="layui-icon layui-icon-face-surprised"></i>
+								<p>${commonStr.noData}</p>
+							</td>
+						</tr>
+						</#if>
 						<#list page.records as admin>
 						<tr>
 							<td>
@@ -82,15 +95,15 @@
 							<td><#if admin.type==0> ${adminStr.adminUser} </#if> <#if admin.type==1> ${adminStr.limitUser} </#if> </td>
 							<td>
 								<div class="layui-inline">
-									<button type="button" class="layui-btn layui-btn-sm" onclick="edit('${admin.id}')">${commonStr.edit}</button>
+									<button type="button" class="layui-btn layui-btn-sm" onclick="edit('${admin.id}')"><i class="layui-icon layui-icon-edit"></i> ${commonStr.edit}</button>
 								</div>
 								
 								<div class="layui-inline">
-									<button type="button" class="layui-btn layui-btn-sm" onclick="changePass('${admin.id}')">${commonStr.editPass}</button>
+									<button type="button" class="layui-btn layui-btn-sm" onclick="changePass('${admin.id}')"><i class="layui-icon layui-icon-edit"></i> ${commonStr.editPass}</button>
 								</div>
 								
 								<div class="layui-inline">
-									<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="del('${admin.id}')">${commonStr.del}</button>
+									<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="del('${admin.id}')"><i class="layui-icon layui-icon-delete"></i> ${commonStr.del}</button>
 								</div>
 							</td>
 						</tr>
@@ -145,13 +158,13 @@
 				</div>
 
 				<div class="layui-form-item center">
-					<button type="button" class="layui-btn layui-btn-normal" onclick="addOver()">${commonStr.submit}</button>
-					<button type="button" class="layui-btn" onclick="layer.closeAll()">${commonStr.close}</button>
+					<button type="button" class="layui-btn layui-btn-normal" onclick="addOver()"><i class="layui-icon layui-icon-ok"></i> ${commonStr.submit}</button>
+					<button type="button" class="layui-btn" onclick="layer.closeAll()"><i class="layui-icon layui-icon-close"></i> ${commonStr.close}</button>
 				</div>
 			</form>
 		</div>
-		
-		
+
+
 		<div class="layui-form" id="passDiv" style="padding: 15px; display: none">
 			<form id="passForm">
 				<input type="hidden" name="id" id="idPass">
@@ -182,8 +195,8 @@
 				
 				
 				<div class="layui-form-item center">
-					<button type="button" class="layui-btn layui-btn-normal" onclick="changePassOver()">${commonStr.submit}</button>
-					<button type="button" class="layui-btn" onclick="layer.closeAll()">${commonStr.close}</button>
+					<button type="button" class="layui-btn layui-btn-normal" onclick="changePassOver()"><i class="layui-icon layui-icon-ok"></i> ${commonStr.submit}</button>
+					<button type="button" class="layui-btn" onclick="layer.closeAll()"><i class="layui-icon layui-icon-close"></i> ${commonStr.close}</button>
 				</div>
 			</form>
 		</div>
@@ -204,8 +217,8 @@
 
 			<div class="layui-form-item center" style="text-align: right;">
 				<input type="hidden" id="key">
-				<button type="button" class="layui-btn layui-btn-normal" onclick="testOver()">${commonStr.submit}</button>
-				<button type="button" class="layui-btn" onclick="layer.close(codeIndex)">${commonStr.close}</button>
+				<button type="button" class="layui-btn layui-btn-normal" onclick="testOver()"><i class="layui-icon layui-icon-ok"></i> ${commonStr.submit}</button>
+				<button type="button" class="layui-btn" onclick="layer.close(codeIndex)"><i class="layui-icon layui-icon-close"></i> ${commonStr.close}</button>
 			</div>
 		</div>
 

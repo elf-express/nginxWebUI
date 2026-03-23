@@ -24,9 +24,14 @@ table.diff {
 					<legend>${menuStr.operateLog}</legend>
 				</fieldset>
 
+				<span class="layui-breadcrumb" style="margin-bottom:15px;display:block;">
+					<a href="${ctx}/adminPage/monitor">${commonStr.home}</a>
+					<a><cite>${menuStr.operateLog}</cite></a>
+				</span>
+
 				<form action="${ctx}/adminPage/operateLog" id="searchForm" method="post">
 					<div class="layui-inline">
-						<button type="button" class="layui-btn layui-btn-sm layui-btn-danger" onclick="delAll()">${operateLogStr.clear}</button>
+						<button type="button" class="layui-btn layui-btn-sm layui-btn-danger" onclick="delAll()"><i class="layui-icon layui-icon-delete"></i> ${operateLogStr.clear}</button>
 					</div>
 				
 					<input type="hidden" name="curr" value="${page.curr}">
@@ -53,6 +58,14 @@ table.diff {
 							</td>
 						</tr>
 						</#list>
+						<#if page.records?size == 0>
+						<tr>
+							<td colspan="99" class="empty-state">
+								<i class="layui-icon layui-icon-face-surprised"></i>
+								<p>${commonStr.noData}</p>
+							</td>
+						</tr>
+						</#if>
 					</tbody>
 				</table>
 				<div id="pageInfo"></div>

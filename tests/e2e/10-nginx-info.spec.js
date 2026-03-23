@@ -32,6 +32,6 @@ test.describe('Nginx 資訊顯示', () => {
     await page.waitForSelector('.layui-elem-field', { timeout: 10000 });
 
     const title = await page.title();
-    expect(title).toContain('nginxWebUI');
+    expect(title).toContain('Nginx Web UI');
   });
 });

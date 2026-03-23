@@ -54,6 +54,12 @@ input[type='radio'] {
 			<fieldset class="layui-elem-field layui-field-title">
 				<legend>SSO-OAuth2.0配置</legend>
 			</fieldset>
+
+			<span class="layui-breadcrumb" style="margin-bottom:15px;display:block;">
+				<a href="${ctx}/adminPage/monitor">${commonStr.home}</a>
+				<a><cite>SSO-OAuth2.0</cite></a>
+			</span>
+
 			<form id="addForm" style="margin-top: 48px">
 
 				<div class="layui-form-item">
@@ -108,7 +114,7 @@ input[type='radio'] {
 
 
 				<div class="layui-form-item center">
-					<button type="button" class="layui-btn layui-btn-normal" onclick="save()">${commonStr.submit}</button>
+					<button type="button" class="layui-btn layui-btn-normal" onclick="save()"><i class="layui-icon layui-icon-ok"></i> ${commonStr.submit}</button>
 				</div>
 			</form>
 

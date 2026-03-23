@@ -13,6 +13,10 @@
 		<div class="layui-body">
 			<!-- 内容主体区域 -->
 			<div style="padding: 15px">
+				<span class="layui-breadcrumb" style="margin-bottom:15px;display:block;">
+					<a href="${ctx}/adminPage/monitor">${commonStr.home}</a>
+					<a><cite>${menuStr.siteResource}</cite></a>
+				</span>
 				<div class="layui-tab layui-tab-brief" lay-filter="siteResTab">
 					<ul class="layui-tab-title">
 						<li class="layui-this">${menuStr.www}</li>
@@ -23,10 +27,10 @@
 						<div class="layui-tab-item layui-show">
 							<div class="layui-form">
 								<div class="layui-inline">
-									<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="wwwNS.add()">${wwwStr.add}</button>
+									<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="wwwNS.add()"><i class="layui-icon layui-icon-add-circle-fine"></i> ${wwwStr.add}</button>
 								</div>
 								<div class="layui-inline">
-									<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="wwwNS.delMany()">${commonStr.delAll}</button>
+									<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="wwwNS.delMany()"><i class="layui-icon layui-icon-delete"></i> ${commonStr.delAll}</button>
 								</div>
 							</div>
 
@@ -58,17 +62,25 @@
 										</td>
 										<td>
 											<div class="layui-inline">
-												<button type="button" class="layui-btn layui-btn-sm" onclick="wwwNS.clean('${www.id}')">${wwwStr.clean}</button>
+												<button type="button" class="layui-btn layui-btn-sm" onclick="wwwNS.clean('${www.id}')"><i class="layui-icon layui-icon-delete"></i> ${wwwStr.clean}</button>
 											</div>
 											<div class="layui-inline">
-												<button type="button" class="layui-btn layui-btn-sm" onclick="wwwNS.edit('${www.id}')">${wwwStr.editOrUpdate}</button>
+												<button type="button" class="layui-btn layui-btn-sm" onclick="wwwNS.edit('${www.id}')"><i class="layui-icon layui-icon-edit"></i> ${wwwStr.editOrUpdate}</button>
 											</div>
 											<div class="layui-inline">
-												<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="wwwNS.del('${www.id}')">${commonStr.del}</button>
+												<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="wwwNS.del('${www.id}')"><i class="layui-icon layui-icon-delete"></i> ${commonStr.del}</button>
 											</div>
 										</td>
 									</tr>
 									</#list>
+									<#if wwwList?size == 0>
+									<tr>
+										<td colspan="99" class="empty-state">
+											<i class="layui-icon layui-icon-face-surprised"></i>
+											<p>${commonStr.noData}</p>
+										</td>
+									</tr>
+									</#if>
 								</tbody>
 							</table>
 						</div>
@@ -78,10 +90,10 @@
 							<form action="${ctx}/adminPage/siteResource" id="pwdSearchForm" method="post">
 								<div class="layui-form">
 									<div class="layui-inline">
-										<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="pwdNS.add()">${commonStr.add}</button>
+										<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="pwdNS.add()"><i class="layui-icon layui-icon-add-circle-fine"></i> ${commonStr.add}</button>
 									</div>
 									<div class="layui-inline">
-										<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="pwdNS.delMany()">${commonStr.delAll}</button>
+										<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="pwdNS.delMany()"><i class="layui-icon layui-icon-delete"></i> ${commonStr.delAll}</button>
 									</div>
 
 									<input type="hidden" name="curr" value="${pwdPage.curr}">
@@ -112,14 +124,22 @@
 										<td>${password.path}</td>
 										<td>
 											<div class="layui-inline">
-												<button type="button" class="layui-btn layui-btn-sm" onclick="pwdNS.edit('${password.id}')">${commonStr.edit}</button>
+												<button type="button" class="layui-btn layui-btn-sm" onclick="pwdNS.edit('${password.id}')"><i class="layui-icon layui-icon-edit"></i> ${commonStr.edit}</button>
 											</div>
 											<div class="layui-inline">
-												<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="pwdNS.del('${password.id}')">${commonStr.del}</button>
+												<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="pwdNS.del('${password.id}')"><i class="layui-icon layui-icon-delete"></i> ${commonStr.del}</button>
 											</div>
 										</td>
 									</tr>
 									</#list>
+									<#if pwdPage.records?size == 0>
+									<tr>
+										<td colspan="99" class="empty-state">
+											<i class="layui-icon layui-icon-face-surprised"></i>
+											<p>${commonStr.noData}</p>
+										</td>
+									</tr>
+									</#if>
 								</tbody>
 							</table>
 							<div id="pwdPageInfo"></div>
@@ -164,8 +184,8 @@
 				</div>
 
 				<div class="layui-form-item center">
-					<button type="button" class="layui-btn layui-btn-normal" onclick="wwwNS.addOver()">${commonStr.submit}</button>
-					<button type="button" class="layui-btn" onclick="layer.closeAll()">${commonStr.close}</button>
+					<button type="button" class="layui-btn layui-btn-normal" onclick="wwwNS.addOver()"><i class="layui-icon layui-icon-ok"></i> ${commonStr.submit}</button>
+					<button type="button" class="layui-btn" onclick="layer.closeAll()"><i class="layui-icon layui-icon-close"></i> ${commonStr.close}</button>
 				</div>
 			</form>
 		</div>
@@ -179,8 +199,8 @@
 				</div>
 			</div>
 			<div class="layui-form-item center">
-				<button type="button" class="layui-btn layui-btn-normal" onclick="wwwNS.editDescrOver()">${commonStr.ok}</button>
-				<button type="button" class="layui-btn" onclick="layer.closeAll()">${commonStr.close}</button>
+				<button type="button" class="layui-btn layui-btn-normal" onclick="wwwNS.editDescrOver()"><i class="layui-icon layui-icon-ok"></i> ${commonStr.ok}</button>
+				<button type="button" class="layui-btn" onclick="layer.closeAll()"><i class="layui-icon layui-icon-close"></i> ${commonStr.close}</button>
 			</div>
 		</div>
 
@@ -211,8 +231,8 @@
 				</div>
 
 				<div class="layui-form-item center">
-					<button type="button" class="layui-btn layui-btn-normal" onclick="pwdNS.addOver()">${commonStr.submit}</button>
-					<button type="button" class="layui-btn" onclick="layer.closeAll()">${commonStr.close}</button>
+					<button type="button" class="layui-btn layui-btn-normal" onclick="pwdNS.addOver()"><i class="layui-icon layui-icon-ok"></i> ${commonStr.submit}</button>
+					<button type="button" class="layui-btn" onclick="layer.closeAll()"><i class="layui-icon layui-icon-close"></i> ${commonStr.close}</button>
 				</div>
 			</form>
 		</div>

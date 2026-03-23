@@ -30,28 +30,33 @@
 					<legend>${menuStr.remote}</legend>
 				</fieldset>
 
+				<span class="layui-breadcrumb" style="margin-bottom:15px;display:block;">
+					<a href="${ctx}/adminPage/monitor">${commonStr.home}</a>
+					<a><cite>${menuStr.remote}</cite></a>
+				</span>
+
 				<form action="${ctx}/adminPage/remote" id="searchForm" method="post">
 					<div class="layui-form">
 						<#if admin.type==0>
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="add()">${remoteStr.add}</button>
+							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="add()"><i class="layui-icon layui-icon-add-circle-fine"></i> ${remoteStr.add}</button>
 						</div>
 
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm" onclick="addGroup()">${remoteStr.addGroup}</button>
+							<button type="button" class="layui-btn layui-btn-sm" onclick="addGroup()"><i class="layui-icon layui-icon-add-circle-fine"></i> ${remoteStr.addGroup}</button>
 						</div>
 						</#if>
 
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm" onclick="cmdGroup()">${remoteStr.cmdGroup}</button>
+							<button type="button" class="layui-btn layui-btn-sm" onclick="cmdGroup()"><i class="layui-icon layui-icon-console"></i> ${remoteStr.cmdGroup}</button>
 						</div>
 
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="asycSelect()">${remoteStr.asycSelect}</button>
+							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="asycSelect()"><i class="layui-icon layui-icon-refresh"></i> ${remoteStr.asycSelect}</button>
 						</div>
 
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="nginxMonitor()">${remoteStr.nginxMonitor}</button>
+							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="nginxMonitor()"><i class="layui-icon layui-icon-chart-screen"></i> ${remoteStr.nginxMonitor}</button>
 						</div>
 
 						<div class="layui-inline">
@@ -138,8 +143,8 @@
 				<div class="layui-form-item center">
 					<input type="hidden" name="code" id="code">
 					<input type="hidden" name="auth" id="auth">
-					<button type="button" class="layui-btn layui-btn-normal" onclick="addOver()">${commonStr.submit}</button>
-					<button type="button" class="layui-btn" onclick="layer.closeAll()">${commonStr.close}</button>
+					<button type="button" class="layui-btn layui-btn-normal" onclick="addOver()"><i class="layui-icon layui-icon-ok"></i> ${commonStr.submit}</button>
+					<button type="button" class="layui-btn" onclick="layer.closeAll()"><i class="layui-icon layui-icon-close"></i> ${commonStr.close}</button>
 				</div>
 			</form>
 		</div>
@@ -164,8 +169,8 @@
 				</div>
 
 				<div class="layui-form-item center">
-					<button type="button" class="layui-btn layui-btn-normal" onclick="addGroupOver()">${commonStr.submit}</button>
-					<button type="button" class="layui-btn" onclick="layer.closeAll()">${commonStr.close}</button>
+					<button type="button" class="layui-btn layui-btn-normal" onclick="addGroupOver()"><i class="layui-icon layui-icon-ok"></i> ${commonStr.submit}</button>
+					<button type="button" class="layui-btn" onclick="layer.closeAll()"><i class="layui-icon layui-icon-close"></i> ${commonStr.close}</button>
 				</div>
 			</form>
 		</div>
@@ -205,8 +210,8 @@
 
 				<div class="layui-form-item center">
 					<button type="button" class="layui-btn layui-bg-orange" onclick="selectAll()">${remoteStr.selectAll}</button>
-					<button type="button" class="layui-btn layui-btn-normal" onclick="asycOver()">${remoteStr.asyc}</button>
-					<button type="button" class="layui-btn" onclick="layer.closeAll()">${commonStr.close}</button>
+					<button type="button" class="layui-btn layui-btn-normal" onclick="asycOver()"><i class="layui-icon layui-icon-refresh"></i> ${remoteStr.asyc}</button>
+					<button type="button" class="layui-btn" onclick="layer.closeAll()"><i class="layui-icon layui-icon-close"></i> ${commonStr.close}</button>
 				</div>
 			</form>
 		</div>
@@ -238,8 +243,8 @@
 			</div>
 
 			<div class="layui-form-item center">
-				<button type="button" class="layui-btn layui-btn-normal" onclick="nginxOver()">${commonStr.ok}</button>
-				<button type="button" class="layui-btn" onclick="layer.closeAll()">${commonStr.close}</button>
+				<button type="button" class="layui-btn layui-btn-normal" onclick="nginxOver()"><i class="layui-icon layui-icon-ok"></i> ${commonStr.ok}</button>
+				<button type="button" class="layui-btn" onclick="layer.closeAll()"><i class="layui-icon layui-icon-close"></i> ${commonStr.close}</button>
 			</div>
 		</div>
 
@@ -286,8 +291,8 @@
 
 
 				<div class="layui-form-item center">
-					<button type="button" class="layui-btn layui-btn-normal" onclick="cmdOver()">${remoteStr.execute}</button>
-					<button type="button" class="layui-btn" onclick="layer.closeAll()">${commonStr.close}</button>
+					<button type="button" class="layui-btn layui-btn-normal" onclick="cmdOver()"><i class="layui-icon layui-icon-ok"></i> ${remoteStr.execute}</button>
+					<button type="button" class="layui-btn" onclick="layer.closeAll()"><i class="layui-icon layui-icon-close"></i> ${commonStr.close}</button>
 				</div>
 			</form>
 		</div>
@@ -309,8 +314,8 @@
 			</div>
 
 			<div class="layui-form-item center" style="text-align: right;">
-				<button type="button" class="layui-btn layui-btn-normal" onclick="addOverSubmit()">${commonStr.submit}</button>
-				<button type="button" class="layui-btn" onclick="layer.close(codeIndex)">${commonStr.close}</button>
+				<button type="button" class="layui-btn layui-btn-normal" onclick="addOverSubmit()"><i class="layui-icon layui-icon-ok"></i> ${commonStr.submit}</button>
+				<button type="button" class="layui-btn" onclick="layer.close(codeIndex)"><i class="layui-icon layui-icon-close"></i> ${commonStr.close}</button>
 			</div>
 		</div>
 

@@ -70,6 +70,10 @@
 <#include "/adminPage/menu.html"/>
 <div class="layui-body">
 	<div style="padding: 15px">
+		<span class="layui-breadcrumb" style="margin-bottom:15px;display:block;">
+			<a href="${ctx}/adminPage/monitor">${commonStr.home}</a>
+			<a><cite>${menuStr.protectionCert}</cite></a>
+		</span>
 		<div class="layui-tab layui-tab-brief" lay-filter="protCertTab">
 			<ul class="layui-tab-title">
 				<li class="layui-this">${menuStr.denyAllow}</li>
@@ -82,10 +86,10 @@
 				<div class="layui-tab-item layui-show">
 					<form action="${ctx}/adminPage/protectionCert" id="daSearchForm" method="post">
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="denyAllowNS.add()">${commonStr.add}</button>
+							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="denyAllowNS.add()"><i class="layui-icon layui-icon-add-circle-fine"></i> ${commonStr.add}</button>
 						</div>
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="denyAllowNS.delMany()">${commonStr.delAll}</button>
+							<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="denyAllowNS.delMany()"><i class="layui-icon layui-icon-delete"></i> ${commonStr.delAll}</button>
 						</div>
 						<input type="hidden" name="curr" value="${daPage.curr}">
 						<input type="hidden" name="limit" value="${daPage.limit}">
@@ -122,14 +126,22 @@
 								</td>
 								<td>
 									<div class="layui-inline">
-										<button type="button" class="layui-btn layui-btn-sm" onclick="denyAllowNS.edit('${ext.denyAllow.id}')">${commonStr.edit}</button>
+										<button type="button" class="layui-btn layui-btn-sm" onclick="denyAllowNS.edit('${ext.denyAllow.id}')"><i class="layui-icon layui-icon-edit"></i> ${commonStr.edit}</button>
 									</div>
 									<div class="layui-inline">
-										<button type="button" class="layui-btn layui-btn-sm layui-btn-danger" onclick="denyAllowNS.del('${ext.denyAllow.id}')">${commonStr.del}</button>
+										<button type="button" class="layui-btn layui-btn-sm layui-btn-danger" onclick="denyAllowNS.del('${ext.denyAllow.id}')"><i class="layui-icon layui-icon-delete"></i> ${commonStr.del}</button>
 									</div>
 								</td>
 							</tr>
 							</#list>
+							<#if daPage.records?size == 0>
+							<tr>
+								<td colspan="99" class="empty-state">
+									<i class="layui-icon layui-icon-face-surprised"></i>
+									<p>${commonStr.noData}</p>
+								</td>
+							</tr>
+							</#if>
 						</tbody>
 					</table>
 					<div id="daPageInfo"></div>
@@ -165,8 +177,8 @@
 							</div>
 						</div>
 						<div class="layui-form-item" style="text-align:center;">
-							<button type="button" class="layui-btn layui-btn-normal" onclick="saveGeoRule()">${commonStr.submit}</button>
-							<button type="button" class="layui-btn layui-btn-danger" onclick="clearGeoRule()">${geoStr.clearAll}</button>
+							<button type="button" class="layui-btn layui-btn-normal" onclick="saveGeoRule()"><i class="layui-icon layui-icon-ok"></i> ${commonStr.submit}</button>
+							<button type="button" class="layui-btn layui-btn-danger" onclick="clearGeoRule()"><i class="layui-icon layui-icon-delete"></i> ${geoStr.clearAll}</button>
 						</div>
 					</div>
 				</div>
@@ -176,10 +188,10 @@
 					<form action="${ctx}/adminPage/protectionCert" id="certSearchForm" method="post">
 						<div class="layui-form">
 							<div class="layui-inline">
-								<button type="button" class="layui-btn layui-btn-normal layui-btn-sm" onclick="certNS.add()">${certStr.add}</button>
+								<button type="button" class="layui-btn layui-btn-normal layui-btn-sm" onclick="certNS.add()"><i class="layui-icon layui-icon-add-circle-fine"></i> ${certStr.add}</button>
 							</div>
 							<div class="layui-inline">
-								<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="certNS.delMany()">${commonStr.delAll}</button>
+								<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="certNS.delMany()"><i class="layui-icon layui-icon-delete"></i> ${commonStr.delAll}</button>
 							</div>
 							<div class="layui-inline">
 								<input type="text" name="certKeywords" class="layui-input layui-input-sm" value="${certKeywords}">
@@ -276,7 +288,7 @@
 									</#if>
 
 									<div class="layui-inline">
-										<button type="button" class="layui-btn layui-btn-sm" onclick="certNS.edit('${cert.id}')">${commonStr.edit}</button>
+										<button type="button" class="layui-btn layui-btn-sm" onclick="certNS.edit('${cert.id}')"><i class="layui-icon layui-icon-edit"></i> ${commonStr.edit}</button>
 									</div>
 
 									<#if cert.pem!=null && cert.pem!='' && cert.key!=null&& cert.key!=''>
@@ -289,11 +301,19 @@
 										<button type="button" class="layui-btn layui-btn-sm" onclick="certNS.clone('${cert.id}')">${commonStr.clone}</button>
 									</div>
 									<div class="layui-inline">
-										<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="certNS.del('${cert.id}')">${commonStr.del}</button>
+										<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="certNS.del('${cert.id}')"><i class="layui-icon layui-icon-delete"></i> ${commonStr.del}</button>
 									</div>
 								</td>
 							</tr>
 							</#list>
+							<#if certPage.records?size == 0>
+							<tr>
+								<td colspan="99" class="empty-state">
+									<i class="layui-icon layui-icon-face-surprised"></i>
+									<p>${commonStr.noData}</p>
+								</td>
+							</tr>
+							</#if>
 						</tbody>
 					</table>
 					<div id="certPageInfo"></div>
@@ -346,8 +366,8 @@
 			</div>
 
 			<div class="layui-form-item center">
-				<button type="button" class="layui-btn layui-btn-normal" onclick="denyAllowNS.addOver()">${commonStr.submit}</button>
-				<button type="button" class="layui-btn" onclick="layer.closeAll()">${commonStr.close}</button>
+				<button type="button" class="layui-btn layui-btn-normal" onclick="denyAllowNS.addOver()"><i class="layui-icon layui-icon-ok"></i> ${commonStr.submit}</button>
+				<button type="button" class="layui-btn" onclick="layer.closeAll()"><i class="layui-icon layui-icon-close"></i> ${commonStr.close}</button>
 			</div>
 		</form>
 	</div>
@@ -362,8 +382,8 @@
 			<span style="color:#999;font-size:12px;">${denyAllowStr.importFile} (.txt / .csv)</span>
 		</div>
 		<div class="layui-form-item center">
-			<button type="button" class="layui-btn layui-btn-normal" onclick="denyAllowNS.doBatchImport()">${commonStr.submit}</button>
-			<button type="button" class="layui-btn" onclick="denyAllowNS.closeBatch()">${commonStr.close}</button>
+			<button type="button" class="layui-btn layui-btn-normal" onclick="denyAllowNS.doBatchImport()"><i class="layui-icon layui-icon-ok"></i> ${commonStr.submit}</button>
+			<button type="button" class="layui-btn" onclick="denyAllowNS.closeBatch()"><i class="layui-icon layui-icon-close"></i> ${commonStr.close}</button>
 		</div>
 	</div>
 
@@ -564,7 +584,7 @@
 				<div class="layui-form-item">
 					<label class="layui-form-label">pem ${commonStr.file}</label>
 					<div class="layui-input-block">
-						<button type="button" class="layui-btn layui-btn-sm liteBtn" style="width: 90px;" id="pemBtn">${commonStr.upload} pem</button>
+						<button type="button" class="layui-btn layui-btn-sm liteBtn" style="width: 90px;" id="pemBtn"><i class="layui-icon layui-icon-upload"></i> ${commonStr.upload} pem</button>
 						<button type="button" class="layui-btn layui-btn-sm layui-btn-normal liteBtn" onclick="certNS.selectPem()">${commonStr.selectPath}</button>
 						<input type="hidden" name="pem" id="pem" class="layui-input">
 						<div class="layui-form-mid layui-word-aux" id="pemPath"></div>
@@ -573,7 +593,7 @@
 				<div class="layui-form-item">
 					<label class="layui-form-label">key ${commonStr.file}</label>
 					<div class="layui-input-block">
-						<button type="button" class="layui-btn layui-btn-sm liteBtn" style="width: 90px;" id="keyBtn">${commonStr.upload} key</button>
+						<button type="button" class="layui-btn layui-btn-sm liteBtn" style="width: 90px;" id="keyBtn"><i class="layui-icon layui-icon-upload"></i> ${commonStr.upload} key</button>
 						<button type="button" class="layui-btn layui-btn-sm layui-btn-normal liteBtn" onclick="certNS.selectKey()">${commonStr.selectPath}</button>
 						<input type="hidden" name="key" id="key" class="layui-input">
 						<div class="layui-form-mid layui-word-aux" id="keyPath"></div>
@@ -594,8 +614,8 @@
 			</div>
 
 			<div class="layui-form-item center">
-				<button type="button" class="layui-btn layui-btn-normal" onclick="certNS.addOver()">${commonStr.submit}</button>
-				<button type="button" class="layui-btn" onclick="layer.closeAll()">${commonStr.close}</button>
+				<button type="button" class="layui-btn layui-btn-normal" onclick="certNS.addOver()"><i class="layui-icon layui-icon-ok"></i> ${commonStr.submit}</button>
+				<button type="button" class="layui-btn" onclick="layer.closeAll()"><i class="layui-icon layui-icon-close"></i> ${commonStr.close}</button>
 			</div>
 		</form>
 	</div>

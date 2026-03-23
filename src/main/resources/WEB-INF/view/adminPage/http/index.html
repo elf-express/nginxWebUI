@@ -30,29 +30,34 @@ input[name='param']{
 					<legend>${menuStr.http}</legend>
 				</fieldset>
 
+				<span class="layui-breadcrumb" style="margin-bottom:15px;display:block;">
+					<a href="${ctx}/adminPage/monitor">${commonStr.home}</a>
+					<a><cite>${menuStr.http}</cite></a>
+				</span>
+
 				<form action="${ctx}/adminPage/http" id="searchForm" method="post">
 					<div class="layui-form">
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="add()">${httpStr.add}</button>
+							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="add()"><i class="layui-icon layui-icon-add-circle-fine"></i> ${httpStr.add}</button>
 						</div>
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm" onclick="guide()">${httpStr.guide}</button>
+							<button type="button" class="layui-btn layui-btn-sm" onclick="guide()"><i class="layui-icon layui-icon-tips"></i> ${httpStr.guide}</button>
 						</div>
 						<div class="layui-inline">
 							<button type="button" class="layui-btn layui-btn-sm" onclick="setDenyAllow()">${serverStr.ipDenyAllow}</button>
 						</div>
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm" onclick="selectTemplateAsHttp()">${upstreamStr.selectTemplateAsParam}</button>
+							<button type="button" class="layui-btn layui-btn-sm" onclick="selectTemplateAsHttp()"><i class="layui-icon layui-icon-template"></i> ${upstreamStr.selectTemplateAsParam}</button>
 						</div>
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm layui-btn-warm" onclick="showBatchInput()">${serverStr.batchInput}</button>
+							<button type="button" class="layui-btn layui-btn-sm layui-btn-warm" onclick="showBatchInput()"><i class="layui-icon layui-icon-list"></i> ${serverStr.batchInput}</button>
 						</div>
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="preview(null,'http')">${commonStr.preview}</button>
+							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="preview(null,'http')"><i class="layui-icon layui-icon-eye"></i> ${commonStr.preview}</button>
 						</div>
 						
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="delMany()">${commonStr.delAll}</button>
+							<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="delMany()"><i class="layui-icon layui-icon-delete"></i> ${commonStr.delAll}</button>
 						</div>
 					</div>
 				</form>
@@ -94,19 +99,19 @@ input[name='param']{
 									</td>
 									<td>
 										<div class="layui-inline">
-										<button type="button" class="layui-btn layui-btn-sm " onclick="edit('${http.id}')">${commonStr.edit}</button>
+										<button type="button" class="layui-btn layui-btn-sm " onclick="edit('${http.id}')"><i class="layui-icon layui-icon-edit"></i> ${commonStr.edit}</button>
 										</div>
 
 										<div class="layui-inline">
-										<button type="button" class="layui-btn layui-btn-danger layui-btn-sm " onclick="del('${http.id}')">${commonStr.del}</button>
+										<button type="button" class="layui-btn layui-btn-danger layui-btn-sm " onclick="del('${http.id}')"><i class="layui-icon layui-icon-delete"></i> ${commonStr.del}</button>
 										</div>
 
 										<div class="layui-inline">
-										<button type="button" class="layui-btn layui-btn-normal layui-btn-sm " onclick="setOrder('${http.id}', -1)">${commonStr.up}</button>
+										<button type="button" class="layui-btn layui-btn-normal layui-btn-sm " onclick="setOrder('${http.id}', -1)"><i class="layui-icon layui-icon-up"></i> ${commonStr.up}</button>
 										</div>
 
 										<div class="layui-inline">
-										<button type="button" class="layui-btn layui-btn-normal layui-btn-sm " onclick="setOrder('${http.id}', 1)">${commonStr.down}</button>
+										<button type="button" class="layui-btn layui-btn-normal layui-btn-sm " onclick="setOrder('${http.id}', 1)"><i class="layui-icon layui-icon-down"></i> ${commonStr.down}</button>
 										</div>
 									</td>
 								</tr>
@@ -142,8 +147,8 @@ input[name='param']{
 				</div>
 
 				<div class="layui-form-item center">
-					<button type="button" class="layui-btn layui-btn-normal" onclick="addOver()">${commonStr.submit}</button>
-					<button type="button" class="layui-btn" onclick="layer.closeAll()">${commonStr.close}</button>
+					<button type="button" class="layui-btn layui-btn-normal" onclick="addOver()"><i class="layui-icon layui-icon-ok"></i> ${commonStr.submit}</button>
+					<button type="button" class="layui-btn" onclick="layer.closeAll()"><i class="layui-icon layui-icon-close"></i> ${commonStr.close}</button>
 				</div>
 			</form>
 		</div>
@@ -274,8 +279,8 @@ input[name='param']{
 				</div>
 				
 				<div class="layui-form-item center" style="margin-bottom:0px;">
-					<button type="button" class="layui-btn layui-btn-normal" onclick="addGiudeOver()">${commonStr.submit}</button>
-					<button type="button" class="layui-btn" onclick="layer.closeAll()">${commonStr.close}</button>
+					<button type="button" class="layui-btn layui-btn-normal" onclick="addGiudeOver()"><i class="layui-icon layui-icon-ok"></i> ${commonStr.submit}</button>
+					<button type="button" class="layui-btn" onclick="layer.closeAll()"><i class="layui-icon layui-icon-close"></i> ${commonStr.close}</button>
 				</div>
 			</form>
 		</div>
@@ -325,8 +330,8 @@ input[name='param']{
 			
 			
 			<div class="layui-form-item center">
-				<button type="button" class="layui-btn layui-btn-normal" onclick="setDenyAllowOver()">${commonStr.ok}</button>
-				<button type="button" class="layui-btn" onclick="layer.closeAll()">${commonStr.close}</button>
+				<button type="button" class="layui-btn layui-btn-normal" onclick="setDenyAllowOver()"><i class="layui-icon layui-icon-ok"></i> ${commonStr.ok}</button>
+				<button type="button" class="layui-btn" onclick="layer.closeAll()"><i class="layui-icon layui-icon-close"></i> ${commonStr.close}</button>
 			</div>
 		</div>
 		
@@ -347,8 +352,8 @@ input[name='param']{
 			<textarea id="batchInputText" class="layui-textarea" rows="10" placeholder="gzip on&#10;keepalive_timeout 65&#10;client_max_body_size 100m"></textarea>
 		</div>
 		<div class="layui-form-item center">
-			<button type="button" class="layui-btn layui-btn-normal" onclick="parseBatchInput()">${serverStr.batchInputConfirm}</button>
-			<button type="button" class="layui-btn" onclick="closeBatchInput()">${commonStr.close}</button>
+			<button type="button" class="layui-btn layui-btn-normal" onclick="parseBatchInput()"><i class="layui-icon layui-icon-ok"></i> ${serverStr.batchInputConfirm}</button>
+			<button type="button" class="layui-btn" onclick="closeBatchInput()"><i class="layui-icon layui-icon-close"></i> ${commonStr.close}</button>
 		</div>
 	</div>
 

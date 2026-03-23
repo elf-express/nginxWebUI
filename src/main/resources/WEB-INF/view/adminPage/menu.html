@@ -5,81 +5,81 @@
 
 			<li class="layui-nav-item layui-nav-itemed">
 				<a class="" href="javascript:;">
-					<span style="color: aqua;" id="localType">
+					<i class="layui-icon layui-icon-engine" style="margin-right:6px;"></i><span style="color: aqua;" id="localType">
 					</span>
 				</a>
 				<dl class="layui-nav-child">
 					<dd style="border-bottom: 1px solid #555;">
-						<a href="${ctx}/adminPage/monitor">${menuStr.monitor}</a>
+						<a href="${ctx}/adminPage/monitor"><i class="layui-icon layui-icon-chart-screen"></i>${menuStr.monitor}</a>
 					</dd>
-					
-					
+
+
 					<dd>
-						<a href="${ctx}/adminPage/basic">${menuStr.basic}</a>
-					</dd>
-					<dd>
-						<a href="${ctx}/adminPage/http">${menuStr.http}</a>
+						<a href="${ctx}/adminPage/basic"><i class="layui-icon layui-icon-set"></i>${menuStr.basic}</a>
 					</dd>
 					<dd>
-						<a href="${ctx}/adminPage/server">${menuStr.server}</a>
+						<a href="${ctx}/adminPage/http"><i class="layui-icon layui-icon-website"></i>${menuStr.http}</a>
 					</dd>
 					<dd>
-						<a href="${ctx}/adminPage/stream">${menuStr.stream}</a>
+						<a href="${ctx}/adminPage/server"><i class="layui-icon layui-icon-transfer"></i>${menuStr.server}</a>
+					</dd>
+					<dd>
+						<a href="${ctx}/adminPage/stream"><i class="layui-icon layui-icon-share"></i>${menuStr.stream}</a>
 					</dd>
 					<dd style="border-bottom: 1px solid #555;">
-						<a href="${ctx}/adminPage/upstream">${menuStr.upstream}</a>
+						<a href="${ctx}/adminPage/upstream"><i class="layui-icon layui-icon-cols"></i>${menuStr.upstream}</a>
 					</dd>
-					
-					
+
+
 					<dd>
-						<a href="${ctx}/adminPage/conf">${menuStr.conf}</a>
+						<a href="${ctx}/adminPage/conf"><i class="layui-icon layui-icon-ok-circle"></i>${menuStr.conf}</a>
 					</dd>
-					
+
 					<dd>
-						<a href="${ctx}/adminPage/template">${menuStr.template}</a>
-					</dd>
-					<dd>
-						<a href="${ctx}/adminPage/siteResource">${menuStr.siteResource}</a>
+						<a href="${ctx}/adminPage/template"><i class="layui-icon layui-icon-template"></i>${menuStr.template}</a>
 					</dd>
 					<dd>
-						<a href="${ctx}/adminPage/protectionCert">${menuStr.protectionCert}</a>
-					</dd>
-					
-					<dd>
-						<a href="${ctx}/adminPage/log">${menuStr.log}</a>
+						<a href="${ctx}/adminPage/siteResource"><i class="layui-icon layui-icon-folder"></i>${menuStr.siteResource}</a>
 					</dd>
 					<dd>
-						<a href="${ctx}/adminPage/operateLog">${menuStr.operateLog}</a>
+						<a href="${ctx}/adminPage/protectionCert"><i class="layui-icon layui-icon-auz"></i>${menuStr.protectionCert}</a>
+					</dd>
+
+					<dd>
+						<a href="${ctx}/adminPage/log"><i class="layui-icon layui-icon-log"></i>${menuStr.log}</a>
 					</dd>
 					<dd>
-						<a href="${ctx}/adminPage/export">${menuStr.export}</a>
+						<a href="${ctx}/adminPage/operateLog"><i class="layui-icon layui-icon-list"></i>${menuStr.operateLog}</a>
 					</dd>
-					
-					
+					<dd>
+						<a href="${ctx}/adminPage/export"><i class="layui-icon layui-icon-export"></i>${menuStr.export}</a>
+					</dd>
+
+
 				</dl>
 			</li>
-			
+
 			<li class="layui-nav-item layui-nav-itemed">
 				<a class="" href="javascript:;">
-					<span style="color: aqua;">${menuStr.remoteTitle}</span>
+					<i class="layui-icon layui-icon-set-fill" style="margin-right:6px;"></i><span style="color: aqua;">${menuStr.remoteTitle}</span>
 				</a>
 				<dl class="layui-nav-child">
 					<dd>
-						<a href="${ctx}/adminPage/remote">${menuStr.remote}</a>
+						<a href="${ctx}/adminPage/remote"><i class="layui-icon layui-icon-console"></i>${menuStr.remote}</a>
 					</dd>
 					<#if admin.type == 0 || showAdmin == 'true'>
 						<dd>
-							<a href="${ctx}/adminPage/admin">${menuStr.admin}</a>
+							<a href="${ctx}/adminPage/admin"><i class="layui-icon layui-icon-group"></i>${menuStr.admin}</a>
 						</dd>
 						<dd>
-							<a href="${ctx}/adminPage/sso">${menuStr.sso}</a>
+							<a href="${ctx}/adminPage/sso"><i class="layui-icon layui-icon-key"></i>${menuStr.sso}</a>
 						</dd>
 					</#if>
 					<dd>
-						<a href="${ctx}/doc/api.html" target="_blank">${menuStr.doc}</a>
+						<a href="${ctx}/doc/api.html" target="_blank"><i class="layui-icon layui-icon-read"></i>${menuStr.doc}</a>
 					</dd>
 					<dd>
-						<a href="${ctx}/adminPage/about">${menuStr.about}</a>
+						<a href="${ctx}/adminPage/about"><i class="layui-icon layui-icon-about"></i>${menuStr.about}</a>
 					</dd>
 				</dl>
 			</li>

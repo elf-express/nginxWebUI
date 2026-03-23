@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const { execFileSync } = require('child_process');
 
-const CONTAINER = 'nginx-webui-5.0.1';
+const CONTAINER = 'nginx-webui-5.0.2';
 
 /**
  * 在容器內執行指令

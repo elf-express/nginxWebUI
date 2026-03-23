@@ -4,7 +4,7 @@ const fs = require('fs');
 const http = require('http');
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
-const JAR_PATH = path.join(PROJECT_ROOT, 'target', 'nginxWebUI-5.0.1.jar');
+const JAR_PATH = path.join(PROJECT_ROOT, 'target', 'nginxWebUI-5.0.2.jar');
 const TEST_DATA_DIR = path.join(__dirname, 'test-data').replace(/\\/g, '/');
 const TEST_PORT = 18080;
 const BASE_URL = `http://localhost:${TEST_PORT}`;

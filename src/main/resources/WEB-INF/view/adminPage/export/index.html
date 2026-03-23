@@ -17,13 +17,18 @@
 					<legend>${menuStr.export}</legend>
 				</fieldset>
 
+				<span class="layui-breadcrumb" style="margin-bottom:15px;display:block;">
+					<a href="${ctx}/adminPage/monitor">${commonStr.home}</a>
+					<a><cite>${menuStr.export}</cite></a>
+				</span>
+
 				<form action="${ctx}/adminPage/export/dataImport" enctype="multipart/form-data" target="uploadTarget" id="dataImport" method="post">
 					<div class="layui-form">
 						<div class="layui-inline">
-							<button type="button" id="dataExport" class="layui-btn layui-btn-sm" onclick="dExport()">${exportStr.dExport}</button>
+							<button type="button" id="dataExport" class="layui-btn layui-btn-sm" onclick="dExport()"><i class="layui-icon layui-icon-export"></i> ${exportStr.dExport}</button>
 						</div>
 						<div class="layui-inline">
-							<button type="button" id="dataImport" class="layui-btn layui-btn-sm" onclick="dImport()">${exportStr.dImport}</button>
+							<button type="button" id="dataImport" class="layui-btn layui-btn-sm" onclick="dImport()"><i class="layui-icon layui-icon-upload"></i> ${exportStr.dImport}</button>
 
 							<div style="display: none;">
 								<input type="file" id="file" name="file" onchange="dImportOver()">
@@ -31,7 +36,7 @@
 						</div>
 						
 						<div class="layui-inline">
-							<button type="button" id="logExport" class="layui-btn layui-btn-sm layui-btn-normal" onclick="lExport()">${exportStr.lExport}</button>
+							<button type="button" id="logExport" class="layui-btn layui-btn-sm layui-btn-normal" onclick="lExport()"><i class="layui-icon layui-icon-export"></i> ${exportStr.lExport}</button>
 						</div>
 					</div>
 				</form>
