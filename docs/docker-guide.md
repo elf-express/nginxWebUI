@@ -139,8 +139,9 @@ ABUSEIPDB_API_KEY=your-api-key-here
 ### 首次部署後設定
 
 1. **登入 Nginx Web UI** — `http://目標IP:8080`
-2. **設定管理員帳號密碼**
-3. **啟用配置** — 校驗 → 替換 → 重新裝載
+   - 預設帳號：`admin` / `Admin123`（由 `.env` 的 `INIT_ADMIN` / `INIT_PASS` 控制）
+   - **⚠️ 首次登入後請立即到「管理員管理」修改密碼**
+2. **啟用配置** — 校驗 → 替換 → 重新裝載
 4. **登入 Grafana** — `http://目標IP:3000`（admin/admin），修改密碼
 5. **確認 CrowdSec**：
    ```bash

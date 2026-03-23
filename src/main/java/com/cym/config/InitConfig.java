@@ -160,8 +160,7 @@ public class InitConfig {
 			// Proxy Headers Hash（避免 warn）
 			https.add(new Http("proxy_headers_hash_max_size", "4096", seq++, "proxy"));
 
-			// ASN 封鎖清單（map：0=放行，1=封鎖）
-			https.add(new Http("map", "$geoip2_data_asn $blocked_asn {\r\n    default 0;\r\n    # 在此加入要封鎖的 ASN 號碼，每行一個\r\n    # 例如: 4134 1;  # China Telecom Backbone\r\n    # 例如: 4837 1;  # China Unicom Backbone\r\n}", seq++, "geoip"));
+			// ASN 封鎖清單改由 AsnRule 表 + ConfService 動態產生 map，不再寫入 Http 表
 
 			// 日誌格式（含真實 IP + GeoIP + ASN）
 			https.add(new Http("log_format", "main '$remote_addr - $remote_user [$time_local] \"$request\" '\r\n                      '$status $body_bytes_sent \"$http_referer\" '\r\n                      '\"$http_user_agent\" \"$geoip2_data_country_code\" \"$geoip2_data_city_name\" \"$geoip2_data_asn\" \"$geoip2_data_asn_org\"'", seq++, "logging"));

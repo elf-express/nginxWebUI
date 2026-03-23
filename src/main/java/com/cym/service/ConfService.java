@@ -20,6 +20,7 @@ import com.cym.config.HomeConfig;
 import com.cym.ext.AsycPack;
 import com.cym.ext.ConfExt;
 import com.cym.ext.ConfFile;
+import com.cym.model.AsnRule;
 import com.cym.model.Bak;
 import com.cym.model.BakSub;
 import com.cym.model.Basic;
@@ -127,6 +128,11 @@ public class ConfService {
 					continue;
 				}
 
+				// 跳過靜態 ASN map 條目（改由 AsnRule 表動態產生）
+				if ("map".equals(http.getName()) && http.getValue() != null && http.getValue().contains("geoip2_data_asn")) {
+					continue;
+				}
+
 				NgxParam ngxParam = new NgxParam();
 				ngxParam.addValue(http.getName().trim() + " " + http.getValue().trim());
 				ngxBlockHttp.addEntry(ngxParam);
@@ -181,6 +187,27 @@ public class ConfService {
 				}
 
 				ngxBlockHttp.addEntry(mapBlock);
+				hasHttp = true;
+			}
+
+			// ASN 封鎖 — 從 AsnRule 表動態產生 map
+			List<AsnRule> asnRules = sqlHelper.findAll(AsnRule.class);
+			boolean hasEnabledAsn = false;
+			NgxBlock asnMapBlock = new NgxBlock();
+			asnMapBlock.addValue("map $geoip2_data_asn $blocked_asn");
+			NgxParam asnDefault = new NgxParam();
+			asnDefault.addValue("default 0");
+			asnMapBlock.addEntry(asnDefault);
+			for (AsnRule asnRule : asnRules) {
+				if (asnRule.getEnable() != null && asnRule.getEnable() && StrUtil.isNotBlank(asnRule.getAsn())) {
+					NgxParam asnParam = new NgxParam();
+					asnParam.addValue(asnRule.getAsn().trim() + " 1");
+					asnMapBlock.addEntry(asnParam);
+					hasEnabledAsn = true;
+				}
+			}
+			if (hasEnabledAsn) {
+				ngxBlockHttp.addEntry(asnMapBlock);
 				hasHttp = true;
 			}
 
