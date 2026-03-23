@@ -1,13 +1,13 @@
 $(function() {
-	form.on('checkbox(checkAll)', function(data) {
-		if (data.elem.checked) {
-			$("input[name='ids']").prop("checked", true)
-		} else {
-			$("input[name='ids']").prop("checked", false)
-		}
-
+	// Per-group checkbox
+	form.on('checkbox(checkGroup)', function(data) {
+		var group = $(data.elem).data('group');
+		$("input[name='ids'][data-group='" + group + "']").prop("checked", data.elem.checked);
 		form.render();
-	});	
+	});
+
+	// Init collapse
+	element.init();
 })
 
 function add() {

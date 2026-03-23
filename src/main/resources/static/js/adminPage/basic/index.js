@@ -7,7 +7,74 @@ $(function() {
 		}
 
 		form.render();
-	});	
+	});
+
+	// ── 模組依賴 ──
+	// key 依賴 value（value 必須先載入）
+	var MODULE_DEPS = {
+		'ngx_stream_geoip2_module.so': 'ngx_stream_module.so',
+		'ngx_http_lua_module.so': 'ndk_http_module.so'
+	};
+
+	// 反向對應：value → [依賴它的 key]
+	var MODULE_DEPENDENTS = {};
+	for (var dep in MODULE_DEPS) {
+		var parent = MODULE_DEPS[dep];
+		if (!MODULE_DEPENDENTS[parent]) {
+			MODULE_DEPENDENTS[parent] = [];
+		}
+		MODULE_DEPENDENTS[parent].push(dep);
+	}
+
+	function sendModuleToggle(id, enable) {
+		$.ajax({
+			type: 'POST',
+			url: ctx + '/adminPage/basic/setModuleEnable',
+			data: { id: id, enable: enable ? 1 : 0 },
+			dataType: 'json',
+			error: function() {
+				layer.alert(commonStr.errorInfo);
+			}
+		});
+	}
+
+	form.on('switch(moduleEnable)', function(data) {
+		var id = data.elem.value;
+		var moduleName = $(data.elem).data('name');
+		var enabling = data.elem.checked;
+
+		// 送出本身的切換
+		sendModuleToggle(id, enabling);
+
+		if (enabling) {
+			// 啟用時：自動啟用依賴模組
+			var depName = MODULE_DEPS[moduleName];
+			if (depName) {
+				var depCheckbox = $("input[name='moduleEnable'][data-name='" + depName + "']");
+				if (depCheckbox.length > 0 && !depCheckbox[0].checked) {
+					depCheckbox[0].checked = true;
+					form.render('checkbox');
+					sendModuleToggle(depCheckbox.val(), true);
+					layer.msg(moduleStr.depAutoEnabled.replace('{0}', depName));
+				}
+			}
+		} else {
+			// 停用時：自動停用相依模組
+			var dependents = MODULE_DEPENDENTS[moduleName];
+			if (dependents) {
+				for (var i = 0; i < dependents.length; i++) {
+					var childName = dependents[i];
+					var childCheckbox = $("input[name='moduleEnable'][data-name='" + childName + "']");
+					if (childCheckbox.length > 0 && childCheckbox[0].checked) {
+						childCheckbox[0].checked = false;
+						form.render('checkbox');
+						sendModuleToggle(childCheckbox.val(), false);
+						layer.msg(moduleStr.depAutoDisabled.replace('{0}', childName));
+					}
+				}
+			}
+		}
+	});
 })
 
 function search() {

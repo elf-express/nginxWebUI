@@ -1,17 +1,17 @@
-# nginxWebUI v5.0.0 結案報告
+# Nginx Web UI v5.0.1 結案報告
 
 ## 專案資訊
 - **日期：** 2026-03-21
 - **原始版本：** 4.3.8（基於 cym1102/nginxWebUI 開源專案）
-- **發佈版本：** 5.0.0
+- **發佈版本：** 5.0.1
 - **倉庫：** https://github.com/elf-express/nginxWebUI
 
 ---
 
 ## 一、改進總覽
 
-### 從 4.3.8 到 5.0.0 的變化
-| 指標 | 4.3.8 | 5.0.0 |
+### 從 4.3.8 到 5.0.1 的變化
+| 指標 | 4.3.8 | 5.0.1 |
 |------|-------|-------|
 | 預設 http 參數 | 2 個 | 16 個（含 gzip、brotli、GeoIP2、安全 headers） |
 | 預設模板 | 0 個 | 15 個（代理、緩存、跨域、限流、安全、GeoIP） |
@@ -92,7 +92,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                  nginxWebUI v5.0.0 Stack                     │
+│                  Nginx Web UI v5.0.1 Stack                    │
 ├──────────────┬──────────┬──────────────┬────────────────────┤
 │  nginxwebui  │ postgres │  日誌監控     │  安全防護           │
 │  :8080       │ PG 18    │              │                    │
@@ -203,7 +203,7 @@ push master → Build JAR → Build Docker (amd64 + arm64) → Push Docker Hub
 ### 本地開發
 ```bash
 mvn clean package -DskipTests
-java -jar -Dfile.encoding=UTF-8 target/nginxWebUI-5.0.0.jar --server.port=8080
+java -jar -Dfile.encoding=UTF-8 target/nginxWebUI-5.0.1.jar --server.port=8080
 ```
 
 ### Docker 部署
@@ -222,7 +222,7 @@ docker compose ps
 ### 訪問地址
 | 服務 | URL | 預設帳密 |
 |------|-----|---------|
-| nginxWebUI | http://localhost:8080 | 首次設定 |
+| Nginx Web UI | http://localhost:8080 | 首次設定 |
 | Grafana | http://localhost:3000 | admin / admin |
 
 ---

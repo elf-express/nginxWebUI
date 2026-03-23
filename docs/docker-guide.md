@@ -6,7 +6,7 @@
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                   nginxWebUI Docker Stack                     │
+│                   Nginx Web UI Docker Stack                    │
 ├──────────────┬──────────┬─────────────┬─────────────────────┤
 │  nginxwebui  │ postgres │  日誌監控    │  安全防護            │
 │  :8080       │ PG 18    │             │                     │
@@ -97,14 +97,14 @@ ABUSEIPDB_API_KEY=your-api-key-here
 
 ### 首次部署後設定
 
-1. **登入 nginxWebUI** — `http://目標IP:8080`
+1. **登入 Nginx Web UI** — `http://目標IP:8080`
 2. **設定管理員帳號密碼**
 3. **啟用配置** — 校驗 → 替換 → 重新裝載
 4. **登入 Grafana** — `http://目標IP:3000`（admin/admin），修改密碼
 5. **確認 CrowdSec**：
    ```bash
-   docker exec nginxwebui-5.0.0-crowdsec cscli bouncers list
-   docker exec nginxwebui-5.0.0-crowdsec cscli collections list
+   docker exec nginx-webui-5.0.1-crowdsec cscli bouncers list
+   docker exec nginx-webui-5.0.1-crowdsec cscli collections list
    ```
 
 ## 三、命名規範（強制）
@@ -116,13 +116,13 @@ ABUSEIPDB_API_KEY=your-api-key-here
 ```
 例：
 ```
-nginxwebui-5.0.0
-nginxwebui-5.0.0-postgres
-nginxwebui-5.0.0-loki
-nginxwebui-5.0.0-promtail
-nginxwebui-5.0.0-grafana
-nginxwebui-5.0.0-crowdsec
-nginxwebui-5.0.0-bouncer
+nginx-webui-5.0.1
+nginx-webui-5.0.1-postgres
+nginx-webui-5.0.1-loki
+nginx-webui-5.0.1-promtail
+nginx-webui-5.0.1-grafana
+nginx-webui-5.0.1-crowdsec
+nginx-webui-5.0.1-bouncer
 ```
 
 ### volume name
@@ -177,7 +177,7 @@ nginxwebui_crowdsec_data → /var/lib/crowdsec/data
 nginxwebui_crowdsec_config → /etc/crowdsec
 ```
 
-**重點：** `nginxwebui_log` 是日誌共享 volume，nginxWebUI 寫入，Promtail 和 CrowdSec 以 `:ro` 唯讀掛載。
+**重點：** `nginxwebui_log` 是日誌共享 volume，Nginx Web UI 寫入，Promtail 和 CrowdSec 以 `:ro` 唯讀掛載。
 
 ## 六、環境變數
 
@@ -229,7 +229,7 @@ git push origin master                 # 推到 GitHub
 │ 1. mvn clean package               │
 │ 2. docker buildx（amd64 + arm64）  │
 │ 3. push → ghcr.io/elf-express/     │
-│    nginxwebui:5.0.0                 │
+│    nginxwebui:5.0.1                 │
 │    nginxwebui:latest                │
 └────────────────────────────────────┘
   ↓
@@ -262,14 +262,14 @@ npm run report
 mvn clean package -DskipTests
 
 # 2. 構建 image
-docker build -t ghcr.io/elf-express/nginxwebui:5.0.0 .
+docker build -t ghcr.io/elf-express/nginxwebui:5.0.1 .
 
 # 3. 登入 GitHub Container Registry
 echo $GITHUB_TOKEN | docker login ghcr.io -u 你的帳號 --password-stdin
 
 # 4. 推送
-docker push ghcr.io/elf-express/nginxwebui:5.0.0
-docker tag ghcr.io/elf-express/nginxwebui:5.0.0 ghcr.io/elf-express/nginxwebui:latest
+docker push ghcr.io/elf-express/nginxwebui:5.0.1
+docker tag ghcr.io/elf-express/nginxwebui:5.0.1 ghcr.io/elf-express/nginxwebui:latest
 docker push ghcr.io/elf-express/nginxwebui:latest
 ```
 
@@ -294,7 +294,7 @@ docker push ghcr.io/elf-express/nginxwebui:latest
 
 ### 升版 Checklist
 
-1. 修改 `pom.xml` 的 `<version>`（如 `5.0.0` → `5.1.0`）
+1. 修改 `pom.xml` 的 `<version>`（如 `5.0.1` → `5.1.0`）
 2. 修改 `docker-compose.yml` 的 `image` 和所有 `container_name` 版本號
 3. 修改 `tests/e2e/helpers.js` 的 `JAR_PATH`（如有改 JAR 檔名）
 4. 編譯測試：`mvn clean package -DskipTests && npm test`
@@ -307,19 +307,19 @@ docker push ghcr.io/elf-express/nginxwebui:latest
 ### CrowdSec 管理
 ```bash
 # 查看警報
-docker exec nginxwebui-5.0.0-crowdsec cscli alerts list
+docker exec nginx-webui-5.0.1-crowdsec cscli alerts list
 
 # 查看被封鎖的 IP
-docker exec nginxwebui-5.0.0-crowdsec cscli decisions list
+docker exec nginx-webui-5.0.1-crowdsec cscli decisions list
 
 # 手動封鎖 IP
-docker exec nginxwebui-5.0.0-crowdsec cscli decisions add --ip 1.2.3.4
+docker exec nginx-webui-5.0.1-crowdsec cscli decisions add --ip 1.2.3.4
 
 # 解除封鎖
-docker exec nginxwebui-5.0.0-crowdsec cscli decisions delete --ip 1.2.3.4
+docker exec nginx-webui-5.0.1-crowdsec cscli decisions delete --ip 1.2.3.4
 
 # 查看偵測統計
-docker exec nginxwebui-5.0.0-crowdsec cscli metrics
+docker exec nginx-webui-5.0.1-crowdsec cscli metrics
 ```
 
 ### Grafana 查看日誌
@@ -330,8 +330,8 @@ docker exec nginxwebui-5.0.0-crowdsec cscli metrics
 ### 一般操作
 ```bash
 # 查看日誌
-docker logs nginxwebui-5.0.0
-docker logs nginxwebui-5.0.0-crowdsec
+docker logs nginx-webui-5.0.1
+docker logs nginx-webui-5.0.1-crowdsec
 
 # 重啟單一服務
 docker compose restart nginxwebui

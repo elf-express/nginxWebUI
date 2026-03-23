@@ -1,7 +1,7 @@
 services:
   nginxwebui:
-    image: ghcr.io/elf-express/nginxwebui:5.0.0
-    container_name: nginxwebui-5.0.0
+    image: ghcr.io/elf-express/nginxwebui:5.0.1
+    container_name: nginx-webui-5.0.1
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -25,7 +25,7 @@ services:
 
   postgres:
     image: postgres:18-alpine
-    container_name: nginxwebui-5.0.0-postgres
+    container_name: nginx-webui-5.0.1-postgres
     restart: unless-stopped
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -44,7 +44,7 @@ services:
 
   promtail:
     image: grafana/promtail:3.5.0
-    container_name: nginxwebui-5.0.0-promtail
+    container_name: nginx-webui-5.0.1-promtail
     restart: unless-stopped
     volumes:
       - nginxwebui_log:/var/log/nginx:ro
@@ -55,7 +55,7 @@ services:
 
   loki:
     image: grafana/loki:3.5.0
-    container_name: nginxwebui-5.0.0-loki
+    container_name: nginx-webui-5.0.1-loki
     restart: unless-stopped
     volumes:
       - loki_data:/loki
@@ -69,7 +69,7 @@ services:
 
   grafana:
     image: grafana/grafana:11.6.0
-    container_name: nginxwebui-5.0.0-grafana
+    container_name: nginx-webui-5.0.1-grafana
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -88,7 +88,7 @@ services:
 
   crowdsec:
     image: crowdsecurity/crowdsec:latest
-    container_name: nginxwebui-5.0.0-crowdsec
+    container_name: nginx-webui-5.0.1-crowdsec
     restart: unless-stopped
     volumes:
       - nginxwebui_log:/var/log/nginx:ro
@@ -110,7 +110,7 @@ services:
 
   crowdsec-bouncer:
     image: fbonalair/traefik-crowdsec-bouncer:latest
-    container_name: nginxwebui-5.0.0-bouncer
+    container_name: nginx-webui-5.0.1-bouncer
     restart: unless-stopped
     environment:
       - CROWDSEC_BOUNCER_API_KEY=${CROWDSEC_BOUNCER_KEY}

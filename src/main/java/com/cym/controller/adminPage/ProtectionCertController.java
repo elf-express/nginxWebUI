@@ -7,40 +7,35 @@ import org.noear.solon.annotation.Controller;
 import org.noear.solon.annotation.Inject;
 import org.noear.solon.annotation.Mapping;
 import org.noear.solon.core.handle.ModelAndView;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.cym.ext.DenyAllowExt;
-import com.cym.ext.ServerExt;
-import com.cym.model.Admin;
+import com.cym.model.Cert;
 import com.cym.model.DenyAllow;
-import com.cym.model.Log;
 import com.cym.model.Server;
-import com.cym.model.Upstream;
+import com.cym.service.CertService;
 import com.cym.service.DenyAllowService;
 import com.cym.service.SettingService;
 import com.cym.sqlhelper.bean.Page;
 import com.cym.utils.BaseController;
-import com.cym.utils.JsonResult;
 
 import cn.hutool.core.util.StrUtil;
 
 @Controller
-@Mapping("/adminPage/denyAllow")
-public class DenyAllowController extends BaseController {
-	Logger logger = LoggerFactory.getLogger(this.getClass());
+@Mapping("/adminPage/protectionCert")
+public class ProtectionCertController extends BaseController {
 	@Inject
 	DenyAllowService denyAllowService;
-
 	@Inject
 	SettingService settingService;
+	@Inject
+	CertService certService;
 
 	@Mapping("")
-	public ModelAndView index(ModelAndView modelAndView, Page page) {
+	public ModelAndView index(ModelAndView modelAndView, Page page, String certKeywords) {
+		// DenyAllow data (paginated)
 		setPage(page);
 		page = denyAllowService.search(page);
 
-		// 預載所有 Server 用於 usedBy 查詢
 		List<Server> allServers = sqlHelper.findAll(Server.class);
 		String httpDenyId = settingService.get("denyId");
 		String httpAllowId = settingService.get("allowId");
@@ -49,16 +44,15 @@ public class DenyAllowController extends BaseController {
 
 		List<DenyAllowExt> exts = new ArrayList<DenyAllowExt>();
 		for (DenyAllow denyAllow : (List<DenyAllow>) page.getRecords()) {
-			DenyAllowExt denyAllowExt = new DenyAllowExt();
-			denyAllowExt.setDenyAllow(denyAllow);
+			DenyAllowExt ext = new DenyAllowExt();
+			ext.setDenyAllow(denyAllow);
 
 			if (StrUtil.isBlankIfStr(denyAllow.getIp())) {
-				denyAllowExt.setIpCount(0);
+				ext.setIpCount(0);
 			} else {
-				denyAllowExt.setIpCount(denyAllow.getIp().split("\n").length);
+				ext.setIpCount(denyAllow.getIp().split("\n").length);
 			}
 
-			// 計算 usedBy
 			List<String> usedBy = new ArrayList<String>();
 			String daId = denyAllow.getId();
 			if (daId.equals(httpDenyId) || daId.equals(httpAllowId)) {
@@ -73,39 +67,30 @@ public class DenyAllowController extends BaseController {
 					usedBy.add("Server: " + label);
 				}
 			}
-			denyAllowExt.setUsedBy(usedBy);
+			ext.setUsedBy(usedBy);
 
-			exts.add(denyAllowExt);
+			exts.add(ext);
 		}
 		page.setRecords(exts);
+		modelAndView.put("daPage", page);
 
-		modelAndView.put("page", page);
-		modelAndView.view("/adminPage/denyAllow/index.html");
+		// Cert data
+		Page certPage = new Page();
+		certPage.setCurr(1);
+		certPage.setLimit(100);
+		certPage = certService.getPage(certKeywords, certPage);
+		for (Cert cert : (List<Cert>) certPage.getRecords()) {
+			if (cert.getType() == 0 || cert.getType() == 2) {
+				cert.setDomain(cert.getDomain() + "(" + cert.getEncryption() + ")");
+			}
+			if (cert.getMakeTime() != null && cert.getType() != 1) {
+				cert.setEndTime(cert.getMakeTime() + 90 * 24 * 60 * 60 * 1000l);
+			}
+		}
+		modelAndView.put("certPage", certPage);
+		modelAndView.put("certKeywords", certKeywords);
+
+		modelAndView.view("/adminPage/protectionCert/index.html");
 		return modelAndView;
 	}
-
-	@Mapping("addOver")
-	public JsonResult addOver(DenyAllow denyAllow) {
-		// ip去重
-		denyAllowService.removeSame(denyAllow);
-
-		sqlHelper.insertOrUpdate(denyAllow);
-
-		return renderSuccess();
-	}
-
-
-	@Mapping("detail")
-	public JsonResult detail(String id) {
-		return renderSuccess(sqlHelper.findById(id, DenyAllow.class));
-	}
-
-	@Mapping("del")
-	public JsonResult del(String id) {
-		String[] ids = id.split(",");
-		sqlHelper.deleteByIds(ids, DenyAllow.class);
-
-		return renderSuccess();
-	}
-
 }

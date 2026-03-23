@@ -10,6 +10,62 @@
 .layui-input-block {
 	margin-left: 170px;
 }
+/* --- IP Tag Editor Polish --- */
+.ip-format-hint {
+	background: #f8f9fa;
+	border: 1px solid #e6e6e6;
+	border-radius: 6px;
+	padding: 8px 12px;
+	margin-bottom: 10px;
+	font-size: 12px;
+	color: #666;
+}
+.ip-format-hint i { color: #1E9FFF; margin-right: 4px; }
+.ip-tag-wrap {
+	border: 1px solid #e6e6e6;
+	border-radius: 8px;
+	padding: 0;
+	background: #fff;
+	overflow: hidden;
+}
+.ip-tag-container {
+	padding: 10px;
+	max-height: 330px;
+	overflow-y: auto;
+	min-height: 60px;
+	background: #fafafa;
+}
+.ip-tag {
+	display: inline-block;
+	margin: 3px;
+	padding: 4px 10px;
+	border-radius: 12px;
+	font-size: 12px;
+	cursor: default;
+	transition: transform 0.15s;
+}
+.ip-tag-valid {
+	background: #1E9FFF;
+	color: #fff;
+}
+.ip-tag-invalid {
+	background: #fff;
+	border: 1.5px solid #FF5722;
+	color: #FF5722;
+}
+.ip-tag i {
+	font-size: 12px;
+	cursor: pointer;
+	margin-left: 4px;
+	opacity: 0.7;
+}
+.ip-tag i:hover { opacity: 1; }
+.ip-empty-state {
+	text-align: center;
+	color: #bbb;
+	padding: 20px 15px;
+}
+.ip-empty-state i { font-size: 28px; display: block; margin-bottom: 6px; }
 </style>
 </head>
 <body class="layui-layout-body">
@@ -49,6 +105,7 @@
 										</th>
 										<th>${denyAllowStr.name}</th>
 										<th>${denyAllowStr.ipCount}</th>
+										<th>${denyAllowStr.usedBy}</th>
 										<th>${commonStr.operation}</th>
 									</tr>
 								</thead>
@@ -60,6 +117,15 @@
 										</td>
 										<td>${ext.denyAllow.name}</td>
 										<td>${ext.ipCount}</td>
+										<td>
+											<#if ext.usedBy?? && (ext.usedBy?size > 0)>
+												<#list ext.usedBy as ref>
+													<span class="layui-badge layui-bg-blue" style="margin:2px;">${ref}</span>
+												</#list>
+											<#else>
+												<span style="color:#999;">--</span>
+											</#if>
+										</td>
 										<td>
 											<div class="layui-inline">
 												<button type="button" class="layui-btn layui-btn-sm " onclick="edit('${ext.denyAllow.id}')">${commonStr.edit}</button>
@@ -120,6 +186,7 @@
 		<div class="layui-form" id="windowDiv" style="padding: 15px; display: none">
 			<form id="addForm">
 				<input type="hidden" name="id" id="id">
+				<textarea name="ip" id="ip" style="display:none;"></textarea>
 				<div class="layui-form-item">
 					<label class="layui-form-label">${denyAllowStr.name}</label>
 					<div class="layui-input-block">
@@ -130,7 +197,25 @@
 				<div class="layui-form-item">
 					<label class="layui-form-label">${denyAllowStr.ipTip}</label>
 					<div class="layui-input-block">
-						<textarea name="ip" id="ip" class="layui-textarea" style="height: 400px;"></textarea>
+						<div class="ip-format-hint">
+						<i class="layui-icon layui-icon-about"></i>${denyAllowStr.formatHint}
+					</div>
+					<div id="tagEditorWrap" class="ip-tag-wrap">
+							<!-- Search + stats bar -->
+							<div style="display:flex;align-items:center;padding:6px 10px;border-bottom:1px solid #f0f0f0;gap:8px;flex-wrap:wrap;">
+								<input type="text" id="tagSearch" class="layui-input" placeholder="${denyAllowStr.searchIp}" style="width:200px;height:30px;flex-shrink:0;" autocomplete="off">
+								<span id="tagStats" style="color:#999;font-size:12px;white-space:nowrap;"></span>
+								<span style="flex:1;"></span>
+								<button type="button" class="layui-btn layui-btn-xs layui-btn-normal" onclick="showBatchImport()">${denyAllowStr.batchImport}</button>
+							</div>
+							<!-- Tag container -->
+							<div id="tagContainer" class="ip-tag-container">
+							</div>
+							<!-- Input -->
+							<div style="border-top:1px solid #f0f0f0;padding:6px 10px;">
+								<input type="text" id="tagInput" class="layui-input" placeholder="${denyAllowStr.inputPlaceholder}" style="height:32px;" autocomplete="off">
+							</div>
+						</div>
 					</div>
 				</div>
 
@@ -138,10 +223,23 @@
 					<button type="button" class="layui-btn layui-btn-normal" onclick="addOver()">${commonStr.submit}</button>
 					<button type="button" class="layui-btn" onclick="layer.closeAll()">${commonStr.close}</button>
 				</div>
-
 			</form>
 		</div>
 
+		<!-- 批量匯入 -->
+		<div id="batchImportDiv" style="padding:15px;display:none;">
+			<div class="layui-form-item">
+				<textarea id="batchText" class="layui-textarea" style="height:200px;" placeholder="${denyAllowStr.batchPlaceholder}"></textarea>
+			</div>
+			<div class="layui-form-item">
+				<input type="file" id="batchFile" accept=".txt,.csv" style="margin-bottom:10px;">
+				<span style="color:#999;font-size:12px;">${denyAllowStr.importFile} (.txt / .csv)</span>
+			</div>
+			<div class="layui-form-item center">
+				<button type="button" class="layui-btn layui-btn-normal" onclick="doBatchImport()">${commonStr.submit}</button>
+				<button type="button" class="layui-btn" onclick="layer.close(batchLayerIndex)">${commonStr.close}</button>
+			</div>
+		</div>
 	</div>
 	<#include '/adminPage/script.html'/>
 	<script src="${ctx}/js/adminPage/denyAllow/index.js?v=${jsrandom}" type="text/javascript"></script>

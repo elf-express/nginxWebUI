@@ -14,6 +14,10 @@ import org.noear.solon.annotation.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.cym.model.Module;
+import com.cym.sqlhelper.bean.Sort;
+import com.cym.sqlhelper.bean.Sort.Direction;
+import com.cym.sqlhelper.utils.SqlHelper;
 import com.cym.utils.SystemTool;
 
 import cn.hutool.core.util.RuntimeUtil;
@@ -63,6 +67,8 @@ public class NginxService {
 
 	@Inject
 	SettingService settingService;
+	@Inject
+	SqlHelper sqlHelper;
 
 	/**
 	 * Execute nginx -v and parse the version string.
@@ -180,11 +186,49 @@ public class NginxService {
 	}
 
 	/**
-	 * Check if ngx_http_geoip2_module.so exists in available modules.
+	 * Check if ngx_http_geoip2_module.so is enabled and exists on disk.
 	 */
 	public boolean hasGeoIp2Module() {
-		List<String> modules = getAvailableModules();
-		return modules.contains("ngx_http_geoip2_module.so");
+		List<String> paths = getEnabledModulePaths();
+		for (String path : paths) {
+			if (path.endsWith("ngx_http_geoip2_module.so")) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * 回傳資料庫中已啟用且磁碟上存在的模組完整路徑，按 seq 順序排列。
+	 */
+	public List<String> getEnabledModulePaths() {
+		List<String> paths = new ArrayList<>();
+
+		if (!SystemTool.isLinux()) {
+			return paths;
+		}
+
+		// 磁碟上實際存在的模組
+		Set<String> existingModules = new HashSet<>();
+		File dir = new File(MODULE_DIR);
+		if (dir.exists() && dir.isDirectory()) {
+			File[] files = dir.listFiles((d, name) -> name.endsWith(".so"));
+			if (files != null) {
+				for (File f : files) {
+					existingModules.add(f.getName());
+				}
+			}
+		}
+
+		// 從資料庫取得已啟用的模組，按 seq 排序（保證依賴順序）
+		List<Module> modules = sqlHelper.findAll(new Sort("seq", Direction.ASC), Module.class);
+		for (Module module : modules) {
+			if (module.getEnable() != null && module.getEnable() && existingModules.contains(module.getName())) {
+				paths.add(MODULE_DIR + "/" + module.getName());
+			}
+		}
+
+		return paths;
 	}
 
 }

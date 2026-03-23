@@ -98,7 +98,7 @@ http {
 test('應有 Cloudflare Real IP 配置', async () => {
     // 透過 Docker exec 檢查 realip.conf
     const result = execFileSync('docker', [
-        'exec', 'nginxwebui-5.0.0',
+        'exec', 'nginxwebui-5.0.1',
         'cat', '/etc/nginx/conf.d/realip.conf'
     ]).toString();
 

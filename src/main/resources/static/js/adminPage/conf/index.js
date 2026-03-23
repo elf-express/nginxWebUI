@@ -1,6 +1,7 @@
 // CodeMirror 編輯器實例
 var cmLeft = null;
 var cmRight = null;
+var isEditMode = false;
 
 // CodeMirror 通用配置
 var cmOptions = {
@@ -28,6 +29,12 @@ $(function() {
 	loadConf();
 
 	form.on('switch(decompose)', function(data) {
+		if (isEditMode) {
+			layer.msg(confStr.exitEditConfirm);
+			data.elem.checked = !data.elem.checked;
+			form.render();
+			return;
+		}
 
 		$.ajax({
 			type: 'POST',
@@ -105,6 +112,14 @@ function replace() {
 				layer.msg(data.obj);
 				loadOrg();
 
+				if (isEditMode) {
+					isEditMode = false;
+					$("#editModeBtn").show();
+					$("#exitEditBtn").hide();
+					$("#editModeBanner").hide();
+					$(".CodeMirror").first().css("border", "1px solid #444");
+					loadConf();
+				}
 			} else {
 				layer.alert(data.msg);
 			}
@@ -235,8 +250,8 @@ function check() {
 			if (data.success) {
 				layer.open({
 					type: 0,
-					area: ['810px', '400px'],
-					content: data.obj
+					area: ['810px', '500px'],
+					content: parseNginxErrors(data.obj)
 				});
 			}
 		},
@@ -280,8 +295,8 @@ function reload() {
 			if (data.success) {
 				layer.open({
 					type: 0,
-					area: ['810px', '400px'],
-					content: data.obj
+					area: ['810px', '500px'],
+					content: parseNginxErrors(data.obj)
 				});
 			}
 		},
@@ -456,8 +471,8 @@ function runCmdOver() {
 			if (data.success) {
 				layer.open({
 					type: 0,
-					area: ['810px', '400px'],
-					content: data.obj
+					area: ['810px', '500px'],
+					content: parseNginxErrors(data.obj)
 				});
 			}
 
@@ -480,4 +495,112 @@ function showBak() {
 		area: ['900px', '90%'],
 		content: ctx + "/adminPage/bak"
 	});
+}
+
+// ── A1: 編輯模式 ──
+
+function enterEditMode() {
+	layer.confirm(confStr.editModeConfirm, {
+		btn: [commonStr.submit, commonStr.close]
+	}, function(index) {
+		layer.close(index);
+		isEditMode = true;
+
+		// 複製右側（實際 conf）到左側
+		cmLeft.setValue(cmRight.getValue());
+
+		// 同步子檔案（decompose 模式下）
+		$("textarea.org.sub").each(function(i) {
+			var leftSub = $("textarea.conf.sub").eq(i);
+			if (leftSub.length) {
+				leftSub.val($(this).val());
+			}
+		});
+
+		// UI 切換
+		$("#editModeBtn").hide();
+		$("#exitEditBtn").show();
+		$("#editModeBanner").show();
+		$(".CodeMirror").first().css("border", "2px solid #FF5722");
+	});
+}
+
+function exitEditMode() {
+	layer.confirm(confStr.exitEditConfirm, {
+		btn: [commonStr.submit, commonStr.close]
+	}, function(index) {
+		layer.close(index);
+		isEditMode = false;
+
+		// 恢復生成的 conf
+		loadConf();
+
+		// UI 切換
+		$("#editModeBtn").show();
+		$("#exitEditBtn").hide();
+		$("#editModeBanner").hide();
+		$(".CodeMirror").first().css("border", "1px solid #444");
+	});
+}
+
+// ── A2: Nginx 錯誤診斷 ──
+
+function parseNginxErrors(html) {
+	var patterns = [
+		[/unknown directive "([^"]+)"/i,                  'diagUnknownDir',    'diagUnknownDirTip'],
+		[/host not found in upstream "([^"]+)"/i,         'diagUpstream',      'diagUpstreamTip'],
+		[/bind\(\) to [^:]+:(\d+) failed/i,              'diagBindFail',      'diagBindFailTip'],
+		[/open\(\) "[^"]+" failed \(2: No such file/i,   'diagFileNotFound',  'diagFileNotFoundTip'],
+		[/SSL: error:/i,                                  'diagSslError',      'diagSslErrorTip'],
+		[/ssl_certificate.*No such file/i,                'diagSslError',      'diagSslErrorTip'],
+		[/zero size shared memory zone/i,                 'diagZeroZone',      'diagZeroZoneTip'],
+		[/duplicate location "([^"]+)"/i,                 'diagDupLocation',   'diagDupLocationTip'],
+		[/conflicting server name "([^"]+)"/i,            'diagDupServer',     'diagDupServerTip'],
+		[/nginx\.pid|open\(\).*\.pid.*failed|PID|cannot find the file/i, 'diagPidError', 'diagPidErrorTip'],
+		[/the "ssl" directive is deprecated/i,            'diagSslDeprecated', 'diagSslDeprecatedTip'],
+		[/\(13: Permission denied\)/i,                    'diagPermission',    'diagPermissionTip'],
+		[/\(1: Operation not permitted\)/i,               'diagPermission',    'diagPermissionTip'],
+		[/unexpected end of file|unexpected "}"|invalid number of arguments|invalid parameter/i, 'diagSyntaxError', 'diagSyntaxErrorTip']
+	];
+
+	// 去除 HTML 標籤後做正則匹配
+	var plainText = html.replace(/<[^>]+>/g, ' ');
+
+	var matches = [];
+	for (var i = 0; i < patterns.length; i++) {
+		var m = plainText.match(patterns[i][0]);
+		if (m) {
+			matches.push({
+				detail: m[1] || '',
+				desc: confStr[patterns[i][1]],
+				tip: confStr[patterns[i][2]]
+			});
+		}
+	}
+
+	if (matches.length === 0) {
+		return html;
+	}
+
+	var diagHtml = '<hr style="margin:10px 0; border-color:#eee;">'
+		+ '<div style="background:#fff3e0; border-left:4px solid #FF9800; padding:10px 15px; margin-top:5px; border-radius:0 4px 4px 0;">'
+		+ '<div style="font-weight:bold; font-size:14px; color:#E65100; margin-bottom:8px;">'
+		+ '\u26A0 ' + confStr.diagTitle
+		+ '</div>';
+
+	for (var j = 0; j < matches.length; j++) {
+		var item = matches[j];
+		diagHtml += '<div style="margin-bottom:8px; padding:6px 10px; background:#fff8e1; border-radius:3px;">'
+			+ '<div style="font-weight:bold; color:#E65100;">'
+			+ item.desc
+			+ (item.detail ? ' <code style="background:#ffecb3; padding:1px 4px; border-radius:2px;">' + item.detail + '</code>' : '')
+			+ '</div>'
+			+ '<div style="color:#666; margin-top:3px;">'
+			+ item.tip
+			+ '</div>'
+			+ '</div>';
+	}
+
+	diagHtml += '</div>';
+	return html + diagHtml;
 }

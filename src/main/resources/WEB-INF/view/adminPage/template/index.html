@@ -35,75 +35,74 @@ input[name='param']{
 						<div class="layui-inline">
 							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="add()">${templateStr.add}</button>
 						</div>
-						
+
 						<div class="layui-inline">
 							<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="delMany()">${commonStr.delAll}</button>
 						</div>
 					</div>
 				</form>
 
-				<table class="layui-table layui-form" lay-size="sm" style="table-layout:fixed; WORD-BREAK:break-all;">
-					<thead>
-						<tr>
-							<th style="width: 20px;">
-								<input type="checkbox" id="checkAll" lay-filter="checkAll" lay-skin="primary">
-							</th>
-							<th>${commonStr.name}</th>
-							<th>${templateStr.paramCount}</th>
-							<th>
-								${templateStr.def}
-							</th>
-							<th>${commonStr.operation}</th>
-						</tr>
-					</thead>
-					<tbody>
-						<#list templateList as ext>
-						<tr>
-							<td>
-								<input type="checkbox" name="ids" title="" lay-skin="primary" value="${ext.template.id}">
-							</td>
-							<td>${ext.template.name}</td>
-							<td>${ext.count}</td>
-							<td>${ext.template.def}
-								<#if ext.template.def == 'server'>
-									${menuStr.server}
-								</#if>
-								<#if ext.template.def == 'location'>
-									${menuStr.location}
-								</#if>
-								<#if ext.template.def == 'upstream'>
-									${menuStr.upstream}
-								</#if>
-							
-							</td>
-							<td>
-								<div class="layui-inline">
-								<button type="button" class="layui-btn layui-btn-sm " onclick="edit('${ext.template.id}')">${commonStr.edit}</button>
-								</div>
-								
-								<div class="layui-inline">
-								<button type="button" class="layui-btn layui-btn-danger layui-btn-sm " onclick="del('${ext.template.id}')">${commonStr.del}</button>
-								</div>
-							</td>
-						</tr>
-						</#list>
-					</tbody>
-				</table>
+				<div class="layui-collapse" lay-accordion>
+				<#list groupList as group>
+				<div class="layui-colla-item">
+					<h2 class="layui-colla-title">
+						${group.displayName}
+						<span class="layui-badge layui-bg-gray" style="margin-left:8px;">${group.templateExtList?size}</span>
+						<span style="font-size:12px;color:#999;font-weight:normal;margin-left:10px;">${group.description!""}</span>
+					</h2>
+					<div class="layui-colla-content layui-show">
+						<table class="layui-table layui-form" lay-size="sm" style="table-layout:fixed; WORD-BREAK:break-all;">
+							<thead>
+								<tr>
+									<th style="width: 20px;">
+										<input type="checkbox" lay-filter="checkGroup" lay-skin="primary" data-group="${group.groupName}">
+									</th>
+									<th>${commonStr.name}</th>
+									<th>${templateStr.paramCount}</th>
+									<th>${commonStr.operation}</th>
+								</tr>
+							</thead>
+							<tbody>
+								<#list group.templateExtList as ext>
+								<tr>
+									<td>
+										<input type="checkbox" name="ids" title="" lay-skin="primary" value="${ext.template.id}" data-group="${group.groupName}">
+									</td>
+									<td>${ext.template.name}</td>
+									<td>${ext.count}</td>
+									<td>
+										<div class="layui-inline">
+										<button type="button" class="layui-btn layui-btn-sm " onclick="edit('${ext.template.id}')">${commonStr.edit}</button>
+										</div>
+
+										<div class="layui-inline">
+										<button type="button" class="layui-btn layui-btn-danger layui-btn-sm " onclick="del('${ext.template.id}')">${commonStr.del}</button>
+										</div>
+									</td>
+								</tr>
+								</#list>
+							</tbody>
+						</table>
+					</div>
+				</div>
+				</#list>
+				</div>
+
 			</div>
 		</div>
 	</div>
 
 	<div style="height: 0px; width: 0px; overflow: hidden;">
 		<!-- 弹出框 -->
-		<div id="windowDiv" class="layui-form" style="display: none;padding: 15px;"> 
+		<div id="windowDiv" class="layui-form" style="display: none;padding: 15px;">
 			<input type="hidden" id="id" name="id">
-			
+
 			<div class="layui-form-item">
 				<label class="layui-form-label">${templateStr.name}</label>
 				<div class="layui-input-inline">
 					<input type="text" name="name" id="name" class="layui-input">
 				</div>
-				
+
 				<label class="layui-form-label">${templateStr.def}</label>
 				<div class="layui-input-inline">
 					<select name="def" id="def">
@@ -116,13 +115,13 @@ input[name='param']{
 					</select>
 				</div>
 			</div>
-			
+
 			<div class="layui-form-item">
 				<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="addParam()">${templateStr.addParam}</button>
 			</div>
-			
-		
-			
+
+
+
 			<div class="layui-form-item">
 				<table class="layui-table" lay-size="sm">
 					<thead>
@@ -143,7 +142,7 @@ input[name='param']{
 				<button type="button" class="layui-btn" onclick="layer.closeAll()">${commonStr.close}</button>
 			</div>
 		</div>
-		
+
 	</div>
 
 	<#include '/adminPage/script.html'/>

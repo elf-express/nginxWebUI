@@ -18,15 +18,15 @@ $(function() {
 		});
 	});
 
-	form.on('checkbox(checkAll)', function(data) {
-		if (data.elem.checked) {
-			$("input[name='ids']").prop("checked", true)
-		} else {
-			$("input[name='ids']").prop("checked", false)
-		}
-
+	// 分組 checkAll
+	form.on('checkbox(checkGroup)', function(data) {
+		var group = $(data.elem).data('group');
+		$("input[name='ids'][data-group='" + group + "']").prop("checked", data.elem.checked);
 		form.render();
 	});
+
+	// 初始化 collapse
+	layui.element.init();
 
 	form.on('select(denyAllowValue)', function(data) {
 		checkDenyAllow(data.value);

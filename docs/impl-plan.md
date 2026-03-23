@@ -64,7 +64,7 @@ mvn clean package -DskipTests
 
 ### 啟動（正式）
 ```bash
-java -jar -Dfile.encoding=UTF-8 target/nginxWebUI-5.0.0.jar --server.port=8080
+java -jar -Dfile.encoding=UTF-8 target/nginxWebUI-5.0.1.jar --server.port=8080
 ```
 
 ### 執行測試

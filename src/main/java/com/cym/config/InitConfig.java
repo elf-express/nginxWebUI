@@ -21,9 +21,11 @@ import com.cym.model.Admin;
 import com.cym.model.Basic;
 import com.cym.model.Http;
 import com.cym.model.Param;
+import com.cym.model.Module;
 import com.cym.model.Template;
 import com.cym.service.BasicService;
 import com.cym.service.ConfService;
+import com.cym.service.NginxService;
 import com.cym.service.SettingService;
 import com.cym.service.TemplateService;
 import com.cym.sqlhelper.config.DataSourceEmbed;
@@ -71,6 +73,8 @@ public class InitConfig {
 	ConfService confService;
 	@Inject
 	TemplateService templateService;
+	@Inject
+	NginxService nginxService;
 	@Inject
 	DataSourceEmbed dataSourceEmbed;
 	@Inject("${project.beanPackage}")
@@ -125,43 +129,43 @@ public class InitConfig {
 		if (count == 0) {
 			List<Http> https = new ArrayList<Http>();
 			long seq = 0;
-			https.add(new Http("include", "mime.types", seq++));
-			https.add(new Http("default_type", "application/octet-stream", seq++));
+			https.add(new Http("include", "mime.types", seq++, "base"));
+			https.add(new Http("default_type", "application/octet-stream", seq++, "base"));
 
 			// Real IP（Cloudflare）
-			https.add(new Http("include", "/etc/nginx/geoip/realip.conf", seq++));
+			https.add(new Http("include", "/etc/nginx/geoip/realip.conf", seq++, "realip"));
 
 			// GeoIP2（國家、城市、ASN）
-			https.add(new Http("geoip2", "/etc/nginx/geoip/GeoLite2-Country.mmdb {\r\n    auto_reload 60m;\r\n    $geoip2_data_country_code country iso_code;\r\n    $geoip2_data_country_name country names en;\r\n}", seq++));
-			https.add(new Http("geoip2", "/etc/nginx/geoip/GeoLite2-City.mmdb {\r\n    auto_reload 60m;\r\n    $geoip2_data_city_name city names en;\r\n}", seq++));
-			https.add(new Http("geoip2", "/etc/nginx/geoip/GeoLite2-ASN.mmdb {\r\n    auto_reload 60m;\r\n    $geoip2_data_asn autonomous_system_number;\r\n    $geoip2_data_asn_org autonomous_system_organization;\r\n}", seq++));
+			https.add(new Http("geoip2", "/etc/nginx/geoip/GeoLite2-Country.mmdb {\r\n    auto_reload 60m;\r\n    $geoip2_data_country_code country iso_code;\r\n    $geoip2_data_country_name country names en;\r\n}", seq++, "geoip"));
+			https.add(new Http("geoip2", "/etc/nginx/geoip/GeoLite2-City.mmdb {\r\n    auto_reload 60m;\r\n    $geoip2_data_city_name city names en;\r\n}", seq++, "geoip"));
+			https.add(new Http("geoip2", "/etc/nginx/geoip/GeoLite2-ASN.mmdb {\r\n    auto_reload 60m;\r\n    $geoip2_data_asn autonomous_system_number;\r\n    $geoip2_data_asn_org autonomous_system_organization;\r\n}", seq++, "geoip"));
 
 			// Gzip 壓縮
-			https.add(new Http("gzip", "on", seq++));
-			https.add(new Http("gzip_min_length", "1k", seq++));
-			https.add(new Http("gzip_comp_level", "5", seq++));
-			https.add(new Http("gzip_types", "text/plain application/json application/javascript text/css application/xml text/javascript application/x-httpd-php image/svg+xml", seq++));
+			https.add(new Http("gzip", "on", seq++, "gzip"));
+			https.add(new Http("gzip_min_length", "1k", seq++, "gzip"));
+			https.add(new Http("gzip_comp_level", "5", seq++, "gzip"));
+			https.add(new Http("gzip_types", "text/plain application/json application/javascript text/css application/xml text/javascript application/x-httpd-php image/svg+xml", seq++, "gzip"));
 
 			// Brotli 壓縮（比 gzip 更高效）
-			https.add(new Http("brotli", "on", seq++));
-			https.add(new Http("brotli_comp_level", "6", seq++));
-			https.add(new Http("brotli_types", "text/plain application/json application/javascript text/css application/xml text/javascript image/svg+xml", seq++));
+			https.add(new Http("brotli", "on", seq++, "brotli"));
+			https.add(new Http("brotli_comp_level", "6", seq++, "brotli"));
+			https.add(new Http("brotli_types", "text/plain application/json application/javascript text/css application/xml text/javascript image/svg+xml", seq++, "brotli"));
 
 			// 安全 Headers
-			https.add(new Http("add_header", "X-Frame-Options SAMEORIGIN", seq++));
-			https.add(new Http("add_header", "X-Content-Type-Options nosniff", seq++));
-			https.add(new Http("add_header", "X-XSS-Protection \"1; mode=block\"", seq++));
-			https.add(new Http("add_header", "Referrer-Policy \"strict-origin-when-cross-origin\"", seq++));
+			https.add(new Http("add_header", "X-Frame-Options SAMEORIGIN", seq++, "headers"));
+			https.add(new Http("add_header", "X-Content-Type-Options nosniff", seq++, "headers"));
+			https.add(new Http("add_header", "X-XSS-Protection \"1; mode=block\"", seq++, "headers"));
+			https.add(new Http("add_header", "Referrer-Policy \"strict-origin-when-cross-origin\"", seq++, "headers"));
 
 			// Proxy Headers Hash（避免 warn）
-			https.add(new Http("proxy_headers_hash_max_size", "1024", seq++));
+			https.add(new Http("proxy_headers_hash_max_size", "4096", seq++, "proxy"));
 
 			// 日誌格式（含真實 IP + GeoIP）
-			https.add(new Http("log_format", "main '$remote_addr - $remote_user [$time_local] \"$request\" '\r\n                      '$status $body_bytes_sent \"$http_referer\" '\r\n                      '\"$http_user_agent\" \"$geoip2_data_country_code\" \"$geoip2_data_city_name\"'", seq++));
+			https.add(new Http("log_format", "main '$remote_addr - $remote_user [$time_local] \"$request\" '\r\n                      '$status $body_bytes_sent \"$http_referer\" '\r\n                      '\"$http_user_agent\" \"$geoip2_data_country_code\" \"$geoip2_data_city_name\"'", seq++, "logging"));
 
 			// 預設開啟日誌（供 Promtail / CrowdSec 收集）
-			https.add(new Http("access_log", homeConfig.home + "log/access.log main", seq++));
-			https.add(new Http("error_log", homeConfig.home + "log/error.log", seq++));
+			https.add(new Http("access_log", homeConfig.home + "log/access.log main", seq++, "logging"));
+			https.add(new Http("error_log", homeConfig.home + "log/error.log", seq++, "logging"));
 
 			sqlHelper.insertAll(https);
 		}
@@ -170,6 +174,90 @@ public class InitConfig {
 		Long templateCount = sqlHelper.findAllCount(Template.class);
 		if (templateCount == 0) {
 			initDefaultTemplates();
+		}
+
+		// 遷移：清除模板 def 值，停止自動套用到所有 server/location
+		// 舊版模板 def="server"/"location"/"http" 會被 ParamService 自動注入，導致所有模板參數無差別套用
+		if (!"1".equals(settingService.get("templateDefMigrated"))) {
+			List<Template> templates = sqlHelper.findAll(Template.class);
+			for (Template tpl : templates) {
+				if (StrUtil.isNotEmpty(tpl.getDef())) {
+					tpl.setDef("");
+					sqlHelper.updateById(tpl);
+				}
+			}
+			settingService.set("templateDefMigrated", "1");
+			logger.info("Migration: cleared template def values to prevent auto-apply");
+		}
+
+		// 遷移：為已有模板賦 groupName
+		if (!"1".equals(settingService.get("templateGroupMigrated"))) {
+			migrateTemplateGroups();
+			settingService.set("templateGroupMigrated", "1");
+			logger.info("Migration: assigned groupName to existing templates");
+		}
+
+		// 初始化模組管理表
+		Long moduleCount = sqlHelper.findAllCount(Module.class);
+		if (moduleCount == 0) {
+			List<Module> modules = new ArrayList<>();
+			long seq = 0;
+			modules.add(new Module("ngx_stream_module.so",                    "descrStream",          false, seq++));
+			modules.add(new Module("ngx_stream_geoip2_module.so",             "descrStreamGeoip2",    false, seq++));
+			modules.add(new Module("ngx_http_geoip2_module.so",               "descrHttpGeoip2",      false, seq++));
+			modules.add(new Module("ndk_http_module.so",                      "descrNdk",             false, seq++));
+			modules.add(new Module("ngx_http_lua_module.so",                  "descrLua",             false, seq++));
+			modules.add(new Module("ngx_http_brotli_filter_module.so",        "descrBrotliFilter",    false, seq++));
+			modules.add(new Module("ngx_http_brotli_static_module.so",        "descrBrotliStatic",    false, seq++));
+			modules.add(new Module("ngx_http_zstd_filter_module.so",          "descrZstdFilter",      false, seq++));
+			modules.add(new Module("ngx_http_zstd_static_module.so",          "descrZstdStatic",      false, seq++));
+			modules.add(new Module("ngx_http_headers_more_filter_module.so",  "descrHeadersMore",     false, seq++));
+			modules.add(new Module("ngx_http_cache_purge_module.so",          "descrCachePurge",      false, seq++));
+			sqlHelper.insertAll(modules);
+		}
+
+		// 遷移：為已有 Http 記錄填充 groupName
+		if (!"1".equals(settingService.get("httpGroupMigrated"))) {
+			List<Http> allHttp = sqlHelper.findAll(Http.class);
+			for (Http h : allHttp) {
+				if (StrUtil.isNotEmpty(h.getGroupName())) continue;
+				String n = h.getName();
+				String v = h.getValue();
+				String g = null;
+				if ("include".equals(n) && v != null && v.contains("mime.types")) g = "base";
+				else if ("default_type".equals(n)) g = "base";
+				else if ("include".equals(n) && v != null && v.contains("realip")) g = "realip";
+				else if ("geoip2".equals(n)) g = "geoip";
+				else if (n != null && n.startsWith("gzip")) g = "gzip";
+				else if (n != null && n.startsWith("brotli")) g = "brotli";
+				else if ("add_header".equals(n)) g = "headers";
+				else if (n != null && n.contains("proxy_headers_hash")) g = "proxy";
+				else if ("log_format".equals(n) || "access_log".equals(n) || "error_log".equals(n)) g = "logging";
+				if (g != null) {
+					h.setGroupName(g);
+					sqlHelper.updateById(h);
+				}
+			}
+			settingService.set("httpGroupMigrated", "1");
+			logger.info("Migration: assigned groupName to existing Http records");
+		}
+
+		// 升級遷移：自動啟用磁碟上已存在的模組（保持舊版全載入行為）
+		if (!"1".equals(settingService.get("moduleInitMigrated"))) {
+			if (SystemTool.isLinux()) {
+				List<String> availableOnDisk = nginxService.getAvailableModules();
+				if (!availableOnDisk.isEmpty()) {
+					List<Module> allModules = sqlHelper.findAll(Module.class);
+					for (Module mod : allModules) {
+						if (availableOnDisk.contains(mod.getName())) {
+							mod.setEnable(true);
+							sqlHelper.updateById(mod);
+						}
+					}
+					logger.info("Migration: auto-enabled " + availableOnDisk.size() + " on-disk modules");
+				}
+			}
+			settingService.set("moduleInitMigrated", "1");
 		}
 
 		// 释放基础nginx配置文件
@@ -338,14 +426,17 @@ public class InitConfig {
 	}
 
 	private void initDefaultTemplates() {
+		// 所有模板 def="" → 純模板庫，不會自動套用到任何 server/location
+		// 用戶需手動在 server/location 編輯頁面選擇要套用的模板
+
 		// ── 代理類 ──
-		addTemplate("WebSocket Proxy", "location", new String[][] {
+		addTemplate("WebSocket Proxy", "", "proxy", new String[][] {
 			{ "proxy_http_version", "1.1" },
 			{ "proxy_set_header", "Upgrade $http_upgrade" },
 			{ "proxy_set_header", "Connection \"upgrade\"" },
 		});
 
-		addTemplate("Proxy Headers", "location", new String[][] {
+		addTemplate("Proxy Headers", "", "proxy", new String[][] {
 			{ "proxy_set_header", "Host $host" },
 			{ "proxy_set_header", "X-Real-IP $remote_addr" },
 			{ "proxy_set_header", "X-Forwarded-For $proxy_add_x_forwarded_for" },
@@ -354,7 +445,7 @@ public class InitConfig {
 			{ "proxy_set_header", "X-Forwarded-Port $server_port" },
 		});
 
-		addTemplate("Large File Upload", "server", new String[][] {
+		addTemplate("Large File Upload", "", "proxy", new String[][] {
 			{ "client_max_body_size", "500m" },
 			{ "proxy_read_timeout", "600s" },
 			{ "proxy_send_timeout", "600s" },
@@ -363,13 +454,13 @@ public class InitConfig {
 		});
 
 		// ── 緩存類 ──
-		addTemplate("Static File Cache", "location", new String[][] {
+		addTemplate("Static File Cache", "", "cache", new String[][] {
 			{ "expires", "30d" },
 			{ "add_header", "Cache-Control \"public, no-transform\"" },
 			{ "access_log", "off" },
 		});
 
-		addTemplate("Proxy Cache", "location", new String[][] {
+		addTemplate("Proxy Cache", "", "cache", new String[][] {
 			{ "proxy_cache_valid", "200 302 1h" },
 			{ "proxy_cache_valid", "404 1m" },
 			{ "proxy_cache_use_stale", "error timeout updating http_500 http_502 http_503 http_504" },
@@ -377,14 +468,14 @@ public class InitConfig {
 		});
 
 		// ── 跨域 CORS ──
-		addTemplate("CORS Allow All", "location", new String[][] {
+		addTemplate("CORS Allow All", "", "cors", new String[][] {
 			{ "add_header", "Access-Control-Allow-Origin *" },
 			{ "add_header", "Access-Control-Allow-Methods \"GET, POST, PUT, DELETE, OPTIONS\"" },
 			{ "add_header", "Access-Control-Allow-Headers \"DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization\"" },
 			{ "add_header", "Access-Control-Max-Age 1728000" },
 		});
 
-		addTemplate("CORS Specific Origin", "server", new String[][] {
+		addTemplate("CORS Specific Origin", "", "cors", new String[][] {
 			{ "add_header", "Access-Control-Allow-Origin $http_origin" },
 			{ "add_header", "Access-Control-Allow-Methods \"GET, POST, PUT, DELETE, OPTIONS\"" },
 			{ "add_header", "Access-Control-Allow-Headers \"DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization\"" },
@@ -392,62 +483,62 @@ public class InitConfig {
 		});
 
 		// ── 限流 Rate Limiting ──
-		// limit_req_zone / limit_conn_zone 只能放在 http block，不能放在 server block
-		addTemplate("Rate Limit (http)", "http", new String[][] {
+		addTemplate("Rate Limit (http)", "", "rateLimit", new String[][] {
 			{ "limit_req_zone", "$binary_remote_addr zone=req_limit:10m rate=10r/s" },
 		});
-		addTemplate("Rate Limit (server)", "server", new String[][] {
+		addTemplate("Rate Limit (server)", "", "rateLimit", new String[][] {
 			{ "limit_req", "zone=req_limit burst=20 nodelay" },
 			{ "limit_req_status", "429" },
 		});
 
-		addTemplate("Connection Limit (http)", "http", new String[][] {
+		addTemplate("Connection Limit (http)", "", "rateLimit", new String[][] {
 			{ "limit_conn_zone", "$binary_remote_addr zone=conn_limit:10m" },
 		});
-		addTemplate("Connection Limit (server)", "server", new String[][] {
+		addTemplate("Connection Limit (server)", "", "rateLimit", new String[][] {
 			{ "limit_conn", "conn_limit 50" },
 			{ "limit_conn_status", "429" },
 		});
 
 		// ── 安全類 ──
-		addTemplate("Security Headers (HSTS)", "server", new String[][] {
+		addTemplate("Security Headers (HSTS)", "", "security", new String[][] {
 			{ "add_header", "Strict-Transport-Security \"max-age=31536000; includeSubDomains; preload\" always" },
 			{ "add_header", "Content-Security-Policy \"default-src 'self'\"" },
 			{ "add_header", "Permissions-Policy \"camera=(), microphone=(), geolocation=()\"" },
 		});
 
-		addTemplate("Hide Server Info", "server", new String[][] {
+		addTemplate("Hide Server Info", "", "security", new String[][] {
 			{ "server_tokens", "off" },
 			{ "more_clear_headers", "Server" },
 			{ "more_clear_headers", "X-Powered-By" },
 		});
 
-		addTemplate("Block Sensitive Paths", "location", new String[][] {
+		addTemplate("Block Sensitive Paths", "", "security", new String[][] {
 			{ "deny", "all" },
 			{ "return", "404" },
 		});
 
 		// ── GeoIP 存取控制 ──
-		addTemplate("GeoIP Allow TW Only", "server", new String[][] {
+		addTemplate("GeoIP Allow TW Only", "", "geoip", new String[][] {
 			{ "if", "($geoip2_data_country_code != \"TW\") {\r\n        return 403;\r\n    }" },
 		});
 
-		addTemplate("GeoIP Log Country", "server", new String[][] {
+		addTemplate("GeoIP Log Country", "", "geoip", new String[][] {
 			{ "add_header", "X-Country $geoip2_data_country_code" },
 			{ "add_header", "X-City $geoip2_data_city_name" },
 		});
 
 		// ── CrowdSec Bouncer ──
-		addTemplate("CrowdSec Auth Request", "server", new String[][] {
+		addTemplate("CrowdSec Auth Request", "", "crowdsec", new String[][] {
 			{ "auth_request", "/crowdsec-check" },
 			{ "auth_request_set", "$auth_status $upstream_status" },
 		});
 	}
 
-	private void addTemplate(String name, String def, String[][] params) {
+	private void addTemplate(String name, String def, String groupName, String[][] params) {
 		Template template = new Template();
 		template.setName(name);
 		template.setDef(def);
+		template.setGroupName(groupName);
 
 		List<Param> paramList = new ArrayList<>();
 		for (String[] pair : params) {
@@ -458,6 +549,39 @@ public class InitConfig {
 		}
 
 		templateService.addOver(template, paramList);
+	}
+
+	private void migrateTemplateGroups() {
+		// Map template name patterns to group names
+		String[][] nameToGroup = {
+			{ "WebSocket Proxy",        "proxy" },
+			{ "Proxy Headers",          "proxy" },
+			{ "Large File Upload",      "proxy" },
+			{ "Static File Cache",      "cache" },
+			{ "Proxy Cache",            "cache" },
+			{ "CORS Allow All",         "cors" },
+			{ "CORS Specific Origin",   "cors" },
+			{ "Rate Limit",             "rateLimit" },
+			{ "Connection Limit",       "rateLimit" },
+			{ "Security Headers",       "security" },
+			{ "Hide Server Info",       "security" },
+			{ "Block Sensitive Paths",  "security" },
+			{ "GeoIP",                  "geoip" },
+			{ "CrowdSec",              "crowdsec" },
+		};
+
+		List<Template> templates = sqlHelper.findAll(Template.class);
+		for (Template tpl : templates) {
+			if (StrUtil.isNotBlank(tpl.getGroupName())) continue;
+
+			for (String[] mapping : nameToGroup) {
+				if (tpl.getName().startsWith(mapping[0])) {
+					tpl.setGroupName(mapping[1]);
+					sqlHelper.updateById(tpl);
+					break;
+				}
+			}
+		}
 	}
 
 	private void addAdmin() {

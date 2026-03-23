@@ -100,7 +100,13 @@ input[type='radio']{
 								<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="reload()">${confStr.reload}</button>
 							</div>
 
-							
+							<div class="layui-inline" id="editModeBtn">
+								<button type="button" class="layui-btn layui-btn-sm layui-btn-warm" onclick="enterEditMode()">${confStr.editMode}</button>
+							</div>
+							<div class="layui-inline" id="exitEditBtn" style="display:none;">
+								<button type="button" class="layui-btn layui-btn-sm layui-btn-danger" onclick="exitEditMode()">${confStr.exitEdit}</button>
+							</div>
+
 							<div class="layui-inline">
 								<label class="layui-form-label" style="width: 120px;">${confStr.decompose}</label>
 							</div>
@@ -122,6 +128,10 @@ input[type='radio']{
 							</div>
 
 						</div>
+					</div>
+
+					<div id="editModeBanner" style="display:none; width:100%; padding:8px 15px; margin-top:10px; background-color:#FF5722; color:#fff; border-radius:4px; font-weight:bold;">
+						${confStr.editModeActive}
 					</div>
 
 					<div class="layui-form" style="margin-top: 10px; display: flex;">

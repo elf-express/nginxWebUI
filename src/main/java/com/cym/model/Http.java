@@ -27,6 +27,11 @@ public class Http extends BaseModel {
 	Long seq;
 
 	/**
+	 * 分組名稱（用於 UI 分組顯示）
+	 */
+	String groupName;
+
+	/**
 	 * 是否启用 true:启用(默认) false:禁用
 	 */
 	@InitValue("true")
@@ -40,6 +45,21 @@ public class Http extends BaseModel {
 		this.name = name;
 		this.value = value;
 		this.seq = seq;
+	}
+
+	public Http(String name, String value, Long seq, String groupName) {
+		this.name = name;
+		this.value = value;
+		this.seq = seq;
+		this.groupName = groupName;
+	}
+
+	public String getGroupName() {
+		return groupName;
+	}
+
+	public void setGroupName(String groupName) {
+		this.groupName = groupName;
 	}
 
 	

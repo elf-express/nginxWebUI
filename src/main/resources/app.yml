@@ -13,7 +13,7 @@ project:
   
 solon:
   app:
-    name: nginxWebUI
+    name: Nginx Web UI
   view:
     mapping:
       html: FreemarkerRender

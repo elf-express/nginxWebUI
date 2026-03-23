@@ -93,9 +93,9 @@ public class ConfService {
 
 			NgxConfig ngxConfig = new NgxConfig();
 
-			// 自動偵測模組並生成 load_module（Linux 環境）
+			// 載入資料庫中已啟用且磁碟上存在的模組（Linux 環境）
 			if (SystemTool.isLinux()) {
-				List<String> modulePaths = nginxService.getModulePaths();
+				List<String> modulePaths = nginxService.getEnabledModulePaths();
 				for (String path : modulePaths) {
 					NgxParam ngxParam = new NgxParam();
 					ngxParam.addValue("load_module " + path);
@@ -130,6 +130,10 @@ public class ConfService {
 
 				hasHttp = true;
 			}
+
+			// 自動補齊缺失的 shared memory zone 定義
+			// 當 server/location 使用了 limit_conn 或 limit_req，但 http 區塊沒有對應的 zone 定義時自動注入
+			autoInjectMissingZones(httpList, ngxBlockHttp);
 
 			// 黑白名单
 			buildDenyAllow(ngxBlockHttp, "http", "http", confExt);
@@ -370,6 +374,50 @@ public class ConfService {
 		}
 
 		return null;
+	}
+
+	/**
+	 * 自動補齊缺失的 shared memory zone 定義。
+	 * 當 server/location params 使用了 limit_conn 或 limit_req，
+	 * 但 http 區塊沒有對應的 limit_conn_zone / limit_req_zone 時，自動注入預設值。
+	 */
+	private void autoInjectMissingZones(List<Http> httpList, NgxBlock ngxBlockHttp) {
+		// 檢查已啟用的 http 參數中是否已有 zone 定義
+		boolean hasConnZone = false;
+		boolean hasReqZone = false;
+		for (Http http : httpList) {
+			if (http.getEnable() != null && http.getEnable()) {
+				if ("limit_conn_zone".equals(http.getName().trim())) {
+					hasConnZone = true;
+				}
+				if ("limit_req_zone".equals(http.getName().trim())) {
+					hasReqZone = true;
+				}
+			}
+		}
+
+		// 檢查 server/location params 是否引用了 limit_conn 或 limit_req
+		if (!hasConnZone) {
+			ConditionAndWrapper cond = new ConditionAndWrapper();
+			cond.eq("name", "limit_conn");
+			Long count = sqlHelper.findCountByQuery(cond, Param.class);
+			if (count > 0) {
+				NgxParam ngxParam = new NgxParam();
+				ngxParam.addValue("limit_conn_zone $binary_remote_addr zone=conn_limit:10m");
+				ngxBlockHttp.addEntry(ngxParam);
+			}
+		}
+
+		if (!hasReqZone) {
+			ConditionAndWrapper cond = new ConditionAndWrapper();
+			cond.eq("name", "limit_req");
+			Long count = sqlHelper.findCountByQuery(cond, Param.class);
+			if (count > 0) {
+				NgxParam ngxParam = new NgxParam();
+				ngxParam.addValue("limit_req_zone $binary_remote_addr zone=req_limit:10m rate=10r/s");
+				ngxBlockHttp.addEntry(ngxParam);
+			}
+		}
 	}
 
 	public void buildDenyAllow(NgxBlock ngxBlock, String type, String id, ConfExt confExt) {

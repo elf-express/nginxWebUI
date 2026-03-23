@@ -7,6 +7,7 @@ import org.noear.solon.annotation.Inject;
 
 import com.cym.model.Http;
 import com.cym.model.Param;
+import com.cym.model.Template;
 import com.cym.sqlhelper.bean.Sort;
 import com.cym.sqlhelper.bean.Sort.Direction;
 import com.cym.sqlhelper.utils.ConditionAndWrapper;
@@ -101,6 +102,9 @@ public class HttpService {
 	}
 
 	public void addTemplate(String templateId) {
+		Template template = sqlHelper.findById(templateId, Template.class);
+		String groupName = template != null ? template.getName() : null;
+
 		List<Param> parmList = sqlHelper.findListByQuery(new ConditionAndWrapper().eq(Param::getTemplateId, templateId), Param.class);
 
 		for (Param param : parmList) {
@@ -108,7 +112,8 @@ public class HttpService {
 			http.setName(param.getName());
 			http.setValue(param.getValue());
 			http.setSeq(SnowFlakeUtils.getId());
-			
+			http.setGroupName(groupName);
+
 			sqlHelper.insert(http);
 		}
 	}

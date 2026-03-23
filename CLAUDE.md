@@ -74,7 +74,7 @@ docs/               # 開發文件與計畫
 mvn clean package -DskipTests
 
 # 本地啟動
-java -jar -Dfile.encoding=UTF-8 target/nginxWebUI-5.0.0.jar --server.port=8080
+java -jar -Dfile.encoding=UTF-8 target/nginxWebUI-5.0.1.jar --server.port=8080
 
 # 自動化測試
 npm test

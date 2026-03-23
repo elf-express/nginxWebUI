@@ -1,6 +1,8 @@
 package com.cym.controller.adminPage;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -9,12 +11,14 @@ import org.noear.solon.annotation.Inject;
 import org.noear.solon.annotation.Mapping;
 import org.noear.solon.core.handle.ModelAndView;
 
+import com.cym.ext.HttpGroupExt;
 import com.cym.model.DenyAllow;
 import com.cym.model.Http;
 import com.cym.service.HttpService;
 import com.cym.service.SettingService;
 import com.cym.utils.BaseController;
 import com.cym.utils.JsonResult;
+import com.cym.utils.MessageUtils;
 import com.cym.utils.SnowFlakeUtils;
 
 import cn.hutool.core.util.StrUtil;
@@ -27,12 +31,86 @@ public class HttpController extends BaseController {
 	HttpService httpService;
 	@Inject
 	SettingService settingService;
+	@Inject
+	MessageUtils m;
+
+	// 分組定義：groupName → { i18n displayName key, i18n description key, module note key }
+	private static final String[][] GROUP_DEFS = {
+		{ "base",    "httpGroup.base",    "httpGroup.baseDesc",    "" },
+		{ "realip",  "httpGroup.realip",  "httpGroup.realipDesc",  "" },
+		{ "geoip",   "httpGroup.geoip",   "httpGroup.geoipDesc",   "httpGroup.moduleGeoip2" },
+		{ "gzip",    "httpGroup.gzip",    "httpGroup.gzipDesc",    "" },
+		{ "brotli",  "httpGroup.brotli",  "httpGroup.brotliDesc",  "httpGroup.moduleBrotli" },
+		{ "headers", "httpGroup.headers", "httpGroup.headersDesc", "" },
+		{ "proxy",   "httpGroup.proxy",   "httpGroup.proxyDesc",   "" },
+		{ "logging", "httpGroup.logging", "httpGroup.loggingDesc", "" },
+	};
 
 	@Mapping("")
 	public ModelAndView index(ModelAndView modelAndView) {
 		List<Http> httpList = httpService.findAll();
 
+		// 按 groupName 分組，保持 seq 順序
+		LinkedHashMap<String, List<Http>> groupMap = new LinkedHashMap<>();
+		// 先按預定義順序建立空列表
+		for (String[] def : GROUP_DEFS) {
+			groupMap.put(def[0], new ArrayList<>());
+		}
+		// 自訂組
+		String customKey = "_custom";
+		groupMap.put(customKey, new ArrayList<>());
+
+		for (Http http : httpList) {
+			String gn = http.getGroupName();
+			if (StrUtil.isBlank(gn)) {
+				groupMap.get(customKey).add(http);
+			} else if (groupMap.containsKey(gn)) {
+				groupMap.get(gn).add(http);
+			} else {
+				// 來自模板的動態組
+				if (!groupMap.containsKey(gn)) {
+					groupMap.put(gn, new ArrayList<>());
+				}
+				groupMap.get(gn).add(http);
+			}
+		}
+
+		// 建構 HttpGroupExt 列表
+		List<HttpGroupExt> groupList = new ArrayList<>();
+		for (Map.Entry<String, List<Http>> entry : groupMap.entrySet()) {
+			if (entry.getValue().isEmpty()) continue;
+
+			HttpGroupExt ext = new HttpGroupExt();
+			ext.setGroupName(entry.getKey());
+			ext.setHttpList(entry.getValue());
+
+			// 查找預定義分組的 i18n
+			boolean found = false;
+			for (String[] def : GROUP_DEFS) {
+				if (def[0].equals(entry.getKey())) {
+					ext.setDisplayName(m.get(def[1]));
+					ext.setDescription(m.get(def[2]));
+					ext.setModuleNote(StrUtil.isNotEmpty(def[3]) ? m.get(def[3]) : null);
+					found = true;
+					break;
+				}
+			}
+			if (!found) {
+				if (customKey.equals(entry.getKey())) {
+					ext.setDisplayName(m.get("httpGroup.custom"));
+					ext.setDescription(m.get("httpGroup.customDesc"));
+				} else {
+					// 來自模板的動態組，直接用 groupName 顯示
+					ext.setDisplayName(entry.getKey());
+					ext.setDescription("");
+				}
+			}
+
+			groupList.add(ext);
+		}
+
 		modelAndView.put("httpList", httpList);
+		modelAndView.put("groupList", groupList);
 		modelAndView.put("denyAllowList", sqlHelper.findAll(DenyAllow.class));
 
 		modelAndView.view("/adminPage/http/index.html");

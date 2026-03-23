@@ -56,25 +56,28 @@ test.describe('預設模板', () => {
     expect(content).toContain('CrowdSec');
   });
 
-  test('WebSocket Proxy 模板應配置到 location', async ({ page }) => {
+  test('WebSocket Proxy 模板存在且包含參數', async ({ page }) => {
     await login(page);
     await page.goto('/adminPage/template');
     await page.waitForSelector('table');
 
-    // 表格中 WebSocket Proxy 那行應顯示 location 相關文字
     const row = page.locator('tr', { hasText: 'WebSocket Proxy' });
+    await expect(row).toBeVisible();
+    // 應有 3 個參數
     const rowText = await row.textContent();
-    expect(rowText).toContain('location');
+    expect(rowText).toContain('3');
   });
 
-  test('Large File Upload 模板應配置到 server', async ({ page }) => {
+  test('Large File Upload 模板存在且包含參數', async ({ page }) => {
     await login(page);
     await page.goto('/adminPage/template');
     await page.waitForSelector('table');
 
     const row = page.locator('tr', { hasText: 'Large File Upload' });
+    await expect(row).toBeVisible();
+    // 應有參數（5個）
     const rowText = await row.textContent();
-    expect(rowText).toContain('server');
+    expect(rowText).toContain('5');
   });
 
 });

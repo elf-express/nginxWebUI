@@ -8,8 +8,9 @@ public class Template extends BaseModel{
 	String name;
 
 	String def; // 默认配置 "" "server" "server1" "server2" "location" "upstream"
-	
-	
+
+	String groupName;
+
 	public String getName() {
 		return name;
 	}
@@ -25,6 +26,12 @@ public class Template extends BaseModel{
 	public void setDef(String def) {
 		this.def = def;
 	}
-	
-	
+
+	public String getGroupName() {
+		return groupName;
+	}
+
+	public void setGroupName(String groupName) {
+		this.groupName = groupName;
+	}
 }

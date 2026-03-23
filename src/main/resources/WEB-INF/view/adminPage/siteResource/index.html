@@ -1,0 +1,228 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<#include "/adminPage/common.html"/>
+
+</head>
+<body class="layui-layout-body">
+	<div class="layui-layout layui-layout-admin">
+
+		<#include "/adminPage/header.html"/>
+		<#include "/adminPage/menu.html"/>
+
+		<div class="layui-body">
+			<!-- 内容主体区域 -->
+			<div style="padding: 15px">
+				<div class="layui-tab layui-tab-brief" lay-filter="siteResTab">
+					<ul class="layui-tab-title">
+						<li class="layui-this">${menuStr.www}</li>
+						<li>${menuStr.password}</li>
+					</ul>
+					<div class="layui-tab-content">
+						<!-- ==================== WWW Tab ==================== -->
+						<div class="layui-tab-item layui-show">
+							<div class="layui-form">
+								<div class="layui-inline">
+									<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="wwwNS.add()">${wwwStr.add}</button>
+								</div>
+								<div class="layui-inline">
+									<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="wwwNS.delMany()">${commonStr.delAll}</button>
+								</div>
+							</div>
+
+							<table class="layui-table layui-form" lay-size="sm">
+								<thead>
+									<tr>
+										<th style="width: 20px;">
+											<input type="checkbox" id="wwwCheckAll" lay-filter="wwwCheckAll" lay-skin="primary">
+										</th>
+										<th>${commonStr.path}</th>
+										<th>${commonStr.descr}</th>
+										<th>${commonStr.operation}</th>
+									</tr>
+								</thead>
+								<tbody>
+									<#list wwwList as www>
+									<tr>
+										<td>
+											<input type="checkbox" name="wwwIds" title="" lay-skin="primary" value="${www.id}">
+										</td>
+										<td>${www.dir} &nbsp;&nbsp; <a style="color: blue;" href="javascript:wwwNS.copy('${www.dir}')">${commonStr.copy}</a></td>
+										<td style="width: 400px;">
+											<#if www.descr != null && www.descr != "">
+												<a href="javascript:wwwNS.editDescr('${www.id}')" style="color: #bbbbbb; text-decoration: underline;">${www.descr}</a>
+											</#if>
+											<#if www.descr == null || www.descr == "">
+												<a href="javascript:wwwNS.editDescr('${www.id}')" style="color: #bbbbbb; text-decoration: underline;">${commonStr.edit}</a>
+											</#if>
+										</td>
+										<td>
+											<div class="layui-inline">
+												<button type="button" class="layui-btn layui-btn-sm" onclick="wwwNS.clean('${www.id}')">${wwwStr.clean}</button>
+											</div>
+											<div class="layui-inline">
+												<button type="button" class="layui-btn layui-btn-sm" onclick="wwwNS.edit('${www.id}')">${wwwStr.editOrUpdate}</button>
+											</div>
+											<div class="layui-inline">
+												<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="wwwNS.del('${www.id}')">${commonStr.del}</button>
+											</div>
+										</td>
+									</tr>
+									</#list>
+								</tbody>
+							</table>
+						</div>
+
+						<!-- ==================== Password Tab ==================== -->
+						<div class="layui-tab-item">
+							<form action="${ctx}/adminPage/siteResource" id="pwdSearchForm" method="post">
+								<div class="layui-form">
+									<div class="layui-inline">
+										<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="pwdNS.add()">${commonStr.add}</button>
+									</div>
+									<div class="layui-inline">
+										<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="pwdNS.delMany()">${commonStr.delAll}</button>
+									</div>
+
+									<input type="hidden" name="curr" value="${pwdPage.curr}">
+									<input type="hidden" name="limit" value="${pwdPage.limit}">
+								</div>
+							</form>
+
+							<table class="layui-table layui-form" lay-size="sm">
+								<thead>
+									<tr>
+										<th style="width: 20px;">
+											<input type="checkbox" id="pwdCheckAll" lay-filter="pwdCheckAll" lay-skin="primary">
+										</th>
+										<th>${passwordStr.name}</th>
+										<th>${passwordStr.descr}</th>
+										<th>${passwordStr.path}</th>
+										<th>${commonStr.operation}</th>
+									</tr>
+								</thead>
+								<tbody>
+									<#list pwdPage.records as password>
+									<tr>
+										<td>
+											<input type="checkbox" name="pwdIds" title="" lay-skin="primary" value="${password.id}">
+										</td>
+										<td>${password.name}</td>
+										<td>${password.descr}</td>
+										<td>${password.path}</td>
+										<td>
+											<div class="layui-inline">
+												<button type="button" class="layui-btn layui-btn-sm" onclick="pwdNS.edit('${password.id}')">${commonStr.edit}</button>
+											</div>
+											<div class="layui-inline">
+												<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="pwdNS.del('${password.id}')">${commonStr.del}</button>
+											</div>
+										</td>
+									</tr>
+									</#list>
+								</tbody>
+							</table>
+							<div id="pwdPageInfo"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div style="height: 0px; width: 0px; overflow: hidden;">
+		<!-- WWW Add/Edit Modal -->
+		<div class="layui-form" id="wwwWindowDiv" style="padding: 15px; display: none">
+			<form id="wwwAddForm">
+				<input type="hidden" name="id" id="wwwId">
+				<div id="wwwNameDiv">
+					<div class="layui-form-item">
+						<label class="layui-form-label">${wwwStr.dir}</label>
+						<div class="layui-input-inline">
+							<input type="text" name="dir" id="wwwDir" class="layui-input">
+						</div>
+						<div class="layui-input-inline">
+							<i class="layui-icon layui-icon-export" onclick="selectRootCustom()"></i>
+						</div>
+					</div>
+				</div>
+
+				<div id="wwwZipDiv">
+					<div class="layui-form-item">
+						<label class="layui-form-label">${wwwStr.upload}</label>
+						<div class="layui-input-inline" style="width: auto;">
+							<button type="button" class="layui-btn" id="wwwUpload">${wwwStr.select}</button>
+						</div>
+						<div class="layui-form-mid layui-word-aux" id="wwwFileName"></div>
+						<input type="hidden" name="dirTemp" id="wwwDirTemp">
+					</div>
+
+					<div class="layui-form-item">
+						<label class="layui-form-label">&nbsp;</label>
+						<div class="layui-form-mid layui-word-aux" style="width: 300px;">${wwwStr.tips}</div>
+					</div>
+				</div>
+
+				<div class="layui-form-item center">
+					<button type="button" class="layui-btn layui-btn-normal" onclick="wwwNS.addOver()">${commonStr.submit}</button>
+					<button type="button" class="layui-btn" onclick="layer.closeAll()">${commonStr.close}</button>
+				</div>
+			</form>
+		</div>
+
+		<!-- WWW Description Modal -->
+		<div class="layui-form" id="wwwDescrDiv" style="padding: 15px; display: none">
+			<input type="hidden" id="wwwItemId" name="wwwItemId">
+			<div class="layui-form-item">
+				<div class="layui-input-inline" style="width: 100%;">
+					<textarea id="wwwDescr" name="wwwDescr" class="layui-textarea" style="height: 200px;"></textarea>
+				</div>
+			</div>
+			<div class="layui-form-item center">
+				<button type="button" class="layui-btn layui-btn-normal" onclick="wwwNS.editDescrOver()">${commonStr.ok}</button>
+				<button type="button" class="layui-btn" onclick="layer.closeAll()">${commonStr.close}</button>
+			</div>
+		</div>
+
+		<!-- Password Add/Edit Modal -->
+		<div class="layui-form" id="pwdWindowDiv" style="padding: 15px; display: none">
+			<form id="pwdAddForm">
+				<input type="hidden" name="id" id="pwdId">
+
+				<div class="layui-form-item">
+					<label class="layui-form-label">${passwordStr.name}</label>
+					<div class="layui-input-block">
+						<input type="text" name="name" id="pwdName" class="layui-input">
+					</div>
+				</div>
+
+				<div class="layui-form-item">
+					<label class="layui-form-label">${passwordStr.pass}</label>
+					<div class="layui-input-block">
+						<input type="password" name="pass" id="pwdPass" class="layui-input">
+					</div>
+				</div>
+
+				<div class="layui-form-item">
+					<label class="layui-form-label">${passwordStr.descr}</label>
+					<div class="layui-input-block">
+						<input type="text" name="descr" id="pwdDescr" class="layui-input">
+					</div>
+				</div>
+
+				<div class="layui-form-item center">
+					<button type="button" class="layui-btn layui-btn-normal" onclick="pwdNS.addOver()">${commonStr.submit}</button>
+					<button type="button" class="layui-btn" onclick="layer.closeAll()">${commonStr.close}</button>
+				</div>
+			</form>
+		</div>
+	</div>
+
+	<#include '/adminPage/script.html'/>
+	<#include '/adminPage/select_root.html'/>
+	<script src="${ctx}/js/adminPage/siteResource/www.js?v=${jsrandom}" type="text/javascript"></script>
+	<script src="${ctx}/js/adminPage/siteResource/password.js?v=${jsrandom}" type="text/javascript"></script>
+</body>
+
+
+</html>
