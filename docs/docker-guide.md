@@ -49,34 +49,74 @@ Nginx access_log → nginxwebui_log volume
 
 ### 部署檔案清單
 
-部署到任何環境（LXC / VM / 實體機）只需要以下 **7 個檔案**：
+所有部署檔案已打包在 `deploy/` 目錄，部署到任何環境（LXC / VM / 實體機）只需要以下 **9 個檔案**：
 
 ```
-/opt/nginxwebui/
-├── docker-compose.yml          # Stack 編排
-├── .env                        # 敏感設定（API Key、Bouncer Key）
-├── promtail-config.yml         # Promtail 日誌收集配置
-├── grafana-datasources.yml     # Grafana 數據源自動配置
+deploy/
+├── docker-compose.yml              # Stack 編排
+├── .env.example                    # 敏感設定範本（複製為 .env）
+├── promtail-config.yml             # Promtail 日誌收集配置
+├── grafana-datasources.yml         # Grafana 數據源自動配置
+├── grafana-dashboards.yml          # Grafana Dashboard 自動載入
+├── grafana-nginx-dashboard.json    # Nginx 監控儀表板
 └── crowdsec/
-    ├── acquis.yml              # CrowdSec 日誌來源設定
-    ├── abuseipdb.yaml          # AbuseIPDB 回報設定
-    └── profiles.yaml           # CrowdSec 告警處理設定
+    ├── acquis.yml                  # CrowdSec 日誌來源設定
+    ├── abuseipdb.yaml              # AbuseIPDB 回報設定
+    └── profiles.yaml               # CrowdSec 告警處理設定
 ```
 
 **不需要**原始碼、Dockerfile、JAR 檔 — Image 從 ghcr.io 拉取。
 
-### 部署步驟
+### 方式 A：從 GitHub 拉取（推薦）
+
+在目標機器上直接從 GitHub 拉取 `deploy/` 目錄，不會下載原始碼：
 
 ```bash
-# 1. 在目標機器建立目錄
-mkdir -p /opt/nginxwebui/crowdsec
+# 1. 用 sparse-checkout 只拉 deploy/ 目錄
+cd /opt
+git clone --depth 1 --filter=blob:none --sparse \
+  https://github.com/elf-express/nginxWebUI.git nginxwebui
+cd nginxwebui
+git sparse-checkout set deploy
 
-# 2. 從開發機傳送檔案（Windows PowerShell）
-scp docker-compose.yml .env promtail-config.yml grafana-datasources.yml root@目標IP:/opt/nginxwebui/
-scp crowdsec/acquis.yml crowdsec/abuseipdb.yaml crowdsec/profiles.yaml root@目標IP:/opt/nginxwebui/crowdsec/
+# 2. 把 deploy/ 內容搬到當前目錄，清除 git
+cp -r deploy/* . && cp -r deploy/crowdsec . && rm -rf deploy .git
 
-# 3. 在目標機器啟動
+# 3. 設定敏感資訊
+cp .env.example .env
+nano .env   # 填入 CROWDSEC_BOUNCER_KEY 和 ABUSEIPDB_API_KEY
+
+# 4. 啟動
+docker compose up -d
+
+# 5. 確認所有服務健康
+docker compose ps
+```
+
+升版時重新拉取即可（volume 資料會保留）：
+
+```bash
+cd /tmp
+git clone --depth 1 --filter=blob:none --sparse \
+  https://github.com/elf-express/nginxWebUI.git nginxwebui-update
+cd nginxwebui-update && git sparse-checkout set deploy
+cp -r deploy/* /opt/nginxwebui/ && cp -r deploy/crowdsec /opt/nginxwebui/
+rm -rf /tmp/nginxwebui-update
+cd /opt/nginxwebui && docker compose up -d
+```
+
+### 方式 B：從開發機 SCP 傳送
+
+```bash
+# 1. 從開發機一條指令傳送整個 deploy 目錄
+scp -r deploy/* root@目標IP:/opt/nginxwebui/
+
+# 2. 在目標機器設定敏感資訊
 cd /opt/nginxwebui
+cp .env.example .env
+nano .env   # 填入 CROWDSEC_BOUNCER_KEY 和 ABUSEIPDB_API_KEY
+
+# 3. 啟動
 docker compose up -d
 
 # 4. 確認所有服務健康
