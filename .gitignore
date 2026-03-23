@@ -5,6 +5,7 @@ test-results/
 !**/src/main/**
 !**/src/test/**
 node_modules
+.log
 
 ### STS ###
 .apt_generated
