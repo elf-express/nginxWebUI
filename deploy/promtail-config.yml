@@ -19,10 +19,12 @@ scrape_configs:
           __path__: /var/log/nginx/access.log
     pipeline_stages:
       - regex:
-          expression: '^(?P<remote_addr>[\w\.]+) - (?P<remote_user>[^ ]*) \[(?P<time_local>[^\]]+)\] "(?P<method>\w+) (?P<request>[^ ]+) (?P<protocol>[^"]+)" (?P<status>\d+) (?P<body_bytes_sent>\d+) "(?P<http_referer>[^"]*)" "(?P<http_user_agent>[^"]*)"'
+          expression: '^(?P<remote_addr>[\w\.]+) - (?P<remote_user>[^ ]*) \[(?P<time_local>[^\]]+)\] "(?P<method>\w+) (?P<request>[^ ]+) (?P<protocol>[^"]+)" (?P<status>\d+) (?P<body_bytes_sent>\d+) "(?P<http_referer>[^"]*)" "(?P<http_user_agent>[^"]*)" "(?P<country>[^"]*)" "(?P<city>[^"]*)" "(?P<asn>[^"]*)" "(?P<asn_org>[^"]*)"'
       - labels:
           method:
           status:
+          country:
+          asn:
 
   - job_name: nginx-error
     static_configs:

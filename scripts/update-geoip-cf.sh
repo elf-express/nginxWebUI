@@ -9,8 +9,13 @@ COUNTRY_URL="https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Countr
 CITY_URL="https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-City.mmdb"
 ASN_URL="https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-ASN.mmdb"
 
-# 本機/內網信任來源
-CF_LOCAL_TRUST="127.0.0.1"
+# 本機/內網信任來源（Docker 內網 + 常見私有網段）
+LOCAL_TRUST="
+127.0.0.1
+10.0.0.0/8
+172.16.0.0/12
+192.168.0.0/16
+"
 
 mkdir -p "$GEOIP_DIR"
 TMP=$(mktemp -d)
@@ -59,8 +64,10 @@ fi
   echo "# IPv6"
   echo "$IPV6" | awk '{print "set_real_ip_from " $1 ";"}'
   echo ""
-  echo "# Local Trust"
-  echo "set_real_ip_from $CF_LOCAL_TRUST;"
+  echo "# Local / Docker / Private Network Trust"
+  for cidr in $LOCAL_TRUST; do
+    echo "set_real_ip_from $cidr;"
+  done
   echo ""
   echo "real_ip_header CF-Connecting-IP;"
   echo "real_ip_recursive on;"

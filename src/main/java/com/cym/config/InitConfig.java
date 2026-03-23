@@ -160,8 +160,11 @@ public class InitConfig {
 			// Proxy Headers Hash（避免 warn）
 			https.add(new Http("proxy_headers_hash_max_size", "4096", seq++, "proxy"));
 
-			// 日誌格式（含真實 IP + GeoIP）
-			https.add(new Http("log_format", "main '$remote_addr - $remote_user [$time_local] \"$request\" '\r\n                      '$status $body_bytes_sent \"$http_referer\" '\r\n                      '\"$http_user_agent\" \"$geoip2_data_country_code\" \"$geoip2_data_city_name\"'", seq++, "logging"));
+			// ASN 封鎖清單（map：0=放行，1=封鎖）
+			https.add(new Http("map", "$geoip2_data_asn $blocked_asn {\r\n    default 0;\r\n    # 在此加入要封鎖的 ASN 號碼，每行一個\r\n    # 例如: 4134 1;  # China Telecom Backbone\r\n    # 例如: 4837 1;  # China Unicom Backbone\r\n}", seq++, "geoip"));
+
+			// 日誌格式（含真實 IP + GeoIP + ASN）
+			https.add(new Http("log_format", "main '$remote_addr - $remote_user [$time_local] \"$request\" '\r\n                      '$status $body_bytes_sent \"$http_referer\" '\r\n                      '\"$http_user_agent\" \"$geoip2_data_country_code\" \"$geoip2_data_city_name\" \"$geoip2_data_asn\" \"$geoip2_data_asn_org\"'", seq++, "logging"));
 
 			// 預設開啟日誌（供 Promtail / CrowdSec 收集）
 			https.add(new Http("access_log", homeConfig.home + "log/access.log main", seq++, "logging"));
@@ -228,6 +231,7 @@ public class InitConfig {
 				else if ("default_type".equals(n)) g = "base";
 				else if ("include".equals(n) && v != null && v.contains("realip")) g = "realip";
 				else if ("geoip2".equals(n)) g = "geoip";
+				else if ("map".equals(n) && v != null && v.contains("geoip2_data_asn")) g = "geoip";
 				else if (n != null && n.startsWith("gzip")) g = "gzip";
 				else if (n != null && n.startsWith("brotli")) g = "brotli";
 				else if ("add_header".equals(n)) g = "headers";
@@ -525,6 +529,15 @@ public class InitConfig {
 		addTemplate("GeoIP Log Country", "", "geoip", new String[][] {
 			{ "add_header", "X-Country $geoip2_data_country_code" },
 			{ "add_header", "X-City $geoip2_data_city_name" },
+		});
+
+		addTemplate("ASN Block List", "", "geoip", new String[][] {
+			{ "if", "($blocked_asn) {\r\n        return 403;\r\n    }" },
+		});
+
+		addTemplate("ASN Log Info", "", "geoip", new String[][] {
+			{ "add_header", "X-ASN $geoip2_data_asn" },
+			{ "add_header", "X-ASN-Org $geoip2_data_asn_org" },
 		});
 
 		// ── CrowdSec Bouncer ──

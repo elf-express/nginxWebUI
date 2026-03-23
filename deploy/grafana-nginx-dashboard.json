@@ -295,13 +295,91 @@
     {
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 26 },
+      "id": 103,
+      "title": "GeoIP & ASN",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "hideFrom": { "legend": false, "tooltip": false, "viz": false } },
+          "mappings": []
+        }
+      },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 27 },
+      "id": 9,
+      "options": {
+        "displayLabels": ["percent"],
+        "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] },
+        "pieType": "donut",
+        "reduceOptions": { "calcs": ["sum"], "fields": "", "values": false },
+        "tooltip": { "mode": "single" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "" },
+          "editorMode": "code",
+          "expr": "topk(10, sum by (country) (count_over_time({job=\"nginx\", type=\"access\"} | country != \"\" | country != \"-\" [$__range])))",
+          "legendFormat": "{{country}}",
+          "queryType": "instant",
+          "refId": "A"
+        }
+      ],
+      "title": "Top 10 Countries",
+      "type": "piechart"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Value" },
+            "properties": [
+              { "id": "custom.width", "value": 80 },
+              { "id": "displayName", "value": "Count" }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 16, "x": 8, "y": 27 },
+      "id": 10,
+      "options": {
+        "cellHeight": "sm",
+        "footer": { "countRows": false, "fields": "", "reducer": ["sum"], "show": false },
+        "showHeader": true,
+        "sortBy": [{ "desc": true, "displayName": "Count" }]
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "" },
+          "editorMode": "code",
+          "expr": "topk(20, sum by (asn, asn_org) (count_over_time({job=\"nginx\", type=\"access\"} | asn != \"\" | asn != \"-\" [$__range])))",
+          "legendFormat": "",
+          "queryType": "instant",
+          "refId": "A"
+        }
+      ],
+      "title": "Top 20 ASN",
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 35 },
       "id": 102,
       "title": "Error Logs",
       "type": "row"
     },
     {
       "datasource": { "type": "loki", "uid": "" },
-      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 27 },
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 36 },
       "id": 7,
       "options": {
         "dedupStrategy": "none",
@@ -327,7 +405,7 @@
     },
     {
       "datasource": { "type": "loki", "uid": "" },
-      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 34 },
+      "gridPos": { "h": 7, "w": 24, "x": 0, "y": 43 },
       "id": 8,
       "options": {
         "dedupStrategy": "none",

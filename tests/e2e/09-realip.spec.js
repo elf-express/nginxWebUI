@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const { execFileSync } = require('child_process');
 
-const CONTAINER = 'nginx-webui-5.0.2';
+const CONTAINER = 'nginx-webui-5.0.3';
 
 /**
  * 在容器內執行指令
@@ -38,9 +38,11 @@ test.describe('Real IP + Cloudflare + GeoIP', () => {
     expect(conf).toContain('2400:cb00::/32');
   });
 
-  test('應包含本機信任來源', () => {
+  test('應包含本機與 Docker 內網信任來源', () => {
     const conf = dockerExec('cat /etc/nginx/geoip/realip.conf');
     expect(conf).toContain('set_real_ip_from 127.0.0.1');
+    expect(conf).toContain('set_real_ip_from 172.16.0.0/12');
+    expect(conf).toContain('set_real_ip_from 10.0.0.0/8');
   });
 
   test('GeoLite2 Country mmdb 應存在', () => {

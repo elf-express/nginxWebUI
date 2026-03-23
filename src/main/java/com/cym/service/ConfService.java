@@ -7,7 +7,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.noear.solon.annotation.Component;
 import org.noear.solon.annotation.Inject;
@@ -39,6 +41,7 @@ import com.cym.sqlhelper.bean.Sort.Direction;
 import com.cym.sqlhelper.utils.ConditionAndWrapper;
 import com.cym.sqlhelper.utils.SqlHelper;
 import com.cym.utils.SystemTool;
+import com.cym.utils.TelnetUtils;
 import com.cym.utils.ToolUtils;
 import com.github.odiszapc.nginxparser.NgxBlock;
 import com.github.odiszapc.nginxparser.NgxConfig;
@@ -1347,6 +1350,116 @@ public class ConfService {
 	public List<Cert> getApplyCerts() {
 		List<Cert> certs = sqlHelper.findListByQuery(new ConditionAndWrapper().ne(Cert::getType, 1), Cert.class);
 		return certs;
+	}
+
+	/**
+	 * 測試所有代理目標的 TCP 連通性
+	 */
+	public List<Map<String, String>> testAllDestinations() {
+		List<Map<String, String>> results = new ArrayList<>();
+
+		// HTTP Server (proxyType=0)
+		List<Server> httpServers = serverService.getListByProxyType(new String[] { "0" });
+		for (Server server : httpServers) {
+			if (server.getEnable() == null || !server.getEnable()) {
+				continue;
+			}
+			String serverLabel = buildServerLabel(server);
+			List<Location> locations = serverService.getLocationByServerId(server.getId());
+			for (Location location : locations) {
+				if (location.getEnable() != null && location.getEnable() == 0) {
+					continue;
+				}
+				if (location.getType() == 0) {
+					addProxyTestResult(results, serverLabel, location.getPath(), location.getValue());
+				} else if (location.getType() == 2) {
+					addUpstreamTestResults(results, serverLabel, location.getPath(), location.getUpstreamId());
+				}
+			}
+		}
+
+		// TCP/UDP Server (proxyType=1,2)
+		List<Server> tcpUdpServers = serverService.getListByProxyType(new String[] { "1", "2" });
+		for (Server server : tcpUdpServers) {
+			if (server.getEnable() == null || !server.getEnable()) {
+				continue;
+			}
+			String serverLabel = buildServerLabel(server);
+			if (StrUtil.isNotEmpty(server.getProxyUpstreamId())) {
+				addUpstreamTestResults(results, serverLabel, "stream", server.getProxyUpstreamId());
+			}
+		}
+
+		return results;
+	}
+
+	private String buildServerLabel(Server server) {
+		String label = "";
+		if (StrUtil.isNotEmpty(server.getServerName())) {
+			label = server.getServerName();
+		}
+		if (StrUtil.isNotEmpty(server.getListen())) {
+			label += (label.isEmpty() ? "" : " ") + ":" + server.getListen();
+		}
+		if (label.isEmpty()) {
+			label = server.getId();
+		}
+		return label;
+	}
+
+	private void addProxyTestResult(List<Map<String, String>> results, String serverLabel, String locationPath, String proxyPassUrl) {
+		if (StrUtil.isEmpty(proxyPassUrl)) {
+			return;
+		}
+		try {
+			java.net.URL url = new java.net.URL(proxyPassUrl);
+			String host = url.getHost();
+			int port = url.getPort();
+			if (port == -1) {
+				port = "https".equalsIgnoreCase(url.getProtocol()) ? 443 : 80;
+			}
+			String destination = host + ":" + port;
+			boolean ok = TelnetUtils.isRunning(host, port);
+
+			Map<String, String> row = new LinkedHashMap<>();
+			row.put("server", serverLabel);
+			row.put("location", locationPath);
+			row.put("destination", destination);
+			row.put("status", ok ? "OK" : "FAIL");
+			results.add(row);
+		} catch (Exception e) {
+			Map<String, String> row = new LinkedHashMap<>();
+			row.put("server", serverLabel);
+			row.put("location", locationPath);
+			row.put("destination", proxyPassUrl);
+			row.put("status", "FAIL");
+			results.add(row);
+		}
+	}
+
+	private void addUpstreamTestResults(List<Map<String, String>> results, String serverLabel, String locationPath, String upstreamId) {
+		if (StrUtil.isEmpty(upstreamId)) {
+			return;
+		}
+		Upstream upstream = sqlHelper.findById(upstreamId, Upstream.class);
+		if (upstream == null) {
+			return;
+		}
+		List<UpstreamServer> servers = upstreamService.getUpstreamServers(upstreamId);
+		for (UpstreamServer us : servers) {
+			if (us.getEnable() != null && us.getEnable() == 0) {
+				continue;
+			}
+			String destination = us.getServer() + ":" + us.getPort();
+			boolean ok = TelnetUtils.isRunning(us.getServer(), us.getPort());
+
+			Map<String, String> row = new LinkedHashMap<>();
+			row.put("server", serverLabel);
+			row.put("location", locationPath + " -> " + upstream.getName());
+			row.put("destination", destination);
+			row.put("status", ok ? "OK" : "FAIL");
+			results.add(row);
+		}
 	}
 
 }

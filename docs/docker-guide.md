@@ -144,8 +144,8 @@ ABUSEIPDB_API_KEY=your-api-key-here
 4. **登入 Grafana** — `http://目標IP:3000`（admin/admin），修改密碼
 5. **確認 CrowdSec**：
    ```bash
-   docker exec nginx-webui-5.0.1-crowdsec cscli bouncers list
-   docker exec nginx-webui-5.0.1-crowdsec cscli collections list
+   docker exec nginx-webui-5.0.3-crowdsec cscli bouncers list
+   docker exec nginx-webui-5.0.3-crowdsec cscli collections list
    ```
 
 ## 三、命名規範（強制）
@@ -160,13 +160,13 @@ ABUSEIPDB_API_KEY=your-api-key-here
 例：
 
 ```
-nginx-webui-5.0.1
-nginx-webui-5.0.1-postgres
-nginx-webui-5.0.1-loki
-nginx-webui-5.0.1-promtail
-nginx-webui-5.0.1-grafana
-nginx-webui-5.0.1-crowdsec
-nginx-webui-5.0.1-bouncer
+nginx-webui-5.0.3
+nginx-webui-5.0.3-postgres
+nginx-webui-5.0.3-loki
+nginx-webui-5.0.3-promtail
+nginx-webui-5.0.3-grafana
+nginx-webui-5.0.3-crowdsec
+nginx-webui-5.0.3-bouncer
 ```
 
 ### volume name
@@ -229,6 +229,35 @@ nginxwebui_crowdsec_config → /etc/crowdsec
 
 **重點：** `nginxwebui_log` 是日誌共享 volume，Nginx Web UI 寫入，Promtail 和 CrowdSec 以 `:ro` 唯讀掛載。
 
+### ⚠️ Volume 資料保護（必讀）
+
+管理員帳號、Nginx 配置、資料庫內容全部存在 Volume 裡。**以下操作會永久刪除所有資料：**
+
+| 指令 | 資料安全？ | 說明 |
+|------|-----------|------|
+| `docker compose down` | ✅ 安全 | 只移除容器，Volume 保留 |
+| `docker compose restart` | ✅ 安全 | 重啟容器 |
+| `docker compose up -d` | ✅ 安全 | 啟動/重建容器，自動掛回既有 Volume |
+| `docker compose down -v` | ❌ **刪除所有資料** | `-v` 會連同 Volume 一起刪除 |
+| `docker volume prune` | ❌ **刪除閒置 Volume** | 容器停止時 Volume 算閒置 |
+| `docker system prune --volumes` | ❌ **刪除閒置 Volume** | 同上 |
+
+**升版/重啟的正確做法：**
+
+```bash
+docker compose down          # 停止並移除容器（Volume 保留）
+docker compose pull          # 拉取新 image
+docker compose up -d         # 重新啟動（自動掛回 Volume，資料完整）
+```
+
+**確認資料是否還在：**
+
+```bash
+# 檢查 PostgreSQL 有沒有管理員帳號
+docker exec nginx-webui-5.0.3-postgres psql -U nginxwebui -c "SELECT count(*) FROM admin;"
+# 回傳 1 以上 = 資料還在，回傳 0 = 資料庫是空的
+```
+
 ## 六、環境變數
 
 ### nginxwebui
@@ -283,7 +312,7 @@ git push origin master                 # 推到 GitHub
 │ 1. mvn clean package               │
 │ 2. docker buildx（amd64 + arm64）  │
 │ 3. push → ghcr.io/elf-express/     │
-│    nginxwebui:5.0.1                 │
+│    nginxwebui:5.0.3                 │
 │    nginxwebui:latest                │
 └────────────────────────────────────┘
   ↓
@@ -317,14 +346,14 @@ mvn clean package -DskipTests
 # 記憶體不夠實
 MAVEN_OPTS="-Xmx512m" mvn clean package -DskipTests
 # 2. 構建 image
-docker build -t ghcr.io/elf-express/nginxwebui:5.0.2 .
+docker build -t ghcr.io/elf-express/nginxwebui:5.0.3 .
 
 # 3. 登入 GitHub Container Registry
 echo $GITHUB_TOKEN | docker login ghcr.io -u 你的帳號 --password-stdin
 
 # 4. 推送
-docker push ghcr.io/elf-express/nginxwebui:5.0.2
-docker tag ghcr.io/elf-express/nginxwebui:5.0.2 ghcr.io/elf-express/nginxwebui:latest
+docker push ghcr.io/elf-express/nginxwebui:5.0.3
+docker tag ghcr.io/elf-express/nginxwebui:5.0.3 ghcr.io/elf-express/nginxwebui:latest
 docker push ghcr.io/elf-express/nginxwebui:latest
 ```
 
@@ -349,7 +378,7 @@ docker push ghcr.io/elf-express/nginxwebui:latest
 
 ### 升版 Checklist
 
-1. 修改 `pom.xml` 的 `<version>`（如 `5.0.1` → `5.1.0`）
+1. 修改 `pom.xml` 的 `<version>`（如 `5.0.3` → `5.1.0`）
 2. 修改 `docker-compose.yml` 的 `image` 和所有 `container_name` 版本號
 3. 修改 `tests/e2e/helpers.js` 的 `JAR_PATH`（如有改 JAR 檔名）
 4. 編譯測試：`mvn clean package -DskipTests && npm test`
@@ -363,19 +392,19 @@ docker push ghcr.io/elf-express/nginxwebui:latest
 
 ```bash
 # 查看警報
-docker exec nginx-webui-5.0.1-crowdsec cscli alerts list
+docker exec nginx-webui-5.0.3-crowdsec cscli alerts list
 
 # 查看被封鎖的 IP
-docker exec nginx-webui-5.0.1-crowdsec cscli decisions list
+docker exec nginx-webui-5.0.3-crowdsec cscli decisions list
 
 # 手動封鎖 IP
-docker exec nginx-webui-5.0.1-crowdsec cscli decisions add --ip 1.2.3.4
+docker exec nginx-webui-5.0.3-crowdsec cscli decisions add --ip 1.2.3.4
 
 # 解除封鎖
-docker exec nginx-webui-5.0.1-crowdsec cscli decisions delete --ip 1.2.3.4
+docker exec nginx-webui-5.0.3-crowdsec cscli decisions delete --ip 1.2.3.4
 
 # 查看偵測統計
-docker exec nginx-webui-5.0.1-crowdsec cscli metrics
+docker exec nginx-webui-5.0.3-crowdsec cscli metrics
 ```
 
 ### Grafana 查看日誌
@@ -388,8 +417,8 @@ docker exec nginx-webui-5.0.1-crowdsec cscli metrics
 
 ```bash
 # 查看日誌
-docker logs nginx-webui-5.0.1
-docker logs nginx-webui-5.0.1-crowdsec
+docker logs nginx-webui-5.0.3
+docker logs nginx-webui-5.0.3-crowdsec
 
 # 重啟單一服務
 docker compose restart nginxwebui
@@ -397,19 +426,24 @@ docker compose restart nginxwebui
 # 停止全部
 docker compose down
 
-# 停止並刪除資料（危險！）
-docker compose down -v
+# ⚠️ 停止並刪除所有資料（管理員帳號、Nginx 配置全部消失！）
+# docker compose down -v    ← 除非你真的要重來，否則永遠不要用
 ```
 
 ### 升版流程
 
 ```bash
 # 1. 修改 docker-compose.yml 的 image 版本號和 container_name
-# 2. 重新啟動
+# 2. 停止舊容器（不加 -v！！Volume 會保留）
+docker compose down
+# 3. 拉新 image + 啟動（資料自動保留）
+docker compose pull
 docker compose up -d
-# 3. 確認健康
+# 4. 確認健康
 docker compose ps
 ```
+
+> ⚠️ 絕對不要用 `docker compose down -v`，`-v` 會刪除所有 Volume 資料！
 
 ## 九、entrypoint.sh 規範
 

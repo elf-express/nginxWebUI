@@ -604,3 +604,88 @@ function parseNginxErrors(html) {
 	diagHtml += '</div>';
 	return html + diagHtml;
 }
+
+// ── Test Connectivity ──
+
+function testConnectivity() {
+	showLoad();
+	$.ajax({
+		type: 'POST',
+		url: ctx + '/adminPage/conf/testConnectivity',
+		dataType: 'json',
+		success: function(data) {
+			closeLoad();
+			if (data.success) {
+				showConnectivityResults(data.obj);
+			} else {
+				layer.alert(data.msg || commonStr.errorInfo);
+			}
+		},
+		error: function() {
+			closeLoad();
+			layer.alert(commonStr.errorInfo);
+		}
+	});
+}
+
+function showConnectivityResults(results) {
+	if (!results || results.length === 0) {
+		layer.msg(confStr.testConnNoTarget);
+		return;
+	}
+
+	var okCount = 0;
+	var failCount = 0;
+
+	var html = '<div style="padding: 15px;">';
+	html += '<table class="layui-table" lay-size="sm">';
+	html += '<thead><tr>';
+	html += '<th>' + confStr.testConnServer + '</th>';
+	html += '<th>' + confStr.testConnLocation + '</th>';
+	html += '<th>' + confStr.testConnDest + '</th>';
+	html += '<th style="width:80px; text-align:center;">' + confStr.testConnStatus + '</th>';
+	html += '</tr></thead>';
+	html += '<tbody>';
+
+	for (var i = 0; i < results.length; i++) {
+		var r = results[i];
+		var isOk = (r.status === 'OK');
+		if (isOk) okCount++; else failCount++;
+
+		var statusHtml = isOk
+			? '<span style="color:#5FB878;font-weight:bold;">&#10004; OK</span>'
+			: '<span style="color:#FF5722;font-weight:bold;">&#10008; FAIL</span>';
+
+		html += '<tr' + (isOk ? '' : ' style="background-color:#FFF3E0;"') + '>';
+		html += '<td>' + escapeHtml(r.server) + '</td>';
+		html += '<td>' + escapeHtml(r.location) + '</td>';
+		html += '<td><code>' + escapeHtml(r.destination) + '</code></td>';
+		html += '<td style="text-align:center;">' + statusHtml + '</td>';
+		html += '</tr>';
+	}
+
+	html += '</tbody></table>';
+
+	html += '<div style="margin-top:10px; padding:8px 12px; background:#f7f7f7; border-radius:4px;">';
+	html += confStr.testConnSummary + ': ';
+	html += '<span style="color:#5FB878; font-weight:bold;">' + okCount + ' OK</span>';
+	html += ' / ';
+	html += '<span style="color:' + (failCount > 0 ? '#FF5722' : '#5FB878') + '; font-weight:bold;">' + failCount + ' FAIL</span>';
+	html += '</div>';
+	html += '</div>';
+
+	layer.open({
+		type: 1,
+		title: confStr.testConn,
+		area: ['800px', '500px'],
+		content: html
+	});
+}
+
+function escapeHtml(str) {
+	if (!str) return '';
+	return str.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;');
+}

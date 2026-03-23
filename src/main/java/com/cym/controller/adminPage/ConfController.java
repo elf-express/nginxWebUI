@@ -354,6 +354,11 @@ public class ConfController extends BaseController {
 		}
 	}
 
+	@Mapping(value = "testConnectivity")
+	public JsonResult testConnectivity() {
+		return renderSuccess(confService.testAllDestinations());
+	}
+
 	@Mapping(value = "runCmd")
 	public JsonResult runCmd(String cmd, String type) {
 
