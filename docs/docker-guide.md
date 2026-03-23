@@ -110,7 +110,6 @@ cd /opt/nginxwebui && docker compose up -d
 ```bash
 # 1. 從開發機一條指令傳送整個 deploy 目錄
 scp -r deploy/* root@目標IP:/opt/nginxwebui/
-
 # 2. 在目標機器設定敏感資訊
 cd /opt/nginxwebui
 cp .env.example .env
