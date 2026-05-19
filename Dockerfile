@@ -25,7 +25,6 @@ RUN    apk add --update --no-cache \
 	   nginx-mod-http-upload \
 	   nginx-mod-http-upload-progress \
 	   nginx-mod-http-upstream-fair \
-	   nginx-mod-http-upstream-jdomain \
 	   nginx-mod-http-echo \
 	   nginx-mod-http-cache-purge \
 	   nginx-mod-dynamic-upstream \
