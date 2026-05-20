@@ -54,29 +54,204 @@ docs/               # 開發文件與計畫
 - 初始化邏輯寫在 `InitConfig.java`
 - 配置參數通過 `app.yml` 或啟動參數傳入
 
-### 測試（詳見 docs/playwright-guide.md）
+### 測試（詳見 docs/superpowers/plans/playwright-guide.md）
 - 測試檔放在 `tests/e2e/`
 - 按鈕文字用正則匹配簡繁體：`/批量輸入|批量输入/`
 - Layui 元件用 `page.evaluate()` 操作
 - 執行：`npm test`
 - 報告：`npm run report`
 
-### Docker（詳見 docs/docker-guide.md）
+### Docker（詳見 docs/superpowers/plans/docker-guide.md）
 - container_name：`{專案名}-{版本}-{服務名}`
 - volume name：`{專案名}_{用途}_data`
 - 必須配 healthcheck 和啟動順序
 - entrypoint.sh 必須 LF 換行
 
-## 常用指令
+## 開發環境準備
+
+### 先決條件
+
+| 工具 | 版本要求 | 驗證指令 | 安裝建議 |
+|---|---|---|---|
+| **JDK** | Java 8 (1.8) | `java -version` | OpenJDK 8 / Zulu 8 / Temurin 8 |
+| **Maven** | 3.6+ | `mvn -version` | 3.8+ 推薦 |
+| **Node.js** | 18+ | `node -v` | LTS 版本 |
+| **npm** | 隨 Node 8+ | `npm -v` | — |
+| **Git** | 2.30+ | `git --version` | repo 已用 `.gitattributes` 強制 LF，全平台一致 |
+| **Docker**（選用） | 20.10+ | `docker --version` | 含 Compose v2 |
+
+> **跨平台換行符**：本 repo 透過 `.gitattributes` 強制全文字檔 LF。即使本機 `core.autocrlf=true`，clone 出來也會是 LF（Docker `entrypoint.sh` 不會壞）。
+
+### 初次開發環境設置
+
+```bash
+# 1. Clone
+git clone <repo-url> nginxWebUI
+cd nginxWebUI
+
+# 2. 驗證 JDK / Maven
+java -version    # 必須是 1.8.x
+mvn -version
+
+# 3. 安裝 Node 端依賴（Playwright + Chromium）
+npm install
+npx playwright install --with-deps chromium
+
+# 4. 編譯 Java 端
+mvn clean package -DskipTests
+# 產物：target/nginxWebUI-<version>.jar （<version> 見 pom.xml 第 19 行附近）
+```
+
+### 本地開發啟動
+
+**最小啟動（SQLite，預設 8080 port）：**
+
+```bash
+java -jar -Dfile.encoding=UTF-8 \
+     target/nginxWebUI-5.0.3.jar \
+     --server.port=8080 \
+     --project.home=./dev-home/
+```
+
+啟動後造訪 `http://localhost:8080`，首次會看到「設定管理員密碼」表單。
+
+**指定 PostgreSQL：**
+
+```bash
+java -jar -Dfile.encoding=UTF-8 target/nginxWebUI-5.0.3.jar \
+     --server.port=8080 \
+     --project.home=./dev-home/ \
+     --spring.database.type=postgresql \
+     --spring.datasource.url=jdbc:postgresql://localhost:5432/nginxwebui \
+     --spring.datasource.username=postgres \
+     --spring.datasource.password=postgres
+```
+
+**忘記密碼（重置）：**
+
+```bash
+java -jar target/nginxWebUI-5.0.3.jar --project.findPass=true
+# 啟動會把現有密碼印出後立即退出
+```
+
+**測試用驗證碼（限本機）：**
+
+```bash
+java -jar target/nginxWebUI-5.0.3.jar --project.testCaptcha=1234
+# 之後 CAPTCHA 一律接受 1234，方便 E2E 測試
+```
+
+### IDE 設置（無預設 .run / .vscode 配置檔）
+
+- **Main class**：`com.cym.NginxWebUI`
+- **Program args**：`--server.port=8080 --project.home=./dev-home/`
+- **JVM args**：`-Dfile.encoding=UTF-8`
+- **Working directory**：repo 根目錄
+
+## 部署方式
+
+### 方式 A：純 jar 部署（最小化）
+
+```bash
+# 1. 構建
+mvn clean package -DskipTests
+
+# 2. 上傳到目標機器
+scp target/nginxWebUI-5.0.3.jar user@host:/home/nginxWebUI/
+
+# 3. 啟動
+ssh user@host
+cd /home/nginxWebUI
+nohup java -jar -Dfile.encoding=UTF-8 nginxWebUI-5.0.3.jar \
+      --server.port=8080 \
+      --project.home=/home/nginxWebUI/ \
+      > app.log 2>&1 &
+```
+
+### 方式 B：Docker Compose Stack（推薦）
+
+詳見 [docs/superpowers/plans/docker-guide.md](docs/superpowers/plans/docker-guide.md)。
+
+```bash
+# 構建並啟動全 stack
+docker compose up -d --build
+
+# 確認狀態（應看到所有 service healthy）
+docker compose ps
+
+# 查看 logs
+docker compose logs -f nginxwebui
+```
+
+**Stack 組成（從根目錄 `docker-compose.yml`）：**
+
+| Service | Port | 用途 |
+|---|---|---|
+| nginxwebui | 8080 / 80 / 443 | 主應用 |
+| postgres | 5432 | 資料庫 |
+| loki | 3100 | 日誌聚合 |
+| grafana | 3000 | 監控 / 日誌 dashboard |
+| promtail | — | 把 nginx + app log 推到 Loki |
+| crowdsec | — | 入侵偵測 |
+| crowdsec-bouncer | — | nginx 流量過濾 |
+
+### 方式 C：多平台映像建構（CI/CD）
+
+```bash
+# 構建 linux/amd64 + linux/arm64 並 push 到 registry
+bash buildx.sh
+
+# 僅本地單平台（linux/amd64）
+bash local_build.sh
+```
+
+### 部署後驗證
+
+```bash
+# 健康檢查（與 Dockerfile HEALTHCHECK 一致）
+curl http://localhost:8080/
+
+# Nginx 模組列表（驗證 Dockerfile 編入的 18 個 module）
+curl http://localhost:8080/adminPage/monitor/nginxInfo
+```
+
+## 測試流程
+
+### Playwright E2E（詳見 [docs/superpowers/plans/playwright-guide.md](docs/superpowers/plans/playwright-guide.md)）
+
+```bash
+# 確認版本
+npx playwright --version
+
+# 跑全部測試（headed，方便觀看）
+npm test
+
+# 無頭模式（CI）
+npm run test:fast
+
+# 看測試報告（開 http://localhost:9400）
+npm run report
+```
+
+測試會自動啟動獨立 server（port 18080）+ 獨立 SQLite。**不會碰你 dev 用的 ./dev-home/**。
+
+### 單元測試（Maven）
+
+```bash
+mvn test
+# 目前 repo 內 Java 端單元測試覆蓋有限，主要依賴 E2E
+```
+
+## 快速指令參考
 
 ```bash
 # 編譯
 mvn clean package -DskipTests
 
 # 本地啟動
-java -jar -Dfile.encoding=UTF-8 target/nginxWebUI-5.0.1.jar --server.port=8080
+java -jar -Dfile.encoding=UTF-8 target/nginxWebUI-5.0.3.jar --server.port=8080
 
-# 自動化測試
+# E2E 測試
 npm test
 
 # 測試報告
@@ -120,7 +295,8 @@ init:
 9. Docker Compose Stack（PG 18 + Loki + Grafana）
 
 ## 詳細文件
-- [改進計畫與完成報告](docs/completion-report.md)
-- [Playwright 測試規範](docs/playwright-guide.md)
-- [Docker 構建方案](docs/docker-guide.md)
+- [改進計畫與完成報告](docs/superpowers/plans/completion-report.md)
+- [Playwright 測試規範](docs/superpowers/plans/playwright-guide.md)
+- [Docker 構建方案](docs/superpowers/plans/docker-guide.md)
+- [Docker 容器規範](docs/superpowers/plans/docker-standard.md)
 - [Playwright 快速指令](playwright.md)
