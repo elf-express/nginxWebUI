@@ -1,0 +1,57 @@
+# 預設：所有文字檔工作區與倉庫都用 LF（避免 Windows 自動 LF→CRLF）
+* text=auto eol=lf
+
+# 明確列出常見文字檔，全部 LF
+*.java        text eol=lf
+*.js          text eol=lf
+*.ts          text eol=lf
+*.json        text eol=lf
+*.html        text eol=lf
+*.ftl         text eol=lf
+*.css         text eol=lf
+*.scss        text eol=lf
+*.xml         text eol=lf
+*.yml         text eol=lf
+*.yaml        text eol=lf
+*.toml        text eol=lf
+*.md          text eol=lf
+*.properties  text eol=lf
+*.sql         text eol=lf
+*.conf        text eol=lf
+*.svg         text eol=lf
+
+# Shell scripts 必須 LF（CLAUDE.md：entrypoint.sh 必須 LF 換行）
+*.sh          text eol=lf
+entrypoint.sh text eol=lf
+Dockerfile    text eol=lf
+.dockerignore text eol=lf
+.gitignore    text eol=lf
+.gitattributes text eol=lf
+
+# Windows 專用腳本維持 CRLF
+*.bat         text eol=crlf
+*.cmd         text eol=crlf
+*.ps1         text eol=crlf
+
+# 二進位檔：明確標 binary 避免任何換行處理
+*.png         binary
+*.jpg         binary
+*.jpeg        binary
+*.gif         binary
+*.ico         binary
+*.webp        binary
+*.woff        binary
+*.woff2       binary
+*.ttf         binary
+*.eot         binary
+*.otf         binary
+*.jar         binary
+*.zip         binary
+*.gz          binary
+*.tar         binary
+*.7z          binary
+*.pdf         binary
+*.mp4         binary
+*.mp3         binary
+*.db          binary
+*.sqlite      binary
