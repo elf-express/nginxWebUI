@@ -3,11 +3,19 @@ function changeLang() {
 	changeLangIndex = layer.open({
 		type: 1,
 		title: "Language",
-		area: ['450px', '300px'], // 宽高
-		content: $('#changeLangDiv')
+		area: ['380px', '360px'],
+		content: $('#changeLangDiv'),
+		success: function () {
+			pickLang($("#lang").val());
+		}
 	});
 }
 
+function pickLang(code) {
+	$("#lang").val(code);
+	$(".lang-option").removeClass("selected");
+	$(".lang-option[data-lang='" + code + "']").addClass("selected");
+}
 
 function changeLangOver() {
 	$.ajax({

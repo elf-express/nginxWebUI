@@ -9,7 +9,16 @@
 		</li>
 	
 		<li class="layui-nav-item">
-			<a href="javascript:changeLang()">Language ${langType}</a>
+			<a href="javascript:changeLang()" style="display:inline-flex;align-items:center;gap:6px;">
+				<#if lang?? && lang == "zh_TW">
+					<img src="${ctx}/img/tw.svg" alt="tw" style="width:20px;height:auto;vertical-align:middle;border:1px solid rgba(255,255,255,0.25);border-radius:2px;">
+				<#elseif lang?? && lang == "en_US">
+					<img src="${ctx}/img/gb.svg" alt="en" style="width:20px;height:auto;vertical-align:middle;border:1px solid rgba(255,255,255,0.25);border-radius:2px;">
+				<#else>
+					<img src="${ctx}/img/cn.svg" alt="cn" style="width:20px;height:auto;vertical-align:middle;border:1px solid rgba(255,255,255,0.25);border-radius:2px;">
+				</#if>
+				<span>${langType}</span>
+			</a>
 		</li>
 		
 		<li class="layui-nav-item">

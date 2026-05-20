@@ -2,22 +2,73 @@
 
 <script src="${ctx}/js/adminPage/select_lang.js?v=${jsrandom}" type="text/javascript"></script>
 
+<style>
+.lang-option {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 10px 14px;
+	margin: 6px 0;
+	border: 1px solid #e6e6e6;
+	border-radius: 6px;
+	cursor: pointer;
+	transition: all 0.18s ease;
+	background: #fff;
+}
+.lang-option:hover {
+	border-color: #16baaa;
+	background: #f6fffd;
+}
+.lang-option.selected {
+	border-color: #16baaa;
+	background: #e8f9f6;
+	box-shadow: 0 0 0 1px #16baaa inset;
+}
+.lang-option img {
+	width: 32px;
+	height: auto;
+	border: 1px solid #eee;
+	border-radius: 2px;
+	flex-shrink: 0;
+}
+.lang-option .lang-name {
+	flex: 1;
+	font-size: 14px;
+	color: #333;
+}
+.lang-option .lang-check {
+	color: #16baaa;
+	font-size: 16px;
+	visibility: hidden;
+}
+.lang-option.selected .lang-check {
+	visibility: visible;
+}
+</style>
+
 <div style="height: 0px; width: 0px; overflow: hidden;">
 	<!-- 弹出框 -->
-	<div class="layui-form" id="changeLangDiv" style="padding: 15px; display: none">
+	<div class="layui-form" id="changeLangDiv" style="padding: 18px; display: none">
 
-		<div class="layui-form-item">
-			<label class="layui-form-label">Language</label>
-			<div class="layui-input-inline">
-				<select name="lang" id="lang">
-					<option value="zh" ${(lang=='zh')?string('selected','')}>简体中文</option>
-					<option value="zh_TW" ${(lang=='zh_TW')?string('selected','')}>繁体中文</option>
-					<option value="en_US" ${(lang=='en_US')?string('selected','')}>English</option>
-				</select>
-			</div>
+		<input type="hidden" id="lang" value="${lang}">
+
+		<div class="lang-option" data-lang="zh" onclick="pickLang('zh')">
+			<img src="${ctx}/img/cn.svg" alt="zh">
+			<span class="lang-name">简体中文</span>
+			<i class="layui-icon layui-icon-ok lang-check"></i>
+		</div>
+		<div class="lang-option" data-lang="zh_TW" onclick="pickLang('zh_TW')">
+			<img src="${ctx}/img/tw.svg" alt="zh_TW">
+			<span class="lang-name">繁體中文</span>
+			<i class="layui-icon layui-icon-ok lang-check"></i>
+		</div>
+		<div class="lang-option" data-lang="en_US" onclick="pickLang('en_US')">
+			<img src="${ctx}/img/gb.svg" alt="en_US">
+			<span class="lang-name">English</span>
+			<i class="layui-icon layui-icon-ok lang-check"></i>
 		</div>
 
-		<div class="layui-form-item center" style="text-align: center; margin-top: 20px;">
+		<div class="layui-form-item center" style="text-align: center; margin-top: 18px;">
 			<button type="button" class="layui-btn layui-btn-normal" onclick="changeLangOver()">OK</button>
 			<button type="button" class="layui-btn " onclick="layer.close(changeLangIndex)">Cancel</button>
 		</div>

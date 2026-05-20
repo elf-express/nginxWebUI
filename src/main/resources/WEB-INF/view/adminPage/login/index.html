@@ -96,7 +96,16 @@
 				</div>
 				<div class="layui-form-item" style="text-align: center;">
 					
-					<button type="button" class="layui-btn layui-btn-primary" onclick="changeLang()">Language ${langType}</button>
+					<button type="button" class="layui-btn layui-btn-primary" onclick="changeLang()" style="display:inline-flex;align-items:center;gap:6px;vertical-align:middle;">
+						<#if lang?? && lang == "zh_TW">
+							<img src="${ctx}/img/tw.svg" alt="tw" style="width:18px;height:auto;border:1px solid #ccc;border-radius:2px;">
+						<#elseif lang?? && lang == "en_US">
+							<img src="${ctx}/img/gb.svg" alt="en" style="width:18px;height:auto;border:1px solid #ccc;border-radius:2px;">
+						<#else>
+							<img src="${ctx}/img/cn.svg" alt="cn" style="width:18px;height:auto;border:1px solid #ccc;border-radius:2px;">
+						</#if>
+						<span>${langType}</span>
+					</button>
 					<button type="button" class="layui-btn layui-btn-normal" onclick="addAdmin()">${loginStr.add}</button>
 				</div>
 			</form>
