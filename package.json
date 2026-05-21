@@ -1,7 +1,7 @@
 {
   "name": "nginxwebui",
   "version": "1.0.0",
-  "description": "nginx网页配置工具",
+  "description": "nginx網頁配置工具",
   "main": "test_login.js",
   "scripts": {
     "test": "npx playwright test --config=tests/e2e/playwright.config.js",
@@ -10,7 +10,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://gitee.com/cym1102/nginxWebUI.git"
+    "url": "https://github.com/elf-express/nginxWebUI.git"
   },
   "keywords": [],
   "author": "",
