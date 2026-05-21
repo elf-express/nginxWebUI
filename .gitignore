@@ -42,8 +42,14 @@ build/
 
 ### Runtime ###
 docker-data/
+home/
 captcha2.gif
 .claude/
+
+### AI tool session caches ###
+.claude-code-history/
+.codex-history/
+.openmcp/
 
 ### Test ###
 tests/e2e/test-data/
