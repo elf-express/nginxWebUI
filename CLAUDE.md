@@ -292,9 +292,9 @@ docker compose logs -f nginxwebui
 
 **Stack 組成（從 `deploy/docker-compose.yml`）：**
 
-| Service | Port | 用途 |
+| Service | Port (host:container) | 用途 |
 |---|---|---|
-| nginxwebui | 8080 / 80 / 443 | 主應用 |
+| nginxwebui | **12300:8080** / 80:80 / 443:443 | 主應用（host port 12300 對應 container 內 8080）|
 | postgres | 5432 | 資料庫 |
 | loki | 3100 | 日誌聚合 |
 | grafana | 3000 | 監控 / 日誌 dashboard |
@@ -315,11 +315,11 @@ bash local_build.sh
 ### 部署後驗證
 
 ```bash
-# 健康檢查（與 Dockerfile HEALTHCHECK 一致）
-curl http://localhost:8080/
+# 健康檢查（compose 把 host 12300 對應到 container 內 8080）
+curl http://localhost:12300/
 
 # Nginx 模組列表（驗證 Dockerfile 編入的 18 個 module）
-curl http://localhost:8080/adminPage/monitor/nginxInfo
+curl http://localhost:12300/adminPage/monitor/nginxInfo
 ```
 
 ## 測試流程

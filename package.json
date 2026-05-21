@@ -16,6 +16,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@tw199501/specsnap-inspector-core": "^0.0.9",
     "playwright": "^1.58.2"
   },
   "devDependencies": {

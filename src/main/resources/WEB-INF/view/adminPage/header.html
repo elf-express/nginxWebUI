@@ -21,6 +21,12 @@
 			</a>
 		</li>
 		
+		<li class="layui-nav-item" id="specsnapItem">
+			<a href="javascript:void(0)" id="specsnap-toggle" title="SpecSnap Inspector — click to inspect UI elements">
+				<i class="layui-icon layui-icon-search"></i>
+			</a>
+		</li>
+
 		<li class="layui-nav-item">
 			<a href="javascript:showHelp()">${commonStr.userTutorial}</a>
 		</li>
@@ -74,4 +80,29 @@ function showModuleList() {
         content: html
     });
 }
+</script>
+
+<!-- SpecSnap Inspector (https://github.com/TW199501/specsnap) — dev-tool icon for UI element capture -->
+<script type="module">
+import('https://esm.sh/@tw199501/specsnap-inspector-core@0.0.9').then(function(mod) {
+    var inspector = mod.createInspector({
+        scope: document.body
+    });
+    window.__specsnap = inspector;
+    var btn = document.getElementById('specsnap-toggle');
+    if (btn) {
+        btn.addEventListener('click', function() {
+            inspector.toggle();
+        });
+        console.log('[SpecSnap] inspector ready — click the magnifier icon to capture elements');
+    }
+}).catch(function(err) {
+    console.warn('[SpecSnap] failed to load from esm.sh:', err.message);
+    var btn = document.getElementById('specsnap-toggle');
+    if (btn) {
+        btn.addEventListener('click', function() {
+            alert('SpecSnap failed to load. Check console / network. See https://github.com/TW199501/specsnap');
+        });
+    }
+});
 </script>
