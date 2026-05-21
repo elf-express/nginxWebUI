@@ -82,26 +82,87 @@ function showModuleList() {
 }
 </script>
 
-<!-- SpecSnap Inspector (https://github.com/TW199501/specsnap) — dev-tool icon for UI element capture -->
+<!-- SpecSnap Inspector (https://github.com/TW199501/specsnap) — dev-tool UI element capture -->
+<!-- Mount container for the Vue 3 SpecSnapInspector component -->
+<div id="specsnap-mount"></div>
+<link rel="stylesheet" href="https://esm.sh/@tw199501/specsnap-inspector-vue@0.0.9/styles.css">
+
 <script type="module">
-import('https://esm.sh/@tw199501/specsnap-inspector-core@0.0.9').then(function(mod) {
-    var inspector = mod.createInspector({
-        scope: document.body
+Promise.all([
+    import('https://esm.sh/vue@3.5'),
+    import('https://esm.sh/@tw199501/specsnap-inspector-vue@0.0.9?deps=vue@3.5')
+]).then(function(modules) {
+    var Vue = modules[0];
+    var SpecSnapInspector = modules[1].SpecSnapInspector;
+
+    var app = Vue.createApp({
+        render: function() {
+            return Vue.h(SpecSnapInspector, {
+                ref: function(instance) {
+                    window.__specsnap = instance;
+                },
+                trigger: false,           // hide built-in trigger; use our layui icon instead
+                position: 'top-right',    // 合法 enum: top-left / top-right / bottom-left / bottom-right
+                panelTitle: 'SpecSnap Inspector'
+            });
+        }
     });
-    window.__specsnap = inspector;
+    app.mount('#specsnap-mount');
+
+    // ===== Make SpecSnap panel draggable (pre-alpha doesn't support it natively) =====
+    // 用 event delegation, panel 上緣 50px 當 drag handle, 拖到哪都行
+    var ssDragState = null;
+    document.addEventListener('mousedown', function(e) {
+        var panel = e.target.closest('.specsnap-inspector-panel');
+        if (!panel) return;
+        // 點到 button / input / textarea 不啟動拖動 (避免吞掉 click)
+        if (e.target.closest('button, input, textarea, select, a, .specsnap-inspector-frame')) return;
+        var rect = panel.getBoundingClientRect();
+        // 只有上緣 50px 範圍當 drag handle, 下方仍可選文字
+        if (e.clientY - rect.top > 50) return;
+        ssDragState = {
+            panel: panel,
+            startX: e.clientX,
+            startY: e.clientY,
+            originLeft: rect.left,
+            originTop: rect.top
+        };
+        panel.style.cursor = 'grabbing';
+        panel.style.userSelect = 'none';
+        e.preventDefault();
+    });
+    document.addEventListener('mousemove', function(e) {
+        if (!ssDragState) return;
+        var dx = e.clientX - ssDragState.startX;
+        var dy = e.clientY - ssDragState.startY;
+        ssDragState.panel.style.left = (ssDragState.originLeft + dx) + 'px';
+        ssDragState.panel.style.top = (ssDragState.originTop + dy) + 'px';
+        ssDragState.panel.style.right = 'auto';
+        ssDragState.panel.style.bottom = 'auto';
+    });
+    document.addEventListener('mouseup', function() {
+        if (ssDragState) {
+            ssDragState.panel.style.cursor = '';
+            ssDragState.panel.style.userSelect = '';
+            ssDragState = null;
+        }
+    });
+
     var btn = document.getElementById('specsnap-toggle');
     if (btn) {
         btn.addEventListener('click', function() {
-            inspector.toggle();
+            if (window.__specsnap && typeof window.__specsnap.toggle === 'function') {
+                window.__specsnap.toggle();
+            }
         });
-        console.log('[SpecSnap] inspector ready — click the magnifier icon to capture elements');
+        console.log('[SpecSnap] inspector-vue ready — click the magnifier icon to open the panel');
     }
 }).catch(function(err) {
-    console.warn('[SpecSnap] failed to load from esm.sh:', err.message);
+    console.warn('[SpecSnap] failed to load from esm.sh:', err && err.message);
     var btn = document.getElementById('specsnap-toggle');
     if (btn) {
         btn.addEventListener('click', function() {
-            alert('SpecSnap failed to load. Check console / network. See https://github.com/TW199501/specsnap');
+            alert('SpecSnap failed to load. Check DevTools console / network.\nSee https://github.com/TW199501/specsnap');
         });
     }
 });
