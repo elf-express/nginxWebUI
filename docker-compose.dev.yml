@@ -1,5 +1,0 @@
-# 開發環境覆蓋檔 — 從原始碼構建 image
-# 用法：docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
-services:
-  nginxwebui:
-    build: .

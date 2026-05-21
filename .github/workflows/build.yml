@@ -1,8 +1,14 @@
-name: Build & Test
+name: Build & Test & Release
 
+# Trigger 模型：
+#   push to dev      → 跑 build/test、不 push image
+#   push to master   → 跑 build/test、不 push image (master 是已 release 快照)
+#   push tag v*      → 跑 build/test + buildx + push image (:x.y.z + :latest)
+#   pull_request to master → 跑 build/test
 on:
   push:
-    branches: [master]
+    branches: [master, dev]
+    tags: ['v*']
   pull_request:
     branches: [master]
 
@@ -11,8 +17,8 @@ env:
 
 jobs:
   build:
+    name: Build JAR
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,7 +33,7 @@ jobs:
       - name: Build with Maven
         run: mvn clean package -DskipTests -q
 
-      - name: Upload JAR
+      - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
           name: nginxWebUI-jar
@@ -35,13 +41,14 @@ jobs:
           retention-days: 7
 
   docker:
+    name: Build & Push Docker image
     needs: build
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
+    # 只在 push tag v* 時才 build + push image
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: read
       packages: write
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -66,13 +73,22 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract version
+      - name: Extract version from tag and verify pom.xml
         id: version
         run: |
-          VER=$(grep -A1 'artifactId>nginxWebUI' pom.xml | grep version | grep -oP '\d+\.\d+\.\d+')
+          # 從 tag (refs/tags/v5.0.4) 抓出 5.0.4
+          VER="${GITHUB_REF#refs/tags/v}"
           echo "VERSION=$VER" >> "$GITHUB_OUTPUT"
 
-      - name: Build and Push
+          # 驗證 pom.xml 的 nginxWebUI 版本與 tag 一致（不能搬到 parent solon-parent 版本）
+          POM_VER=$(grep -A1 'artifactId>nginxWebUI' pom.xml | grep version | grep -oP '\d+\.\d+\.\d+')
+          if [ "$POM_VER" != "$VER" ]; then
+            echo "::error::Tag ($VER) 和 pom.xml ($POM_VER) 不一致 — release script 沒跑或漏改 pom"
+            exit 1
+          fi
+          echo "✓ tag $VER 與 pom.xml $POM_VER 一致"
+
+      - name: Build and Push (multi-platform)
         uses: docker/build-push-action@v6
         with:
           context: .

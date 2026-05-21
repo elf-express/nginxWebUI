@@ -89,7 +89,7 @@ services:
   # ── 安全防護 ──────────────────────────────────
 
   crowdsec:
-    image: crowdsecurity/crowdsec:latest
+    image: crowdsecurity/crowdsec:v1.7.8
     container_name: nginx-webui-5.0.3-crowdsec
     restart: unless-stopped
     volumes:
@@ -111,7 +111,7 @@ services:
       retries: 3
 
   crowdsec-bouncer:
-    image: fbonalair/traefik-crowdsec-bouncer:latest
+    image: fbonalair/traefik-crowdsec-bouncer:0.5.0
     container_name: nginx-webui-5.0.3-bouncer
     restart: unless-stopped
     environment:
