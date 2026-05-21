@@ -192,6 +192,8 @@ var denyAllowNS = {};
 	function add() {
 		$("#daId").val("");
 		$("#daName").val("");
+		$("#daSourceUrl").val("");
+		$("#daFetchTime").val("");
 		ipTags = [];
 		searchFilter = '';
 		$('#daTagSearch').val('');
@@ -273,6 +275,8 @@ var denyAllowNS = {};
 					var denyAllow = data.obj;
 					$("#daId").val(denyAllow.id);
 					$("#daName").val(denyAllow.name);
+					$("#daSourceUrl").val(denyAllow.sourceUrl || "");
+					$("#daFetchTime").val(denyAllow.fetchTime || "");
 					loadFromTextarea(denyAllow.ip);
 					form.render();
 					showWindow(commonStr.edit);

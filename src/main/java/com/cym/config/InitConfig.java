@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 
 import com.cym.model.Admin;
 import com.cym.model.Basic;
+import com.cym.model.GeoRule;
 import com.cym.model.Http;
 import com.cym.model.Param;
 import com.cym.model.Module;
@@ -176,6 +177,19 @@ public class InitConfig {
 		Long templateCount = sqlHelper.findAllCount(Template.class);
 		if (templateCount == 0) {
 			initDefaultTemplates();
+		}
+
+		// 初始化預設國家白名單（全域 GeoRule）— 第一次啟動才 seed，已有則不動
+		// 17 國：CN/JP/HK/KR/SG/TH/MY/TW/VN/GB/FR/DE/GR/CA/US/MO/LA
+		Long geoCount = sqlHelper.findAllCount(GeoRule.class);
+		if (geoCount == 0) {
+			GeoRule defaultGeo = new GeoRule();
+			defaultGeo.setMode(0); // 0 = allow（白名單）
+			defaultGeo.setCountries("CN,JP,HK,KR,SG,TH,MY,TW,VN,GB,FR,DE,GR,CA,US,MO,LA");
+			defaultGeo.setServerId(null); // null = 全域 http 層級
+			defaultGeo.setEnable(true);
+			sqlHelper.insert(defaultGeo);
+			logger.info("Initialized default GeoRule: allow {} countries", defaultGeo.getCountries().split(",").length);
 		}
 
 		// 遷移：清除模板 def 值，停止自動套用到所有 server/location

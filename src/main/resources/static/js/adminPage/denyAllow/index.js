@@ -237,6 +237,8 @@ function search() {
 function add() {
 	$("#id").val("");
 	$("#name").val("");
+	$("#sourceUrl").val("");
+	$("#fetchTime").val("");
 	ipTags = [];
 	searchFilter = '';
 	$('#tagSearch').val('');
@@ -318,6 +320,8 @@ function edit(id) {
 				var denyAllow = data.obj;
 				$("#id").val(denyAllow.id);
 				$("#name").val(denyAllow.name);
+				$("#sourceUrl").val(denyAllow.sourceUrl || "");
+				$("#fetchTime").val(denyAllow.fetchTime || "");
 				loadFromTextarea(denyAllow.ip);
 				form.render();
 				showWindow(commonStr.edit);
