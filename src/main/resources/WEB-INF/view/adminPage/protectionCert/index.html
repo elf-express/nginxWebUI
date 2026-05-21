@@ -78,6 +78,7 @@
 			<ul class="layui-tab-title">
 				<li class="layui-this">${menuStr.denyAllow}</li>
 				<li>${geoStr.title}</li>
+				<li>${asnStr.title}</li>
 				<li>${menuStr.cert}</li>
 			</ul>
 			<div class="layui-tab-content">
@@ -183,7 +184,30 @@
 					</div>
 				</div>
 
-				<!-- ==================== Tab 3: Certificate Management ==================== -->
+				<!-- ==================== Tab 3: ASN Block ==================== -->
+				<div class="layui-tab-item" id="asnTabContent">
+					<div style="margin-bottom:10px;">
+						<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="addAsn()"><i class="layui-icon layui-icon-add-circle-fine"></i> ${commonStr.add}</button>
+						<button type="button" class="layui-btn layui-btn-sm layui-btn-danger" onclick="delManyAsn()"><i class="layui-icon layui-icon-delete"></i> ${commonStr.delAll}</button>
+					</div>
+					<table class="layui-table layui-form" lay-size="sm" lay-filter="asnForm">
+						<thead>
+							<tr>
+								<th style="width:20px;">
+									<input type="checkbox" id="asnCheckAll" lay-filter="asnCheckAll" lay-skin="primary">
+								</th>
+								<th style="width:120px;">${asnStr.asn}</th>
+								<th>${asnStr.orgName}</th>
+								<th style="width:80px;">${asnStr.enable}</th>
+								<th style="width:160px;">${commonStr.operation}</th>
+							</tr>
+						</thead>
+						<tbody id="asnTableBody">
+						</tbody>
+					</table>
+				</div>
+
+				<!-- ==================== Tab 4: Certificate Management ==================== -->
 				<div class="layui-tab-item">
 					<form action="${ctx}/adminPage/protectionCert" id="certSearchForm" method="post">
 						<div class="layui-form">
@@ -385,6 +409,29 @@
 			<button type="button" class="layui-btn layui-btn-normal" onclick="denyAllowNS.doBatchImport()"><i class="layui-icon layui-icon-ok"></i> ${commonStr.submit}</button>
 			<button type="button" class="layui-btn" onclick="denyAllowNS.closeBatch()"><i class="layui-icon layui-icon-close"></i> ${commonStr.close}</button>
 		</div>
+	</div>
+
+	<!-- ASN Add/Edit Modal -->
+	<div class="layui-form" id="asnWindowDiv" style="padding:15px;display:none;">
+		<form id="asnAddForm">
+			<input type="hidden" id="asnId">
+			<div class="layui-form-item">
+				<label class="layui-form-label">${asnStr.asn}</label>
+				<div class="layui-input-block">
+					<input type="text" id="asnNumber" class="layui-input" placeholder="${asnStr.asnTip}">
+				</div>
+			</div>
+			<div class="layui-form-item">
+				<label class="layui-form-label">${asnStr.orgName}</label>
+				<div class="layui-input-block">
+					<input type="text" id="asnOrgName" class="layui-input" placeholder="${asnStr.orgTip}">
+				</div>
+			</div>
+			<div class="layui-form-item center">
+				<button type="button" class="layui-btn layui-btn-normal" onclick="saveAsn()">${commonStr.submit}</button>
+				<button type="button" class="layui-btn" onclick="layer.closeAll()">${commonStr.close}</button>
+			</div>
+		</form>
 	</div>
 
 	<!-- Cert Add/Edit Modal -->
@@ -645,6 +692,7 @@
 <script src="${ctx}/js/adminPage/protectionCert/denyAllow.js?v=${jsrandom}" type="text/javascript"></script>
 <script src="${ctx}/js/adminPage/protectionCert/geo.js?v=${jsrandom}" type="text/javascript"></script>
 <script src="${ctx}/js/adminPage/protectionCert/cert.js?v=${jsrandom}" type="text/javascript"></script>
+<script src="${ctx}/js/adminPage/denyAllow/asn.js?v=${jsrandom}" type="text/javascript"></script>
 
 </body>
 </html>
