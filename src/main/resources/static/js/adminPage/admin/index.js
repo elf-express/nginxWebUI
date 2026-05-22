@@ -341,6 +341,53 @@ function apiPage() {
 	window.open(ctx + "/doc.html")
 }
 
+// ────── 品牌 Logo 上傳 ──────
+function uploadLogo() {
+	var input = document.getElementById('logoFile');
+	if (!input.files || input.files.length === 0) {
+		layer.msg(adminStr.brandLogoSelectFirst || '請先選擇檔案');
+		return;
+	}
+	var f = input.files[0];
+	if (f.size > 200 * 1024) {
+		layer.msg('檔案不可超過 200 KB');
+		return;
+	}
+	var fd = new FormData();
+	fd.append('file', f);
+	$.ajax({
+		type: 'POST',
+		url: ctx + '/adminPage/admin/uploadLogo',
+		data: fd,
+		processData: false,
+		contentType: false,
+		dataType: 'json',
+		success: function(data) {
+			if (data.success) {
+				layer.msg(commonStr.success || '上傳成功', { time: 1000 });
+				setTimeout(function() { location.reload(); }, 800);
+			} else {
+				layer.msg(data.msg);
+			}
+		},
+		error: function() { layer.alert(commonStr.errorInfo); }
+	});
+}
+
+function resetLogo() {
+	layer.confirm(commonStr.confirmDel || '確定恢復預設？', function(idx) {
+		$.post(ctx + '/adminPage/admin/resetLogo', {}, function(data) {
+			layer.close(idx);
+			if (data.success) {
+				layer.msg(commonStr.success || '已恢復', { time: 1000 });
+				setTimeout(function() { location.reload(); }, 800);
+			} else {
+				layer.msg(data.msg);
+			}
+		});
+	});
+}
+
 /*
 function permission(id) {
 

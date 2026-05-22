@@ -1,6 +1,8 @@
 package com.cym.controller.adminPage;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Hashtable;
@@ -12,6 +14,10 @@ import org.noear.solon.annotation.Inject;
 import org.noear.solon.annotation.Mapping;
 import org.noear.solon.core.handle.Context;
 import org.noear.solon.core.handle.ModelAndView;
+import org.noear.solon.core.handle.UploadedFile;
+
+import com.cym.config.HomeConfig;
+import cn.hutool.core.io.FileUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,6 +58,8 @@ public class AdminController extends BaseController {
 	GroupService groupService;
 	@Inject
 	RemoteController remoteController;
+	@Inject
+	HomeConfig homeConfig;
 
 	@Mapping("")
 	public ModelAndView index(ModelAndView modelAndView, Page page) {
@@ -200,5 +208,71 @@ public class AdminController extends BaseController {
 		remoteController.fillTree(groups, treeList);
 
 		return renderSuccess(treeList);
+	}
+
+	// ───────────── 品牌 Logo 上傳 ─────────────
+	// 上傳 logo（png/jpg/jpeg/svg、上限 200 KB），存到 homeConfig.home + "brand-logo.<ext>"
+	// 副檔名記在 setting key="brandLogoExt"，AppFilter 讀取注入 ${brandLogoUrl} 給 header.html
+	@Mapping("uploadLogo")
+	public JsonResult uploadLogo(UploadedFile file) {
+		if (file == null) {
+			return renderError("no file");
+		}
+		try {
+			String name = file.getName();
+			String ext = name.contains(".") ? name.substring(name.lastIndexOf('.') + 1).toLowerCase() : "";
+			if (!"png".equals(ext) && !"jpg".equals(ext) && !"jpeg".equals(ext) && !"svg".equals(ext)) {
+				return renderError("僅支援 png / jpg / svg");
+			}
+			if (file.getContentSize() > 200 * 1024) {
+				return renderError("檔案不可超過 200 KB");
+			}
+
+			// 先把所有副檔名舊檔清掉，避免殘留
+			deleteAllLogoFiles();
+
+			File dest = new File(homeConfig.home + "brand-logo." + ext);
+			file.transferTo(dest);
+			settingService.set("brandLogoExt", ext);
+			return renderSuccess();
+		} catch (Exception e) {
+			logger.error("uploadLogo failed", e);
+			return renderError(e.getMessage());
+		}
+	}
+
+	// 服務 logo 圖檔（binary 直接 stream 出去）
+	@Mapping("logo")
+	public void logo(Context context) throws IOException {
+		String ext = settingService.get("brandLogoExt");
+		if (StrUtil.isBlank(ext)) {
+			context.status(404);
+			return;
+		}
+		File f = new File(homeConfig.home + "brand-logo." + ext);
+		if (!f.exists()) {
+			context.status(404);
+			return;
+		}
+		String mime = "svg".equals(ext) ? "image/svg+xml" : "image/" + ("jpg".equals(ext) ? "jpeg" : ext);
+		context.contentType(mime);
+		context.output(Files.readAllBytes(f.toPath()));
+	}
+
+	// 恢復預設（刪 logo 檔 + 清 setting）
+	@Mapping("resetLogo")
+	public JsonResult resetLogo() {
+		deleteAllLogoFiles();
+		settingService.set("brandLogoExt", "");
+		return renderSuccess();
+	}
+
+	private void deleteAllLogoFiles() {
+		for (String ext : new String[] { "png", "jpg", "jpeg", "svg" }) {
+			File f = new File(homeConfig.home + "brand-logo." + ext);
+			if (f.exists()) {
+				FileUtil.del(f);
+			}
+		}
 	}
 }

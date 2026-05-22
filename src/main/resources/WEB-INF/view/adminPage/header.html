@@ -1,10 +1,14 @@
 <div class="layui-header">
-	<div class="layui-logo" style="display:flex;align-items:center;gap:8px;padding:0 15px;">
-		<!-- brand-logo: 預留給未來「使用者上傳自訂 logo」feature；目前空、CSS hide 不占空間 -->
-		<div class="brand-logo" id="brandLogo" style="display:none;">
-			<img id="brandLogoImg" src="" alt="logo" style="height:32px;vertical-align:middle;">
-		</div>
-		<div class="brand-text">${projectName} ${currentVersion}</div>
+	<div class="layui-logo" style="display:flex;align-items:center;padding:0 15px;">
+		<#if brandLogoUrl??>
+			<!-- 使用者已上傳自訂 logo（管理員設置 → 品牌 Logo 上傳） -->
+			<div class="brand-logo" style="width:200px;height:40px;display:flex;align-items:center;">
+				<img id="brandLogoImg" src="${brandLogoUrl}" alt="Logo" style="max-width:200px;max-height:40px;object-fit:contain;">
+			</div>
+		<#else>
+			<!-- 預設文字 logo —— 由管理員上傳圖檔後此 div 被取代 -->
+			<div class="brand-text">${projectName} ${currentVersion}</div>
+		</#if>
 	</div>
 	<ul class="layui-nav layui-layout-right">
 		<li class="layui-nav-item" id="nginxVersionItem" style="display:none;">

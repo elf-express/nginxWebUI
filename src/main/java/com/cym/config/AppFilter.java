@@ -249,6 +249,12 @@ public class AppFilter implements Filter {
 		ctx.attrSet("currentVersion", versionConfig.currentVersion);
 		ctx.attrSet("projectName", projectName);
 
+		// 品牌 logo — 若已上傳則注入 URL（含 timestamp cache-bust）給 header.html 條件渲染
+		String logoExt = settingService.get("brandLogoExt");
+		if (StrUtil.isNotBlank(logoExt)) {
+			ctx.attrSet("brandLogoUrl", ctxStr + "/adminPage/admin/logo?v=" + System.currentTimeMillis());
+		}
+
 		ctx.attrSet("showAdmin", ctx.param("showAdmin"));
 		ctx.attrSet("admin", ctx.session("admin"));
 

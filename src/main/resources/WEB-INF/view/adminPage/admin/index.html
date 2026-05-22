@@ -31,6 +31,9 @@
 					<a><cite>${menuStr.admin}</cite></a>
 				</span>
 
+				<div style="display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;">
+				<div style="flex:1;min-width:0;">
+
 				<form action="${ctx}/adminPage/admin" id="searchForm" method="post">
 					<div class="layui-form">
 						<div class="layui-inline">
@@ -111,6 +114,35 @@
 					</tbody>
 				</table>
 				<div id="pageInfo"></div>
+
+				</div>  <!-- /左欄 -->
+
+				<!-- 右欄：品牌 Logo 上傳 -->
+				<div style="width:360px;flex-shrink:0;">
+					<fieldset class="layui-elem-field">
+						<legend>${adminStr.brandLogo}</legend>
+						<div style="padding:15px;">
+							<div style="margin-bottom:10px;color:#666;font-size:12px;line-height:1.6;">
+								${adminStr.brandLogoTip}
+							</div>
+							<!-- 預覽 (200×40 模擬 header 上 logo 區) -->
+							<div style="width:200px;height:40px;background:#23292e;display:flex;align-items:center;justify-content:center;border:1px solid #ddd;margin-bottom:10px;overflow:hidden;">
+								<#if brandLogoUrl??>
+									<img id="logoPreview" src="${brandLogoUrl}" style="max-width:200px;max-height:40px;object-fit:contain;">
+								<#else>
+									<span id="logoPreview" style="color:#16baaa;font-size:16px;">${projectName}</span>
+								</#if>
+							</div>
+							<div style="margin-bottom:8px;">
+								<input type="file" id="logoFile" accept="image/png,image/jpeg,image/svg+xml" style="font-size:12px;">
+							</div>
+							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="uploadLogo()">${commonStr.upload}</button>
+							<button type="button" class="layui-btn layui-btn-sm layui-btn-danger" onclick="resetLogo()">${adminStr.brandLogoReset}</button>
+						</div>
+					</fieldset>
+				</div>
+
+				</div>  <!-- /flex container -->
 			</div>
 		</div>
 	</div>
