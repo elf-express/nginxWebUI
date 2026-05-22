@@ -213,6 +213,13 @@ public class InitConfig {
 			logger.info("Migration: assigned groupName to existing templates");
 		}
 
+		// 遷移：將既有英文 template name 改成「English (中文)」格式
+		if (!"1".equals(settingService.get("templateNameCnMigrated"))) {
+			migrateTemplateNameCn();
+			settingService.set("templateNameCnMigrated", "1");
+			logger.info("Migration: appended Chinese annotation to template names");
+		}
+
 		// 初始化模組管理表
 		Long moduleCount = sqlHelper.findAllCount(Module.class);
 		if (moduleCount == 0) {
@@ -447,13 +454,13 @@ public class InitConfig {
 		// 用戶需手動在 server/location 編輯頁面選擇要套用的模板
 
 		// ── 代理類 ──
-		addTemplate("WebSocket Proxy", "", "proxy", new String[][] {
+		addTemplate("WebSocket Proxy (WebSocket 代理)", "", "proxy", new String[][] {
 			{ "proxy_http_version", "1.1" },
 			{ "proxy_set_header", "Upgrade $http_upgrade" },
 			{ "proxy_set_header", "Connection \"upgrade\"" },
 		});
 
-		addTemplate("Proxy Headers", "", "proxy", new String[][] {
+		addTemplate("Proxy Headers (代理請求頭)", "", "proxy", new String[][] {
 			{ "proxy_set_header", "Host $host" },
 			{ "proxy_set_header", "X-Real-IP $remote_addr" },
 			{ "proxy_set_header", "X-Forwarded-For $proxy_add_x_forwarded_for" },
@@ -462,7 +469,7 @@ public class InitConfig {
 			{ "proxy_set_header", "X-Forwarded-Port $server_port" },
 		});
 
-		addTemplate("Large File Upload", "", "proxy", new String[][] {
+		addTemplate("Large File Upload (大檔案上傳)", "", "proxy", new String[][] {
 			{ "client_max_body_size", "500m" },
 			{ "proxy_read_timeout", "600s" },
 			{ "proxy_send_timeout", "600s" },
@@ -471,13 +478,13 @@ public class InitConfig {
 		});
 
 		// ── 緩存類 ──
-		addTemplate("Static File Cache", "", "cache", new String[][] {
+		addTemplate("Static File Cache (靜態檔案快取)", "", "cache", new String[][] {
 			{ "expires", "30d" },
 			{ "add_header", "Cache-Control \"public, no-transform\"" },
 			{ "access_log", "off" },
 		});
 
-		addTemplate("Proxy Cache", "", "cache", new String[][] {
+		addTemplate("Proxy Cache (代理快取)", "", "cache", new String[][] {
 			{ "proxy_cache_valid", "200 302 1h" },
 			{ "proxy_cache_valid", "404 1m" },
 			{ "proxy_cache_use_stale", "error timeout updating http_500 http_502 http_503 http_504" },
@@ -485,14 +492,14 @@ public class InitConfig {
 		});
 
 		// ── 跨域 CORS ──
-		addTemplate("CORS Allow All", "", "cors", new String[][] {
+		addTemplate("CORS Allow All (允許全部跨域)", "", "cors", new String[][] {
 			{ "add_header", "Access-Control-Allow-Origin *" },
 			{ "add_header", "Access-Control-Allow-Methods \"GET, POST, PUT, DELETE, OPTIONS\"" },
 			{ "add_header", "Access-Control-Allow-Headers \"DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization\"" },
 			{ "add_header", "Access-Control-Max-Age 1728000" },
 		});
 
-		addTemplate("CORS Specific Origin", "", "cors", new String[][] {
+		addTemplate("CORS Specific Origin (指定來源跨域)", "", "cors", new String[][] {
 			{ "add_header", "Access-Control-Allow-Origin $http_origin" },
 			{ "add_header", "Access-Control-Allow-Methods \"GET, POST, PUT, DELETE, OPTIONS\"" },
 			{ "add_header", "Access-Control-Allow-Headers \"DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization\"" },
@@ -500,61 +507,61 @@ public class InitConfig {
 		});
 
 		// ── 限流 Rate Limiting ──
-		addTemplate("Rate Limit (http)", "", "rateLimit", new String[][] {
+		addTemplate("Rate Limit (http) (請求速率限制 — http 層)", "", "rateLimit", new String[][] {
 			{ "limit_req_zone", "$binary_remote_addr zone=req_limit:10m rate=10r/s" },
 		});
-		addTemplate("Rate Limit (server)", "", "rateLimit", new String[][] {
+		addTemplate("Rate Limit (server) (請求速率限制 — server 層)", "", "rateLimit", new String[][] {
 			{ "limit_req", "zone=req_limit burst=20 nodelay" },
 			{ "limit_req_status", "429" },
 		});
 
-		addTemplate("Connection Limit (http)", "", "rateLimit", new String[][] {
+		addTemplate("Connection Limit (http) (連線數限制 — http 層)", "", "rateLimit", new String[][] {
 			{ "limit_conn_zone", "$binary_remote_addr zone=conn_limit:10m" },
 		});
-		addTemplate("Connection Limit (server)", "", "rateLimit", new String[][] {
+		addTemplate("Connection Limit (server) (連線數限制 — server 層)", "", "rateLimit", new String[][] {
 			{ "limit_conn", "conn_limit 50" },
 			{ "limit_conn_status", "429" },
 		});
 
 		// ── 安全類 ──
-		addTemplate("Security Headers (HSTS)", "", "security", new String[][] {
+		addTemplate("Security Headers (HSTS) (安全標頭 HSTS)", "", "security", new String[][] {
 			{ "add_header", "Strict-Transport-Security \"max-age=31536000; includeSubDomains; preload\" always" },
 			{ "add_header", "Content-Security-Policy \"default-src 'self'\"" },
 			{ "add_header", "Permissions-Policy \"camera=(), microphone=(), geolocation=()\"" },
 		});
 
-		addTemplate("Hide Server Info", "", "security", new String[][] {
+		addTemplate("Hide Server Info (隱藏伺服器資訊)", "", "security", new String[][] {
 			{ "server_tokens", "off" },
 			{ "more_clear_headers", "Server" },
 			{ "more_clear_headers", "X-Powered-By" },
 		});
 
-		addTemplate("Block Sensitive Paths", "", "security", new String[][] {
+		addTemplate("Block Sensitive Paths (阻擋敏感路徑)", "", "security", new String[][] {
 			{ "deny", "all" },
 			{ "return", "404" },
 		});
 
 		// ── GeoIP 存取控制 ──
-		addTemplate("GeoIP Allow TW Only", "", "geoip", new String[][] {
+		addTemplate("GeoIP Allow TW Only (GeoIP 僅允許台灣)", "", "geoip", new String[][] {
 			{ "if", "($geoip2_data_country_code != \"TW\") {\r\n        return 403;\r\n    }" },
 		});
 
-		addTemplate("GeoIP Log Country", "", "geoip", new String[][] {
+		addTemplate("GeoIP Log Country (GeoIP 記錄國家)", "", "geoip", new String[][] {
 			{ "add_header", "X-Country $geoip2_data_country_code" },
 			{ "add_header", "X-City $geoip2_data_city_name" },
 		});
 
-		addTemplate("ASN Block List", "", "geoip", new String[][] {
+		addTemplate("ASN Block List (ASN 封鎖清單)", "", "geoip", new String[][] {
 			{ "if", "($blocked_asn) {\r\n        return 403;\r\n    }" },
 		});
 
-		addTemplate("ASN Log Info", "", "geoip", new String[][] {
+		addTemplate("ASN Log Info (ASN 記錄資訊)", "", "geoip", new String[][] {
 			{ "add_header", "X-ASN $geoip2_data_asn" },
 			{ "add_header", "X-ASN-Org $geoip2_data_asn_org" },
 		});
 
 		// ── CrowdSec Bouncer ──
-		addTemplate("CrowdSec Auth Request", "", "crowdsec", new String[][] {
+		addTemplate("CrowdSec Auth Request (CrowdSec 認證請求)", "", "crowdsec", new String[][] {
 			{ "auth_request", "/crowdsec-check" },
 			{ "auth_request_set", "$auth_status $upstream_status" },
 		});
@@ -575,6 +582,46 @@ public class InitConfig {
 		}
 
 		templateService.addOver(template, paramList);
+	}
+
+	// 既有 DB 內舊英文 template name → 加上「English (中文)」註解
+	// 只 rename 字面完全匹配舊英文名的 record，使用者改過名的不動
+	private void migrateTemplateNameCn() {
+		String[][] renameMap = {
+			{ "WebSocket Proxy",          "WebSocket Proxy (WebSocket 代理)" },
+			{ "Proxy Headers",            "Proxy Headers (代理請求頭)" },
+			{ "Large File Upload",        "Large File Upload (大檔案上傳)" },
+			{ "Static File Cache",        "Static File Cache (靜態檔案快取)" },
+			{ "Proxy Cache",              "Proxy Cache (代理快取)" },
+			{ "CORS Allow All",           "CORS Allow All (允許全部跨域)" },
+			{ "CORS Specific Origin",     "CORS Specific Origin (指定來源跨域)" },
+			{ "Rate Limit (http)",        "Rate Limit (http) (請求速率限制 — http 層)" },
+			{ "Rate Limit (server)",      "Rate Limit (server) (請求速率限制 — server 層)" },
+			{ "Connection Limit (http)",  "Connection Limit (http) (連線數限制 — http 層)" },
+			{ "Connection Limit (server)","Connection Limit (server) (連線數限制 — server 層)" },
+			{ "Security Headers (HSTS)",  "Security Headers (HSTS) (安全標頭 HSTS)" },
+			{ "Hide Server Info",         "Hide Server Info (隱藏伺服器資訊)" },
+			{ "Block Sensitive Paths",    "Block Sensitive Paths (阻擋敏感路徑)" },
+			{ "GeoIP Allow TW Only",      "GeoIP Allow TW Only (GeoIP 僅允許台灣)" },
+			{ "GeoIP Log Country",        "GeoIP Log Country (GeoIP 記錄國家)" },
+			{ "ASN Block List",           "ASN Block List (ASN 封鎖清單)" },
+			{ "ASN Log Info",             "ASN Log Info (ASN 記錄資訊)" },
+			{ "CrowdSec Auth Request",    "CrowdSec Auth Request (CrowdSec 認證請求)" },
+		};
+
+		List<Template> templates = sqlHelper.findAll(Template.class);
+		int renamed = 0;
+		for (Template tpl : templates) {
+			for (String[] mapping : renameMap) {
+				if (mapping[0].equals(tpl.getName())) {
+					tpl.setName(mapping[1]);
+					sqlHelper.updateById(tpl);
+					renamed++;
+					break;
+				}
+			}
+		}
+		logger.info("Migration: renamed {} templates with Chinese annotation", renamed);
 	}
 
 	private void migrateTemplateGroups() {
