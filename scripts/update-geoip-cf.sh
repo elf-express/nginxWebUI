@@ -21,13 +21,22 @@ mkdir -p "$GEOIP_DIR"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-# === GeoLite2 mmdb 下載 ===
+# === GeoLite2 mmdb 下載（含 freshness check）===
+# 已存在且 7 天內更新過則跳過：crontab 每週三六自動跑、entrypoint 啟動時跑一次，
+# 不必每次 container restart 都重抓 ~80 MB。
 dl_mmdb() {
   local url="$1" name="$2"
+  local target="$GEOIP_DIR/$name"
+
+  if [ -f "$target" ] && find "$target" -mtime -7 -print -quit | grep -q .; then
+    echo "[$(date)] $name 已是新檔（< 7 天），跳過下載"
+    return 0
+  fi
+
   echo "[$(date)] 下載 $name ..."
   if curl -fL --retry 3 -o "$TMP/$name" "$url"; then
-    mv "$TMP/$name" "$GEOIP_DIR/$name"
-    chmod 644 "$GEOIP_DIR/$name"
+    mv "$TMP/$name" "$target"
+    chmod 644 "$target"
   else
     echo "[WARN] 無法下載 $name，保留現有檔案" >&2
   fi

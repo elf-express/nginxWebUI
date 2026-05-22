@@ -280,8 +280,8 @@ cd deploy
 docker compose pull
 docker compose up -d
 
-# 開發期間從原始碼 build (override 檔)
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+# 開發期間從原始碼 build（compose 內已含 build: ../Dockerfile）
+docker compose up -d --build
 
 # 確認狀態（應看到所有 service healthy）
 docker compose ps
@@ -364,8 +364,8 @@ npm test
 # 測試報告
 npm run report
 
-# Docker 構建啟動 (從 deploy/ 執行)
-cd deploy && docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+# Docker 構建啟動 (從 deploy/ 執行；compose 已內含 build: ../Dockerfile)
+cd deploy && docker compose up -d --build
 
 # Docker 狀態
 cd deploy && docker compose ps

@@ -1,7 +1,12 @@
 services:
   nginxwebui:
-    image: ghcr.io/elf-express/nginxwebui:5.0.3
-    container_name: nginx-webui-5.0.3
+    # 預設拉 ghcr.io 上的 release image。要釘版本：在 deploy/.env 設 NGINX_WEBUI_VERSION=5.0.14
+    # 想從原始碼本機 build：在 deploy/ 跑 `docker compose up -d --build`（會跑 ../Dockerfile）
+    image: ghcr.io/elf-express/nginxwebui:${NGINX_WEBUI_VERSION:-latest}
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: nginxwebui
     restart: unless-stopped
     ports:
       - "12300:8080"
@@ -10,6 +15,7 @@ services:
     volumes:
       - nginxwebui_data:/home/nginxWebUI
       - nginxwebui_log:/home/nginxWebUI/log
+      - nginxwebui_geoip:/etc/nginx/geoip  # MMDB ~80 MB，restart 不重抓；crontab 每週三六自動更新
     environment:
       - JVM_XMX=256m
       - BOOT_OPTIONS=--spring.database.type=postgresql --spring.datasource.url=jdbc:postgresql://postgres:5432/nginxwebui --spring.datasource.username=nginxwebui --spring.datasource.password=nginxwebui123 --init.admin=${INIT_ADMIN:-admin} --init.pass=${INIT_PASS:-Admin123}
@@ -24,11 +30,13 @@ services:
       retries: 3
 
   postgres:
+    # postgres 18-alpine：18+ image PGDATA 慣例改為 mount /var/lib/postgresql（不是 /data 子目錄），
+    # 由 image entrypoint 自動建 <version>/data/ 子目錄。
     image: postgres:18-alpine
-    container_name: nginx-webui-5.0.3-postgres
+    container_name: nginxwebui-postgres
     restart: unless-stopped
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
     environment:
       - POSTGRES_DB=nginxwebui
       - POSTGRES_USER=nginxwebui
@@ -44,7 +52,7 @@ services:
 
   promtail:
     image: grafana/promtail:3.5.0
-    container_name: nginx-webui-5.0.3-promtail
+    container_name: nginxwebui-promtail
     restart: unless-stopped
     volumes:
       - nginxwebui_log:/var/log/nginx:ro
@@ -55,7 +63,7 @@ services:
 
   loki:
     image: grafana/loki:3.5.0
-    container_name: nginx-webui-5.0.3-loki
+    container_name: nginxwebui-loki
     restart: unless-stopped
     volumes:
       - loki_data:/loki
@@ -69,7 +77,7 @@ services:
 
   grafana:
     image: grafana/grafana:11.6.0
-    container_name: nginx-webui-5.0.3-grafana
+    container_name: nginxwebui-grafana
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -90,7 +98,7 @@ services:
 
   crowdsec:
     image: crowdsecurity/crowdsec:v1.7.8
-    container_name: nginx-webui-5.0.3-crowdsec
+    container_name: nginxwebui-crowdsec
     restart: unless-stopped
     volumes:
       - nginxwebui_log:/var/log/nginx:ro
@@ -112,7 +120,7 @@ services:
 
   crowdsec-bouncer:
     image: fbonalair/traefik-crowdsec-bouncer:0.5.0
-    container_name: nginx-webui-5.0.3-bouncer
+    container_name: nginxwebui-bouncer
     restart: unless-stopped
     environment:
       - CROWDSEC_BOUNCER_API_KEY=${CROWDSEC_BOUNCER_KEY}
@@ -137,3 +145,5 @@ volumes:
     name: nginxwebui_crowdsec_data
   crowdsec_config:
     name: nginxwebui_crowdsec_config
+  nginxwebui_geoip:
+    name: nginxwebui_geoip
