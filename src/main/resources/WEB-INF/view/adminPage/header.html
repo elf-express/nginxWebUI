@@ -1,5 +1,11 @@
 <div class="layui-header">
-	<div class="layui-logo" >${projectName} ${currentVersion}</div>
+	<div class="layui-logo" style="display:flex;align-items:center;gap:8px;padding:0 15px;">
+		<!-- brand-logo: 預留給未來「使用者上傳自訂 logo」feature；目前空、CSS hide 不占空間 -->
+		<div class="brand-logo" id="brandLogo" style="display:none;">
+			<img id="brandLogoImg" src="" alt="logo" style="height:32px;vertical-align:middle;">
+		</div>
+		<div class="brand-text">${projectName} ${currentVersion}</div>
+	</div>
 	<ul class="layui-nav layui-layout-right">
 		<li class="layui-nav-item" id="nginxVersionItem" style="display:none;">
 			<a href="javascript:showModuleList()" style="color: #01AAED;" id="nginxVersionLink"></a>
