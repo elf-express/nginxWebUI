@@ -8,6 +8,16 @@ public class DenyAllowExt {
 	DenyAllow denyAllow;
 	Integer ipCount;
 	List<String> usedBy;
+	/** yyyy-MM-dd HH:mm 格式，null 表示尚未抓取過 */
+	String lastFetchAtStr;
+
+	public String getLastFetchAtStr() {
+		return lastFetchAtStr;
+	}
+
+	public void setLastFetchAtStr(String lastFetchAtStr) {
+		this.lastFetchAtStr = lastFetchAtStr;
+	}
 
 	public DenyAllow getDenyAllow() {
 		return denyAllow;

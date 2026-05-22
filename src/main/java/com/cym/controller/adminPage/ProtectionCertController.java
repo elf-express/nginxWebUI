@@ -18,6 +18,7 @@ import com.cym.service.SettingService;
 import com.cym.sqlhelper.bean.Page;
 import com.cym.utils.BaseController;
 
+import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.StrUtil;
 
 @Controller
@@ -68,6 +69,10 @@ public class ProtectionCertController extends BaseController {
 				}
 			}
 			ext.setUsedBy(usedBy);
+
+			if (denyAllow.getLastFetchAt() != null) {
+				ext.setLastFetchAtStr(DateUtil.format(new java.util.Date(denyAllow.getLastFetchAt()), "yyyy-MM-dd HH:mm"));
+			}
 
 			exts.add(ext);
 		}

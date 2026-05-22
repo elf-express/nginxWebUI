@@ -13,7 +13,8 @@ import com.cym.sqlhelper.bean.Page;
 import com.cym.sqlhelper.utils.SqlHelper;
 
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.http.HttpUtil;
+import cn.hutool.http.HttpRequest;
+import cn.hutool.http.HttpResponse;
 
 @Component
 public class DenyAllowService {
@@ -56,7 +57,17 @@ public class DenyAllowService {
 			return false;
 		}
 		try {
-			String body = HttpUtil.get(da.getSourceUrl(), 30000);
+			// 用 HttpRequest 顯式跟 5 次 redirect，並帶 UA（部分 CDN / Cloudflare 對空 UA 或 hutool 預設 UA 會拒絕）
+			HttpResponse response = HttpRequest.get(da.getSourceUrl())
+					.setMaxRedirectCount(5)
+					.timeout(30000)
+					.header("User-Agent", "nginxWebUI/DenyAllow-fetcher")
+					.execute();
+			if (!response.isOk()) {
+				logger.warn("DenyAllow fetch HTTP {}: {} ({})", response.getStatus(), da.getName(), da.getSourceUrl());
+				return false;
+			}
+			String body = response.body();
 			if (StrUtil.isBlank(body)) {
 				logger.warn("DenyAllow fetch returned empty body: {} ({})", da.getName(), da.getSourceUrl());
 				return false;

@@ -23,6 +23,7 @@ import com.cym.sqlhelper.bean.Page;
 import com.cym.utils.BaseController;
 import com.cym.utils.JsonResult;
 
+import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.StrUtil;
 
 @Controller
@@ -74,6 +75,10 @@ public class DenyAllowController extends BaseController {
 				}
 			}
 			denyAllowExt.setUsedBy(usedBy);
+
+			if (denyAllow.getLastFetchAt() != null) {
+				denyAllowExt.setLastFetchAtStr(DateUtil.format(new java.util.Date(denyAllow.getLastFetchAt()), "yyyy-MM-dd HH:mm"));
+			}
 
 			exts.add(denyAllowExt);
 		}
