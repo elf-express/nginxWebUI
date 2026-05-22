@@ -50,6 +50,10 @@ captcha2.gif
 .claude-code-history/
 .codex-history/
 .openmcp/
+.claude/plans/
+skills.json
+SpecSanp/
+hs_err_pid*.log
 
 ### Test ###
 tests/e2e/test-data/
