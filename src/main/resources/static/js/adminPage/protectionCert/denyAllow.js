@@ -236,8 +236,8 @@ var denyAllowNS = {};
 			return;
 		}
 
-		// Validate: empty list
-		if (ipTags.length === 0) {
+		// Validate: empty list — 但允許「IP 空 + 有 sourceUrl」，讓 backend 即時抓
+		if (ipTags.length === 0 && !$("#daSourceUrl").val().trim()) {
 			layer.msg(denyAllowStr.emptyList);
 			return;
 		}
