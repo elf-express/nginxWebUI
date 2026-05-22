@@ -53,7 +53,7 @@ captcha2.gif
 .claude/plans/
 skills.json
 SpecSanp/
-hs_err_pid*.log
+hs_err_pid*
 
 ### Test ###
 tests/e2e/test-data/
