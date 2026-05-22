@@ -238,9 +238,9 @@ function showWindow(title) {
 	layer.open({
 		type: 1,
 		title: title,
-		offset: 'r',
-		anim: 'slideLeft', // 从右往左
-		area: ["90%", '100%'],
+		offset: ['60px', ''],            // top 60px 避開 nginxWebUI 60px 高的 header（rgb(35,41,46) 那條）
+		anim: 'slideLeft',               // 从右往左
+		area: ["90%", 'calc(100% - 60px)'], // 高度也扣掉 header
 		content: $('#windowDiv')
 	});
 }
@@ -672,12 +672,7 @@ function buildHtml(uuid, location, upstreamSelect) {
 					</span>
 
 					<span name="headerSpan" style="padding-left:7px;">
-						<div class="layui-inline">
-							<input type="checkbox" name="websocket" title="${serverStr.websocket}" lay-skin="primary">
-						</div>
-						<div class="layui-inline">
-							<input type="checkbox" name="cros" title="${serverStr.cros}" lay-skin="primary">
-						</div>
+						<!-- websocket / cros checkbox 已移除，請改用「設置額外參數 → 添加模板」選 WebSocket Proxy 或 CORS Allow All 模板 -->
 						<div class="layui-inline">
 							<input type="checkbox" name="header" title="${serverStr.headerAddHost} :" lay-skin="primary" checked>
 						</div>
@@ -807,11 +802,20 @@ function setDenyAllow() {
 	var allowId = $("#allowId").val();
 
 	$("#denyAllowValue").val(denyAllow);
-	if (denyId != null && denyId != "") {
-		$("#denyIdValue").val(denyId);
+	// denyId / allowId 是 CSV「id1,id2,id3」(single id 也是合法 csv)，逐個勾選對應 checkbox
+	$("#denyDiv input[name='denyIds']").prop("checked", false);
+	$("#allowDiv input[name='allowIds']").prop("checked", false);
+	if (denyId != null && denyId !== "") {
+		var denyArr = denyId.split(",");
+		$("#denyDiv input[name='denyIds']").each(function() {
+			if (denyArr.indexOf($(this).val()) >= 0) { $(this).prop("checked", true); }
+		});
 	}
-	if (allowId != null && allowId != "") {
-		$("#allowIdValue").val(allowId);
+	if (allowId != null && allowId !== "") {
+		var allowArr = allowId.split(",");
+		$("#allowDiv input[name='allowIds']").each(function() {
+			if (allowArr.indexOf($(this).val()) >= 0) { $(this).prop("checked", true); }
+		});
 	}
 	checkDenyAllow(denyAllow);
 
@@ -826,12 +830,13 @@ function setDenyAllow() {
 
 function setDenyAllowOver() {
 	var denyAllow = $("#denyAllowValue").val();
-	var denyId = $("#denyIdValue").val();
-	var allowId = $("#allowIdValue").val();
+	// 收集所有勾選的 checkbox value，join 成 CSV「id1,id2,id3」
+	var denyIds = $("#denyDiv input[name='denyIds']:checked").map(function() { return $(this).val(); }).get();
+	var allowIds = $("#allowDiv input[name='allowIds']:checked").map(function() { return $(this).val(); }).get();
 
 	$("#denyAllow").val(denyAllow);
-	$("#denyId").val(denyId);
-	$("#allowId").val(allowId);
+	$("#denyId").val(denyIds.join(","));
+	$("#allowId").val(allowIds.join(","));
 
 	layer.close(denyAllowIndex)
 }

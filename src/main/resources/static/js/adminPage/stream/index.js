@@ -235,11 +235,20 @@ function setDenyAllow() {
 				var map = data.obj;
 
 				$("#denyAllowValue").val(map.denyAllowStream);
-				if (map.denyId != null) {
-					$("#denyIdValue").val(map.denyIdStream);
+				// denyIdStream / allowIdStream 是 CSV (single id 也是合法 csv)
+				$("#denyDiv input[name='denyIds']").prop("checked", false);
+				$("#allowDiv input[name='allowIds']").prop("checked", false);
+				if (map.denyIdStream != null && map.denyIdStream !== "") {
+					var denyArr = String(map.denyIdStream).split(",");
+					$("#denyDiv input[name='denyIds']").each(function() {
+						if (denyArr.indexOf($(this).val()) >= 0) { $(this).prop("checked", true); }
+					});
 				}
-				if (map.allowId != null) {
-					$("#allowIdValue").val(map.allowIdStream);
+				if (map.allowIdStream != null && map.allowIdStream !== "") {
+					var allowArr = String(map.allowIdStream).split(",");
+					$("#allowDiv input[name='allowIds']").each(function() {
+						if (allowArr.indexOf($(this).val()) >= 0) { $(this).prop("checked", true); }
+					});
 				}
 				checkDenyAllow(map.denyAllow);
 
@@ -263,8 +272,9 @@ function setDenyAllow() {
 
 function setDenyAllowOver() {
 	var denyAllow = $("#denyAllowValue").val();
-	var denyId = $("#denyIdValue").val();
-	var allowId = $("#allowIdValue").val();
+	// 收集勾選 checkbox value 合成 CSV
+	var denyId = $("#denyDiv input[name='denyIds']:checked").map(function() { return $(this).val(); }).get().join(",");
+	var allowId = $("#allowDiv input[name='allowIds']:checked").map(function() { return $(this).val(); }).get().join(",");
 
 	$.ajax({
 		type: 'POST',

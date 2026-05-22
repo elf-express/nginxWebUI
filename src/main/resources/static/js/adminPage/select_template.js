@@ -39,11 +39,9 @@ var isStream = false;
 function selectTemplate(id) {
 	selectTemplateTagertId = id;
 	templateType = "temp";
-	templateIndex = layer.open({
-		type: 1,
-		title: templateStr.select,
-		area: ['450px', '350px'], // 宽高
-		content: $('#templateSelectDiv')
+	window.openTemplatePicker(function(templateId) {
+		$("#selectTemplateId").val(templateId);
+		selectTemplateOver();
 	});
 }
 
@@ -160,7 +158,9 @@ function selectTemplateOver() {
 
 				$("#" + selectTemplateTagertId).append(html);
 				form.render();
-				layer.close(templateIndex);
+				if (typeof templateIndex !== 'undefined' && templateIndex !== null) {
+					layer.close(templateIndex);   // 舊路徑用 layer 才需關；新 picker 已自己關
+				}
 			} else {
 				layer.msg(data.msg);
 			}
@@ -174,31 +174,25 @@ function selectTemplateOver() {
 function selectTemplateAsParam(id) {
 	selectTemplateTagertId = id;
 	templateType = "param";
-	templateIndex = layer.open({
-		type: 1,
-		title: templateStr.select,
-		area: ['450px', '350px'], // 宽高
-		content: $('#templateSelectDiv')
+	window.openTemplatePicker(function(templateId) {
+		$("#selectTemplateId").val(templateId);
+		selectTemplateOver();
 	});
 }
 
 function selectTemplateAsHttp() {
 	isHttp = true;
-	templateIndex = layer.open({
-		type: 1,
-		title: templateStr.select,
-		area: ['450px', '350px'], // 宽高
-		content: $('#templateSelectDiv')
+	window.openTemplatePicker(function(templateId) {
+		$("#selectTemplateId").val(templateId);
+		selectTemplateOver();
 	});
 }
 
 function selectTemplateAsStream() {
 	isStream = true;
-	templateIndex = layer.open({
-		type: 1,
-		title: templateStr.select,
-		area: ['450px', '350px'], // 宽高
-		content: $('#templateSelectDiv')
+	window.openTemplatePicker(function(templateId) {
+		$("#selectTemplateId").val(templateId);
+		selectTemplateOver();
 	});
 }
 

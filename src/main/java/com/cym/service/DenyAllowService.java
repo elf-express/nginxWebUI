@@ -29,6 +29,22 @@ public class DenyAllowService {
 		return page;
 	}
 
+	/**
+	 * 檢查 csv 字串（"id1,id2,id3"）內是否包含目標 id。供 server.denyId / allowId 多選 CSV
+	 * 後、controller 計算 usedBy 與 conf 生成端比對使用。
+	 */
+	public static boolean csvContainsId(String csv, String id) {
+		if (csv == null || csv.isEmpty() || id == null) {
+			return false;
+		}
+		for (String s : csv.split(",")) {
+			if (id.equals(s.trim())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	public void removeSame(DenyAllow denyAllow) {
 		if (StrUtil.isNotEmpty(denyAllow.getIp())) {
 			LinkedHashSet<String> set = new LinkedHashSet<String>();

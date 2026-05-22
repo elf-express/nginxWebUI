@@ -54,16 +54,17 @@ public class ProtectionCertController extends BaseController {
 				ext.setIpCount(denyAllow.getIp().split("\n").length);
 			}
 
+			// usedBy — denyId / allowId 可能是 CSV「id1,id2,id3」, 用 csvContainsId 比對
 			List<String> usedBy = new ArrayList<String>();
 			String daId = denyAllow.getId();
-			if (daId.equals(httpDenyId) || daId.equals(httpAllowId)) {
+			if (DenyAllowService.csvContainsId(httpDenyId, daId) || DenyAllowService.csvContainsId(httpAllowId, daId)) {
 				usedBy.add("HTTP Global");
 			}
-			if (daId.equals(streamDenyId) || daId.equals(streamAllowId)) {
+			if (DenyAllowService.csvContainsId(streamDenyId, daId) || DenyAllowService.csvContainsId(streamAllowId, daId)) {
 				usedBy.add("Stream Global");
 			}
 			for (Server s : allServers) {
-				if (daId.equals(s.getDenyId()) || daId.equals(s.getAllowId())) {
+				if (DenyAllowService.csvContainsId(s.getDenyId(), daId) || DenyAllowService.csvContainsId(s.getAllowId(), daId)) {
 					String label = StrUtil.isNotEmpty(s.getServerName()) ? s.getServerName() : s.getListen();
 					usedBy.add("Server: " + label);
 				}

@@ -450,6 +450,34 @@ public class ConfService {
 		}
 	}
 
+	/**
+	 * 收集 csvIds 對應的所有 DenyAllow 清單 IP（"id1,id2,id3" → 三個清單的 IP 合併）。
+	 * single id 也是合法 CSV (split 後 array 只一個 element)、舊資料不需 migration。
+	 */
+	private List<String> collectIpsFromCsvIds(String csvIds) {
+		List<String> ips = new ArrayList<>();
+		if (csvIds == null || csvIds.trim().isEmpty()) {
+			return ips;
+		}
+		for (String id : csvIds.split(",")) {
+			String trimmedId = id.trim();
+			if (trimmedId.isEmpty()) {
+				continue;
+			}
+			DenyAllow da = sqlHelper.findById(trimmedId, DenyAllow.class);
+			if (da == null || da.getIp() == null || da.getIp().isEmpty()) {
+				continue;
+			}
+			for (String ipLine : da.getIp().split("\n")) {
+				String ip = ipLine.trim();
+				if (!ip.isEmpty()) {
+					ips.add(ip);
+				}
+			}
+		}
+		return ips;
+	}
+
 	public void buildDenyAllow(NgxBlock ngxBlock, String type, String id, ConfExt confExt) {
 		Integer denyAllowValue = null;
 		String denyId = null;
@@ -472,46 +500,27 @@ public class ConfService {
 
 		List<String> strs = new ArrayList<>();
 		if (denyAllowValue == 1) {
-			// 黑名单
-			DenyAllow denyAllow = sqlHelper.findById(denyId, DenyAllow.class);
-			if (denyAllow != null) {
-				String[] ips = denyAllow.getIp().split("\n");
-				for (String ip : ips) {
-					strs.add("deny " + ip.trim() + ";");
-				}
+			// 黑名单 — denyId 可能是 CSV "id1,id2,id3"，loop 蒐集所有清單的 IP
+			for (String ip : collectIpsFromCsvIds(denyId)) {
+				strs.add("deny " + ip + ";");
 			}
-
 			strs.add("allow all;");
 		}
 		if (denyAllowValue == 2) {
-			// 白名单
-			DenyAllow denyAllow = sqlHelper.findById(allowId, DenyAllow.class);
-			if (denyAllow != null) {
-				String[] ips = denyAllow.getIp().split("\n");
-				for (String ip : ips) {
-					strs.add("allow " + ip.trim() + ";");
-				}
+			// 白名单 — allowId 同樣 CSV
+			for (String ip : collectIpsFromCsvIds(allowId)) {
+				strs.add("allow " + ip + ";");
 			}
-
 			strs.add("deny all;");
 		}
 
 		if (denyAllowValue == 3) {
-			// 黑白名单
-			DenyAllow denyAllow = sqlHelper.findById(allowId, DenyAllow.class);
-			if (denyAllow != null) {
-				String[] ips = denyAllow.getIp().split("\n");
-				for (String ip : ips) {
-					strs.add("allow " + ip.trim() + ";");
-				}
+			// 黑白名单 — 同時處理 allow 與 deny 兩個 CSV
+			for (String ip : collectIpsFromCsvIds(allowId)) {
+				strs.add("allow " + ip + ";");
 			}
-
-			denyAllow = sqlHelper.findById(denyId, DenyAllow.class);
-			if (denyAllow != null) {
-				String[] ips = denyAllow.getIp().split("\n");
-				for (String ip : ips) {
-					strs.add("deny " + ip.trim() + ";");
-				}
+			for (String ip : collectIpsFromCsvIds(denyId)) {
+				strs.add("deny " + ip + ";");
 			}
 		}
 
