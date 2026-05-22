@@ -1,7 +1,7 @@
 services:
   nginxwebui:
-    # 預設拉 ghcr.io 上的 release image。要釘版本：在 deploy/.env 設 NGINX_WEBUI_VERSION=5.0.14
-    # 想從原始碼本機 build：在 deploy/ 跑 `docker compose up -d --build`（會跑 ../Dockerfile）
+    # 預設拉 ghcr.io 上的 release image。要釘版本：在 docker/.env 設 NGINX_WEBUI_VERSION=5.0.14
+    # 想從原始碼本機 build：在 docker/ 跑 `docker compose up -d --build`（會跑 ../Dockerfile）
     image: ghcr.io/elf-express/nginxwebui:${NGINX_WEBUI_VERSION:-latest}
     build:
       context: ..
@@ -18,7 +18,11 @@ services:
       - nginxwebui_geoip:/etc/nginx/geoip  # MMDB ~80 MB，restart 不重抓；crontab 每週三六自動更新
     environment:
       - JVM_XMX=256m
-      - BOOT_OPTIONS=--spring.database.type=postgresql --spring.datasource.url=jdbc:postgresql://postgres:5432/nginxwebui --spring.datasource.username=nginxwebui --spring.datasource.password=nginxwebui123 --init.admin=${INIT_ADMIN:-admin} --init.pass=${INIT_PASS:-Admin123}
+      # 首次啟動會在 web UI 引導設定管理員密碼（原作者設計）。
+      # 自動化部署需跳過精靈時，在 .env 設 INIT_ADMIN/INIT_PASS 並把
+      #   --init.admin=${INIT_ADMIN} --init.pass=${INIT_PASS}
+      # 加回 BOOT_OPTIONS 後重啟。詳見 InitConfig.java:660 addAdmin() 行為。
+      - BOOT_OPTIONS=--spring.database.type=postgresql --spring.datasource.url=jdbc:postgresql://postgres:5432/nginxwebui --spring.datasource.username=nginxwebui --spring.datasource.password=nginxwebui123
     depends_on:
       postgres:
         condition: service_healthy
@@ -51,12 +55,14 @@ services:
   # ── 日誌監控 ──────────────────────────────────
 
   promtail:
-    image: grafana/promtail:3.5.0
+    image: ghcr.io/elf-express/nginxwebui-promtail:${NGINX_WEBUI_VERSION:-latest}
+    build:
+      context: ./promtail
+      dockerfile: Dockerfile
     container_name: nginxwebui-promtail
     restart: unless-stopped
     volumes:
       - nginxwebui_log:/var/log/nginx:ro
-      - ./promtail-config.yml:/etc/promtail/config.yml:ro
     command: -config.file=/etc/promtail/config.yml
     depends_on:
       - loki
@@ -76,16 +82,16 @@ services:
       retries: 3
 
   grafana:
-    image: grafana/grafana:11.6.0
+    image: ghcr.io/elf-express/nginxwebui-grafana:${NGINX_WEBUI_VERSION:-latest}
+    build:
+      context: ./grafana
+      dockerfile: Dockerfile
     container_name: nginxwebui-grafana
     restart: unless-stopped
     ports:
       - "3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./grafana-datasources.yml:/etc/grafana/provisioning/datasources/loki.yml:ro
-      - ./grafana-dashboards.yml:/etc/grafana/provisioning/dashboards/default.yml:ro
-      - ./grafana-nginx-dashboard.json:/var/lib/grafana/dashboards/nginx-monitor.json:ro
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
@@ -97,16 +103,19 @@ services:
   # ── 安全防護 ──────────────────────────────────
 
   crowdsec:
-    image: crowdsecurity/crowdsec:v1.7.8
+    image: ghcr.io/elf-express/nginxwebui-crowdsec:${NGINX_WEBUI_VERSION:-latest}
+    build:
+      context: ./crowdsec
+      dockerfile: Dockerfile
     container_name: nginxwebui-crowdsec
     restart: unless-stopped
+    # 注意：crowdsec_config volume 第一次部署會 seed 自 baked image config，
+    # 之後 image 升版若改了 baked config，必須 docker compose down -v 才會生效。
+    # 這是 docker named volume + image config 的 known trade-off。
     volumes:
       - nginxwebui_log:/var/log/nginx:ro
       - crowdsec_data:/var/lib/crowdsec/data
       - crowdsec_config:/etc/crowdsec
-      - ./crowdsec/acquis.yml:/etc/crowdsec/acquis.yaml:ro
-      - ./crowdsec/abuseipdb.yaml:/etc/crowdsec/notifications/abuseipdb.yaml:ro
-      - ./crowdsec/profiles.yaml:/etc/crowdsec/profiles.yaml:ro
     environment:
       - COLLECTIONS=crowdsecurity/nginx crowdsecurity/http-cve crowdsecurity/base-http-scenarios
       - BOUNCER_KEY_nginx=${CROWDSEC_BOUNCER_KEY}
