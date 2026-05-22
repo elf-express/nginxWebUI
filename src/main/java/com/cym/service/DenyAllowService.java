@@ -1,6 +1,5 @@
 package com.cym.service;
 
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 
@@ -63,7 +62,9 @@ public class DenyAllowService {
 				return false;
 			}
 
-			List<String> ips = new ArrayList<>();
+			// 用 LinkedHashSet 同步去重、保留首次出現的順序
+			LinkedHashSet<String> ips = new LinkedHashSet<>();
+			int rawCount = 0;
 			for (String line : body.split("\r?\n")) {
 				String s = line.trim();
 				if (s.isEmpty() || s.startsWith("#") || s.startsWith(";")) {
@@ -78,6 +79,7 @@ public class DenyAllowService {
 					s = s.substring(0, tabIdx);
 				}
 				if (s.matches("^[0-9a-fA-F:.\\/]+$") || s.equalsIgnoreCase("all")) {
+					rawCount++;
 					ips.add(s);
 				}
 			}
@@ -89,7 +91,13 @@ public class DenyAllowService {
 
 			da.setIp(String.join("\n", ips));
 			da.setLastFetchAt(System.currentTimeMillis());
-			logger.info("Fetched DenyAllow list '{}' from {} → {} IPs", da.getName(), da.getSourceUrl(), ips.size());
+			int dupes = rawCount - ips.size();
+			if (dupes > 0) {
+				logger.info("Fetched DenyAllow list '{}' from {} → {} IPs ({} duplicates removed)",
+						da.getName(), da.getSourceUrl(), ips.size(), dupes);
+			} else {
+				logger.info("Fetched DenyAllow list '{}' from {} → {} IPs", da.getName(), da.getSourceUrl(), ips.size());
+			}
 			return true;
 		} catch (Exception e) {
 			logger.error("Failed to fetch DenyAllow list " + da.getName() + " (" + da.getSourceUrl() + ")", e);
