@@ -1,18 +1,25 @@
 package com.cym.service;
 
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 
 import org.noear.solon.annotation.Component;
 import org.noear.solon.annotation.Inject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.cym.model.DenyAllow;
 import com.cym.sqlhelper.bean.Page;
 import com.cym.sqlhelper.utils.SqlHelper;
 
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.http.HttpUtil;
 
 @Component
 public class DenyAllowService {
+	Logger logger = LoggerFactory.getLogger(this.getClass());
+
 	@Inject
 	SqlHelper sqlHelper;
 
@@ -36,5 +43,58 @@ public class DenyAllowService {
 		}
 	}
 
+	/**
+	 * 從 da.sourceUrl 抓黑名單清單、parse IP、覆寫 da.ip 與 da.lastFetchAt。
+	 * 不執行 DB write — 呼叫端決定何時 insertOrUpdate / updateById。
+	 *
+	 * 由 DenyAllowController.addOver()（即時抓）與 ScheduleTask.fetchDenyAllowLists()
+	 * （每日定時抓）共用。
+	 *
+	 * @return 抓取成功且 ip 已更新時回 true；URL 空、HTTP 失敗、或解析後 0 個 IP 時回 false
+	 */
+	public boolean fetchAndUpdate(DenyAllow da) {
+		if (da == null || StrUtil.isBlank(da.getSourceUrl())) {
+			return false;
+		}
+		try {
+			String body = HttpUtil.get(da.getSourceUrl(), 30000);
+			if (StrUtil.isBlank(body)) {
+				logger.warn("DenyAllow fetch returned empty body: {} ({})", da.getName(), da.getSourceUrl());
+				return false;
+			}
+
+			List<String> ips = new ArrayList<>();
+			for (String line : body.split("\r?\n")) {
+				String s = line.trim();
+				if (s.isEmpty() || s.startsWith("#") || s.startsWith(";")) {
+					continue;
+				}
+				int spaceIdx = s.indexOf(' ');
+				if (spaceIdx > 0) {
+					s = s.substring(0, spaceIdx);
+				}
+				int tabIdx = s.indexOf('\t');
+				if (tabIdx > 0) {
+					s = s.substring(0, tabIdx);
+				}
+				if (s.matches("^[0-9a-fA-F:.\\/]+$") || s.equalsIgnoreCase("all")) {
+					ips.add(s);
+				}
+			}
+
+			if (ips.isEmpty()) {
+				logger.warn("DenyAllow fetch parsed 0 IPs: {} ({})", da.getName(), da.getSourceUrl());
+				return false;
+			}
+
+			da.setIp(String.join("\n", ips));
+			da.setLastFetchAt(System.currentTimeMillis());
+			logger.info("Fetched DenyAllow list '{}' from {} → {} IPs", da.getName(), da.getSourceUrl(), ips.size());
+			return true;
+		} catch (Exception e) {
+			logger.error("Failed to fetch DenyAllow list " + da.getName() + " (" + da.getSourceUrl() + ")", e);
+			return false;
+		}
+	}
 
 }

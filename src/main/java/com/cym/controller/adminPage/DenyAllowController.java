@@ -86,8 +86,17 @@ public class DenyAllowController extends BaseController {
 
 	@Mapping("addOver")
 	public JsonResult addOver(DenyAllow denyAllow) {
-		// ip去重
-		denyAllowService.removeSame(denyAllow);
+		// 若填了來源 URL，立即抓一次（覆寫 ip + 設 lastFetchAt）；之後每天 fetchTime 排程繼續抓
+		if (StrUtil.isNotBlank(denyAllow.getSourceUrl())) {
+			boolean ok = denyAllowService.fetchAndUpdate(denyAllow);
+			if (!ok) {
+				// 抓失敗仍允許儲存（保留使用者填的 URL 與 fetchTime），讓排程之後再試
+				logger.warn("Immediate fetch failed for {} ({}), saving record anyway", denyAllow.getName(), denyAllow.getSourceUrl());
+			}
+		} else {
+			// 沒填 URL，走原本的手動 IP 去重邏輯
+			denyAllowService.removeSame(denyAllow);
+		}
 
 		sqlHelper.insertOrUpdate(denyAllow);
 

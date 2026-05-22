@@ -24,6 +24,7 @@ import com.cym.model.DenyAllow;
 import com.cym.model.Remote;
 import com.cym.model.Upstream;
 import com.cym.model.UpstreamServer;
+import com.cym.service.DenyAllowService;
 import com.cym.service.HttpService;
 import com.cym.service.LogService;
 import com.cym.service.RemoteService;
@@ -70,6 +71,8 @@ public class ScheduleTask {
 	@Inject
 	HttpService httpService;
 	@Inject
+	DenyAllowService denyAllowService;
+	@Inject
 	MessageUtils m;
 	@Inject
 	HomeConfig homeConfig;
@@ -85,7 +88,8 @@ public class ScheduleTask {
 	}
 
 	// 每分鐘檢查需要從遠端抓取的 DenyAllow 黑名單
-	// 邏輯：找出 fetchTime == 當下 HH:mm 且 sourceUrl 非空的清單，HTTP GET → parse IP → 更新
+	// 邏輯：找出 fetchTime == 當下 HH:mm 且 sourceUrl 非空的清單，呼叫
+	// DenyAllowService.fetchAndUpdate() 更新 ip 與 lastFetchAt。
 	@Scheduled(cron = "0 * * * * ?")
 	public void fetchDenyAllowLists() {
 		String nowHHmm = DateUtil.format(new Date(), "HH:mm");
@@ -93,43 +97,8 @@ public class ScheduleTask {
 				new ConditionAndWrapper().eq("fetchTime", nowHHmm), DenyAllow.class);
 
 		for (DenyAllow da : list) {
-			if (StrUtil.isBlank(da.getSourceUrl())) {
-				continue;
-			}
-			try {
-				String body = HttpUtil.get(da.getSourceUrl(), 30000);
-				if (StrUtil.isBlank(body)) {
-					logger.warn("DenyAllow fetch returned empty body: {} ({})", da.getName(), da.getSourceUrl());
-					continue;
-				}
-
-				List<String> ips = new ArrayList<>();
-				for (String line : body.split("\r?\n")) {
-					String s = line.trim();
-					if (s.isEmpty() || s.startsWith("#") || s.startsWith(";")) {
-						continue;
-					}
-					// 取首個 token，例 "1.2.3.4 # comment" → "1.2.3.4"
-					int spaceIdx = s.indexOf(' ');
-					if (spaceIdx > 0) {
-						s = s.substring(0, spaceIdx);
-					}
-					int tabIdx = s.indexOf('\t');
-					if (tabIdx > 0) {
-						s = s.substring(0, tabIdx);
-					}
-					// 基本字元過濾：只接受 IP/CIDR/IPv6 合法字元
-					if (s.matches("^[0-9a-fA-F:.\\/]+$") || s.equalsIgnoreCase("all")) {
-						ips.add(s);
-					}
-				}
-
-				da.setIp(String.join("\n", ips));
-				da.setLastFetchAt(System.currentTimeMillis());
+			if (denyAllowService.fetchAndUpdate(da)) {
 				sqlHelper.updateById(da);
-				logger.info("Fetched DenyAllow list '{}' from {} → {} IPs", da.getName(), da.getSourceUrl(), ips.size());
-			} catch (Exception e) {
-				logger.error("Failed to fetch DenyAllow list " + da.getName() + " (" + da.getSourceUrl() + ")", e);
 			}
 		}
 	}
