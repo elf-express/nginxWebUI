@@ -304,13 +304,9 @@ docker compose logs -f nginxwebui
 
 ### 方式 C：多平台映像建構（CI/CD）
 
-```bash
-# 構建 linux/amd64 + linux/arm64 並 push 到 registry
-bash buildx.sh
+不必本機跑 buildx。**`scripts/release.sh 5.x.y` + git push tag → GitHub Actions 自動跑 multi-platform build + push ghcr.io**（見 [.github/workflows/build.yml](.github/workflows/build.yml)）。
 
-# 僅本地單平台（linux/amd64）
-bash local_build.sh
-```
+要本機快速 build 單平台測試用 `docker compose up -d --build`（5.1.0 後 compose 內已含 `build:` 段）。
 
 ### 部署後驗證
 
