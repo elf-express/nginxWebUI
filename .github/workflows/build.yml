@@ -41,7 +41,7 @@ jobs:
           retention-days: 7
 
   docker:
-    name: Build & Push Docker image
+    name: Build & Push Docker image (${{ matrix.image.name }})
     needs: build
     runs-on: ubuntu-latest
     # 只在 push tag v* 時才 build + push image
@@ -49,11 +49,32 @@ jobs:
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - name: nginxwebui
+            context: .
+            dockerfile: Dockerfile
+            needs_mvn: true
+          - name: nginxwebui-grafana
+            context: docker/grafana
+            dockerfile: docker/grafana/Dockerfile
+            needs_mvn: false
+          - name: nginxwebui-promtail
+            context: docker/promtail
+            dockerfile: docker/promtail/Dockerfile
+            needs_mvn: false
+          - name: nginxwebui-crowdsec
+            context: docker/crowdsec
+            dockerfile: docker/crowdsec/Dockerfile
+            needs_mvn: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up JDK 8
+        if: matrix.image.needs_mvn
         uses: actions/setup-java@v4
         with:
           java-version: '8'
@@ -61,6 +82,7 @@ jobs:
           cache: maven
 
       - name: Build JAR
+        if: matrix.image.needs_mvn
         run: mvn clean package -DskipTests -q
 
       - name: Set up Docker Buildx
@@ -76,26 +98,30 @@ jobs:
       - name: Extract version from tag and verify pom.xml
         id: version
         run: |
-          # 從 tag (refs/tags/v5.0.4) 抓出 5.0.4
+          # 從 tag (refs/tags/v5.1.1) 抓出 5.1.1
           VER="${GITHUB_REF#refs/tags/v}"
           echo "VERSION=$VER" >> "$GITHUB_OUTPUT"
 
-          # 驗證 pom.xml 的 nginxWebUI 版本與 tag 一致（不能搬到 parent solon-parent 版本）
-          POM_VER=$(grep -A1 'artifactId>nginxWebUI' pom.xml | grep version | grep -oP '\d+\.\d+\.\d+')
-          if [ "$POM_VER" != "$VER" ]; then
-            echo "::error::Tag ($VER) 和 pom.xml ($POM_VER) 不一致 — release script 沒跑或漏改 pom"
-            exit 1
+          # 主應用 image 額外驗證 pom.xml 的 nginxWebUI 版本與 tag 一致
+          # (sidecar image 沒有 pom.xml，不需要這個檢查)
+          if [ "${{ matrix.image.needs_mvn }}" = "true" ]; then
+            POM_VER=$(grep -A1 'artifactId>nginxWebUI' pom.xml | grep version | grep -oP '\d+\.\d+\.\d+')
+            if [ "$POM_VER" != "$VER" ]; then
+              echo "::error::Tag ($VER) 和 pom.xml ($POM_VER) 不一致 — release script 沒跑或漏改 pom"
+              exit 1
+            fi
+            echo "✓ tag $VER 與 pom.xml $POM_VER 一致"
           fi
-          echo "✓ tag $VER 與 pom.xml $POM_VER 一致"
 
       - name: Build and Push (multi-platform)
         uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ${{ matrix.image.context }}
+          file: ${{ matrix.image.dockerfile }}
           push: true
           platforms: linux/amd64,linux/arm64
           tags: |
-            ghcr.io/elf-express/nginxwebui:${{ steps.version.outputs.VERSION }}
-            ghcr.io/elf-express/nginxwebui:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+            ghcr.io/elf-express/${{ matrix.image.name }}:${{ steps.version.outputs.VERSION }}
+            ghcr.io/elf-express/${{ matrix.image.name }}:latest
+          cache-from: type=gha,scope=${{ matrix.image.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image.name }}
