@@ -61,6 +61,19 @@ acme.sh 會以 `--dns dns_cf` 直接呼叫 Cloudflare API 加 TXT、驗證、簽
 
 ---
 
+## 萬用憑證(wildcard)
+
+可以申請,例如 `*.example.com`(涵蓋 `app.example.com`、`api.example.com` 等下一層子網域;同理 `*.sub.example.com` 可涵蓋更深一層)。重點:
+
+- 萬用憑證只能用 DNS 驗證(方法 A 或 B),不能用 HTTP 驗證。
+- 域名欄直接填 `*.example.com`。
+- `*.example.com` 只涵蓋一層:`xxx.example.com` 可以,但不含本級 `example.com`,也不含更深層 `a.b.example.com`。
+- 要同時涵蓋本級網域,域名欄用逗號填兩個:`example.com,*.example.com`。
+- 用 DNS API(Cloudflare)時全自動:apex 與 wildcard 會在 `_acme-challenge.example.com` 放兩筆同名 TXT,acme.sh 會自動處理(改用 AcmeDNS / 手動就得自己加兩筆,較麻煩)。
+- 前提:該網域的 zone 在你的 DNS 服務商、且 Token / 憑證有權限。
+
+---
+
 ## 方法 B:AcmeDNS(免交出 DNS 憑證,但依賴第三方 server)
 
 不想把 DNS 憑證交給程式時可用。代價是依賴 `auth.nginxwebui.cn` 這台第三方 server(它掛了就無法簽發)。
