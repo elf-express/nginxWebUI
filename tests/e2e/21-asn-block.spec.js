@@ -80,11 +80,16 @@ test.describe('ASN 封鎖管理', () => {
       });
     });
 
+    // 重載頁面，讓伺服端渲染的表格帶入剛由 API 新增的 7777（原測試漏了這步而 timeout）
+    await page.reload();
+    await page.waitForSelector('.layui-tab');
+
     await page.locator('.layui-tab-title li', { hasText: /ASN/ }).click();
     await page.waitForTimeout(1000);
 
     // 找到刪除按鈕並點擊
     const row = page.locator('#asnTableBody tr', { hasText: '7777' });
+    await expect(row).toBeVisible({ timeout: 5000 });
     await row.locator('button', { hasText: /删除|刪除|Del/ }).click();
     await page.waitForTimeout(500);
 

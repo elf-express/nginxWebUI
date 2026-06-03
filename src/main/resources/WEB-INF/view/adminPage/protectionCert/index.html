@@ -85,6 +85,45 @@
 
 				<!-- ==================== Tab 1: DenyAllow (IP Blacklist) ==================== -->
 				<div class="layui-tab-item layui-show">
+
+					<!-- ===== GeoIP 資料庫資訊（版本 / 排程 / 手動下載）— 置於黑名單 IP 表格之前 ===== -->
+					<fieldset class="layui-elem-field layui-field-title" style="margin-top:10px;">
+						<legend style="font-size:14px;">${geoipStr.title}</legend>
+					</fieldset>
+					<table class="layui-table" lay-size="sm">
+						<thead>
+							<tr>
+								<th>${geoipStr.database}</th>
+								<th>${geoipStr.version}</th>
+								<th>${geoipStr.schedule}</th>
+								<th>${commonStr.operation}</th>
+							</tr>
+						</thead>
+						<tbody>
+							<#if geoipDbInfos??>
+							<#list geoipDbInfos as g>
+							<tr>
+								<td>${g.displayName}</td>
+								<td>
+									<#if g.version??>
+										<span style="color:#666;">${g.version}</span>
+										<#if g.lastUpdateStr??>
+											<span style="color:#bbb;font-size:12px;">（${geoipStr.lastUpdate}: ${g.lastUpdateStr}）</span>
+										</#if>
+									<#else>
+										<span style="color:#bbb;">${geoipStr.notDownloaded}</span>
+									</#if>
+								</td>
+								<td><span style="color:#666;">${geoipStr.scheduleValue}</span></td>
+								<td>
+									<button type="button" class="layui-btn layui-btn-sm" onclick="geoipNS.download('${g.key}')"><i class="layui-icon layui-icon-download-circle"></i> ${geoipStr.download}</button>
+								</td>
+							</tr>
+							</#list>
+							</#if>
+						</tbody>
+					</table>
+
 					<form action="${ctx}/adminPage/protectionCert" id="daSearchForm" method="post">
 						<div class="layui-inline">
 							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="denyAllowNS.add()"><i class="layui-icon layui-icon-add-circle-fine"></i> ${commonStr.add}</button>
@@ -712,6 +751,7 @@
 <#include '/adminPage/script.html'/>
 <#include '/adminPage/select_root.html'/>
 <script src="${ctx}/js/adminPage/protectionCert/denyAllow.js?v=${jsrandom}" type="text/javascript"></script>
+<script src="${ctx}/js/adminPage/protectionCert/geoip.js?v=${jsrandom}" type="text/javascript"></script>
 <script src="${ctx}/js/adminPage/protectionCert/geo.js?v=${jsrandom}" type="text/javascript"></script>
 <script src="${ctx}/js/adminPage/protectionCert/cert.js?v=${jsrandom}" type="text/javascript"></script>
 <script src="${ctx}/js/adminPage/denyAllow/asn.js?v=${jsrandom}" type="text/javascript"></script>

@@ -14,6 +14,7 @@ import com.cym.model.DenyAllow;
 import com.cym.model.Server;
 import com.cym.service.CertService;
 import com.cym.service.DenyAllowService;
+import com.cym.service.GeoipService;
 import com.cym.service.SettingService;
 import com.cym.sqlhelper.bean.Page;
 import com.cym.utils.BaseController;
@@ -30,6 +31,8 @@ public class ProtectionCertController extends BaseController {
 	SettingService settingService;
 	@Inject
 	CertService certService;
+	@Inject
+	GeoipService geoipService;
 
 	@Mapping("")
 	public ModelAndView index(ModelAndView modelAndView, Page page, String certKeywords) {
@@ -79,6 +82,9 @@ public class ProtectionCertController extends BaseController {
 		}
 		page.setRecords(exts);
 		modelAndView.put("daPage", page);
+
+		// GeoIP 資料庫資訊（Tab 1 黑名單表格前面的版本 / 排程 / 下載表格）
+		modelAndView.put("geoipDbInfos", geoipService.getDbInfos());
 
 		// Cert data
 		Page certPage = new Page();

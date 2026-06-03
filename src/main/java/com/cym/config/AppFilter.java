@@ -28,6 +28,7 @@ import com.cym.model.Message;
 import com.cym.model.Remote;
 import com.cym.service.AdminService;
 import com.cym.service.CreditService;
+import com.cym.service.GeoipService;
 import com.cym.service.SettingService;
 import com.cym.utils.BaseController;
 import com.cym.utils.JsonResult;
@@ -60,6 +61,9 @@ public class AppFilter implements Filter {
 	PropertiesUtils propertiesUtils;
 	@Inject
 	SettingService settingService;
+
+	@Inject
+	GeoipService geoipService;
 
 
 	@Override
@@ -254,6 +258,9 @@ public class AppFilter implements Filter {
 		if (StrUtil.isNotBlank(logoExt)) {
 			ctx.attrSet("brandLogoUrl", ctxStr + "/adminPage/admin/logo?v=" + System.currentTimeMillis());
 		}
+
+		// GeoIP 三個資料庫版本（header 下拉顯示）；版本走記憶體快取，輕量
+		ctx.attrSet("geoipDbInfos", geoipService.getDbInfos());
 
 		ctx.attrSet("showAdmin", ctx.param("showAdmin"));
 		ctx.attrSet("admin", ctx.session("admin"));

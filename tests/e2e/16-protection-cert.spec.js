@@ -14,12 +14,12 @@ test.describe('防護與證書（合併頁面）', () => {
     await expect(tab).toBeVisible();
   });
 
-  test('有三個 Tab：黑白名單、GeoIP、證書', async ({ page }) => {
+  test('有四個 Tab：黑白名單、GeoIP、ASN、證書', async ({ page }) => {
     await page.goto('/adminPage/protectionCert');
     await page.waitForSelector('.layui-tab');
 
     const tabs = page.locator('.layui-tab-title li');
-    await expect(tabs).toHaveCount(3);
+    await expect(tabs).toHaveCount(4);
   });
 
   test('Tab 可切換到 GeoIP', async ({ page }) => {
@@ -37,10 +37,11 @@ test.describe('防護與證書（合併頁面）', () => {
     await page.goto('/adminPage/protectionCert');
     await page.waitForSelector('.layui-tab');
 
-    await page.locator('.layui-tab-title li').nth(2).click();
+    // 證書是第 4 個 tab（黑白名單／國家／ASN／證書）→ index 3
+    await page.locator('.layui-tab-title li').nth(3).click();
     await page.waitForTimeout(500);
 
-    const certTab = page.locator('.layui-tab-item').nth(2);
+    const certTab = page.locator('.layui-tab-item').nth(3);
     const isActive = await certTab.evaluate(el => el.classList.contains('layui-show'));
     expect(isActive).toBe(true);
   });

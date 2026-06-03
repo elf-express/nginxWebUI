@@ -4,7 +4,26 @@ const fs = require('fs');
 const http = require('http');
 
 const PROJECT_ROOT = path.resolve(__dirname, '../..');
-const JAR_PATH = path.join(PROJECT_ROOT, 'target', 'nginxWebUI-5.0.3.jar');
+
+// 動態解析 target/ 下的 jar（不綁死版本，避免每次 release 後測試找不到 jar）。
+// 取最新修改的 nginxWebUI-*.jar，相容 mvn clean package 後只有單一 jar 的情況。
+function resolveJarPath() {
+  const targetDir = path.join(PROJECT_ROOT, 'target');
+  let jars = [];
+  try {
+    jars = fs.readdirSync(targetDir)
+      .filter((f) => /^nginxWebUI-.*\.jar$/.test(f))
+      .map((f) => ({ f, m: fs.statSync(path.join(targetDir, f)).mtimeMs }))
+      .sort((a, b) => b.m - a.m);
+  } catch (e) {
+    // target 目錄不存在
+  }
+  if (jars.length === 0) {
+    throw new Error('找不到 target/nginxWebUI-*.jar，請先執行：mvn clean package -DskipTests');
+  }
+  return path.join(targetDir, jars[0].f);
+}
+const JAR_PATH = resolveJarPath();
 const TEST_DATA_DIR = path.join(__dirname, 'test-data').replace(/\\/g, '/');
 const TEST_PORT = 18080;
 const BASE_URL = `http://localhost:${TEST_PORT}`;

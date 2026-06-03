@@ -3,13 +3,13 @@ const { login } = require('./helpers');
 
 test.describe('國家存取控制', () => {
 
-  test('黑白名單頁面應有兩個 tab', async ({ page }) => {
+  test('黑白名單頁面應有三個 tab（黑白名單／國家／ASN）', async ({ page }) => {
     await login(page);
     await page.goto('/adminPage/denyAllow');
     await page.waitForSelector('.layui-tab');
 
     const tabs = page.locator('.layui-tab-title li');
-    await expect(tabs).toHaveCount(2);
+    await expect(tabs).toHaveCount(3);
   });
 
   test('國家存取控制 tab 可正常切換', async ({ page }) => {
