@@ -101,9 +101,11 @@ acme.sh 會以 `--dns dns_cf` 直接呼叫 Cloudflare API 加 TXT、驗證、簽
 意思是 acme.sh 連不到 acme-dns server(couldn't resolve host)。原因:你用了「DNS 驗證(推薦)」(AcmeDNS),但伺服器連不到 `auth.nginxwebui.cn`(網路/DNS 不通,或對方 server 當掉)。
 解法:改用方法 A(DNS API)最一勞永逸;或在容器內測試對外連線 `docker exec nginxwebui sh -c "nslookup auth.nginxwebui.cn; curl -sI http://auth.nginxwebui.cn"`。
 
-**2. 用 DNS API 卻一直失敗,且 `_acme-challenge` 已有一筆 CNAME**
-原因:DNS 規定同名稱不能同時有 CNAME 和 TXT。之前用 AcmeDNS 留下的 `_acme-challenge` CNAME,會擋掉 DNS API 要加的 TXT。
-解法:到 DNS 服務商刪掉那筆 `_acme-challenge` CNAME,再重新申請。
+**2. DNS API 報 `Add txt record error`(加 TXT 被拒)**
+acme.sh 已連上 DNS 服務商、但加 TXT 失敗,兩個常見原因:
+- (a) `_acme-challenge` 已有一筆 CNAME(多半是之前試 AcmeDNS 留下的)。DNS 規定同名稱不能同時有 CNAME 和 TXT → 去 DNS 服務商刪掉那筆 CNAME。
+- (b) API token 權限不足:只有讀、沒有 `Zone:DNS:Edit`。診斷:用 token 讀 zone 成功、但 POST 加 TXT 回 `code 10000 Authentication error`,就是缺寫入權限 → 重建 token,範本選「Edit zone DNS」、Zone Resources 含該網域。
+  - 用 curl 自測:`curl -s -X POST "https://api.cloudflare.com/client/v4/zones/<ZoneID>/dns_records" -H "Authorization: Bearer <Token>" -H "Content-Type: application/json" --data '{"type":"TXT","name":"_acme-challenge.example.com","content":"test","ttl":120}'`(回 `success:true` 才代表有寫入權)
 
 **3. Cloudflare 驗證記錄沒生效**
 確認驗證用的記錄是「僅 DNS」(灰雲),不是橘雲 Proxy。主網域的 A 記錄要不要橘雲與簽發無關,可自行決定。
