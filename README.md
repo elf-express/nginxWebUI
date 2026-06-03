@@ -18,7 +18,7 @@
 | **觀測性** | 無 | **Loki + Promtail + Grafana** 完整 log/metric 管線 |
 | **安全防護** | 純 IP 黑白名單 | + **CrowdSec** 入侵偵測、+ **GeoIP2** 國家封鎖、+ **ASN** 封鎖、+ **多 list 自動 fetch** |
 | **語系** | 簡中為主 | **繁中為主**（簡 / 繁 / 英三份）|
-| **前端** | 純 Layui + jQuery | + **Vue 3 局部 mount**（template picker / SpecSnap inspector / **5.1.0 Dashboard**）|
+| **前端** | 純 Layui + jQuery | + **Vue 3 局部 mount**（template picker / SpecSnap inspector / **Vue Dashboard**）|
 | **CI/Release** | 手動打 jar | **GitHub Actions** 自動 build multi-platform image (linux/amd64 + linux/arm64) push 到 ghcr.io |
 | **開發流程** | 直接 push master | **dev/master 分支**、git tag-based release、`scripts/release.sh` 自動化 |
 
@@ -32,13 +32,11 @@
 
 ```bash
 git clone https://github.com/elf-express/nginxWebUI.git
-cd nginxWebUI
-git checkout v5.0.13          # 最新 release
-cd deploy
-docker compose up -d
+cd nginxWebUI/docker          # 預設分支 master = 最新 release 快照
+docker compose up -d          # image 預設拉 :latest，永遠跟最新 release
 ```
 
-打開瀏覽器 → **http://localhost:12300** → 預設帳密 `admin` / `Admin123`
+打開瀏覽器 → **http://localhost:12300** → 首次啟動依畫面精靈設定管理員帳密（不再內建預設密碼）
 
 七個 service 一起起來：
 
@@ -67,7 +65,7 @@ docker compose up -d
 └───────────────────────────────────────────────────────┘
             ↓ access log                ↑ HTTP query
 ┌─ Promtail ─→ Loki ←─ Grafana Dashboard ──────────────┐
-│                  ←─ nginxwebui Monitor (5.1.0)        │
+│                  ←─ nginxwebui Monitor                │
 └───────────────────────────────────────────────────────┘
             ↓ access log              ↑ cscli / API
 ┌─ CrowdSec (入侵偵測) ──→ Bouncer ──→ nginx auth_request
@@ -93,18 +91,18 @@ docker compose up -d
 - 上游負載均衡（upstream）含 weight / backup / down 設定
 - **19 個內建參數模板**（含中文註解）：WebSocket Proxy / Proxy Headers / Large File Upload / CORS / Rate Limit / Security Headers / GeoIP / CrowdSec 認證
 
-### 📊 觀測性（5.1.0 重點強化中）
+### 📊 觀測性（持續強化中）
 
 - Grafana 預先配 dashboard、看 nginx 流量 + 系統 metric
 - Loki 收集所有 nginx access log + nginxwebui app log
 - Promtail 自動轉發
-- **5.1.0 即將推出**：原生 Vue Dashboard 整合 Loki query、4 大類指標
+- **進行中**：原生 Vue Dashboard 整合 Loki query、4 大類指標
   - 系統 (CPU/Mem/Disk/Net)
   - **安全（封鎖 IP/國家/ASN Top N、CrowdSec alerts/decisions）**
   - 流量（RPS / status code / response time / top path）
   - TLS（憑證到期警告 / TLS 版本分布）
 
-→ [完整 5.1.0 設計文件](./docs/superpowers/plans/2026-05-22-monitor-dashboard-v2.md)
+→ [完整設計文件](./docs/superpowers/plans/2026-05-22-monitor-dashboard-v2.md)
 
 ### 🎨 UI
 
@@ -126,7 +124,18 @@ docker compose up -d
 
 ### A. Docker Compose（推薦、生產環境）
 
-見上面「快速開始」。完整 stack 7 個 service。
+完整 stack 共 7 個 service。**自 v5.1.0 起所有 sidecar（grafana / promtail / crowdsec）的 config 已 baked 進各自的 `ghcr.io/elf-express/nginxwebui-<service>` image**，部署機**不需要**帶 `crowdsec/` `grafana/` `promtail/` 等 config 目錄、也不必 `docker compose build` —— **線上只要兩個檔**：`docker-compose.yml` + `.env`。
+
+```bash
+mkdir nginxwebui && cd nginxwebui
+# 只抓這兩個檔（不必 clone 整個 repo）
+curl -O https://raw.githubusercontent.com/elf-express/nginxWebUI/master/docker/docker-compose.yml
+curl -o .env https://raw.githubusercontent.com/elf-express/nginxWebUI/master/docker/.env.example
+# 編輯 .env：填 CROWDSEC_BOUNCER_KEY（首次可先填任意值）；image 預設 :latest，要釘版本就設 NGINX_WEBUI_VERSION=x.y.z
+docker compose up -d
+```
+
+> 想從原始碼自建 sidecar image：照上面「快速開始」clone 整個 repo，在 `docker/` 跑 `docker compose up -d --build`（會各自走 `crowdsec/` `grafana/` `promtail/` 下的 Dockerfile 把 config COPY 進 image）。
 
 ### B. 純 jar 部署（最小化、開發環境）
 
@@ -136,7 +145,7 @@ mvn clean package -DskipTests
 
 # 2. 啟動
 java -jar -Dfile.encoding=UTF-8 \
-     target/nginxWebUI-5.0.13.jar \
+     target/nginxWebUI-*.jar \
      --server.port=8080 \
      --project.home=./dev-home/
 ```
@@ -157,8 +166,8 @@ java -jar -Dfile.encoding=UTF-8 \
 ### C. 直接拉 Docker image
 
 ```bash
-docker pull ghcr.io/elf-express/nginxwebui:5.0.13
-# 或 :latest（永遠等於最新 tag build）
+docker pull ghcr.io/elf-express/nginxwebui:latest
+# 或釘特定版本：ghcr.io/elf-express/nginxwebui:x.y.z（:latest 永遠等於最新 tag build）
 ```
 
 multi-platform: linux/amd64 + linux/arm64
@@ -169,7 +178,7 @@ multi-platform: linux/amd64 + linux/arm64
 
 ```bash
 git pull origin master
-cd deploy
+cd docker
 docker compose pull
 docker compose up -d
 ```
@@ -198,7 +207,9 @@ npm run test:fast             # 跑 E2E（headless / CI）
 
 | Tag | 主軸 |
 |---|---|
-| **[v5.0.13](https://github.com/elf-express/nginxWebUI/releases/tag/v5.0.13)** | UI 大改造：modal layout + template picker + 黑名單 CSV 多選 |
+| **[v5.1.1](https://github.com/elf-express/nginxWebUI/releases/tag/v5.1.1)** | CI 一次 matrix-build 4 個 image（主應用 + 3 sidecar）推 ghcr.io + header logo 容器對齊 200×60 |
+| [v5.1.0](https://github.com/elf-express/nginxWebUI/releases/tag/v5.1.0) | Sidecar baked image 自包含部署（config 燒進 image）+ `deploy/` 改名 `docker/` + compose 移除 init.* 預設 + 品牌 Logo 上傳 |
+| [v5.0.13](https://github.com/elf-express/nginxWebUI/releases/tag/v5.0.13) | UI 大改造：modal layout + template picker + 黑名單 CSV 多選 |
 | [v5.0.12](https://github.com/elf-express/nginxWebUI/releases/tag/v5.0.12) | DenyAllow URL fetch redirect-follow + 最後更新時間 column |
 | [v5.0.11](https://github.com/elf-express/nginxWebUI/releases/tag/v5.0.11) | URL 抓取 IP 自動去重 |
 | [v5.0.10](https://github.com/elf-express/nginxWebUI/releases/tag/v5.0.10) | DenyAllow JS 放寬：URL 非空允許 IP empty 提交 |
@@ -212,7 +223,7 @@ npm run test:fast             # 跑 E2E（headless / CI）
 
 ## Roadmap
 
-- **v5.1.0**（進行中）— Vue Dashboard 重做：4 大類指標 + ECharts + Loki query 整合
+- **Vue Dashboard 重做**（進行中）— 4 大類指標 + ECharts + Loki query 整合（[設計文件](./docs/superpowers/plans/2026-05-22-monitor-dashboard-v2.md)）
 - v5.2.0（規劃）— Grafana 預配 dashboard JSON 升級、加 alert rules
 - v5.3.0（規劃）— Dashboard 加 widget 拖拉排序 + 歷史趨勢頁
 

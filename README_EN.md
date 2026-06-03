@@ -18,7 +18,7 @@
 | **Observability** | None | **Loki + Promtail + Grafana** full log/metric pipeline |
 | **Security** | IP allow/deny lists only | + **CrowdSec** IDS, + **GeoIP2** country blocking, + **ASN** blocking, + **auto-fetch from URL** for multiple lists |
 | **Locale** | Simplified Chinese primary | **Traditional Chinese primary** (zh-CN / zh-TW / en-US) |
-| **Frontend** | Pure Layui + jQuery | + **Vue 3 partial mount** (template picker / SpecSnap inspector / **5.1.0 Dashboard**) |
+| **Frontend** | Pure Layui + jQuery | + **Vue 3 partial mount** (template picker / SpecSnap inspector / **Vue Dashboard**) |
 | **CI/Release** | Manual jar build | **GitHub Actions** auto multi-platform image build (linux/amd64 + linux/arm64) → ghcr.io |
 | **Dev workflow** | Direct push to master | **dev/master branch model**, git-tag-based release, `scripts/release.sh` automation |
 
@@ -32,13 +32,11 @@
 
 ```bash
 git clone https://github.com/elf-express/nginxWebUI.git
-cd nginxWebUI
-git checkout v5.0.13          # latest release
-cd deploy
-docker compose up -d
+cd nginxWebUI/docker          # default branch master = latest release snapshot
+docker compose up -d          # image defaults to :latest, always tracks latest release
 ```
 
-Open browser → **http://localhost:12300** → default `admin` / `Admin123`
+Open browser → **http://localhost:12300** → first launch walks you through the admin-setup wizard (no built-in default password)
 
 Seven services up together:
 
@@ -67,7 +65,7 @@ Seven services up together:
 └───────────────────────────────────────────────────────┘
             ↓ access log                ↑ HTTP query
 ┌─ Promtail ─→ Loki ←─ Grafana Dashboard ──────────────┐
-│                  ←─ nginxwebui Monitor (5.1.0)        │
+│                  ←─ nginxwebui Monitor                │
 └───────────────────────────────────────────────────────┘
             ↓ access log              ↑ cscli / API
 ┌─ CrowdSec (IDS) ──→ Bouncer ──→ nginx auth_request   │
@@ -93,18 +91,18 @@ Seven services up together:
 - Upstream load balancing with weight / backup / down settings
 - **19 built-in parameter templates** (with Chinese annotations): WebSocket Proxy / Proxy Headers / Large File Upload / CORS / Rate Limit / Security Headers / GeoIP / CrowdSec auth
 
-### 📊 Observability (major 5.1.0 enhancement coming)
+### 📊 Observability (continually enhanced)
 
 - Grafana pre-configured dashboards for nginx traffic + system metrics
 - Loki collects all nginx access log + nginxwebui app log
 - Promtail auto-forwards
-- **5.1.0 coming**: Native Vue Dashboard integrating Loki queries, 4 metric categories
+- **In progress**: Native Vue Dashboard integrating Loki queries, 4 metric categories
   - System (CPU/Mem/Disk/Net)
   - **Security (blocked IP/country/ASN Top N, CrowdSec alerts/decisions)**
   - Traffic (RPS / status code / response time / top paths)
   - TLS (cert expiry warning / TLS version distribution)
 
-→ [Full 5.1.0 design doc](./docs/superpowers/plans/2026-05-22-monitor-dashboard-v2.md)
+→ [Full design doc](./docs/superpowers/plans/2026-05-22-monitor-dashboard-v2.md)
 
 ### 🎨 UI
 
@@ -126,14 +124,25 @@ Seven services up together:
 
 ### A. Docker Compose (recommended, production)
 
-See "Quick start" above. Full stack 7 services.
+Full stack of 7 services. **Since v5.1.0 every sidecar's config (grafana / promtail / crowdsec) is baked into its own `ghcr.io/elf-express/nginxwebui-<service>` image** — the deploy host does **not** need to carry the `crowdsec/` `grafana/` `promtail/` config dirs, nor run `docker compose build`. **Only two files are required on the server**: `docker-compose.yml` + `.env`.
+
+```bash
+mkdir nginxwebui && cd nginxwebui
+# Grab just these two files (no need to clone the whole repo)
+curl -O https://raw.githubusercontent.com/elf-express/nginxWebUI/master/docker/docker-compose.yml
+curl -o .env https://raw.githubusercontent.com/elf-express/nginxWebUI/master/docker/.env.example
+# Edit .env: set CROWDSEC_BOUNCER_KEY (any value on first boot); image defaults to :latest, pin via NGINX_WEBUI_VERSION=x.y.z
+docker compose up -d
+```
+
+> To build the sidecar images from source: clone the whole repo (see "Quick start") and run `docker compose up -d --build` inside `docker/` (each sidecar's Dockerfile under `crowdsec/` `grafana/` `promtail/` COPYs its config into the image).
 
 ### B. Pure jar (minimal, development)
 
 ```bash
 mvn clean package -DskipTests
 java -jar -Dfile.encoding=UTF-8 \
-     target/nginxWebUI-5.0.13.jar \
+     target/nginxWebUI-*.jar \
      --server.port=8080 \
      --project.home=./dev-home/
 ```
@@ -154,8 +163,8 @@ Full parameters: [CLAUDE.md](./CLAUDE.md).
 ### C. Pull Docker image directly
 
 ```bash
-docker pull ghcr.io/elf-express/nginxwebui:5.0.13
-# or :latest (always equals latest tag build)
+docker pull ghcr.io/elf-express/nginxwebui:latest
+# or pin a version: ghcr.io/elf-express/nginxwebui:x.y.z (:latest always equals latest tag build)
 ```
 
 Multi-platform: linux/amd64 + linux/arm64
@@ -166,7 +175,7 @@ Multi-platform: linux/amd64 + linux/arm64
 
 ```bash
 git pull origin master
-cd deploy
+cd docker
 docker compose pull
 docker compose up -d
 ```
@@ -194,7 +203,9 @@ npm run test:fast             # E2E (headless / CI)
 
 | Tag | Highlight |
 |---|---|
-| **[v5.0.13](https://github.com/elf-express/nginxWebUI/releases/tag/v5.0.13)** | UI major overhaul: modal layout + template picker + DenyAllow CSV multi-select |
+| **[v5.1.1](https://github.com/elf-express/nginxWebUI/releases/tag/v5.1.1)** | CI matrix-builds all 4 images (main app + 3 sidecars) to ghcr.io in one pass + header logo container aligned to 200×60 |
+| [v5.1.0](https://github.com/elf-express/nginxWebUI/releases/tag/v5.1.0) | Self-contained sidecar baked images (config baked in) + `deploy/` renamed `docker/` + compose drops init.* defaults + brand logo upload |
+| [v5.0.13](https://github.com/elf-express/nginxWebUI/releases/tag/v5.0.13) | UI major overhaul: modal layout + template picker + DenyAllow CSV multi-select |
 | [v5.0.12](https://github.com/elf-express/nginxWebUI/releases/tag/v5.0.12) | DenyAllow URL fetch redirect-follow + last-update column |
 | [v5.0.11](https://github.com/elf-express/nginxWebUI/releases/tag/v5.0.11) | URL fetch IP auto-deduplication |
 | [v5.0.10](https://github.com/elf-express/nginxWebUI/releases/tag/v5.0.10) | DenyAllow JS validation relaxed: empty IP allowed when URL set |
@@ -208,7 +219,7 @@ Full changelog: https://github.com/elf-express/nginxWebUI/releases
 
 ## Roadmap
 
-- **v5.1.0** (in progress) — Vue Dashboard redesign: 4 metric categories + ECharts + Loki query integration
+- **Vue Dashboard redesign** (in progress) — 4 metric categories + ECharts + Loki query integration ([design doc](./docs/superpowers/plans/2026-05-22-monitor-dashboard-v2.md))
 - v5.2.0 (planned) — Grafana pre-configured dashboard JSON upgrade, add alert rules
 - v5.3.0 (planned) — Dashboard widget drag-sort + historical trend page
 

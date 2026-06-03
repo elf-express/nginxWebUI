@@ -1,6 +1,6 @@
 services:
   nginxwebui:
-    # 預設拉 ghcr.io 上的 release image。要釘版本：在 docker/.env 設 NGINX_WEBUI_VERSION=5.0.14
+    # 預設拉 ghcr.io 上的 release image。要釘版本：在 docker/.env 設 NGINX_WEBUI_VERSION=x.y.z
     # 想從原始碼本機 build：在 docker/ 跑 `docker compose up -d --build`（會跑 ../Dockerfile）
     image: ghcr.io/elf-express/nginxwebui:${NGINX_WEBUI_VERSION:-latest}
     build:

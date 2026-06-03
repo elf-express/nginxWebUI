@@ -197,7 +197,7 @@ mvn clean package -DskipTests
 
 ```bash
 java -jar -Dfile.encoding=UTF-8 \
-     target/nginxWebUI-5.1.0.jar \
+     target/nginxWebUI-<version>.jar \
      --server.port=8080 \
      --project.home=./dev-home/
 ```
@@ -207,7 +207,7 @@ java -jar -Dfile.encoding=UTF-8 \
 **指定 PostgreSQL：**
 
 ```bash
-java -jar -Dfile.encoding=UTF-8 target/nginxWebUI-5.1.0.jar \
+java -jar -Dfile.encoding=UTF-8 target/nginxWebUI-<version>.jar \
      --server.port=8080 \
      --project.home=./dev-home/ \
      --spring.database.type=postgresql \
@@ -219,21 +219,21 @@ java -jar -Dfile.encoding=UTF-8 target/nginxWebUI-5.1.0.jar \
 **忘記密碼（重置）：**
 
 ```bash
-java -jar target/nginxWebUI-5.1.0.jar --project.findPass=true
+java -jar target/nginxWebUI-<version>.jar --project.findPass=true
 # 啟動會把現有密碼印出後立即退出
 ```
 
 **測試用驗證碼（限本機）：**
 
 ```bash
-java -jar target/nginxWebUI-5.1.0.jar --project.testCaptcha=1234
+java -jar target/nginxWebUI-<version>.jar --project.testCaptcha=1234
 # 之後 CAPTCHA 一律接受 1234，方便 E2E 測試
 ```
 
 **跳過初始化精靈（直接帶入管理員）：**
 
 ```bash
-java -jar target/nginxWebUI-5.1.0.jar \
+java -jar target/nginxWebUI-<version>.jar \
      --init.admin=admin \
      --init.pass=admin123 \
      --init.api=true     # 同時開啟 API 呼叫權限
@@ -258,12 +258,12 @@ java -jar target/nginxWebUI-5.1.0.jar \
 mvn clean package -DskipTests
 
 # 2. 上傳到目標機器
-scp target/nginxWebUI-5.1.0.jar user@host:/home/nginxWebUI/
+scp target/nginxWebUI-<version>.jar user@host:/home/nginxWebUI/
 
 # 3. 啟動
 ssh user@host
 cd /home/nginxWebUI
-nohup java -jar -Dfile.encoding=UTF-8 nginxWebUI-5.1.0.jar \
+nohup java -jar -Dfile.encoding=UTF-8 nginxWebUI-<version>.jar \
       --server.port=8080 \
       --project.home=/home/nginxWebUI/ \
       > app.log 2>&1 &
@@ -356,7 +356,7 @@ mvn test
 mvn clean package -DskipTests
 
 # 本地啟動
-java -jar -Dfile.encoding=UTF-8 target/nginxWebUI-5.1.0.jar --server.port=8080
+java -jar -Dfile.encoding=UTF-8 target/nginxWebUI-<version>.jar --server.port=8080
 
 # E2E 測試
 npm test
@@ -474,24 +474,28 @@ git push origin :hotfix/5.1.2
 11. 編輯模式（Edit mode）優化
 12. Conf 錯誤診斷頁（Error diagnosis）
 13. 語系切換 UI（國旗 icon + flag SVG）
+14. 品牌 Logo 上傳（管理員設置 → 上傳自訂 logo；header 依 `brandLogoUrl??` 條件渲染，未上傳則退回文字品牌）
+15. Header `.layui-logo` 容器精準對齊 200×60（commit `ca237c5`，移除 `padding:0 15px` 造成的 230×60 撐寬，與側欄對齊）
 
 **安全防護模組：**
-14. CrowdSec 整合（入侵偵測 + nginx bouncer）
-15. Geo blocking（GeoIP2 國家封鎖）
-16. ASN block（自治系統封鎖）
-17. Protection Cert（防爬蟲憑證）
-18. Real-IP 模組設定頁
+16. CrowdSec 整合（入侵偵測 + nginx bouncer）
+17. Geo blocking（GeoIP2 國家封鎖）
+18. ASN block（自治系統封鎖）
+19. Protection Cert（防爬蟲憑證）
+20. Real-IP 模組設定頁
 
 **監控與運維：**
-19. Nginx 模組自動偵測（`/adminPage/monitor/nginxInfo`）
-20. Site Resource 資源頁
-21. 連線測試（Test connectivity）
+21. Nginx 模組自動偵測（`/adminPage/monitor/nginxInfo`）
+22. Site Resource 資源頁
+23. 連線測試（Test connectivity）
 
 **部署 / 測試：**
-22. 測試用驗證碼支援（`--project.testCaptcha`）
-23. Docker Compose Stack（PG 18 + Loki + Grafana + CrowdSec）
-24. `.gitattributes` 強制全文字檔 LF（Docker `entrypoint.sh` 跨平台不壞）
-25. Playwright E2E 套件涵蓋 22+ 場景
+24. 測試用驗證碼支援（`--project.testCaptcha`）
+25. Docker Compose Stack（PG 18 + Loki + Grafana + CrowdSec）
+26. Sidecar baked image 自包含部署（grafana / promtail / crowdsec config 燒進 image，部署無需 bind-mount config；commit `3669edf` / `6547e97`）
+27. CI matrix-build 4 個 image（主應用 + 3 sidecar）於 tag push 時一次推上 ghcr.io（commit `d99b24e`）
+28. `.gitattributes` 強制全文字檔 LF（Docker `entrypoint.sh` 跨平台不壞）
+29. Playwright E2E 套件涵蓋 22+ 場景
 
 ## 詳細文件
 - [改進計畫與完成報告](docs/superpowers/plans/completion-report.md)
