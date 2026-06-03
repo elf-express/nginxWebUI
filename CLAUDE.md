@@ -1,505 +1,249 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code (claude.ai/code) when working in this repository.
 
-## 專案簡介
-nginxWebUI 是一款簡化 NGINX 配置的網頁管理工具。用戶無需手寫 nginx.conf，通過 UI 填寫表單即可完成反向代理、SSL、負載均衡等配置。
+> 🌐 本檔以英文為主、關鍵處附中文註解。新增使用者可見字串仍須同步三份 i18n（見下）。
 
-主入口：[com.cym.NginxWebUI](src/main/java/com/cym/NginxWebUI.java)（`@SolonMain` + `@EnableScheduling`，啟動時會先殺掉同名舊 jar process 再 `Solon.start()`）。
+## 📖 Overview
 
-## 技術棧
-- **後端：** Java 8 + [Solon 3.3.3](https://solon.noear.org/) — **不是 Spring Boot**
-  - DI 註解：Service 用 `@Component`、Controller 用 `@Controller`，注入用 `@Inject`（不是 `@Service` / `@Autowired`）
-  - 路由：`@Mapping("/path")` 同時用於 class 與 method 級別
-  - 排程：`@Scheduled` 來自 `solon-scheduling-simple`
-- **前端：** Layui + jQuery + Freemarker 模板（伺服端渲染，**不是 SPA**）
-- **資料庫：** SQLite（預設）/ PostgreSQL / MySQL — 透過 `--spring.database.type` 切換
-- **構建：** Maven（產物 `target/nginxWebUI-<version>.jar`，含 `jar-with-dependencies`）
-- **測試：** Playwright（E2E 自動化測試，**不依賴 JUnit 做端對端**）
-- **容器：** Docker + Docker Compose（含 PostgreSQL + Loki + Grafana + CrowdSec stack；compose 與 sidecar baked image 都放 [docker/](docker/)，部署不需另外帶 config 檔）
+nginxWebUI is a web tool that simplifies NGINX configuration — users fill in UI forms instead of hand-writing `nginx.conf` (reverse proxy, SSL, load balancing, security hardening).
 
-## 目錄結構
+Entry point: [com.cym.NginxWebUI](src/main/java/com/cym/NginxWebUI.java) — `@SolonMain` + `@EnableScheduling`.
+
+> ⚠️ 啟動時會先殺掉同名舊 jar process 再 `Solon.start()`。
+
+## 🧱 Tech Stack
+
+*   **Backend:** Java 8 + [Solon 3.3.3](https://solon.noear.org/) — **NOT Spring Boot**
+    *   DI: `@Component` (services) / `@Controller` (controllers) / `@Inject` (not `@Service` / `@Autowired`)
+    *   Routing: `@Mapping("/path")` on both class and method level
+    *   Scheduling: `@Scheduled` from `solon-scheduling-simple`
+*   **Frontend:** Layui + jQuery + Freemarker (server-side rendered — **not an SPA**)
+*   **DB:** SQLite (default) / PostgreSQL / MySQL — switch via `--spring.database.type`
+*   **GeoIP:** `com.maxmind.db:maxmind-db` **2.1.0** reads MMDB `build_epoch` for the version badge.
+
+> ⚠️ 2.1.0 是最後支援 Java 8 的版本（3.x 需 Java 11），**勿升級**。
+
+*   **Build:** Maven → `target/nginxWebUI-<version>.jar` (fat jar, `jar-with-dependencies`)
+*   **Tests:** Playwright E2E (**no JUnit for end-to-end**)
+*   **Containers:** Docker Compose stack (PostgreSQL + Loki + Grafana + CrowdSec). Compose & sidecar baked images both live in [docker/](docker/).
+
+## 📁 Directory Structure
+
 ```
 src/main/java/com/cym/
-├── config/         # 初始化、過濾器、配置
-├── controller/     # 控制器（adminPage/ 下按功能分）
-├── model/          # 資料模型（Server, Location, Http, Template, Param...）
-├── service/        # 業務邏輯
-├── sqlhelper/      # 自製 ORM
-└── utils/          # 工具類
+├── config/         # init, filters, config (InitConfig, AppFilter)
+├── controller/     # controllers (feature-split under adminPage/)
+├── ext/            # view DTOs (e.g. DenyAllowExt, GeoipDbInfo) — 非 @Table
+├── model/          # data models (@Table entities: Server, Location, Http, ...)
+├── service/        # business logic (@Component + @Inject SqlHelper)
+├── sqlhelper/      # home-grown ORM
+└── utils/          # utilities
 
 src/main/resources/
-├── WEB-INF/view/adminPage/   # Freemarker 模板（HTML）
-├── static/js/adminPage/      # 前端 JS（按頁面分目錄）
-├── static/lib/               # 第三方庫（layui, codemirror...）
-├── messages.properties       # i18n 簡體中文
-├── messages_en_US.properties # i18n 英文
+├── WEB-INF/view/adminPage/   # Freemarker templates (HTML)
+├── static/js/adminPage/      # frontend JS (one dir per page)
+├── static/lib/               # third-party libs (layui, codemirror...)
+├── messages.properties       # i18n 简体中文
 ├── messages_zh_TW.properties # i18n 繁體中文
-└── app.yml                   # 應用配置
+├── messages_en_US.properties # i18n English
+└── app.yml                   # app config
 
-tests/e2e/          # Playwright 自動化測試
-docs/               # 開發文件與計畫
+tests/e2e/          # Playwright specs
+docs/               # design docs & plans
 ```
 
-## 開發規範
+## 📐 Conventions
 
-### 核心原則
-1. **不影響現有業務邏輯** — 所有改動僅為 UI 優化或功能擴展
-2. **多語言支援** — 新增文字必須同時更新三個 messages 檔案
-3. **自動化測試** — 每次新增或修改功能必須附帶 Playwright 測試
-4. **零風險優先** — 優先做純前端 / 純新增的改動
+### Core principles / 核心原則
 
-### 前端
-- 使用 Layui 框架元件
-- Layui 的 select / checkbox 需用 `form.render()` 刷新
-- JS 按頁面放在對應目錄（如 `static/js/adminPage/server/index.js`）
-- **i18n key 慣例：** Properties 檔內 key 以「頁面 + Str」命名（如 `serverStr.add`、`httpGroup.base`），對應 Controller 注入 `MessageUtils m` 後傳給 Freemarker；模板裡用 `${serverStr.xxx}` 引用
-- **新增任何使用者可見的字串時必須同時改三份 properties**：`messages.properties`（簡中）、`messages_zh_TW.properties`（繁中）、`messages_en_US.properties`（英文）
+1.  **Don't break existing business logic** — changes are UI polish or additive features only.
+2.  **Multilingual** — every new user-facing string updates all 3 `messages*.properties`.
+3.  **Automated tests** — every new/changed feature ships a Playwright test.
+4.  **Zero-risk first** — prefer pure-frontend / purely-additive changes.
 
-### 後端
-- 控制器放在 `controller/adminPage/` 下（目前共 28 個，含 CrowdSec / Geo / ASN / ProtectionCert / SiteResource 等近期新增的安全防護功能）
-- Service 用 `@Component` 註冊、`@Inject SqlHelper sqlHelper;` 注入
-- 資料庫操作使用 `SqlHelper`（自製 ORM，非 JPA，詳見下文「SqlHelper 速查」）
-- 主鍵一律用 `SnowFlakeUtils.getId()`（雪花 ID，String 存進去但 Long 產生）
-- 初始化邏輯寫在 `InitConfig.java`
-- 配置參數通過 `app.yml` 或啟動參數傳入
+### 🎨 Frontend
 
-### 測試（詳見 docs/superpowers/plans/playwright-guide.md）
-- 測試檔放在 `tests/e2e/`（目前共 23 份 spec：編號 `01-login` 到 `22-lang-switch` + 1 份不帶序號的 `flag-svg-integrity`）
-- 按鈕文字用正則匹配簡繁體：`/批量輸入|批量输入/`
-- Layui 元件用 `page.evaluate()` 操作
-- **全部測試（headed）：** `npm test`
-- **全部測試（headless / CI）：** `npm run test:fast`
-- **單一檔案：** `npx playwright test tests/e2e/08-crowdsec.spec.js --headed`
-- **單一 test name：** `npx playwright test -g "批量輸入"`
-- **debug 單一檔案：** `npx playwright test tests/e2e/08-crowdsec.spec.js --debug`
-- 報告：`npm run report`（開 http://localhost:9400）
+*   Use Layui components; refresh `select` / `checkbox` with `form.render()`.
+*   JS lives per page (e.g. `static/js/adminPage/server/index.js`); reachable at URL `/js/...` (not `/static/js/...`).
+*   **i18n key convention:** `<page>Str.<field>` (e.g. `serverStr.add`, `geoipStr.download`). Controller injects `MessageUtils m`; template uses `${serverStr.xxx}`.
+*   JS i18n globals (e.g. `commonStr`, `geoipStr`) are auto-generated in [common.html](src/main/resources/WEB-INF/view/adminPage/common.html) from `messageHeaders` — a new prefix appears automatically once added to properties.
 
-### Docker（詳見 docs/superpowers/plans/docker-guide.md）
-- container_name：扁平 `nginxwebui` (主應用) / `nginxwebui-<service>` (sidecar) — 從 5.1.0 起拿掉了版本後綴 (commit 26d9e81)
-- volume name：`nginxwebui_{用途}_data`（compose 內顯式 `name:` 宣告，避免被 compose project prefix 染色）
-- 必須配 healthcheck 和啟動順序
-- entrypoint.sh 必須 LF 換行（`.gitattributes` 已強制）
-- Sidecar (grafana / promtail / crowdsec) 走自家 baked image `ghcr.io/elf-express/nginxwebui-<service>:<version>`，config 燒進 image，部署無需 bind-mount config 檔
+> ⚠️ **新增任何使用者可見字串，必須同步改三份 properties**：`messages.properties`（簡）、`messages_zh_TW.properties`（繁）、`messages_en_US.properties`（英）。CJK 值用 `\uXXXX` escape（檔案是 ISO-8859-1）。
 
-## 核心架構流程
+### ⚙️ Backend
 
-請求一條典型的「使用者編輯 HTTP 參數」資料流，依序穿越這幾層：
+*   Controllers go under `controller/adminPage/` (currently **29**, incl. CrowdSec / Geo / Asn / ProtectionCert / SiteResource / **Geoip**).
+*   Services: `@Component` + `@Inject SqlHelper sqlHelper;`. Persistence via `SqlHelper` (home-grown ORM, not JPA — see cheatsheet).
+*   Primary keys: always `SnowFlakeUtils.getId()` (snowflake; stored as String, generated as Long).
+*   Init logic in `InitConfig.java`; runtime config via `app.yml` or launch args.
+
+### 🧪 Testing (see docs/superpowers/plans/playwright-guide.md)
+
+*   Specs in `tests/e2e/` — **24** files (`01-login` … `23-geoip-version` + `flag-svg-integrity`).
+*   Match 簡/繁 button text with regex: `/批量輸入|批量输入/`.
+*   Drive Layui widgets via `page.evaluate()`.
+*   Run: `npm test` (headed) · `npm run test:fast` (headless/CI) · `npx playwright test tests/e2e/08-crowdsec.spec.js` (one file) · `npm run report` (http://localhost:9400).
+
+> ⚠️ 測試會自動啟動獨立 server（port 18080）+ 獨立 SQLite，**不碰** `./dev-home/`。`tests/e2e/helpers.js` 動態解析 `target/nginxWebUI-*.jar`，所以\*\*跑測試前要先 `mvn package`\*\*。
+
+### 🐳 Docker (see docs/superpowers/plans/docker-guide.md)
+
+*   container\_name: flat `nginxwebui` (app) / `nginxwebui-<service>` (sidecar) — no version suffix since 5.1.0.
+*   volume name: `nginxwebui_{purpose}_data` (explicit `name:` to dodge compose project prefix).
+*   healthcheck + startup order required; `entrypoint.sh` must be LF (`.gitattributes` enforces).
+*   Sidecars (grafana / promtail / crowdsec) use baked images `ghcr.io/elf-express/nginxwebui-<service>:<version>` — config baked in, **no bind-mount config needed** on deploy.
+
+## 🔁 Architecture Flow
+
+A typical "user edits HTTP params" request crosses these layers:
 
 ```
-┌─ Freemarker view (src/main/resources/WEB-INF/view/adminPage/*.html)
-│     ↓  Layui 表單 submit / jQuery ajax
-│
-│  Controller — com.cym.controller.adminPage.HttpController
-│     @Controller @Mapping("/adminPage/http")  → 路由由 Solon 解析
-│     @Inject HttpService httpService;         → DI 注入 Service
-│     方法回傳 ModelAndView 或 JsonResult
-│     ↓
-│
-│  Service — com.cym.service.HttpService（純 POJO + 一個 @Inject）
-│     @Component
-│     @Inject SqlHelper sqlHelper;
-│     ↓
-│
-│  SqlHelper（自製 ORM） — com.cym.sqlhelper.utils.SqlHelper
-│     ConditionAndWrapper / Page / Sort
-│     ↓ JDBC
-│
-└─ SQLite ／ PostgreSQL ／ MySQL
+Freemarker view (WEB-INF/view/adminPage/*.html)
+   ↓ Layui submit / jQuery ajax
+Controller — @Controller @Mapping  → routed by Solon, @Inject Service
+   ↓
+Service (@Component) — @Inject SqlHelper
+   ↓
+SqlHelper (home-grown ORM) — ConditionAndWrapper / Page / Sort → JDBC
+   ↓
+SQLite / PostgreSQL / MySQL
 ```
 
-**新增一個 CRUD 頁面的最短路徑：**
+**Shortest path to add a CRUD page / 新增 CRUD 頁最短路徑:**
 
-1. 建 `model/Xxx.java`，加 `@Table`，欄位用 boxed type（`Long` / `Boolean`），主鍵繼承 `BaseModel`
-2. 建 `service/XxxService.java`，掛 `@Component`，注入 `SqlHelper`
-3. 建 `controller/adminPage/XxxController.java`，掛 `@Controller @Mapping("/adminPage/xxx")`
-4. 建 view `WEB-INF/view/adminPage/xxx/index.html`（Freemarker）+ JS `static/js/adminPage/xxx/index.js`
-5. **三份 `messages*.properties` 同步加 i18n key**
-6. 在 `tests/e2e/` 加一份 `NN-xxx.spec.js`（編號接續最大值）
+1.  `model/Xxx.java` with `@Table`, boxed types (`Long`/`Boolean`), key from `BaseModel`.
+2.  `service/XxxService.java` — `@Component` + inject `SqlHelper`.
+3.  `controller/adminPage/XxxController.java` — `@Controller @Mapping("/adminPage/xxx")`.
+4.  View `WEB-INF/view/adminPage/xxx/index.html` + JS `static/js/adminPage/xxx/index.js`.
+5.  **Add i18n keys to all 3** `**messages*.properties**`**.**
+6.  Add `tests/e2e/NN-xxx.spec.js` (next number).
 
-## SqlHelper 速查
+## 🗃️ SqlHelper Cheatsheet
 
-`SqlHelper` 不是 JPA、不是 MyBatis，是 [src/main/java/com/cym/sqlhelper/utils/SqlHelper.java](src/main/java/com/cym/sqlhelper/utils/SqlHelper.java)。慣用法（節錄自實際 service）：
+`SqlHelper` is [src/main/java/com/cym/sqlhelper/utils/SqlHelper.java](src/main/java/com/cym/sqlhelper/utils/SqlHelper.java) — not JPA, not MyBatis.
 
 ```java
 @Component
 public class HttpService {
     @Inject SqlHelper sqlHelper;
 
-    // 全查（按欄位排序）
-    public List<Http> findAll() {
-        return sqlHelper.findAll(new Sort("seq", Direction.ASC), Http.class);
-    }
+    List<Http> all = sqlHelper.findAll(new Sort("seq", Direction.ASC), Http.class);       // sorted findAll
+    Http http = sqlHelper.findById(httpId, Http.class);                                    // by PK
+    Http one  = sqlHelper.findOneByQuery(new ConditionAndWrapper().eq("name","x"), Http.class);
+    List<Param> p = sqlHelper.findListByQuery(new ConditionAndWrapper().eq(Param::getTemplateId, id), Param.class);
 
-    // 主鍵查
-    Http http = sqlHelper.findById(httpId, Http.class);
-
-    // 條件單筆查（lambda 形 or 字串形都支援）
-    Http one = sqlHelper.findOneByQuery(
-        new ConditionAndWrapper().eq("name", "log_format"), Http.class);
-
-    // 條件列表查（lambda 形，編譯期安全）
-    List<Param> params = sqlHelper.findListByQuery(
-        new ConditionAndWrapper().eq(Param::getTemplateId, templateId), Param.class);
-
-    // 寫入
-    sqlHelper.insert(entity);              // 新增（外部需先給 ID）
-    sqlHelper.updateById(entity);          // 全欄位更新
-    sqlHelper.insertOrUpdate(entity);      // ID 為空 → insert；否則 update
+    sqlHelper.insert(entity);          // insert (ID supplied externally)
+    sqlHelper.updateById(entity);      // full-row update
+    sqlHelper.insertOrUpdate(entity);  // empty ID → insert; else update
     sqlHelper.deleteById(id, Http.class);
 }
 ```
 
-**踩雷點：**
-- 主鍵型別是 `String`，但值來自 `SnowFlakeUtils.getId()` 傳回的 `Long`（會自動 toString）。新增 entity 前可以不指定 ID，讓 `insertOrUpdate` 處理。
-- `ConditionAndWrapper` 鏈式呼叫不可變；組複合條件用 `.and(new ConditionAndWrapper()...)` / `.or(...)`。
-- 沒有 `@Repository`，沒有 Mapper interface — 不要 grep 找 DAO 介面，直接讀對應的 `XxxService.java`。
-- 分頁回傳 `Page<T>`，欄位 `records` / `total`，搭配 `new Page<>(pageNum, pageSize)`。
+**Gotchas / 踩雷點:**
 
-## 開發環境準備
+*   PK type is `String` but value comes from `SnowFlakeUtils.getId()` (Long → auto toString). 新增前可不指定 ID，交給 `insertOrUpdate`。
+*   `ConditionAndWrapper` chains are immutable; compose with `.and(...)` / `.or(...)`.
+*   No `@Repository`, no Mapper interface — **don't grep for DAO**; read the matching `XxxService.java`.
+*   Paging returns `Page<T>` (`records` / `total`) with `new Page<>(pageNum, pageSize)`.
 
-### 先決條件
+## 🧰 Dev Environment
 
-| 工具 | 版本要求 | 驗證指令 | 安裝建議 |
-|---|---|---|---|
-| **JDK** | Java 8 (1.8) | `java -version` | OpenJDK 8 / Zulu 8 / Temurin 8 |
-| **Maven** | 3.6+ | `mvn -version` | 3.8+ 推薦 |
-| **Node.js** | 18+ | `node -v` | LTS 版本 |
-| **npm** | 隨 Node 8+ | `npm -v` | — |
-| **Git** | 2.30+ | `git --version` | repo 已用 `.gitattributes` 強制 LF，全平台一致 |
-| **Docker**（選用） | 20.10+ | `docker --version` | 含 Compose v2 |
+| Tool | Version | Check |
+| --- | --- | --- |
+| JDK | Java 8 (1.8) | `java -version` |
+| Maven | 3.6+ | `mvn -version` |
+| Node.js | 18+ | `node -v` |
+| Git | 2.30+ | `.gitattributes` forces LF cross-platform |
+| Docker (optional) | 20.10+ | incl. Compose v2 |
 
-> **跨平台換行符**：本 repo 透過 `.gitattributes` 強制全文字檔 LF。即使本機 `core.autocrlf=true`，clone 出來也會是 LF（Docker `entrypoint.sh` 不會壞）。
+> ⚠️ Java 8 是建置目標。若本機只有較新 JDK，可用它編譯（`-source/-target 1.8`）；CI 用 JDK 8 為準。
 
-### 初次開發環境設置
-
-```bash
-# 1. Clone
-git clone <repo-url> nginxWebUI
-cd nginxWebUI
-
-# 2. 驗證 JDK / Maven
-java -version    # 必須是 1.8.x
-mvn -version
-
-# 3. 安裝 Node 端依賴（Playwright + Chromium）
-npm install
-npx playwright install --with-deps chromium
-
-# 4. 編譯 Java 端
-mvn clean package -DskipTests
-# 產物：target/nginxWebUI-<version>.jar （<version> 見 pom.xml 第 19 行附近）
+```
+git clone <repo-url> nginxWebUI && cd nginxWebUI
+npm install && npx playwright install --with-deps chromium   # Node deps
+mvn clean package -DskipTests                                # → target/nginxWebUI-<version>.jar
 ```
 
-### 本地開發啟動
+IDE: Main class `com.cym.NginxWebUI` · Program args `--server.port=8080 --project.home=./dev-home/` · JVM args `-Dfile.encoding=UTF-8`.
 
-**最小啟動（SQLite，預設 8080 port）：**
+## 🚀 Run & Deploy
 
-```bash
-java -jar -Dfile.encoding=UTF-8 \
-     target/nginxWebUI-<version>.jar \
-     --server.port=8080 \
-     --project.home=./dev-home/
+**Minimal (SQLite, port 8080):**
+
+```
+java -jar -Dfile.encoding=UTF-8 target/nginxWebUI-<version>.jar --server.port=8080 --project.home=./dev-home/
 ```
 
-啟動後造訪 `http://localhost:8080`，首次會看到「設定管理員密碼」表單。
+First visit prompts to set the admin password.
 
-**指定 PostgreSQL：**
+**Useful launch flags / 常用啟動參數:**
 
-```bash
-java -jar -Dfile.encoding=UTF-8 target/nginxWebUI-<version>.jar \
-     --server.port=8080 \
-     --project.home=./dev-home/ \
-     --spring.database.type=postgresql \
-     --spring.datasource.url=jdbc:postgresql://localhost:5432/nginxwebui \
-     --spring.datasource.username=postgres \
-     --spring.datasource.password=postgres
+*   PostgreSQL: `--spring.database.type=postgresql --spring.datasource.url=... --spring.datasource.username=... --spring.datasource.password=...`
+*   Reset password: `--project.findPass=true` (prints password then exits)
+*   Test captcha: `--project.testCaptcha=1234` (CAPTCHA always accepts 1234 — for E2E)
+*   Skip wizard: `--init.admin=admin --init.pass=admin123 --init.api=true`
+
+> ⚠️ `--init.*` 只在 DB 還沒有任何管理員時生效。自 5.1.0 起 compose 的 `BOOT_OPTIONS` **不再內建** `--init.admin/pass`（首次走 UI 引導）。
+
+**Docker Compose (recommended)** — run from `docker/`. Deploy host only needs `docker-compose.yml` + `.env` (sidecar config is baked into images):
+
 ```
-
-**忘記密碼（重置）：**
-
-```bash
-java -jar target/nginxWebUI-<version>.jar --project.findPass=true
-# 啟動會把現有密碼印出後立即退出
-```
-
-**測試用驗證碼（限本機）：**
-
-```bash
-java -jar target/nginxWebUI-<version>.jar --project.testCaptcha=1234
-# 之後 CAPTCHA 一律接受 1234，方便 E2E 測試
-```
-
-**跳過初始化精靈（直接帶入管理員）：**
-
-```bash
-java -jar target/nginxWebUI-<version>.jar \
-     --init.admin=admin \
-     --init.pass=admin123 \
-     --init.api=true     # 同時開啟 API 呼叫權限
-```
-
-> `--init.*` 只在資料庫**還沒有任何管理員**時生效；之後請改用網頁的「管理員管理」修改。
-> ⚠️ 從 5.1.0 起 `docker/docker-compose.yml` 的 `BOOT_OPTIONS` **不再內建 `--init.admin/pass`**（commit 6547e97），首次啟動會走 UI 引導。要在 compose 自動帶帳密，需在 `docker/.env` 解註解 `INIT_ADMIN` / `INIT_PASS`，並把 `--init.admin=${INIT_ADMIN} --init.pass=${INIT_PASS}` 加回 `BOOT_OPTIONS`。
-
-### IDE 設置（無預設 .run / .vscode 配置檔）
-
-- **Main class**：`com.cym.NginxWebUI`
-- **Program args**：`--server.port=8080 --project.home=./dev-home/`
-- **JVM args**：`-Dfile.encoding=UTF-8`
-- **Working directory**：repo 根目錄
-
-## 部署方式
-
-### 方式 A：純 jar 部署（最小化）
-
-```bash
-# 1. 構建
-mvn clean package -DskipTests
-
-# 2. 上傳到目標機器
-scp target/nginxWebUI-<version>.jar user@host:/home/nginxWebUI/
-
-# 3. 啟動
-ssh user@host
-cd /home/nginxWebUI
-nohup java -jar -Dfile.encoding=UTF-8 nginxWebUI-<version>.jar \
-      --server.port=8080 \
-      --project.home=/home/nginxWebUI/ \
-      > app.log 2>&1 &
-```
-
-### 方式 B：Docker Compose Stack（推薦）
-
-詳見 [docs/superpowers/plans/docker-guide.md](docs/superpowers/plans/docker-guide.md)。
-
-**所有 compose 指令在 `docker/` 目錄下執行**（commit `1879022` 把 `deploy/` 改名 `docker/`）。從 5.1.0 起 sidecar config 已 baked 進 image，部署機器**不再需要**帶 `crowdsec/` / `promtail/` / `grafana/` 等 config 檔，只要有 `docker/docker-compose.yml` + `docker/.env` 即可。
-
-```bash
 cd docker
-
-# 拉 release image 並啟動全 stack
-docker compose pull
-docker compose up -d
-
-# 開發期間從原始碼 build（compose 內 nginxwebui 已含 build: ../Dockerfile，sidecar 各自有 build: ./<service>）
-docker compose up -d --build
-
-# 確認狀態（應看到所有 service healthy）
-docker compose ps
-
-# 查看 logs
-docker compose logs -f nginxwebui
+docker compose pull && docker compose up -d     # pull release images (:latest = newest tag)
+docker compose up -d --build                     # build from source (runs ../Dockerfile + each sidecar Dockerfile)
+docker compose ps                                # all healthy
 ```
 
-**Stack 組成（從 [docker/docker-compose.yml](docker/docker-compose.yml)）：**
+**Stack** (from [docker/docker-compose.yml](docker/docker-compose.yml)): nginxwebui (host **12300**→8080, 80, 443) · postgres:18-alpine · loki · grafana (baked, 3000) · promtail (baked) · crowdsec (baked) · crowdsec-bouncer.
 
-| Service | container_name | Image | Port (host:container) | 用途 |
-|---|---|---|---|---|
-| nginxwebui | `nginxwebui` | `ghcr.io/elf-express/nginxwebui:${NGINX_WEBUI_VERSION:-latest}` | **12300:8080** / 80:80 / 443:443 | 主應用（host port 12300 對應 container 內 8080）|
-| postgres | `nginxwebui-postgres` | `postgres:18-alpine` | 5432 | 資料庫（PG18 用 `/var/lib/postgresql` mount，非 `/data` 子目錄）|
-| loki | `nginxwebui-loki` | `grafana/loki:3.5.0` | 3100 | 日誌聚合 |
-| grafana | `nginxwebui-grafana` | `ghcr.io/elf-express/nginxwebui-grafana:${NGINX_WEBUI_VERSION:-latest}` (baked) | 3000 | 監控 / 日誌 dashboard |
-| promtail | `nginxwebui-promtail` | `ghcr.io/elf-express/nginxwebui-promtail:${NGINX_WEBUI_VERSION:-latest}` (baked) | — | 把 nginx + app log 推到 Loki |
-| crowdsec | `nginxwebui-crowdsec` | `ghcr.io/elf-express/nginxwebui-crowdsec:${NGINX_WEBUI_VERSION:-latest}` (baked) | — | 入侵偵測 |
-| crowdsec-bouncer | `nginxwebui-bouncer` | `fbonalair/traefik-crowdsec-bouncer:0.5.0` | — | nginx 流量過濾 |
+> ⚠️ crowdsec config 走 named volume，首次從 baked image seed；之後改 baked config 要 `docker compose down -v` 才重新 seed。
 
-> **Sidecar baked image 注意事項**：crowdsec 用 named volume (`crowdsec_config`) 保存 hub 狀態，首次部署從 image 種子 config；之後 image 升版若改了 baked config，要 `docker compose down -v` 才會重新 seed。是 named-volume-over-config-dir 的已知 trade-off (commit 6547e97)。
+## 🏷️ Release Flow (see docs/superpowers/plans/2026-05-21-dev-release-workflow.md)
 
-### 方式 C：多平台映像建構（CI/CD）
+**Branches:** `dev` (daily dev + release actions) · `master` (snapshot pointer to last release; never commit/tag here directly) · `tag v*` (cut by `scripts/release.sh`; CI builds image only on tags).
 
-不必本機跑 buildx。**`scripts/release.sh 5.x.y` + git push tag → GitHub Actions 自動跑 multi-platform build + push ghcr.io**（見 [.github/workflows/build.yml](.github/workflows/build.yml)）。
-
-要本機快速 build 單平台測試用 `docker compose up -d --build`（5.1.0 後 compose 內已含 `build:` 段）。
-
-### 部署後驗證
-
-```bash
-# 健康檢查（compose 把 host 12300 對應到 container 內 8080）
-curl http://localhost:12300/
-
-# Nginx 模組列表（驗證 Dockerfile 編入的 18 個 module）
-curl http://localhost:12300/adminPage/monitor/nginxInfo
+```
+git checkout dev && git pull origin dev
+scripts/release.sh 5.2.1            # bumps pom.xml + commit + tag v5.2.1 (only touches pom.xml)
+git push origin dev --tags          # CI matrix-builds 4 images → ghcr.io :5.2.1 + :latest
+docker manifest inspect ghcr.io/elf-express/nginxwebui:5.2.1   # confirm pushed
+git push origin dev:master          # fast-forward master
+gh release create v5.2.1 ...        # GitHub Release entry
 ```
 
-## 測試流程
+> ⚠️ `release.sh` **只改 pom.xml**，不碰 README/CLAUDE/.env — 所以部署文件刻意採「不綁版本」寫法（`:latest` + `master` raw URL + jar 萬用字元）避免每次 release 變舊。Hotfix 從 `master` 開 `hotfix/*` 分支（script 允許）。
 
-### Playwright E2E（詳見 [docs/superpowers/plans/playwright-guide.md](docs/superpowers/plans/playwright-guide.md)）
+## 📦 Feature Inventory
 
-```bash
-# 確認版本
-npx playwright --version
+**UI/UX:** batch param input · TLS default fix · conf indent + CodeMirror highlight · login password toggle · default http params/templates · HTTP param grouping (`HttpController.GROUP_DEFS`) · template grouping · IP/DenyAllow tag-ization · edit mode · conf error diagnosis · lang switch (flag SVG) · brand logo upload + header 200×60 align.  
+**Security:** CrowdSec (IDS + bouncer) · GeoIP2 country block · ASN block · Protection Cert · Real-IP module.  
+**🆕 GeoIP DB module (v5.2.0):** header shows Country/City/ASN MMDB build dates (`GeoipService` via maxmind-db) · ProtectionCert Tab-1 GeoIP table (version / schedule / manual download) · `GeoipController` `/adminPage/geoip/{versions,download}` · Java/Hutool download (jar + Docker).  
+**Monitoring/Ops:** nginx module auto-detect (`/adminPage/monitor/nginxInfo`) · Site Resource · connectivity test.  
+**Deploy/Test:** test captcha · Compose stack (PG18 + Loki + Grafana + CrowdSec) · sidecar baked images · CI matrix-build 4 images · `.gitattributes` LF · Playwright suite (24 specs).
 
-# 跑全部測試（headed，方便觀看）
-npm test
+## 📚 Docs
 
-# 無頭模式（CI）
-npm run test:fast
+*   [Improvement plans & reports](docs/superpowers/plans/)
+*   [Playwright guide](docs/superpowers/plans/playwright-guide.md) · [Docker guide](docs/superpowers/plans/docker-guide.md) · [Docker standard](docs/superpowers/plans/docker-standard.md)
+*   [Dev/release workflow](docs/superpowers/plans/2026-05-21-dev-release-workflow.md)
 
-# 看測試報告（開 http://localhost:9400）
-npm run report
+## ⚡ Quick Commands
+
+```
+mvn clean package -DskipTests                 # build
+java -jar -Dfile.encoding=UTF-8 target/nginxWebUI-<version>.jar --server.port=8080   # run
+npm test            # E2E (headed)            #   npm run test:fast (headless)
+npm run report      # test report (port 9400)
+cd docker && docker compose up -d --build     # docker build+run
 ```
 
-測試會自動啟動獨立 server（port 18080）+ 獨立 SQLite。**不會碰你 dev 用的 ./dev-home/**。
+## ⚙️ app.yml Key Params
 
-### 單元測試（Maven）
-
-```bash
-mvn test
-# 目前 repo 內 Java 端單元測試覆蓋有限，主要依賴 E2E
 ```
-
-## 快速指令參考
-
-```bash
-# 編譯
-mvn clean package -DskipTests
-
-# 本地啟動
-java -jar -Dfile.encoding=UTF-8 target/nginxWebUI-<version>.jar --server.port=8080
-
-# E2E 測試
-npm test
-
-# 測試報告
-npm run report
-
-# Docker 構建啟動 (從 docker/ 執行；compose 已內含 build: ../Dockerfile)
-cd docker && docker compose up -d --build
-
-# Docker 狀態
-cd docker && docker compose ps
-```
-
-## app.yml 重要參數
-```yaml
-project:
-  home: /home/nginxWebUI/    # 資料目錄（資料庫、日誌、證書）
-  findPass: false            # true 時印出密碼並退出
-
+project: { home: /home/nginxWebUI/, findPass: false }   # home: data dir (db/log/cert)
 spring:
-  database:
-    type: sqlite             # sqlite / postgresql / mysql
-  datasource:
-    url:                     # PG/MySQL 的 JDBC URL
-    username:
-    password:
-
-init:
-  admin:                     # 初始管理員帳號（空=網頁設定）
-  pass:                      # 初始管理員密碼（空=網頁設定）
-  api:                       # true 時為初始管理員開 API 呼叫權限
+  database: { type: sqlite }                              # sqlite / postgresql / mysql
+  datasource: { url: , username: , password: }            # PG/MySQL JDBC
+init: { admin: , pass: , api: }                           # empty → UI wizard
 ```
-
-## Release 流程
-
-完整設計與決策過程見 [docs/superpowers/plans/2026-05-21-dev-release-workflow.md](docs/superpowers/plans/2026-05-21-dev-release-workflow.md)。簡述：
-
-**分支模型：**
-- `dev` — 日常開發 + release 動作；HEAD 永遠領先或等於 master
-- `master` — 「最後一次 release 的快照指針」；不在 master 上直接 commit、不在 master 上打 tag
-- `tag v*` — 由 `scripts/release.sh` 在 dev 上打的；CI 看到 tag 才 build + push image
-
-**ghcr.io image：**
-- `ghcr.io/elf-express/nginxwebui:x.y.z` — 對應 tag vx.y.z 的不可變 image
-- `ghcr.io/elf-express/nginxwebui:latest` — 永遠等於最新 tag 的 build 結果
-
-### 日常開發（dev 分支）
-
-```bash
-git checkout dev
-# 開發、commit
-git push origin dev
-# CI 跑：mvn build + e2e test；不 push image
-```
-
-### Release 新版本（dev → tag → master）
-
-```bash
-# 1. 保持在 dev
-git checkout dev
-git pull origin dev
-
-# 2. 跑 release script（自動改 pom + commit + 打 tag）
-scripts/release.sh 5.1.1
-
-# 3. 推 dev 含 tag
-git push origin dev --tags
-# CI 看到 tag v5.1.1 → buildx → push ghcr.io/.../nginxwebui:5.1.1 + :latest
-
-# 4. 等 CI 完成、確認 image 已 push
-docker manifest inspect ghcr.io/elf-express/nginxwebui:5.1.1
-
-# 5. 把 dev fast-forward 到 master
-git push origin dev:master
-
-# 6. 在 GitHub Releases 頁開 v5.1.1 條目（手動，貼 CHANGELOG）
-```
-
-### Hotfix（緊急修 production，不能把 dev 整批帶上來時）
-
-```bash
-# 從 master 開 hotfix（master = 已 release 的乾淨快照）
-git checkout master
-git checkout -b hotfix/5.1.2
-# 修 bug、commit ...
-scripts/release.sh 5.1.2    # script 允許在 hotfix/* 分支上跑
-git push origin hotfix/5.1.2 --tags
-# 等 CI 完成
-git push origin hotfix/5.1.2:master
-
-# 同步回 dev（避免下版本忘了帶這個修）
-git checkout dev
-git merge hotfix/5.1.2
-git push origin dev
-
-# 清理
-git branch -d hotfix/5.1.2
-git push origin :hotfix/5.1.2
-```
-
-## 已完成的改進
-
-**UI / UX：**
-1. 批量輸入參數（http / server / location 三處）
-2. TLS 版本預設值修正 + 棄用標註
-3. 啟用配置頁面 conf 縮進美化
-4. Conf 語法高亮（CodeMirror + monokai 主題）
-5. 登入頁面密碼可見切換 + 背景美化
-6. 預設 http 參數（gzip、安全 Headers）
-7. 預設參數模板（WebSocket、Proxy Headers、大文件上傳、靜態緩存）
-8. HTTP 參數分組顯示（`HttpController.GROUP_DEFS`：base/realip/geoip/gzip/brotli/headers/proxy/logging）
-9. 模板分組（Template grouping）
-10. IP 標籤化（IP tag polish）+ Deny/Allow tag 化
-11. 編輯模式（Edit mode）優化
-12. Conf 錯誤診斷頁（Error diagnosis）
-13. 語系切換 UI（國旗 icon + flag SVG）
-14. 品牌 Logo 上傳（管理員設置 → 上傳自訂 logo；header 依 `brandLogoUrl??` 條件渲染，未上傳則退回文字品牌）
-15. Header `.layui-logo` 容器精準對齊 200×60（commit `ca237c5`，移除 `padding:0 15px` 造成的 230×60 撐寬，與側欄對齊）
-
-**安全防護模組：**
-16. CrowdSec 整合（入侵偵測 + nginx bouncer）
-17. Geo blocking（GeoIP2 國家封鎖）
-18. ASN block（自治系統封鎖）
-19. Protection Cert（防爬蟲憑證）
-20. Real-IP 模組設定頁
-
-**監控與運維：**
-21. Nginx 模組自動偵測（`/adminPage/monitor/nginxInfo`）
-22. Site Resource 資源頁
-23. 連線測試（Test connectivity）
-
-**部署 / 測試：**
-24. 測試用驗證碼支援（`--project.testCaptcha`）
-25. Docker Compose Stack（PG 18 + Loki + Grafana + CrowdSec）
-26. Sidecar baked image 自包含部署（grafana / promtail / crowdsec config 燒進 image，部署無需 bind-mount config；commit `3669edf` / `6547e97`）
-27. CI matrix-build 4 個 image（主應用 + 3 sidecar）於 tag push 時一次推上 ghcr.io（commit `d99b24e`）
-28. `.gitattributes` 強制全文字檔 LF（Docker `entrypoint.sh` 跨平台不壞）
-29. Playwright E2E 套件涵蓋 22+ 場景
-
-## 詳細文件
-- [改進計畫與完成報告](docs/superpowers/plans/completion-report.md)
-- [Playwright 測試規範](docs/superpowers/plans/playwright-guide.md)
-- [Docker 構建方案](docs/superpowers/plans/docker-guide.md)
-- [Docker 容器規範](docs/superpowers/plans/docker-standard.md)
-- [Playwright 快速指令](playwright.md)
