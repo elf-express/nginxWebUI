@@ -62,7 +62,7 @@ docs/               # design docs & plans
 > 注意：新增任何使用者可見字串，必須同步改三份 properties：`messages.properties`（簡）、`messages_zh_TW.properties`（繁）、`messages_en_US.properties`（英）。CJK 值用 `\uXXXX` escape（檔案是 ISO-8859-1）。
 
 ### Backend
-- Controllers go under `controller/adminPage/` (currently **29**, incl. CrowdSec / Geo / Asn / ProtectionCert / SiteResource / **Geoip**).
+- Controllers go under `controller/adminPage/` (currently **28**, all under `adminPage/` — none in `controller/` root; incl. CrowdSec / Geo / Asn / ProtectionCert / SiteResource / **Geoip**).
 - Services: `@Component` + `@Inject SqlHelper sqlHelper;`. Persistence via `SqlHelper` (home-grown ORM, not JPA — see cheatsheet).
 - Primary keys: always `SnowFlakeUtils.getId()` (snowflake; stored as String, generated as Long).
 - Init logic in `InitConfig.java`; runtime config via `app.yml` or launch args.
