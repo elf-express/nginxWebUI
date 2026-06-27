@@ -184,7 +184,6 @@ nginxwebui_postgres_data
 nginxwebui_loki_data
 nginxwebui_grafana_data
 nginxwebui_crowdsec_data
-nginxwebui_crowdsec_config
 ```
 
 ### 升版時
@@ -199,6 +198,8 @@ nginxwebui_crowdsec_config
                                   5. promtail
 6. crowdsec    ──健康檢查通過──→  7. crowdsec-bouncer
 ```
+
+> 註：3–7（loki / grafana / promtail / crowdsec / bouncer）自 5.2.x 起改為 profile-gated（monitoring / security）；預設 `docker compose up -d` 只起 1–2（nginxwebui + postgres），開了對應 profile 才套用上述順序。
 
 ### 健康檢查配置
 
@@ -224,7 +225,7 @@ nginxwebui_postgres_data → /var/lib/postgresql/data
 nginxwebui_loki_data     → /loki
 nginxwebui_grafana_data  → /var/lib/grafana
 nginxwebui_crowdsec_data → /var/lib/crowdsec/data
-nginxwebui_crowdsec_config → /etc/crowdsec
+# /etc/crowdsec 改單檔 bind mount（docker/crowdsec/*.yaml → 容器 /etc/crowdsec/...），不再用 named volume
 ```
 
 **重點：** `nginxwebui_log` 是日誌共享 volume，Nginx Web UI 寫入，Promtail 和 CrowdSec 以 `:ro` 唯讀掛載。
