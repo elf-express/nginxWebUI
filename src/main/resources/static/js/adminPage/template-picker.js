@@ -1,7 +1,7 @@
 // nginxWebUI Modern Template Picker
 // Vue 3 + shadcn-vue 風格 Combobox，取代 layui select 的「選擇參數模板」
-// dropdown。透過 esm.sh CDN 載入 vue@3.5，與 SpecSnap inspector 共用同一
-// instance（esm.sh edge cache 自動 dedup）。
+// dropdown。Vue 從本地打包載入（static/lib/vue/vue.esm-browser.prod.js，隨
+// app 一起部署），不依賴外網 CDN，確保離線 / 內網部署也能開啟選取器。
 //
 // 公開 API：
 //   window.openTemplatePicker(callback)
@@ -17,7 +17,7 @@
 		if (pickerInitPromise) return pickerInitPromise;
 
 		pickerInitPromise = (async function() {
-			var Vue = await import('https://esm.sh/vue@3.5');
+			var Vue = await import(ctx + '/lib/vue/vue.esm-browser.prod.js');
 
 			var TemplatePicker = {
 				setup: function() {
