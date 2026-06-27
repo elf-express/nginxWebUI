@@ -114,10 +114,7 @@ public class ScheduleTask {
 
 	@Scheduled(cron = "0 * * * * ?")
 	public void fetchGeoip() {
-		String fetchTime = settingService.get("geoip.fetchTime");
-		if (StrUtil.isBlank(fetchTime)) {
-			fetchTime = "03:00";
-		}
+		String fetchTime = geoipService.getFetchTime(); // 已驗證 HH:mm，無效則 03:00（code review I-1）
 		String nowHHmm = DateUtil.format(new Date(), "HH:mm");
 
 		boolean scheduled = nowHHmm.equals(fetchTime);

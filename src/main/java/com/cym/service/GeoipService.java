@@ -50,14 +50,23 @@ public class GeoipService {
 	/** version(build date) 記憶體快取：key -> "yyyy.MM.dd"。下載後清掉重讀。 */
 	private final Map<String, String> versionCache = new ConcurrentHashMap<>();
 
+	/**
+	 * 讀取排程時間 geoip.fetchTime，驗證 "HH:mm"（00:00-23:59）格式；
+	 * 未設定或格式無效一律 fallback "03:00"，避免無效值讓排程靜默失效（code review I-1）。
+	 */
+	public String getFetchTime() {
+		String t = settingService.get("geoip.fetchTime");
+		if (t != null && t.matches("^([01]\\d|2[0-3]):[0-5]\\d$")) {
+			return t;
+		}
+		return "03:00";
+	}
+
 	/** 給 header 下拉與防護頁表格用：三個資料庫的版本 / 上次更新 / 排程。 */
 	public List<GeoipDbInfo> getDbInfos() {
 		List<GeoipDbInfo> list = new ArrayList<>();
 		// 排程時間由 geoip.fetchTime 設定（預設 03:00），與 ScheduleTask.fetchGeoip() 一致
-		String fetchTime = settingService.get("geoip.fetchTime");
-		if (fetchTime == null || fetchTime.isEmpty()) {
-			fetchTime = "03:00";
-		}
+		String fetchTime = getFetchTime();
 		for (String[] db : DBS) {
 			String key = db[0];
 			String fileName = db[1];

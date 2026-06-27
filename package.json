@@ -5,7 +5,7 @@
   "main": "test_login.js",
   "scripts": {
     "test": "npx playwright test --config=tests/e2e/playwright.config.js",
-    "test:fast": "npx playwright test --config=tests/e2e/playwright.config.js --headed=false",
+    "test:fast": "npx playwright test --config=tests/e2e/playwright.fast.config.js",
     "report": "npx playwright show-report tests/playwright-report/html --port 9400"
   },
   "repository": {

@@ -12,11 +12,19 @@ const { login } = require('./helpers');
 test.describe.serial('模板選取器離線可用 (本地 Vue, 不靠 esm.sh CDN)', () => {
   let context;
   let page;
+  let localVueRequested = false;
 
   test.beforeAll(async ({ browser }) => {
     context = await browser.newContext();
     page = await context.newPage();
-    // 封鎖外網 CDN,模擬離線 / 內網部署。舊版會在此情況下開不了選取器。
+    // 確認選取器的 Vue 是「從本地」載入:記錄是否請求過 vendored 的本地 Vue 檔。
+    page.on('request', (req) => {
+      if (req.url().includes('/lib/vue/vue.esm-browser.prod.js')) {
+        localVueRequested = true;
+      }
+    });
+    // 封鎖外網 CDN,模擬離線 / 內網部署。選取器若仍依賴 esm.sh,封鎖後會開不起來。
+    // (注意:header.html 的 SpecSnap dev-tool 也從 esm.sh 載 Vue,屬另一個獨立的離線問題。)
     await page.route(/esm\.sh|cdn\.jsdelivr\.net|unpkg\.com/, (route) => route.abort());
     await login(page); // 只登入這一次
   });
@@ -54,5 +62,9 @@ test.describe.serial('模板選取器離線可用 (本地 Vue, 不靠 esm.sh CDN
     await expect(page.locator('.tp-item', { hasText: 'Proxy Headers' })).toBeVisible();
     await expect(page.locator('.tp-item', { hasText: 'CORS Allow All' })).toBeVisible();
     await expect(page.locator('.tp-item', { hasText: 'WebSocket Proxy' })).toBeVisible();
+
+    // 核心驗證(code review I-2):esm.sh 被封鎖下選取器仍開啟,且確實請求了「本地」Vue 檔
+    // → 證明模板選取器的 Vue 走本地打包,不依賴外網 CDN。
+    expect(localVueRequested, '選取器應從本地 /lib/vue/ 載入 Vue').toBe(true);
   });
 });
