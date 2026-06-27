@@ -1,0 +1,9 @@
+# 本機從原始碼 build nginxwebui（其餘 sidecar 一律用官方 image，不在這裡 build）。
+# 用法（在 docker/ 目錄）：
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+# 前置：先在 repo 根跑 mvn clean package -DskipTests（Dockerfile 會 COPY target/*.jar）
+services:
+  nginxwebui:
+    build:
+      context: ..
+      dockerfile: Dockerfile

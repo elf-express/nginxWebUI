@@ -57,18 +57,6 @@ jobs:
             context: .
             dockerfile: Dockerfile
             needs_mvn: true
-          - name: nginxwebui-grafana
-            context: docker/grafana
-            dockerfile: docker/grafana/Dockerfile
-            needs_mvn: false
-          - name: nginxwebui-promtail
-            context: docker/promtail
-            dockerfile: docker/promtail/Dockerfile
-            needs_mvn: false
-          - name: nginxwebui-crowdsec
-            context: docker/crowdsec
-            dockerfile: docker/crowdsec/Dockerfile
-            needs_mvn: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4

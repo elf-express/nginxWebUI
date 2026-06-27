@@ -20,7 +20,7 @@ Entry point: [com.cym.NginxWebUI](src/main/java/com/cym/NginxWebUI.java) — `@S
   > 注意：2.1.0 是最後支援 Java 8 的版本（3.x 需 Java 11），**勿升級**。
 - **Build:** Maven → `target/nginxWebUI-<version>.jar` (fat jar, `jar-with-dependencies`)
 - **Tests:** Playwright E2E (**no JUnit for end-to-end**)
-- **Containers:** Docker Compose stack (PostgreSQL + Loki + Grafana + CrowdSec). Compose & sidecar baked images both live in [docker/](docker/).
+- **Containers:** Docker Compose stack (PostgreSQL + Loki + Grafana + CrowdSec). Only `nginxwebui` is self-built; sidecars use official images + bind-mounted config under [docker/](docker/).
 
 ## Directory Structure
 ```
@@ -78,7 +78,7 @@ docs/               # design docs & plans
 - container_name: flat `nginxwebui` (app) / `nginxwebui-<service>` (sidecar) — no version suffix since 5.1.0.
 - volume name: `nginxwebui_{purpose}_data` (explicit `name:` to dodge compose project prefix).
 - healthcheck + startup order required; `entrypoint.sh` must be LF (`.gitattributes` enforces).
-- Sidecars (grafana / promtail / crowdsec) use baked images `ghcr.io/elf-express/nginxwebui-<service>:<version>` — config baked in, **no bind-mount config needed** on deploy.
+- Sidecars (grafana / promtail / crowdsec) run **official images** with config bind-mounted from `docker/<service>/` — only `nginxwebui` is self-built. Monitoring/security are optional compose **profiles** (`monitoring` / `security`); default `docker compose up -d` starts only nginxwebui + postgres.
 
 ## Architecture Flow
 A typical "user edits HTTP params" request crosses these layers:
@@ -163,16 +163,16 @@ First visit prompts to set the admin password.
 - Skip wizard: `--init.admin=admin --init.pass=admin123 --init.api=true`
   > 注意：`--init.*` 只在 DB 還沒有任何管理員時生效。自 5.1.0 起 compose 的 `BOOT_OPTIONS` 不再內建 `--init.admin/pass`（首次走 UI 引導）。
 
-**Docker Compose (recommended)** — run from `docker/`. Deploy host only needs `docker-compose.yml` + `.env` (sidecar config is baked into images):
+**Docker Compose (recommended)** — run from `docker/`. Deploy needs `docker-compose.yml` + `.env` + the `docker/<service>/` config dirs (sidecars bind-mount them; default `up -d` = nginxwebui + postgres only, add `--profile monitoring --profile security` for the rest):
 ```bash
 cd docker
 docker compose pull && docker compose up -d     # pull release images (:latest = newest tag)
-docker compose up -d --build                     # build from source (runs ../Dockerfile + each sidecar Dockerfile)
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build   # build nginxwebui from source
 docker compose ps                                # all healthy
 ```
 
-**Stack** (from [docker/docker-compose.yml](docker/docker-compose.yml)): nginxwebui (host **12300**→8080, 80, 443) · postgres:18-alpine · loki · grafana (baked, 3000) · promtail (baked) · crowdsec (baked) · crowdsec-bouncer.
-> 注意：crowdsec config 走 named volume，首次從 baked image seed；之後改 baked config 要 `docker compose down -v` 才重新 seed。
+**Stack** (from [docker/docker-compose.yml](docker/docker-compose.yml)): **always on** — nginxwebui (host **12300**→8080, 80, 443) · postgres:18-alpine. **Optional via profiles** — `monitoring`: loki · grafana (3000) · promtail; `security`: crowdsec · crowdsec-bouncer. Sidecars = official images + bind-mounted config.
+> 注意：crowdsec config 改用單檔 bind mount（`docker/crowdsec/*.yaml` → 容器 `/etc/crowdsec/...`），升版自動跟 repo，不再需要 `docker compose down -v` 重新 seed。
 
 ## Release Flow (see docs/superpowers/plans/2026-05-21-dev-release-workflow.md)
 **Branches:** `dev` (daily dev + release actions) · `master` (snapshot pointer to last release; never commit/tag here directly) · `tag v*` (cut by `scripts/release.sh`; CI builds image only on tags).
@@ -192,7 +192,7 @@ gh release create v5.2.1 ...        # GitHub Release entry
 **Security:** CrowdSec (IDS + bouncer) · GeoIP2 country block · ASN block · Protection Cert · Real-IP module.
 **GeoIP DB module (NEW, v5.2.0):** header shows Country/City/ASN MMDB build dates (`GeoipService` via maxmind-db) · ProtectionCert Tab-1 GeoIP table (version / schedule / manual download) · `GeoipController` `/adminPage/geoip/{versions,download}` · Java/Hutool download (jar + Docker).
 **Monitoring/Ops:** nginx module auto-detect (`/adminPage/monitor/nginxInfo`) · Site Resource · connectivity test.
-**Deploy/Test:** test captcha · Compose stack (PG18 + Loki + Grafana + CrowdSec) · sidecar baked images · CI matrix-build 4 images · `.gitattributes` LF · Playwright suite (24 specs).
+**Deploy/Test:** test captcha · Compose stack (PG18 + Loki + Grafana + CrowdSec) · sidecars = official images + bind-mount config · optional profiles (monitoring/security) · CI builds 1 image (nginxwebui) · `.gitattributes` LF · Playwright suite (24 specs).
 
 ## Docs
 - [Improvement plans & reports](docs/superpowers/plans/)
