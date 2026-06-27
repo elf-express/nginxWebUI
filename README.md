@@ -18,7 +18,7 @@
 | **觀測性** | 無 | **Loki + Promtail + Grafana** 完整 log/metric 管線 |
 | **安全防護** | 純 IP 黑白名單 | + **CrowdSec** 入侵偵測、+ **GeoIP2** 國家封鎖、+ **ASN** 封鎖、+ **多 list 自動 fetch** |
 | **語系** | 簡中為主 | **繁中為主**（簡 / 繁 / 英三份）|
-| **前端** | 純 Layui + jQuery | + **Vue 3 局部 mount**（template picker / SpecSnap inspector / **Vue Dashboard**）|
+| **前端** | 純 Layui + jQuery | + **Vue 3 局部 mount**（template picker / **Vue Dashboard**）|
 | **CI/Release** | 手動打 jar | **GitHub Actions** 自動 build multi-platform image (linux/amd64 + linux/arm64) push 到 ghcr.io |
 | **開發流程** | 直接 push master | **dev/master 分支**、git tag-based release、`scripts/release.sh` 自動化 |
 
@@ -109,7 +109,6 @@ docker compose up -d          # image 預設拉 :latest，永遠跟最新 releas
 - 繁中為主、簡 / 英三語 i18n（國旗 icon 切換）
 - 反向代理 modal 單欄向左對齊、不蓋 top header
 - **shadcn-vue 風格** template picker（Vue 3 + 自製 Combobox）
-- **SpecSnap Inspector** dev tool（右上角 🔍）— 點 UI 元素自動 capture 結構化 metadata 給 AI
 
 ### 🚀 開發流程
 

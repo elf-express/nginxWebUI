@@ -21,8 +21,10 @@ public class GeoipDbInfo {
 	private Long lastUpdateAt;
 	/** 上次手動下載時間（格式化字串 yyyy-MM-dd HH:mm）；未下載過為 null */
 	private String lastUpdateStr;
-	/** 排程說明（目前固定為 Docker cron 每週三、六 03:00 UTC） */
+	/** 排程顯示字串（如 "Daily 03:00"，由 GeoipService 依 geoip.fetchTime 動態組）；供 versions JSON */
 	private String scheduleStr;
+	/** 排程時間 HH:mm（來自 geoip.fetchTime）；前端表格以 i18n 模板套此值顯示 */
+	private String scheduleTime;
 
 	public String getKey() {
 		return key;
@@ -94,5 +96,13 @@ public class GeoipDbInfo {
 
 	public void setScheduleStr(String scheduleStr) {
 		this.scheduleStr = scheduleStr;
+	}
+
+	public String getScheduleTime() {
+		return scheduleTime;
+	}
+
+	public void setScheduleTime(String scheduleTime) {
+		this.scheduleTime = scheduleTime;
 	}
 }

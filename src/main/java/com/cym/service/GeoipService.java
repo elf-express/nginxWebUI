@@ -94,8 +94,10 @@ public class GeoipService {
 				}
 			}
 
-			// 排程由 Java @Scheduled（ScheduleTask.fetchGeoip）每日於 geoip.fetchTime 執行（JAR/Docker 通用）。前端表格實際顯示 i18n geoipStr.scheduleValue。
+			// 排程由 Java @Scheduled（ScheduleTask.fetchGeoip）每日於 geoip.fetchTime 執行（JAR/Docker 通用）。
+			// scheduleStr 供 versions JSON;前端表格以 i18n geoipStr.scheduleValue 模板套 scheduleTime 顯示（誠實反映 fetchTime）。
 			info.setScheduleStr("Daily " + fetchTime);
+			info.setScheduleTime(fetchTime);
 
 			list.add(info);
 		}
@@ -174,7 +176,7 @@ public class GeoipService {
 			String dbKey = db[0];
 			String fileName = db[1];
 			String url = db[2];
-			File tmp = new File(dir, fileName + ".tmp");
+			File tmp = new File(dir, fileName + "." + System.nanoTime() + ".tmp"); // 唯一檔名,避免手動與排程下載對同檔競爭(review Minor #1)
 			File dest = new File(dir, fileName);
 			try {
 				long size = HttpUtil.downloadFile(url, tmp, DOWNLOAD_TIMEOUT_MS);

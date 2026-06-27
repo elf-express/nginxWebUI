@@ -1,9 +1,10 @@
 const { test, expect } = require('@playwright/test');
 const { login } = require('./helpers');
 
-// 離線守門:全站主要頁面都不應對外網 CDN(esm.sh / jsdelivr / unpkg / cdnjs)發請求。
+// 離線守門:主要頁面「載入時」都不應對外網 CDN(esm.sh / jsdelivr / unpkg / cdnjs)發請求。
 // 背景:此 fork 常跑離線/內網部署。曾有「模板選取器」「SpecSnap Inspector」從 esm.sh
-// 載 Vue,離線即失效。此測試防止日後再次引入同類「依賴外網 CDN」的回歸。
+// 載 Vue,離線即失效。此測試守「頁面載入即打 CDN」的回歸;「lazy 觸發才打」(如點開
+// 選取器)由 24-template-picker-offline 守(實際點開 picker + 封鎖 esm.sh)。
 //
 // 登入只做一次(beforeAll),連續巡覽主要頁面後一次斷言。
 test.describe.serial('離線守門:前端不依賴外網 CDN', () => {

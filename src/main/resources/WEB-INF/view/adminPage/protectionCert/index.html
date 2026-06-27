@@ -114,7 +114,7 @@
 										<span style="color:#bbb;">${geoipStr.notDownloaded}</span>
 									</#if>
 								</td>
-								<td><span style="color:#666;">${geoipStr.scheduleValue}</span></td>
+								<td><span style="color:#666;">${geoipStr.scheduleValue?replace("{time}", g.scheduleTime)}</span></td>
 								<td>
 									<button type="button" class="layui-btn layui-btn-sm" onclick="geoipNS.download('${g.key}')"><i class="layui-icon layui-icon-download-circle"></i> ${geoipStr.download}</button>
 								</td>

@@ -18,7 +18,7 @@
 | **Observability** | None | **Loki + Promtail + Grafana** full log/metric pipeline |
 | **Security** | IP allow/deny lists only | + **CrowdSec** IDS, + **GeoIP2** country blocking, + **ASN** blocking, + **auto-fetch from URL** for multiple lists |
 | **Locale** | Simplified Chinese primary | **Traditional Chinese primary** (zh-CN / zh-TW / en-US) |
-| **Frontend** | Pure Layui + jQuery | + **Vue 3 partial mount** (template picker / SpecSnap inspector / **Vue Dashboard**) |
+| **Frontend** | Pure Layui + jQuery | + **Vue 3 partial mount** (template picker / **Vue Dashboard**) |
 | **CI/Release** | Manual jar build | **GitHub Actions** auto multi-platform image build (linux/amd64 + linux/arm64) → ghcr.io |
 | **Dev workflow** | Direct push to master | **dev/master branch model**, git-tag-based release, `scripts/release.sh` automation |
 
@@ -109,7 +109,6 @@ Seven services up together:
 - Traditional Chinese primary, Simplified / English tri-lingual i18n (flag icon switcher)
 - Reverse proxy modal single-column left-aligned, doesn't cover top header
 - **shadcn-vue style** template picker (Vue 3 + custom Combobox)
-- **SpecSnap Inspector** dev tool (top-right 🔍) — click UI elements to auto-capture structured metadata for AI
 
 ### 🚀 Development
 
