@@ -53,6 +53,11 @@ public class GeoipService {
 	/** 給 header 下拉與防護頁表格用：三個資料庫的版本 / 上次更新 / 排程。 */
 	public List<GeoipDbInfo> getDbInfos() {
 		List<GeoipDbInfo> list = new ArrayList<>();
+		// 排程時間由 geoip.fetchTime 設定（預設 03:00），與 ScheduleTask.fetchGeoip() 一致
+		String fetchTime = settingService.get("geoip.fetchTime");
+		if (fetchTime == null || fetchTime.isEmpty()) {
+			fetchTime = "03:00";
+		}
 		for (String[] db : DBS) {
 			String key = db[0];
 			String fileName = db[1];
@@ -80,8 +85,8 @@ public class GeoipService {
 				}
 			}
 
-			// 排程目前固定在 Docker cron（每週三、六 03:00 UTC）。後端給通用值，前端可用 i18n 覆寫顯示。
-			info.setScheduleStr("Wed & Sat 03:00 (UTC)");
+			// 排程由 Java @Scheduled（ScheduleTask.fetchGeoip）每日於 geoip.fetchTime 執行（JAR/Docker 通用）。前端表格實際顯示 i18n geoipStr.scheduleValue。
+			info.setScheduleStr("Daily " + fetchTime);
 
 			list.add(info);
 		}
