@@ -32,13 +32,9 @@ jobs:
 
       - name: Build with Maven
         run: mvn clean package -DskipTests -q
-
-      - name: Upload JAR artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: nginxWebUI-jar
-          path: target/nginxWebUI-*.jar
-          retention-days: 7
+        # 註：dev/master push 只需驗證能編譯，不再 upload jar artifact
+        # （137 個 43MB jar 曾把 Actions 儲存配額塞爆 → CI 全紅）。
+        # release 的 jar 由 docker job 在 build image 時自行產生。
 
   docker:
     name: Build & Push Docker image (${{ matrix.image.name }})
