@@ -64,8 +64,8 @@ $(function() {
 
 	form.render();
 
-	// 关闭input自动填充
-	$("input").attr("autocomplete", "off");
+	// 关闭input自动填充 (skip inputs that already declare autocomplete)
+	$("input:not([autocomplete])").attr("autocomplete", "off");
 
 	// 菜单选中
 	var url = location.pathname + location.search;
