@@ -250,7 +250,7 @@ function showWindow(title) {
 	layer.open({
 		type: 1,
 		title: title,
-		area: ['750px', '600px'],
+		area: ['min(750px, 90vw)', 'min(600px, 90vh)'],
 		content: $('#windowDiv')
 	});
 }

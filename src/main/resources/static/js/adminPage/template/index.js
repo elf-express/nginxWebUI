@@ -25,7 +25,7 @@ function showWindow(title) {
 	layer.open({
 		type: 1,
 		title: title,
-		area: ['800px', '600px'], // 宽高
+		area: ['min(800px, 90vw)', 'min(600px, 90vh)'], // 宽高
 		content: $('#windowDiv')
 	});
 }
