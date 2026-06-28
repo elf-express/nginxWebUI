@@ -325,3 +325,28 @@ function translateLayui() {
 	});
 
 }
+
+/**
+ * 取得 main content area (.layui-body) 的位置與尺寸,用於對齊主編輯 modal。
+ * 主編輯 modal(server / http / stream / upstream 等)應該完全等同 main content area,
+ * 避免 fixed pixel 在不同 viewport 跑出邊界(舊版常見 1346px / 1200px 在 1280 viewport 跑出畫面)。
+ *
+ * 回傳值可直接用於 layer.open 的 area 與 offset:
+ *   var a = getMainArea();
+ *   layer.open({ area: [a.w, a.h], offset: a.offset, ... });
+ *
+ * @returns {{ w: string, h: string, offset: [string, string] }}
+ */
+function getMainArea() {
+	var bodyEl = document.querySelector('.layui-body');
+	if (!bodyEl) {
+		// fallback: 沒抓到就用 84% × calc(100% - 60px)(對應 1080/1280 比例)
+		return { w: '84%', h: 'calc(100% - 60px)', offset: ['60px', '200px'] };
+	}
+	var r = bodyEl.getBoundingClientRect();
+	return {
+		w: r.width + 'px',
+		h: r.height + 'px',
+		offset: [r.top + 'px', r.left + 'px']
+	};
+}
