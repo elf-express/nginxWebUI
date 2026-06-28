@@ -62,10 +62,13 @@ function add() {
 
 
 function showWindow(title) {
+	// 對齊 main content area (.layui-body),避免 fixed 1200px 在 1280 viewport 超出
+	var a = getMainArea();
 	layer.open({
 		type: 1,
 		title: title,
-		area: ['1200px', '600px'], // 宽高
+		offset: a.offset,
+		area: [a.w, a.h],
 		content: $('#windowDiv')
 	});
 }
