@@ -73,7 +73,16 @@ public class NginxWebUI {
 		List<String> pids = new ArrayList<>();
 
 		if (SystemTool.isWindows()) {
-			List<String> list = RuntimeUtil.execForLines("wmic process where \"CommandLine like '%nginxWebUI%'\" get ProcessId,CommandLine");
+			List<String> list;
+			try {
+				// Windows 7 ~ 10:wmic 內建可用
+				list = RuntimeUtil.execForLines("wmic process where \"CommandLine like '%nginxWebUI%'\" get ProcessId,CommandLine");
+			} catch (Exception e) {
+				// Windows 11 22H2+ / LTSC 2024 起 wmic 已 deprecate,fallback 到 PowerShell Get-CimInstance
+				logger.debug("wmic unavailable, fallback to PowerShell Get-CimInstance: {}", e.getMessage());
+				list = RuntimeUtil.execForLines("powershell.exe", "-NoProfile", "-Command",
+						"Get-CimInstance Win32_Process -Filter \"CommandLine LIKE '%nginxWebUI%'\" | ForEach-Object { \"$($_.CommandLine) $($_.ProcessId)\" }");
+			}
 
 			for (String line : list) {
 				if (line.contains(".jar")) {

@@ -1,6 +1,7 @@
 package com.cym.config;
 
 import java.io.File;
+import java.nio.file.Paths;
 
 import org.noear.solon.annotation.Component;
 import org.noear.solon.annotation.Init;
@@ -41,9 +42,10 @@ public class HomeConfig {
 			}
 		}
 
-		// windows 加上盘符
-		if (SystemTool.isWindows() && !home.contains(":")) {
-			home = JarUtil.getCurrentFilePath().split(":")[0] + ":" + home;
+		// Windows: 相對路徑 (./xxx) 或 drive-relative (E:./xxx) 在 createFile 上不可靠,
+		// 統一用 NIO Paths 正規化成絕對路徑
+		if (SystemTool.isWindows()) {
+			home = Paths.get(home).toAbsolutePath().normalize().toString();
 		}
 
 		// 如果最后没有/, 加上/
