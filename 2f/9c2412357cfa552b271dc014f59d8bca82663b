@@ -1,0 +1,46 @@
+CLAUDE.md
+  s_9b0b398d36a69f::t_b8ae036def13d0 194
+  s_9b0b398d36a69f::t_e3398a03aef4cc 29-30
+  s_9b0b398d36a69f::t_1f0b4c2a2132fc 207
+  s_9b0b398d36a69f::t_a4a1aa00344a19 176
+  s_9b0b398d36a69f::t_4d3880902d8175 87,91
+  s_9b0b398d36a69f::t_302dafff92c3f8 184,186
+docker/.env.example
+  s_9b0b398d36a69f::t_03f042202ae3e0 17-18
+docs/superpowers/plans/2026-05-22-monitor-dashboard-v2.md
+  s_9b0b398d36a69f::t_12ebdafe8a31c5 3-4,6
+README_EN.md
+  s_9b0b398d36a69f::t_de779adc2e4ced 3
+  s_9b0b398d36a69f::t_94240073faa554 115,127,132-133
+  s_9b0b398d36a69f::t_391cc03bbd18f8 182
+  s_9b0b398d36a69f::t_f98a964ab4f136 40,42-47,62,67
+  s_9b0b398d36a69f::t_5377f2a56693f5 88,90-92,94
+  s_9b0b398d36a69f::t_86d28148c98327 68
+src/main/java/com/cym/config/InitConfig.java
+  s_9b0b398d36a69f::t_8f4e9d8ce8c0d3 169
+README.md
+  s_9b0b398d36a69f::t_ed8f31ed279bd3 40,42-47,62,67
+  s_9b0b398d36a69f::t_48c05737a57b64 3
+  s_9b0b398d36a69f::t_cac1e83f8a47e7 185
+  s_9b0b398d36a69f::t_e5ac3be51d87fa 88,90-92,94
+  s_9b0b398d36a69f::t_b68daf6d837701 115,127,132-133
+  s_9b0b398d36a69f::t_1eb1a06a100923 68
+docs/superpowers/plans/docker-guide.md
+  s_9b0b398d36a69f::t_e7130b2cdb72cc 3-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "2f9c2412357cfa552b271dc014f59d8bca82663b",
+  "prompts": {},
+  "sessions": {
+    "s_9b0b398d36a69f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da28055b-4c65-4e22-addf-b33cad6ab021",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "tw199501 <tw199501@elf.tw>"
+    }
+  }
+}
