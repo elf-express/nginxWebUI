@@ -199,7 +199,7 @@ function add() {
 	$("#key").val("");
 	$("#keyPath").html("");
 	$("#itemList").html("");
-	$("#paramJson").val("");
+	$("#serverParamJson").val("");
 
 	$("#denyAllow").val("0");
 	$("#denyId option:first").prop("selected", true);
