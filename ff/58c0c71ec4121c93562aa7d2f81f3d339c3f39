@@ -1,0 +1,27 @@
+docs/superpowers/plans/2026-06-30-plans-backlog-audit.md
+  s_9b0b398d36a69f::t_5df92722d171ba 80-81,86-87
+  s_9b0b398d36a69f::t_2cf9cde6606dc0 43,45-46,52-53,55
+  s_9b0b398d36a69f::t_6f125c850691de 1-42,44,47-51,54,56-79,82-85,88-98,100-105
+  s_9b0b398d36a69f::t_baeb09d0b4e9c6 99
+docs/superpowers/plans/2026-05-23-ui-polish-denyallow-rework.md
+  s_9b0b398d36a69f::t_ea6d4f1b899a2f 3-8
+  s_9b0b398d36a69f::t_e687d8c9c306d5 1-2
+  s_9b0b398d36a69f::t_687a85833ce4ea 9-11
+  s_9b0b398d36a69f::t_6c0f6db0f8da65 12-1336
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "ff58c0c71ec4121c93562aa7d2f81f3d339c3f39",
+  "prompts": {},
+  "sessions": {
+    "s_9b0b398d36a69f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da28055b-4c65-4e22-addf-b33cad6ab021",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "tw199501 <tw199501@elf.tw>"
+    }
+  }
+}
