@@ -443,10 +443,10 @@
 						<button type="button" class="layui-btn layui-btn-sm layui-btn-normal proxyHttp" onclick="addItem()">${serverStr.addLocation}</button>
 					</div>
 					<div class="layui-inline">
-						<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="setDenyAllow()">${serverStr.ipDenyAllow}</button>
+						<!-- IP黑白名單 button removed 2026-06-30: denyAllow 改由資料庫控管(防護與憑證頁) -->
 					</div>
 					<div class="layui-inline">
-						<button type="button" class="layui-btn layui-btn-sm" onclick="serverParam()">${serverStr.extParm}</button>
+						<button type="button" class="layui-btn layui-btn-sm" onclick="layer.msg('HTTP 參數設定:後續調整')">${serverStr.httpParm}</button></div><div class="layui-inline"><button type="button" class="layui-btn layui-btn-sm" onclick="serverParam()">${serverStr.serverParm}</button></div><div class="layui-inline"><button type="button" class="layui-btn layui-btn-sm" onclick="layer.msg('Proxy 參數設定:後續調整')">${serverStr.proxyParm}</button>
 					</div>
 					
 					<textarea style="display: none;" id="serverParamJson" name="serverParamJson"></textarea>
