@@ -1,0 +1,28 @@
+src/main/resources/static/css/adminPage/base.css
+  s_9b0b398d36a69f::t_85268c5bf0044a 1-6
+src/main/resources/messages_zh_TW.properties
+  s_9b0b398d36a69f::t_a3dcd68b60c8d2 574-576
+src/main/resources/WEB-INF/view/adminPage/server/index.html
+  s_9b0b398d36a69f::t_02c3c0ae1d5f45 446
+  s_9b0b398d36a69f::t_c056f402072f92 449
+src/main/resources/messages.properties
+  s_9b0b398d36a69f::t_ad4bece76354b4 574-576
+src/main/resources/messages_en_US.properties
+  s_9b0b398d36a69f::t_6f6968bacdd504 574-576
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "8daa917285c576e68e91155d207b96fc13c4f8b6",
+  "prompts": {},
+  "sessions": {
+    "s_9b0b398d36a69f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da28055b-4c65-4e22-addf-b33cad6ab021",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "tw199501 <tw199501@elf.tw>"
+    }
+  }
+}
