@@ -48,10 +48,12 @@ test.describe('啟用配置 - 測試連線', () => {
     await expect(layerContent).toBeVisible();
 
     await expect(layerContent.locator('text=10.10.10.1:8080')).toBeVisible();
-    await expect(layerContent.locator('text=OK')).toBeVisible();
+    // 限定 <td>,避開摘要 <span>1 OK / 1 FAIL</span> (不在 <td> 內) 的 strict-mode 衝突。
+    // td 內容是「✓ OK」(含勾號),用 has-text substring 即可,不能用 ^OK$ 嚴格 match。
+    await expect(layerContent.locator('td:has-text("OK")')).toBeVisible();
 
     await expect(layerContent.locator('text=192.168.1.1:3000')).toBeVisible();
-    await expect(layerContent.locator('text=FAIL')).toBeVisible();
+    await expect(layerContent.locator('td:has-text("FAIL")')).toBeVisible();
   });
 
 });

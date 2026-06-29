@@ -1,7 +1,21 @@
 const { test, expect } = require('@playwright/test');
 const { execFileSync } = require('child_process');
 
-const CONTAINER = 'nginx-webui-5.0.3';
+// 5.1.0+ 容器名固定為 nginxwebui (CLAUDE.md / docker-compose.yml)。
+// 可用 PLAYWRIGHT_NGINXWEBUI_CONTAINER 環境變數覆寫 (例如 CI 用不同名稱)。
+const CONTAINER = process.env.PLAYWRIGHT_NGINXWEBUI_CONTAINER || 'nginxwebui';
+
+function containerRunning() {
+  try {
+    execFileSync('docker', ['inspect', '-f', '{{.State.Running}}', CONTAINER], {
+      stdio: 'pipe',
+      timeout: 5000,
+    });
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
 
 /**
  * 在容器內執行指令
@@ -17,7 +31,10 @@ function dockerExec(cmd) {
   }
 }
 
+// 整組是「對 deploy container 的 integration test」 — 本機 dev 沒跑 stack 就 skip,
+// 避免讓整個 suite 跑紅。CI / staging 有跑 docker compose 時自然會執行。
 test.describe('Real IP + Cloudflare + GeoIP', () => {
+  test.skip(!containerRunning(), `container "${CONTAINER}" not running — integration test requires deployed stack (docker compose up)`);
 
   test('realip.conf 應存在且包含 Cloudflare IP 段', () => {
     const conf = dockerExec('cat /etc/nginx/geoip/realip.conf');
