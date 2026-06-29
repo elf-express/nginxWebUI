@@ -35,6 +35,8 @@ jobs:
         # 註：dev/master push 只需驗證能編譯，不再 upload jar artifact
         # （137 個 43MB jar 曾把 Actions 儲存配額塞爆 → CI 全紅）。
         # release 的 jar 由 docker job 在 build image 時自行產生。
+        # Dependabot 若再升級 actions/upload-artifact 版本，本 repo 已不使用此 step，
+        # 可直接 close 該 PR。
 
   docker:
     name: Build & Push Docker image (${{ matrix.image.name }})
@@ -70,7 +72,7 @@ jobs:
         run: mvn clean package -DskipTests -q
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -98,7 +100,7 @@ jobs:
           fi
 
       - name: Build and Push (multi-platform)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.image.context }}
           file: ${{ matrix.image.dockerfile }}
