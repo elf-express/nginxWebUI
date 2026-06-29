@@ -70,6 +70,7 @@
 <#include "/adminPage/menu.html"/>
 <div class="layui-body">
 	<div style="padding: 15px">
+		<h1 class="page-title" style="font-size:18px;font-weight:bold;margin:0 0 10px;">${menuStr.protectionCert}</h1>
 		<span class="layui-breadcrumb" style="margin-bottom:15px;display:block;">
 			<a href="${ctx}/adminPage/monitor">${commonStr.home}</a>
 			<a><cite>${menuStr.protectionCert}</cite></a>
@@ -114,7 +115,7 @@
 										<span style="color:#bbb;">${geoipStr.notDownloaded}</span>
 									</#if>
 								</td>
-								<td><span style="color:#666;">${geoipStr.scheduleValue}</span></td>
+								<td><span style="color:#666;">${geoipStr.scheduleValue?replace("{time}", g.scheduleTime)}</span></td>
 								<td>
 									<button type="button" class="layui-btn layui-btn-sm" onclick="geoipNS.download('${g.key}')"><i class="layui-icon layui-icon-download-circle"></i> ${geoipStr.download}</button>
 								</td>
@@ -185,7 +186,7 @@
 							<#if daPage.records?size == 0>
 							<tr>
 								<td colspan="99" class="empty-state">
-									<i class="layui-icon layui-icon-face-surprised"></i>
+									<i class="layui-icon layui-icon-face-surprised" aria-hidden="true"></i>
 									<p>${commonStr.noData}</p>
 								</td>
 							</tr>
@@ -380,7 +381,7 @@
 							<#if certPage.records?size == 0>
 							<tr>
 								<td colspan="99" class="empty-state">
-									<i class="layui-icon layui-icon-face-surprised"></i>
+									<i class="layui-icon layui-icon-face-surprised" aria-hidden="true"></i>
 									<p>${commonStr.noData}</p>
 								</td>
 							</tr>
@@ -429,7 +430,7 @@
 				<label class="layui-form-label">${denyAllowStr.ipTip}</label>
 				<div class="layui-input-block">
 					<div class="ip-format-hint">
-						<i class="layui-icon layui-icon-about"></i>${denyAllowStr.formatHint}
+						<i class="layui-icon layui-icon-about" aria-hidden="true"></i>${denyAllowStr.formatHint}
 					</div>
 					<div id="daTagEditorWrap" class="ip-tag-wrap">
 						<!-- Search + stats bar -->

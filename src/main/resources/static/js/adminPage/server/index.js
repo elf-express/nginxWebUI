@@ -235,12 +235,15 @@ function showWindow(title) {
 	});
 	*/
 
+	// modal 完全等同 main content area(.layui-body),任何 viewport 自動跟隨
+	// helper 在 base.js 定義(getMainArea)
+	var a = getMainArea();
 	layer.open({
 		type: 1,
 		title: title,
-		offset: ['60px', ''],            // top 60px 避開 nginxWebUI 60px 高的 header（rgb(35,41,46) 那條）
+		offset: a.offset,
 		anim: 'slideLeft',               // 从右往左
-		area: ["90%", 'calc(100% - 60px)'], // 高度也扣掉 header
+		area: [a.w, a.h],
 		content: $('#windowDiv')
 	});
 }

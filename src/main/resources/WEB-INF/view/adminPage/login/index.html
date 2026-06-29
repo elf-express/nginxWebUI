@@ -36,13 +36,13 @@
 				<div class="layui-form-item">
 					<label class="layui-form-label">${loginStr.name}</label>
 					<div class="layui-input-inline">
-						<input type="text" name="name" id="name" class="layui-input" value="">
+						<input type="text" name="name" id="name" class="layui-input" value="" autocomplete="username">
 					</div>
 				</div>
 				<div class="layui-form-item">
 					<label class="layui-form-label">${loginStr.pass}</label>
 					<div class="layui-input-inline pass-wrap">
-						<input type="password" name="pass" id="pass" class="layui-input" value="" onkeyup="getKey()">
+						<input type="password" name="pass" id="pass" class="layui-input" value="" autocomplete="current-password" onkeyup="getKey()">
 						<i class="layui-icon layui-icon-eye-invisible pass-toggle" id="passToggle" onclick="togglePass()"></i>
 					</div>
 				</div>
@@ -50,8 +50,10 @@
 				<div class="layui-form-item">
 					<label class="layui-form-label">${loginStr.code}</label>
 					<div class="layui-input-inline" style="width: 240px;">
-						<input type="text" name="code" id="code" class="layui-input" style="width: 100px; display: inline-block;" onkeyup="getKey()"> 
-						<img src="${ctx}/adminPage/login/getCode?t=${jsrandom}" id="codeImg" onclick="refreshCode('codeImg')">
+						<input type="text" name="code" id="code" class="layui-input" style="width: 100px; display: inline-block;" onkeyup="getKey()">
+						<button type="button" class="captcha-btn" onclick="refreshCode('codeImg')" aria-label="${commonStr.refreshCaptcha}">
+							<img src="${ctx}/adminPage/login/getCode?t=${jsrandom}" id="codeImg" alt="">
+						</button>
 					</div>
 				</div>
 
@@ -78,19 +80,19 @@
 				<div class="layui-form-item">
 					<label class="layui-form-label">${loginStr.name}</label>
 					<div class="layui-input-inline">
-						<input type="text" name="name" id="adminName" class="layui-input" value="">
+						<input type="text" name="name" id="adminName" class="layui-input" value="" autocomplete="username">
 					</div>
 				</div>
 				<div class="layui-form-item">
 					<label class="layui-form-label">${loginStr.pass}</label>
 					<div class="layui-input-inline">
-						<input type="password" name="pass" id="adminPass" class="layui-input" value="">
+						<input type="password" name="pass" id="adminPass" class="layui-input" value="" autocomplete="new-password">
 					</div>
 				</div>
 				<div class="layui-form-item">
 					<label class="layui-form-label">${loginStr.repeatPass}</label>
 					<div class="layui-input-inline">
-						<input type="password" id="repeatPass" class="layui-input" value="">
+						<input type="password" id="repeatPass" class="layui-input" value="" autocomplete="new-password">
 						<div class="layui-form-mid layui-word-aux">${loginStr.tips}</div>
 					</div>
 				</div>

@@ -18,7 +18,7 @@
 | **觀測性** | 無 | **Loki + Promtail + Grafana** 完整 log/metric 管線 |
 | **安全防護** | 純 IP 黑白名單 | + **CrowdSec** 入侵偵測、+ **GeoIP2** 國家封鎖、+ **ASN** 封鎖、+ **多 list 自動 fetch** |
 | **語系** | 簡中為主 | **繁中為主**（簡 / 繁 / 英三份）|
-| **前端** | 純 Layui + jQuery | + **Vue 3 局部 mount**（template picker / SpecSnap inspector / **Vue Dashboard**）|
+| **前端** | 純 Layui + jQuery | + **Vue 3 局部 mount**（template picker / **Vue Dashboard**）|
 | **CI/Release** | 手動打 jar | **GitHub Actions** 自動 build multi-platform image (linux/amd64 + linux/arm64) push 到 ghcr.io |
 | **開發流程** | 直接 push master | **dev/master 分支**、git tag-based release、`scripts/release.sh` 自動化 |
 
@@ -109,7 +109,6 @@ docker compose up -d          # image 預設拉 :latest，永遠跟最新 releas
 - 繁中為主、簡 / 英三語 i18n（國旗 icon 切換）
 - 反向代理 modal 單欄向左對齊、不蓋 top header
 - **shadcn-vue 風格** template picker（Vue 3 + 自製 Combobox）
-- **SpecSnap Inspector** dev tool（右上角 🔍）— 點 UI 元素自動 capture 結構化 metadata 給 AI
 
 ### 🚀 開發流程
 
@@ -124,18 +123,29 @@ docker compose up -d          # image 預設拉 :latest，永遠跟最新 releas
 
 ### A. Docker Compose（推薦、生產環境）
 
-完整 stack 共 7 個 service。**自 v5.1.0 起所有 sidecar（grafana / promtail / crowdsec）的 config 已 baked 進各自的 `ghcr.io/elf-express/nginxwebui-<service>` image**，部署機**不需要**帶 `crowdsec/` `grafana/` `promtail/` 等 config 目錄、也不必 `docker compose build` —— **線上只要兩個檔**：`docker-compose.yml` + `.env`。
+只有 **nginxwebui 是自建 image**；sidecar（grafana / promtail / crowdsec）一律用**官方 image + bind-mount config**。預設只起核心兩個服務，監控 / IDS 用 compose **profile** 視需要開啟。
+
+**只跑核心（nginxwebui + postgres）—— 線上只需兩個檔：**
 
 ```bash
 mkdir nginxwebui && cd nginxwebui
-# 只抓這兩個檔（不必 clone 整個 repo）
 curl -O https://raw.githubusercontent.com/elf-express/nginxWebUI/master/docker/docker-compose.yml
 curl -o .env https://raw.githubusercontent.com/elf-express/nginxWebUI/master/docker/.env.example
-# 編輯 .env：填 CROWDSEC_BOUNCER_KEY（首次可先填任意值）；image 預設 :latest，要釘版本就設 NGINX_WEBUI_VERSION=x.y.z
-docker compose up -d
+# 編輯 .env：image 預設 :latest，要釘版本就設 NGINX_WEBUI_VERSION=x.y.z
+docker compose up -d                      # 只起 nginxwebui + postgres
 ```
 
-> 想從原始碼自建 sidecar image：照上面「快速開始」clone 整個 repo，在 `docker/` 跑 `docker compose up -d --build`（會各自走 `crowdsec/` `grafana/` `promtail/` 下的 Dockerfile 把 config COPY 進 image）。
+**要監控 / IDS（Loki·Grafana·Promtail / CrowdSec）—— 需要整個 `docker/` 目錄（sidecar 要 bind-mount 其下 config）：**
+
+```bash
+git clone https://github.com/elf-express/nginxWebUI.git && cd nginxWebUI/docker
+cp .env.example .env                       # 填 CROWDSEC_BOUNCER_KEY（首次可先填任意值）
+docker compose --profile monitoring --profile security up -d
+# 或在 .env 設 COMPOSE_PROFILES=monitoring,security 後直接 docker compose up -d
+```
+
+> 從原始碼自建 nginxwebui image：clone 後在 `docker/` 跑（先 `mvn clean package -DskipTests`）：
+> `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build`
 
 ### B. 純 jar 部署（最小化、開發環境）
 
@@ -182,6 +192,8 @@ cd docker
 docker compose pull
 docker compose up -d
 ```
+
+> **從 5.2.1 之前升級者注意（行為變更）**：sidecar（grafana / promtail / crowdsec）已改用官方 image，且監控 / IDS 改為 compose **profile**。若你原本有跑監控 / IDS，升級後要在 `.env` 設 `COMPOSE_PROFILES=monitoring,security`（或用 `docker compose --profile monitoring --profile security up -d`），否則 `docker compose up -d` 只會維持 nginxwebui + postgres。舊的 `nginxwebui_crowdsec_config` volume 不再使用，可手動 `docker volume rm nginxwebui_crowdsec_config` 清理。
 
 PostgreSQL schema 由 SqlHelper（自製 ORM）**CodeFirst 自動 ALTER TABLE** 加新欄位，**不需手動 migration**。
 

@@ -1,9 +1,12 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#23292E">
+
 <title>${projectName}</title>
 
 <meta http-equiv="expires" content="0">
 <meta http-equiv="pragma" content="no-cache">
 <meta http-equiv="cache-control" content="no-cache">
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 
 <meta name="renderer" content="webkit" />
 <meta name="force-rendering" content="webkit" />
@@ -14,6 +17,24 @@
 <link href="${ctx}/lib/ztree/css/zTreeStyle/zTreeStyle.css" rel="stylesheet">
 <link href="${ctx}/lib/layui/css/layui.css" rel="stylesheet" />
 <link href="${ctx}/css/adminPage/base.css" rel="stylesheet" />
+
+<style>
+.header-link-btn { background:transparent; border:0; cursor:pointer; padding:0; font:inherit; color:inherit; }
+.header-link-btn:hover, .header-link-btn:focus { text-decoration:underline; outline:none; }
+.header-link-btn:focus-visible { outline:2px solid #fff; outline-offset:2px; }
+.link-button {
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    padding: 0;
+    font: inherit;
+    color: #bbbbbb;
+    text-decoration: underline;
+}
+.link-button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.captcha-btn { padding:0; border:0; background:transparent; cursor:pointer; vertical-align:middle; }
+.captcha-btn:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+</style>
 
 <script>
 	//国际化
@@ -29,7 +50,7 @@
 	//var _hmt = _hmt || [];
 	//(function() {
 	//	var hm = document.createElement("script");
-	//	hm.src = "https://hm.baidu.com/hm.js?8acef669ea66f479854ecd328d1f348f";
+	//	hm.src = "https://REMOVED-baidu-hm-script-elf-express-fork";
 	//	var s = document.getElementsByTagName("script")[0];
 	//	s.parentNode.insertBefore(hm, s);
 	//})();

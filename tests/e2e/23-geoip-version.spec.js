@@ -27,7 +27,7 @@ test.describe('GeoIP 版本顯示與手動下載', () => {
     const dlButtons = page.locator('button', { hasText: /手動下載|手动下载/ });
     await expect(dlButtons).toHaveCount(3);
 
-    // 排程欄顯示固定排程（每週三、六 03:00）
+    // 排程欄顯示每日自動更新（Java @Scheduled，含時間 03:00）
     await expect(page.locator('text=03:00').first()).toBeVisible();
   });
 

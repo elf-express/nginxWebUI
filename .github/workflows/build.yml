@@ -32,13 +32,11 @@ jobs:
 
       - name: Build with Maven
         run: mvn clean package -DskipTests -q
-
-      - name: Upload JAR artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: nginxWebUI-jar
-          path: target/nginxWebUI-*.jar
-          retention-days: 7
+        # 註：dev/master push 只需驗證能編譯，不再 upload jar artifact
+        # （137 個 43MB jar 曾把 Actions 儲存配額塞爆 → CI 全紅）。
+        # release 的 jar 由 docker job 在 build image 時自行產生。
+        # Dependabot 若再升級 actions/upload-artifact 版本，本 repo 已不使用此 step，
+        # 可直接 close 該 PR。
 
   docker:
     name: Build & Push Docker image (${{ matrix.image.name }})
@@ -57,18 +55,6 @@ jobs:
             context: .
             dockerfile: Dockerfile
             needs_mvn: true
-          - name: nginxwebui-grafana
-            context: docker/grafana
-            dockerfile: docker/grafana/Dockerfile
-            needs_mvn: false
-          - name: nginxwebui-promtail
-            context: docker/promtail
-            dockerfile: docker/promtail/Dockerfile
-            needs_mvn: false
-          - name: nginxwebui-crowdsec
-            context: docker/crowdsec
-            dockerfile: docker/crowdsec/Dockerfile
-            needs_mvn: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -37,11 +37,11 @@
 				<form action="${ctx}/adminPage/admin" id="searchForm" method="post">
 					<div class="layui-form">
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="add()"><i class="layui-icon layui-icon-add-circle-fine"></i> ${adminStr.add}</button>
+							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="add()"><i class="layui-icon layui-icon-add-circle-fine" aria-hidden="true"></i> ${adminStr.add}</button>
 						</div>
 						
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="delMany()"><i class="layui-icon layui-icon-delete"></i> ${commonStr.delAll}</button>
+							<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="delMany()"><i class="layui-icon layui-icon-delete" aria-hidden="true"></i> ${commonStr.delAll}</button>
 						</div>
 
 						<div class="layui-inline">
@@ -80,7 +80,7 @@
 						<#if page.records?size == 0>
 						<tr>
 							<td colspan="99" class="empty-state">
-								<i class="layui-icon layui-icon-face-surprised"></i>
+								<i class="layui-icon layui-icon-face-surprised" aria-hidden="true"></i>
 								<p>${commonStr.noData}</p>
 							</td>
 						</tr>
@@ -92,21 +92,20 @@
 							</td>
 							<td>${admin.name}</td>
 							<td><#if admin.auth> ${commonStr.yes} </#if> <#if !admin.auth> ${commonStr.no} </#if></td>
-							<td><#if admin.auth> ${admin.key} <a href="javascript:qr('${admin.name}','${admin.key}')" style="color: blue; text-decoration: underline;">${adminStr.qr}</a> <a
-									href="javascript:test('${admin.key}')" style="color: blue; text-decoration: underline;">${commonStr.test}</a> </#if></td>
+							<td><#if admin.auth> ${admin.key} <button type="button" class="link-button" style="color:blue;" onclick="qr('${admin.name}','${admin.key}')">${adminStr.qr}</button> <button type="button" class="link-button" style="color:blue;" onclick="test('${admin.key}')">${commonStr.test}</button> </#if></td>
 							<td><#if admin.api> ${commonStr.yes} </#if> <#if !admin.api> ${commonStr.no} </#if></td>
 							<td><#if admin.type==0> ${adminStr.adminUser} </#if> <#if admin.type==1> ${adminStr.limitUser} </#if> </td>
 							<td>
 								<div class="layui-inline">
-									<button type="button" class="layui-btn layui-btn-sm" onclick="edit('${admin.id}')"><i class="layui-icon layui-icon-edit"></i> ${commonStr.edit}</button>
+									<button type="button" class="layui-btn layui-btn-sm" onclick="edit('${admin.id}')"><i class="layui-icon layui-icon-edit" aria-hidden="true"></i> ${commonStr.edit}</button>
 								</div>
-								
+
 								<div class="layui-inline">
-									<button type="button" class="layui-btn layui-btn-sm" onclick="changePass('${admin.id}')"><i class="layui-icon layui-icon-edit"></i> ${commonStr.editPass}</button>
+									<button type="button" class="layui-btn layui-btn-sm" onclick="changePass('${admin.id}')"><i class="layui-icon layui-icon-edit" aria-hidden="true"></i> ${commonStr.editPass}</button>
 								</div>
-								
+
 								<div class="layui-inline">
-									<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="del('${admin.id}')"><i class="layui-icon layui-icon-delete"></i> ${commonStr.del}</button>
+									<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="del('${admin.id}')"><i class="layui-icon layui-icon-delete" aria-hidden="true"></i> ${commonStr.del}</button>
 								</div>
 							</td>
 						</tr>
@@ -211,7 +210,7 @@
 				<div class="layui-form-item">
 					<label class="layui-form-label">${adminStr.pass}</label>
 					<div class="layui-input-block">
-						<input type="password" name="pass" id="pass" class="layui-input" placeholder="${adminStr.passHint}">
+						<input type="password" name="pass" id="pass" class="layui-input" placeholder="${adminStr.passHint}" autocomplete="new-password">
 					</div>
 				</div>
 

@@ -14,7 +14,7 @@ function content(id) {
 				layer.open({
 					type: 1,
 					title: commonStr.preview,
-					area: ['800px', '600px'], // 宽高
+					area: ['min(800px, 90vw)', 'min(600px, 90vh)'], // 宽高
 					content: $('#previewDiv')
 				});
 			}else{

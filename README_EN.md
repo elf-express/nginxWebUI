@@ -18,7 +18,7 @@
 | **Observability** | None | **Loki + Promtail + Grafana** full log/metric pipeline |
 | **Security** | IP allow/deny lists only | + **CrowdSec** IDS, + **GeoIP2** country blocking, + **ASN** blocking, + **auto-fetch from URL** for multiple lists |
 | **Locale** | Simplified Chinese primary | **Traditional Chinese primary** (zh-CN / zh-TW / en-US) |
-| **Frontend** | Pure Layui + jQuery | + **Vue 3 partial mount** (template picker / SpecSnap inspector / **Vue Dashboard**) |
+| **Frontend** | Pure Layui + jQuery | + **Vue 3 partial mount** (template picker / **Vue Dashboard**) |
 | **CI/Release** | Manual jar build | **GitHub Actions** auto multi-platform image build (linux/amd64 + linux/arm64) → ghcr.io |
 | **Dev workflow** | Direct push to master | **dev/master branch model**, git-tag-based release, `scripts/release.sh` automation |
 
@@ -109,7 +109,6 @@ Seven services up together:
 - Traditional Chinese primary, Simplified / English tri-lingual i18n (flag icon switcher)
 - Reverse proxy modal single-column left-aligned, doesn't cover top header
 - **shadcn-vue style** template picker (Vue 3 + custom Combobox)
-- **SpecSnap Inspector** dev tool (top-right 🔍) — click UI elements to auto-capture structured metadata for AI
 
 ### 🚀 Development
 
@@ -124,18 +123,29 @@ Seven services up together:
 
 ### A. Docker Compose (recommended, production)
 
-Full stack of 7 services. **Since v5.1.0 every sidecar's config (grafana / promtail / crowdsec) is baked into its own `ghcr.io/elf-express/nginxwebui-<service>` image** — the deploy host does **not** need to carry the `crowdsec/` `grafana/` `promtail/` config dirs, nor run `docker compose build`. **Only two files are required on the server**: `docker-compose.yml` + `.env`.
+Only **nginxwebui is self-built**; the sidecars (grafana / promtail / crowdsec) use **official images + bind-mounted config**. Only the core two services start by default; monitoring / IDS are opt-in via compose **profiles**.
+
+**Core only (nginxwebui + postgres) — only two files on the server:**
 
 ```bash
 mkdir nginxwebui && cd nginxwebui
-# Grab just these two files (no need to clone the whole repo)
 curl -O https://raw.githubusercontent.com/elf-express/nginxWebUI/master/docker/docker-compose.yml
 curl -o .env https://raw.githubusercontent.com/elf-express/nginxWebUI/master/docker/.env.example
-# Edit .env: set CROWDSEC_BOUNCER_KEY (any value on first boot); image defaults to :latest, pin via NGINX_WEBUI_VERSION=x.y.z
-docker compose up -d
+# Edit .env: image defaults to :latest, pin via NGINX_WEBUI_VERSION=x.y.z
+docker compose up -d                      # starts only nginxwebui + postgres
 ```
 
-> To build the sidecar images from source: clone the whole repo (see "Quick start") and run `docker compose up -d --build` inside `docker/` (each sidecar's Dockerfile under `crowdsec/` `grafana/` `promtail/` COPYs its config into the image).
+**With monitoring / IDS (Loki·Grafana·Promtail / CrowdSec) — needs the whole `docker/` dir (sidecars bind-mount its config):**
+
+```bash
+git clone https://github.com/elf-express/nginxWebUI.git && cd nginxWebUI/docker
+cp .env.example .env                       # set CROWDSEC_BOUNCER_KEY (any value on first boot)
+docker compose --profile monitoring --profile security up -d
+# or set COMPOSE_PROFILES=monitoring,security in .env, then docker compose up -d
+```
+
+> To build the nginxwebui image from source: after clone, inside `docker/` (run `mvn clean package -DskipTests` first):
+> `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build`
 
 ### B. Pure jar (minimal, development)
 
@@ -179,6 +189,8 @@ cd docker
 docker compose pull
 docker compose up -d
 ```
+
+> **Upgrading from before 5.2.1 (behavior change):** sidecars (grafana / promtail / crowdsec) now use official images, and monitoring / IDS are compose **profiles**. If you were running monitoring / IDS, set `COMPOSE_PROFILES=monitoring,security` in `.env` after upgrade (or use `docker compose --profile monitoring --profile security up -d`); otherwise `docker compose up -d` keeps only nginxwebui + postgres. The old `nginxwebui_crowdsec_config` volume is no longer used — remove it with `docker volume rm nginxwebui_crowdsec_config`.
 
 PostgreSQL schema is **CodeFirst auto-ALTER TABLE** by SqlHelper (custom ORM) — **no manual migration required**.
 

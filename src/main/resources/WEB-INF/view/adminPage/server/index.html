@@ -47,6 +47,10 @@
 	overflow: hidden;
 	color: #bbbbbb !important;
 	text-decoration: underline;
+	background: transparent;
+	border: 0;
+	cursor: pointer;
+	font: inherit;
 }
 
 .liteBtn {
@@ -120,11 +124,11 @@
 				<form action="${ctx}/adminPage/server" id="searchForm" method="post">
 					<div class="layui-form">
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="add()"><i class="layui-icon layui-icon-add-circle-fine"></i> ${serverStr.add}</button>
+							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="add()"><i class="layui-icon layui-icon-add-circle-fine" aria-hidden="true"></i> ${serverStr.add}</button>
 						</div>
 
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm layui-input-inline" onclick="openImport()"><i class="layui-icon layui-icon-upload"></i> ${serverStr.importServer}</button>
+							<button type="button" class="layui-btn layui-btn-sm layui-input-inline" onclick="openImport()"><i class="layui-icon layui-icon-upload" aria-hidden="true"></i> ${serverStr.importServer}</button>
 						</div>
 
 						<div class="layui-inline">
@@ -132,7 +136,7 @@
 						</div>
 
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="delMany()"><i class="layui-icon layui-icon-delete"></i> ${commonStr.delAll}</button>
+							<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="delMany()"><i class="layui-icon layui-icon-delete" aria-hidden="true"></i> ${commonStr.delAll}</button>
 						</div>
 
 						<div class="layui-inline">
@@ -140,7 +144,7 @@
 						</div>
 
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm" onclick="search()"><i class="layui-icon layui-icon-search"></i> ${commonStr.search}</button>
+							<button type="button" class="layui-btn layui-btn-sm" onclick="search()"><i class="layui-icon layui-icon-search" aria-hidden="true"></i> ${commonStr.search}</button>
 						</div>
 
 						<input type="hidden" name="curr" value="${page.curr}">
@@ -210,7 +214,7 @@
 									</div>
 
 									<#if ext.overflow>
-										<div id="${ext.server.id}_a"><a style="color: #bbbbbb" href="javascript:showLocation('${ext.server.id}')">--${commonStr.showAll}--</a></div>
+										<div id="${ext.server.id}_a"><button type="button" class="link-button" onclick="showLocation('${ext.server.id}')">--${commonStr.showAll}--</button></div>
 									</#if>
 								</td>
 
@@ -219,34 +223,34 @@
 								</td>
 
 								<td style="max-width: 150px;">
-									<#if ext.server.descr !=null && ext.server.descr !=""> <a href="javascript:editDescr('${ext.server.id}')" style="color: #bbbbbb; text-decoration: underline;">${ext.server.descr}</a> </#if>
-									<#if ext.server.descr== null || ext.server.descr==""> <a href="javascript:editDescr('${ext.server.id}')" style="color: #bbbbbb; text-decoration: underline;">${commonStr.edit}</a> </#if>
+									<#if ext.server.descr !=null && ext.server.descr !=""> <button type="button" class="link-button" onclick="editDescr('${ext.server.id}')">${ext.server.descr}</button> </#if>
+									<#if ext.server.descr== null || ext.server.descr==""> <button type="button" class="link-button" onclick="editDescr('${ext.server.id}')">${commonStr.edit}</button> </#if>
 								</td>
 
 
 								<td>
 									<div class="layui-inline">
-										<button type="button" class="layui-btn layui-btn-sm layui-btn-normal " onclick="preview('${ext.server.id}','server')"><i class="layui-icon layui-icon-eye"></i> ${commonStr.preview}</button>
+										<button type="button" class="layui-btn layui-btn-sm layui-btn-normal " onclick="preview('${ext.server.id}','server')"><i class="layui-icon layui-icon-eye" aria-hidden="true"></i> ${commonStr.preview}</button>
 									</div>
 
 									<div class="layui-inline">
-										<button type="button" class="layui-btn layui-btn-sm " onclick="edit('${ext.server.id}', false)"><i class="layui-icon layui-icon-edit"></i> ${commonStr.edit}</button>
+										<button type="button" class="layui-btn layui-btn-sm " onclick="edit('${ext.server.id}', false)"><i class="layui-icon layui-icon-edit" aria-hidden="true"></i> ${commonStr.edit}</button>
 									</div>
 
 									<div class="layui-inline">
-										<button type="button" class="layui-btn layui-btn-sm " onclick="clone('${ext.server.id}')"><i class="layui-icon layui-icon-file-b"></i> ${commonStr.clone}</button>
+										<button type="button" class="layui-btn layui-btn-sm " onclick="clone('${ext.server.id}')"><i class="layui-icon layui-icon-file-b" aria-hidden="true"></i> ${commonStr.clone}</button>
 									</div>
 
 									<div class="layui-inline">
-										<button type="button" class="layui-btn layui-btn-danger layui-btn-sm " onclick="del('${ext.server.id}')"><i class="layui-icon layui-icon-delete"></i> ${commonStr.del}</button>
+										<button type="button" class="layui-btn layui-btn-danger layui-btn-sm " onclick="del('${ext.server.id}')"><i class="layui-icon layui-icon-delete" aria-hidden="true"></i> ${commonStr.del}</button>
 									</div>
 
 									<div class="layui-inline">
-										<button type="button" class="layui-btn layui-btn-normal layui-btn-sm " onclick="setOrder('${ext.server.id}', 1)"><i class="layui-icon layui-icon-up"></i> ${commonStr.up}</button>
+										<button type="button" class="layui-btn layui-btn-normal layui-btn-sm " onclick="setOrder('${ext.server.id}', 1)"><i class="layui-icon layui-icon-up" aria-hidden="true"></i> ${commonStr.up}</button>
 									</div>
 
 									<div class="layui-inline">
-										<button type="button" class="layui-btn layui-btn-normal layui-btn-sm " onclick="setOrder('${ext.server.id}', -1)"><i class="layui-icon layui-icon-down"></i> ${commonStr.down}</button>
+										<button type="button" class="layui-btn layui-btn-normal layui-btn-sm " onclick="setOrder('${ext.server.id}', -1)"><i class="layui-icon layui-icon-down" aria-hidden="true"></i> ${commonStr.down}</button>
 									</div>
 								</td>
 							</tr>
@@ -254,7 +258,7 @@
 							<#if page.records?size == 0>
 							<tr>
 								<td colspan="99" class="empty-state">
-									<i class="layui-icon layui-icon-face-surprised"></i>
+									<i class="layui-icon layui-icon-face-surprised" aria-hidden="true"></i>
 									<p>${commonStr.noData}</p>
 								</td>
 							</tr>
@@ -299,10 +303,13 @@
 								</div>
 							</div>
 
-							<div class="layui-form-item" style="padding-left: 20px;">
-								<input type="checkbox" name="def" id="def" title="default_server" lay-skin="primary">
-								<input type="checkbox" name="proxyProtocol" id="proxyProtocol" title="proxy protocol" lay-skin="primary">
-								<input type="checkbox" name="ipv6" id="ipv6" title="${serverStr.ipv6}" lay-skin="primary">
+							<div class="layui-form-item" style="margin-bottom: 0px;">
+								<label class="layui-form-label"></label>
+								<div class="layui-input-block">
+									<input type="checkbox" name="def" id="def" title="default_server" lay-skin="primary">
+									<input type="checkbox" name="proxyProtocol" id="proxyProtocol" title="proxy protocol" lay-skin="primary">
+									<input type="checkbox" name="ipv6" id="ipv6" title="${serverStr.ipv6}" lay-skin="primary">
+								</div>
 							</div>
 
 

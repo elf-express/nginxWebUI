@@ -285,10 +285,12 @@ function edit(id, clone) {
 }
 
 function showWindow(title) {
+	var a = getMainArea();
 	layer.open({
 		type: 1,
 		title: title,
-		area: ['1000px', '630px'], // 宽高
+		offset: a.offset,
+		area: [a.w, a.h],
 		content: $('#windowDiv')
 	});
 }

@@ -5,7 +5,7 @@
   "main": "test_login.js",
   "scripts": {
     "test": "npx playwright test --config=tests/e2e/playwright.config.js",
-    "test:fast": "npx playwright test --config=tests/e2e/playwright.config.js --headed=false",
+    "test:fast": "npx playwright test --config=tests/e2e/playwright.fast.config.js",
     "report": "npx playwright show-report tests/playwright-report/html --port 9400"
   },
   "repository": {
@@ -16,8 +16,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@tw199501/specsnap-inspector-core": "^0.0.9",
-    "@tw199501/specsnap-inspector-vue": "^0.0.9",
     "playwright": "^1.58.2"
   },
   "devDependencies": {

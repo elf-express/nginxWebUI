@@ -50,9 +50,23 @@ public class GeoipService {
 	/** version(build date) 記憶體快取：key -> "yyyy.MM.dd"。下載後清掉重讀。 */
 	private final Map<String, String> versionCache = new ConcurrentHashMap<>();
 
+	/**
+	 * 讀取排程時間 geoip.fetchTime，驗證 "HH:mm"（00:00-23:59）格式；
+	 * 未設定或格式無效一律 fallback "03:00"，避免無效值讓排程靜默失效（code review I-1）。
+	 */
+	public String getFetchTime() {
+		String t = settingService.get("geoip.fetchTime");
+		if (t != null && t.matches("^([01]\\d|2[0-3]):[0-5]\\d$")) {
+			return t;
+		}
+		return "03:00";
+	}
+
 	/** 給 header 下拉與防護頁表格用：三個資料庫的版本 / 上次更新 / 排程。 */
 	public List<GeoipDbInfo> getDbInfos() {
 		List<GeoipDbInfo> list = new ArrayList<>();
+		// 排程時間由 geoip.fetchTime 設定（預設 03:00），與 ScheduleTask.fetchGeoip() 一致
+		String fetchTime = getFetchTime();
 		for (String[] db : DBS) {
 			String key = db[0];
 			String fileName = db[1];
@@ -80,8 +94,10 @@ public class GeoipService {
 				}
 			}
 
-			// 排程目前固定在 Docker cron（每週三、六 03:00 UTC）。後端給通用值，前端可用 i18n 覆寫顯示。
-			info.setScheduleStr("Wed & Sat 03:00 (UTC)");
+			// 排程由 Java @Scheduled（ScheduleTask.fetchGeoip）每日於 geoip.fetchTime 執行（JAR/Docker 通用）。
+			// scheduleStr 供 versions JSON;前端表格以 i18n geoipStr.scheduleValue 模板套 scheduleTime 顯示（誠實反映 fetchTime）。
+			info.setScheduleStr("Daily " + fetchTime);
+			info.setScheduleTime(fetchTime);
 
 			list.add(info);
 		}
@@ -160,7 +176,7 @@ public class GeoipService {
 			String dbKey = db[0];
 			String fileName = db[1];
 			String url = db[2];
-			File tmp = new File(dir, fileName + ".tmp");
+			File tmp = new File(dir, fileName + "." + System.nanoTime() + ".tmp"); // 唯一檔名,避免手動與排程下載對同檔競爭(review Minor #1)
 			File dest = new File(dir, fileName);
 			try {
 				long size = HttpUtil.downloadFile(url, tmp, DOWNLOAD_TIMEOUT_MS);

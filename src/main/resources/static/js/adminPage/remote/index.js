@@ -205,7 +205,7 @@ $(function() {
 				isSimpleData: true
 			},
 			view: {
-				iconLeaf: `<i class="layui-icon layui-icon-component"></i> `,
+				iconLeaf: `<i class="layui-icon layui-icon-component" aria-hidden="true"></i> `,
 				expandAllDefault: true
 			},
 			customName :{

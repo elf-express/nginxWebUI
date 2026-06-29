@@ -25,6 +25,7 @@ import com.cym.model.Remote;
 import com.cym.model.Upstream;
 import com.cym.model.UpstreamServer;
 import com.cym.service.DenyAllowService;
+import com.cym.service.GeoipService;
 import com.cym.service.HttpService;
 import com.cym.service.LogService;
 import com.cym.service.RemoteService;
@@ -73,6 +74,8 @@ public class ScheduleTask {
 	@Inject
 	DenyAllowService denyAllowService;
 	@Inject
+	GeoipService geoipService;
+	@Inject
 	MessageUtils m;
 	@Inject
 	HomeConfig homeConfig;
@@ -103,6 +106,54 @@ public class ScheduleTask {
 		}
 	}
 		
+	// GeoIP MMDB 自動下載：解決「排程只在 Docker cron、JAR 模式不會自動更新」的問題。
+	// (a) 每日到 geoip.fetchTime（預設 03:00）下載全部；
+	// (b) 每小時整點補抓「缺檔或過期（>7 天）」的庫（處理全新安裝 / 錯過時段）。
+	// 下載走背景執行緒（City 約 60MB），避免卡住排程；同時只允許一個下載進行。
+	private final java.util.concurrent.atomic.AtomicBoolean geoipDownloading = new java.util.concurrent.atomic.AtomicBoolean(false);
+
+	@Scheduled(cron = "0 * * * * ?")
+	public void fetchGeoip() {
+		String fetchTime = geoipService.getFetchTime(); // 已驗證 HH:mm，無效則 03:00（code review I-1）
+		String nowHHmm = DateUtil.format(new Date(), "HH:mm");
+
+		boolean scheduled = nowHHmm.equals(fetchTime);
+		boolean hourly = !scheduled && nowHHmm.endsWith(":00");
+		if (!scheduled && !hourly) {
+			return;
+		}
+
+		if (!geoipDownloading.compareAndSet(false, true)) {
+			return; // 已有下載進行中，跳過
+		}
+		final boolean doAll = scheduled;
+		new Thread(() -> {
+			try {
+				if (doAll) {
+					geoipService.download("all");
+				} else {
+					long weekAgo = System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000;
+					for (String key : new String[] { "country", "city", "asn" }) {
+						String updatedAt = settingService.get("geoip." + key + ".updatedAt");
+						boolean stale = StrUtil.isBlank(updatedAt);
+						if (!stale) {
+							try {
+								stale = Long.parseLong(updatedAt) < weekAgo;
+							} catch (NumberFormatException e) {
+								stale = true;
+							}
+						}
+						if (stale) {
+							geoipService.download(key);
+						}
+					}
+				}
+			} finally {
+				geoipDownloading.set(false);
+			}
+		}, "geoip-download").start();
+	}
+
 	// 续签证书
 	@Scheduled(cron = "0 0 0/2 * * ?")
 	public void certTasks() {

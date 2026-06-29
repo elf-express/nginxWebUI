@@ -1,11 +1,9 @@
 services:
   nginxwebui:
-    # 預設拉 ghcr.io 上的 release image。要釘版本：在 docker/.env 設 NGINX_WEBUI_VERSION=x.y.z
-    # 想從原始碼本機 build：在 docker/ 跑 `docker compose up -d --build`（會跑 ../Dockerfile）
+    # 預設拉 ghcr.io release image。要釘版本：在 docker/.env 設 NGINX_WEBUI_VERSION=x.y.z
+    # 本機從原始碼 build：見 docker-compose.dev.yml
+    #   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
     image: ghcr.io/elf-express/nginxwebui:${NGINX_WEBUI_VERSION:-latest}
-    build:
-      context: ..
-      dockerfile: Dockerfile
     container_name: nginxwebui
     restart: unless-stopped
     ports:
@@ -55,14 +53,13 @@ services:
   # ── 日誌監控 ──────────────────────────────────
 
   promtail:
-    image: ghcr.io/elf-express/nginxwebui-promtail:${NGINX_WEBUI_VERSION:-latest}
-    build:
-      context: ./promtail
-      dockerfile: Dockerfile
+    image: grafana/promtail:3.5.0
     container_name: nginxwebui-promtail
     restart: unless-stopped
+    profiles: ["monitoring"]
     volumes:
       - nginxwebui_log:/var/log/nginx:ro
+      - ./promtail/config.yml:/etc/promtail/config.yml:ro
     command: -config.file=/etc/promtail/config.yml
     depends_on:
       - loki
@@ -71,6 +68,7 @@ services:
     image: grafana/loki:3.5.0
     container_name: nginxwebui-loki
     restart: unless-stopped
+    profiles: ["monitoring"]
     volumes:
       - loki_data:/loki
     command: -config.file=/etc/loki/local-config.yaml
@@ -82,16 +80,17 @@ services:
       retries: 3
 
   grafana:
-    image: ghcr.io/elf-express/nginxwebui-grafana:${NGINX_WEBUI_VERSION:-latest}
-    build:
-      context: ./grafana
-      dockerfile: Dockerfile
+    image: grafana/grafana:11.6.0
     container_name: nginxwebui-grafana
     restart: unless-stopped
+    profiles: ["monitoring"]
     ports:
       - "3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/loki.yml:ro
+      - ./grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/default.yml:ro
+      - ./grafana/nginx-dashboard.json:/var/lib/grafana/dashboards/nginx-monitor.json:ro
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
@@ -103,19 +102,18 @@ services:
   # ── 安全防護 ──────────────────────────────────
 
   crowdsec:
-    image: ghcr.io/elf-express/nginxwebui-crowdsec:${NGINX_WEBUI_VERSION:-latest}
-    build:
-      context: ./crowdsec
-      dockerfile: Dockerfile
+    image: crowdsecurity/crowdsec:v1.7.8
     container_name: nginxwebui-crowdsec
     restart: unless-stopped
-    # 注意：crowdsec_config volume 第一次部署會 seed 自 baked image config，
-    # 之後 image 升版若改了 baked config，必須 docker compose down -v 才會生效。
-    # 這是 docker named volume + image config 的 known trade-off。
+    profiles: ["security"]
+    # config 改單檔 bind mount（只覆蓋自訂的 3 個檔，不碰官方 image 內 /etc/crowdsec 其餘預設），
+    # 升版自動跟 repo config，不再需要 down -v 重新 seed。
     volumes:
       - nginxwebui_log:/var/log/nginx:ro
       - crowdsec_data:/var/lib/crowdsec/data
-      - crowdsec_config:/etc/crowdsec
+      - ./crowdsec/acquis.yml:/etc/crowdsec/acquis.yaml:ro
+      - ./crowdsec/profiles.yaml:/etc/crowdsec/profiles.yaml:ro
+      - ./crowdsec/abuseipdb.yaml:/etc/crowdsec/notifications/abuseipdb.yaml:ro
     environment:
       - COLLECTIONS=crowdsecurity/nginx crowdsecurity/http-cve crowdsecurity/base-http-scenarios
       - BOUNCER_KEY_nginx=${CROWDSEC_BOUNCER_KEY}
@@ -131,6 +129,7 @@ services:
     image: fbonalair/traefik-crowdsec-bouncer:0.5.0
     container_name: nginxwebui-bouncer
     restart: unless-stopped
+    profiles: ["security"]
     environment:
       - CROWDSEC_BOUNCER_API_KEY=${CROWDSEC_BOUNCER_KEY}
       - CROWDSEC_AGENT_HOST=crowdsec:8080
@@ -152,7 +151,5 @@ volumes:
     name: nginxwebui_grafana_data
   crowdsec_data:
     name: nginxwebui_crowdsec_data
-  crowdsec_config:
-    name: nginxwebui_crowdsec_config
   nginxwebui_geoip:
     name: nginxwebui_geoip
