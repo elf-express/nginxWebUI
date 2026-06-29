@@ -1,0 +1,19 @@
+src/main/resources/static/js/specsnap-launcher.js
+  s_9b0b398d36a69f::t_1bc0bad80ec9e4 31-34,39,42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "af905427085539f429fd56b1f2cf02a344b7d0b1",
+  "prompts": {},
+  "sessions": {
+    "s_9b0b398d36a69f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da28055b-4c65-4e22-addf-b33cad6ab021",
+        "model": "unknown"
+      },
+      "human_author": "tw199501 <tw199501@elf.tw>"
+    }
+  }
+}
