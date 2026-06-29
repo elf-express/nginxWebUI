@@ -1,0 +1,20 @@
+src/main/resources/WEB-INF/view/adminPage/server/index.html
+  s_9b0b398d36a69f::t_c0b589b01ac18a 362
+  s_9b0b398d36a69f::t_d17ec58b7678a3 282
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "67c8c615ec6fddb8d6215d423e9ae6f5302edc21",
+  "prompts": {},
+  "sessions": {
+    "s_9b0b398d36a69f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da28055b-4c65-4e22-addf-b33cad6ab021",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "tw199501 <tw199501@elf.tw>"
+    }
+  }
+}
