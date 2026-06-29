@@ -408,8 +408,8 @@
 								<label class="layui-form-label">${serverStr.protocols}</label>
 
 								<div class="layui-input-inline" style="width: 400px;">
-									<input type="checkbox" class="protocols" id="TLSv1" lay-skin="primary" value="TLSv1" title="TLSv1 (${serverStr.deprecated})">
-									<input type="checkbox" class="protocols" id="TLSv1_1" lay-skin="primary" value="TLSv1.1" title="TLSv1.1 (${serverStr.deprecated})">
+									<!-- TLSv1 removed 2026-06-30: IETF RFC 8996 已 deprecate -->
+									<!-- TLSv1.1 removed 2026-06-30: IETF RFC 8996 已 deprecate -->
 									<input type="checkbox" class="protocols" id="TLSv1_2" lay-skin="primary" value="TLSv1.2" title="TLSv1.2">
 									<input type="checkbox" class="protocols" id="TLSv1_3" lay-skin="primary" value="TLSv1.3" title="TLSv1.3">
 								</div>
@@ -440,13 +440,13 @@
 				<div class="layui-container" style="margin-left: 0px;">
 					<div style="width: 50px; display: inline-block;"></div>
 					<div class="layui-inline">
-						<button type="button" class="layui-btn layui-btn-sm layui-btn-normal proxyHttp" onclick="addItem()">${serverStr.addLocation}</button>
+						<button type="button" class="layui-btn layui-btn-sm layui-btn-normal proxyHttp" onclick="addItem()">① ${serverStr.addLocation}</button>
 					</div>
 					<div class="layui-inline">
 						<!-- IP黑白名單 button removed 2026-06-30: denyAllow 改由資料庫控管(防護與憑證頁) -->
 					</div>
 					<div class="layui-inline">
-						<button type="button" class="layui-btn layui-btn-sm" onclick="layer.msg('HTTP 參數設定:後續調整')">${serverStr.httpParm}</button></div><div class="layui-inline"><button type="button" class="layui-btn layui-btn-sm" onclick="serverParam()">${serverStr.serverParm}</button></div><div class="layui-inline"><button type="button" class="layui-btn layui-btn-sm" onclick="layer.msg('Proxy 參數設定:後續調整')">${serverStr.proxyParm}</button>
+						<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="layer.msg('HTTP 參數設定:後續調整')">② ${serverStr.httpParm}</button></div><div class="layui-inline"><button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="serverParam()">③ ${serverStr.serverParm}</button></div><div class="layui-inline"><button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="layer.msg('Proxy 參數設定:後續調整')">④ ${serverStr.proxyParm}</button>
 					</div>
 					
 					<textarea style="display: none;" id="serverParamJson" name="serverParamJson"></textarea>
