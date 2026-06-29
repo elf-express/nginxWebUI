@@ -61,3 +61,10 @@ tests/playwright-report/
 playwright-report/
 .playwright-mcp/
 captcha_code.txt
+
+### Dev runtime / tool caches (added 2026-06-29) ###
+dev-home/
+dev-home-verify/
+.codegraph/
+.specify/
+*.pid
