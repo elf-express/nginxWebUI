@@ -36,6 +36,18 @@
 .captcha-btn:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 </style>
 
+<!-- SpecSnap inspector (CSS measurement tool) — see docs/superpowers/plans/2026-06-30-specsnap-inspector-integration.md -->
+<script type="importmap">
+{
+  "imports": {
+    "@tw199501/specsnap-core": "${ctx}/lib/specsnap/specsnap-core.js",
+    "@tw199501/specsnap-inspector-core": "${ctx}/lib/specsnap/specsnap-inspector-core.js",
+    "fflate": "${ctx}/lib/specsnap/fflate.js"
+  }
+}
+</script>
+<script type="module" src="${ctx}/js/specsnap-launcher.js"></script>
+
 <script>
 	//国际化
 	<#list messageHeaders as messageHeader>

@@ -65,9 +65,11 @@ captcha_code.txt
 ### Dev runtime / tool caches (added 2026-06-29) ###
 dev-home/
 dev-home-verify/
+test-home-param/
 .codegraph/
 .specify/
 *.pid
 
 ### Scratchpad / one-off generated artifacts (added 2026-06-30) ###
 *-lifecycle-table.html
+/specsnap-*.png
