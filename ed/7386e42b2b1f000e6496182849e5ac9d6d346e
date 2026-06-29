@@ -1,0 +1,24 @@
+CLAUDE.md
+  s_9b0b398d36a69f::t_f9e7edf7a51afd 201-203,205
+  s_9b0b398d36a69f::t_5d6e16ba0ef30a 62-63
+  s_9b0b398d36a69f::t_9c999f723b7ca1 219
+  s_9b0b398d36a69f::t_b74f8c6a10b643 73,77
+  s_9b0b398d36a69f::t_e4ae5b9e15a426 3-8,10
+  s_9b0b398d36a69f::t_45352bfb75227b 80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.3",
+  "base_commit_sha": "ed7386e42b2b1f000e6496182849e5ac9d6d346e",
+  "prompts": {},
+  "sessions": {
+    "s_9b0b398d36a69f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da28055b-4c65-4e22-addf-b33cad6ab021",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "tw199501 <tw199501@elf.tw>"
+    }
+  }
+}
