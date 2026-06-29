@@ -1,5 +1,7 @@
 # Docker 容器構建與部署方案
 
+> **PARTIALLY SUPERSEDED 2026-06-30:** Monitoring stack (Loki / Promtail / Grafana) has been removed from the project. 本文件涉及 Loki / Promtail / Grafana 的章節已失效。CrowdSec / PostgreSQL / nginxwebui 部分仍適用。當前部署實況以 [README.md](../../../README.md) 與 [CLAUDE.md](../../../CLAUDE.md) 為準。
+
 > 本方案為**強制性**標準，所有容器構建必須遵守。
 
 ## 一、Stack 架構

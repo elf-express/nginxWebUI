@@ -26,7 +26,8 @@ Entry point: [com.cym.NginxWebUI](src/main/java/com/cym/NginxWebUI.java) — `@S
   > 注意：2.1.0 是最後支援 Java 8 的版本（3.x 需 Java 11），**勿升級**。
 - **Build:** Maven → `target/nginxWebUI-<version>.jar` (fat jar, `jar-with-dependencies`)
 - **Tests:** Playwright E2E (**no JUnit for end-to-end**)
-- **Containers:** Docker Compose stack (PostgreSQL + Loki + Grafana + CrowdSec). Only `nginxwebui` is self-built; sidecars use official images + bind-mounted config under [docker/](docker/).
+- **Containers:** Docker Compose stack (PostgreSQL + CrowdSec). Only `nginxwebui` is self-built; the CrowdSec sidecar uses the official image + bind-mounted config under [docker/crowdsec/](docker/crowdsec/).
+  > 注意：Loki + Promtail + Grafana 已於 2026-06-30 從本專案移除 — nginx 內建 access/error log 已足夠排查,CrowdSec 直接從共享的 `nginxwebui_log` volume 讀 nginx log,不需要 Loki 中介。
 
 ## Directory Structure
 ```
@@ -83,11 +84,11 @@ docs/               # design docs & plans
 - Run: `npm test` (headed) · `npm run test:fast` (headless/CI) · `npx playwright test tests/e2e/08-crowdsec.spec.js` (one file) · `npm run report` (http://localhost:9400).
 > 注意：測試會自動啟動獨立 server（port 18080）+ 獨立 SQLite，不碰 `./dev-home/`。`tests/e2e/helpers.js` 動態解析 `target/nginxWebUI-*.jar`，所以跑測試前要先 `mvn package`。
 
-### Docker (see docs/superpowers/plans/docker-guide.md)
+### Docker (see docs/superpowers/plans/docker-guide.md — partially superseded)
 - container_name: flat `nginxwebui` (app) / `nginxwebui-<service>` (sidecar) — no version suffix since 5.1.0.
 - volume name: `nginxwebui_{purpose}_data` (explicit `name:` to dodge compose project prefix).
 - healthcheck + startup order required; `entrypoint.sh` must be LF (`.gitattributes` enforces).
-- Sidecars (grafana / promtail / crowdsec) run **official images** with config bind-mounted from `docker/<service>/` — only `nginxwebui` is self-built. Monitoring/security are optional compose **profiles** (`monitoring` / `security`); default `docker compose up -d` starts only nginxwebui + postgres.
+- Only `nginxwebui` is self-built. The CrowdSec sidecar runs the **official image** with config bind-mounted from `docker/crowdsec/`. CrowdSec is opt-in via compose **profile** `security`; default `docker compose up -d` starts only nginxwebui + postgres.
 
 ## Architecture Flow
 A typical "user edits HTTP params" request crosses these layers:
@@ -172,7 +173,7 @@ First visit prompts to set the admin password.
 - Skip wizard: `--init.admin=admin --init.pass=admin123 --init.api=true`
   > 注意：`--init.*` 只在 DB 還沒有任何管理員時生效。自 5.1.0 起 compose 的 `BOOT_OPTIONS` 不再內建 `--init.admin/pass`（首次走 UI 引導）。
 
-**Docker Compose (recommended)** — run from `docker/`. Deploy needs `docker-compose.yml` + `.env` + the `docker/<service>/` config dirs (sidecars bind-mount them; default `up -d` = nginxwebui + postgres only, add `--profile monitoring --profile security` for the rest):
+**Docker Compose (recommended)** — run from `docker/`. Deploy needs `docker-compose.yml` + `.env` + `docker/crowdsec/` config dir (CrowdSec bind-mounts it). Default `up -d` = nginxwebui + postgres only; add `--profile security` for CrowdSec IDS:
 ```bash
 cd docker
 docker compose pull && docker compose up -d     # pull release images (:latest = newest tag)
@@ -180,8 +181,9 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build   #
 docker compose ps                                # all healthy
 ```
 
-**Stack** (from [docker/docker-compose.yml](docker/docker-compose.yml)): **always on** — nginxwebui (host **12300**→8080, 80, 443) · postgres:18-alpine. **Optional via profiles** — `monitoring`: loki · grafana (3000) · promtail; `security`: crowdsec · crowdsec-bouncer. Sidecars = official images + bind-mounted config.
+**Stack** (from [docker/docker-compose.yml](docker/docker-compose.yml)): **always on** — nginxwebui (host **12300**→8080, 80, 443) · postgres:18-alpine. **Optional via profile** — `security`: crowdsec · crowdsec-bouncer. CrowdSec sidecar = official image + bind-mounted config.
 > 注意：crowdsec config 改用單檔 bind mount（`docker/crowdsec/*.yaml` → 容器 `/etc/crowdsec/...`），升版自動跟 repo，不再需要 `docker compose down -v` 重新 seed。
+> 注意：Loki / Promtail / Grafana monitoring profile 已於 2026-06-30 從本專案移除。若 server 上還有 `nginxwebui_loki_data` / `nginxwebui_grafana_data` volume 是歷史遺留，可手動 `docker volume rm` 清理。
 
 ## Release Flow (see docs/superpowers/plans/2026-05-21-dev-release-workflow.md)
 **Branches:** `dev` (daily dev + release actions) · `master` (snapshot pointer to last release; never commit/tag here directly) · `tag v*` (cut by `scripts/release.sh`; CI builds image only on tags).
@@ -189,7 +191,7 @@ docker compose ps                                # all healthy
 ```bash
 git checkout dev && git pull origin dev
 scripts/release.sh 5.2.1            # bumps pom.xml + commit + tag v5.2.1 (only touches pom.xml)
-git push origin dev --tags          # CI matrix-builds 4 images → ghcr.io :5.2.1 + :latest
+git push origin dev --tags          # CI builds 1 image (nginxwebui) → ghcr.io :5.2.1 + :latest
 docker manifest inspect ghcr.io/elf-express/nginxwebui:5.2.1   # confirm pushed
 git push origin dev:master          # fast-forward master
 gh release create v5.2.1 ...        # GitHub Release entry
@@ -202,7 +204,7 @@ gh release create v5.2.1 ...        # GitHub Release entry
 **Security:** CrowdSec (IDS + bouncer) · GeoIP2 country block · ASN block · Protection Cert · Real-IP module · **DenyAllow self-seeded blocklist** (6 default malicious-IP rules + scheduled refresh with retry-on-failure + startup catch-up).
 **GeoIP DB module (v5.2.0):** header shows Country/City/ASN MMDB build dates (`GeoipService` via maxmind-db) · ProtectionCert Tab-1 GeoIP table (version / schedule / manual download) · `GeoipController` `/adminPage/geoip/{versions,download}` · Java/Hutool download (jar + Docker).
 **Monitoring/Ops:** nginx module auto-detect (`/adminPage/monitor/nginxInfo`) · Site Resource · connectivity test.
-**Deploy/Test:** test captcha · Compose stack (PG18 + Loki + Grafana + CrowdSec) · sidecars = official images + bind-mount config · optional profiles (monitoring/security) · CI builds 1 image (nginxwebui) · `.gitattributes` LF · Playwright E2E suite (offline-CDN guard + a11y crawler).
+**Deploy/Test:** test captcha · Compose stack (PG18 + CrowdSec) · CrowdSec sidecar = official image + bind-mount config · optional `security` profile · CI builds 1 image (nginxwebui) · `.gitattributes` LF · Playwright E2E suite (offline-CDN guard + a11y crawler).
 
 ## Docs
 - [Improvement plans & reports](docs/superpowers/plans/)

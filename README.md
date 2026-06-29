@@ -1,6 +1,6 @@
 # nginxWebUI · elf-express fork
 
-> 圖形化管理 nginx 設定的網頁工具 — 整合 GeoIP / CrowdSec / Loki / Grafana / Vue Dashboard 的安全強化版
+> 圖形化管理 nginx 設定的網頁工具 — 整合 GeoIP / CrowdSec 的安全強化版
 
 **English** · [README_EN.md](./README_EN.md)　**繁體中文** · 本檔
 
@@ -15,7 +15,6 @@
 | 維度 | 上游 cym1102 | elf-express fork |
 |---|---|---|
 | **資料庫** | SQLite（單檔） | **PostgreSQL 18-alpine**（多容器、可備援） |
-| **觀測性** | 無 | **Loki + Promtail + Grafana** 完整 log/metric 管線 |
 | **安全防護** | 純 IP 黑白名單 | + **CrowdSec** 入侵偵測、+ **GeoIP2** 國家封鎖、+ **ASN** 封鎖、+ **多 list 自動 fetch** |
 | **語系** | 簡中為主 | **繁中為主**（簡 / 繁 / 英三份）|
 | **前端** | 純 Layui + jQuery | + **Vue 3 局部 mount**（template picker / **Vue Dashboard**）|
@@ -38,17 +37,14 @@ docker compose up -d          # image 預設拉 :latest，永遠跟最新 releas
 
 打開瀏覽器 → **http://localhost:12300** → 首次啟動依畫面精靈設定管理員帳密（不再內建預設密碼）
 
-七個 service 一起起來：
+預設只起核心兩個 service；CrowdSec 透過 compose `security` profile 視需要開啟：
 
-| Service | Port | 用途 |
-|---|---|---|
-| **nginxwebui** | 12300:8080 / 80 / 443 | 主應用 |
-| postgres | 5432 | 資料庫 |
-| loki | 3100 | 日誌聚合 |
-| **grafana** | 3000 | 監控儀表板（admin/admin）|
-| promtail | — | 把 nginx + app log 推到 Loki |
-| crowdsec | — | 入侵偵測（v1.7.8）|
-| crowdsec-bouncer | — | nginx 流量過濾（0.5.0）|
+| Service | Port | 用途 | 預設 |
+|---|---|---|---|
+| **nginxwebui** | 12300:8080 / 80 / 443 | 主應用 | ✅ |
+| postgres | 5432 | 資料庫 | ✅ |
+| crowdsec | — | 入侵偵測（v1.7.8）| profile `security` |
+| crowdsec-bouncer | — | nginx 流量過濾（0.5.0）| profile `security` |
 
 ### Stack 架構
 
@@ -63,14 +59,12 @@ docker compose up -d          # image 預設拉 :latest，永遠跟最新 releas
 │                       ↓ ConfService 生成             │
 │            nginx.conf + 反向代理 + GeoIP/ASN block    │
 └───────────────────────────────────────────────────────┘
-            ↓ access log                ↑ HTTP query
-┌─ Promtail ─→ Loki ←─ Grafana Dashboard ──────────────┐
-│                  ←─ nginxwebui Monitor                │
-└───────────────────────────────────────────────────────┘
-            ↓ access log              ↑ cscli / API
+            ↓ access / error log
 ┌─ CrowdSec (入侵偵測) ──→ Bouncer ──→ nginx auth_request
 └───────────────────────────────────────────────────────┘
 ```
+
+> 日誌排查直接看 nginx 內建 access/error log（`nginxwebui_log` volume，CrowdSec 也是從這裡讀）。不再使用 Loki / Promtail / Grafana。
 
 ---
 
@@ -91,18 +85,13 @@ docker compose up -d          # image 預設拉 :latest，永遠跟最新 releas
 - 上游負載均衡（upstream）含 weight / backup / down 設定
 - **19 個內建參數模板**（含中文註解）：WebSocket Proxy / Proxy Headers / Large File Upload / CORS / Rate Limit / Security Headers / GeoIP / CrowdSec 認證
 
-### 📊 觀測性（持續強化中）
+### 📊 觀測性
 
-- Grafana 預先配 dashboard、看 nginx 流量 + 系統 metric
-- Loki 收集所有 nginx access log + nginxwebui app log
-- Promtail 自動轉發
-- **進行中**：原生 Vue Dashboard 整合 Loki query、4 大類指標
-  - 系統 (CPU/Mem/Disk/Net)
-  - **安全（封鎖 IP/國家/ASN Top N、CrowdSec alerts/decisions）**
-  - 流量（RPS / status code / response time / top path）
-  - TLS（憑證到期警告 / TLS 版本分布）
+- nginx 內建 access log / error log（在 `nginxwebui_log` volume，jar 模式則在 `--project.home` 下 `log/`）
+- 系統指標頁面（CPU / Mem / Disk / Net，OSHI 採集）
+- CrowdSec cscli / decisions API 可查封鎖列表
 
-→ [完整設計文件](./docs/superpowers/plans/2026-05-22-monitor-dashboard-v2.md)
+> 此 fork 曾整合 Loki + Promtail + Grafana 完整 log pipeline，2026-06-30 移除；nginx 本身的 access/error log 已足夠日常排查。
 
 ### 🎨 UI
 
@@ -123,7 +112,7 @@ docker compose up -d          # image 預設拉 :latest，永遠跟最新 releas
 
 ### A. Docker Compose（推薦、生產環境）
 
-只有 **nginxwebui 是自建 image**；sidecar（grafana / promtail / crowdsec）一律用**官方 image + bind-mount config**。預設只起核心兩個服務，監控 / IDS 用 compose **profile** 視需要開啟。
+只有 **nginxwebui 是自建 image**；CrowdSec sidecar 用**官方 image + bind-mount config**。預設只起核心兩個服務，IDS 用 compose `security` **profile** 視需要開啟。
 
 **只跑核心（nginxwebui + postgres）—— 線上只需兩個檔：**
 
@@ -135,13 +124,13 @@ curl -o .env https://raw.githubusercontent.com/elf-express/nginxWebUI/master/doc
 docker compose up -d                      # 只起 nginxwebui + postgres
 ```
 
-**要監控 / IDS（Loki·Grafana·Promtail / CrowdSec）—— 需要整個 `docker/` 目錄（sidecar 要 bind-mount 其下 config）：**
+**要加 CrowdSec IDS —— 需要整個 `docker/` 目錄（sidecar 要 bind-mount `docker/crowdsec/` 下 config）：**
 
 ```bash
 git clone https://github.com/elf-express/nginxWebUI.git && cd nginxWebUI/docker
 cp .env.example .env                       # 填 CROWDSEC_BOUNCER_KEY（首次可先填任意值）
-docker compose --profile monitoring --profile security up -d
-# 或在 .env 設 COMPOSE_PROFILES=monitoring,security 後直接 docker compose up -d
+docker compose --profile security up -d
+# 或在 .env 設 COMPOSE_PROFILES=security 後直接 docker compose up -d
 ```
 
 > 從原始碼自建 nginxwebui image：clone 後在 `docker/` 跑（先 `mvn clean package -DskipTests`）：
@@ -193,7 +182,7 @@ docker compose pull
 docker compose up -d
 ```
 
-> **從 5.2.1 之前升級者注意（行為變更）**：sidecar（grafana / promtail / crowdsec）已改用官方 image，且監控 / IDS 改為 compose **profile**。若你原本有跑監控 / IDS，升級後要在 `.env` 設 `COMPOSE_PROFILES=monitoring,security`（或用 `docker compose --profile monitoring --profile security up -d`），否則 `docker compose up -d` 只會維持 nginxwebui + postgres。舊的 `nginxwebui_crowdsec_config` volume 不再使用，可手動 `docker volume rm nginxwebui_crowdsec_config` 清理。
+> **2026-06-30 行為變更（monitoring 移除）**：Loki / Promtail / Grafana 三個 sidecar 已從專案完全移除（nginx 內建 access/error log 已足夠排查；CrowdSec 直接讀 nginx log volume，不再經 Loki 中介）。若你原本有跑 monitoring profile：升級後 `docker compose up -d` 不再啟動這三個 service，現存的 `nginxwebui_loki_data` / `nginxwebui_grafana_data` volume 可手動 `docker volume rm` 清理。CrowdSec 從 `--profile security` 啟動的行為不變。
 
 PostgreSQL schema 由 SqlHelper（自製 ORM）**CodeFirst 自動 ALTER TABLE** 加新欄位，**不需手動 migration**。
 
@@ -230,14 +219,6 @@ npm run test:fast             # 跑 E2E（headless / CI）
 | [v5.0.4](https://github.com/elf-express/nginxWebUI/releases/tag/v5.0.4) | dev/release pipeline 建立 |
 
 完整 changelog: https://github.com/elf-express/nginxWebUI/releases
-
----
-
-## Roadmap
-
-- **Vue Dashboard 重做**（進行中）— 4 大類指標 + ECharts + Loki query 整合（[設計文件](./docs/superpowers/plans/2026-05-22-monitor-dashboard-v2.md)）
-- v5.2.0（規劃）— Grafana 預配 dashboard JSON 升級、加 alert rules
-- v5.3.0（規劃）— Dashboard 加 widget 拖拉排序 + 歷史趨勢頁
 
 ---
 

@@ -1,7 +1,9 @@
 # Dashboard 重做計畫 — nginxWebUI Monitor v2
 
+> **SUPERSEDED 2026-06-30:** Monitoring stack (Loki / Promtail / Grafana) has been removed from the project — nginx 內建 access/error log 已足夠日常排查,Loki query 整合不再需要。本 plan 大部分內容(security/traffic/TLS tab、Loki data source)已失效,僅保留 OSHI 系統指標的部分仍可參考。文件保留作歷史記錄。
+
 **日期：** 2026-05-22
-**狀態：** 已批准，待執行
+**狀態：** ~~已批准，待執行~~ → **SUPERSEDED**(monitoring stack 已撤除)
 **目標版本：** 5.1.0（cross-minor feature release）
 **前置版本：** 5.0.13（T1-T4 + template picker + 黑名單 CSV 已 ship）
 
