@@ -1,0 +1,28 @@
+docs/superpowers/plans/2026-06-30-server-modal-http-param-panel.md
+  s_9b0b398d36a69f::t_0e6a62a004d3aa 1-14,16,18-21,23-26,36-38,41-85
+  s_9b0b398d36a69f::t_694400e7d89ee7 15,17
+  s_9b0b398d36a69f::t_16d8ce3c5aa4e0 22,27-35,39-40
+src/main/resources/static/js/adminPage/server/index.js
+  s_9b0b398d36a69f::t_574899543c464b 1295-1320
+src/main/resources/WEB-INF/view/adminPage/server/index.html
+  s_9b0b398d36a69f::t_ce7a70a8ed33ee 276-311
+  s_9b0b398d36a69f::t_05c1a6d939ade1 478-481
+src/main/java/com/cym/controller/adminPage/ServerController.java
+  s_9b0b398d36a69f::t_046dc7ec597aea 122
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "d1367718e35a413c7fa8ff09d2a5117745382952",
+  "prompts": {},
+  "sessions": {
+    "s_9b0b398d36a69f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da28055b-4c65-4e22-addf-b33cad6ab021",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "tw199501 <tw199501@elf.tw>"
+    }
+  }
+}
