@@ -36,7 +36,7 @@ input[name='param'] {
 				<form action="${ctx}/adminPage/stream" id="searchForm" method="post">
 					<div class="layui-form">
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="add()"><i class="layui-icon layui-icon-add-circle-fine"></i> ${stream.add}</button>
+							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="add()"><i class="layui-icon layui-icon-add-circle-fine" aria-hidden="true"></i> ${stream.add}</button>
 						</div>
 						<div class="layui-inline">
 							<button type="button" class="layui-btn layui-btn-sm" onclick="guide()">${httpStr.guide}</button>
@@ -48,10 +48,10 @@ input[name='param'] {
 							<button type="button" class="layui-btn layui-btn-sm" onclick="selectTemplateAsStream()">${upstreamStr.selectTemplateAsParam}</button>
 						</div>
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="preview(null,'stream')"><i class="layui-icon layui-icon-eye"></i> ${commonStr.preview}</button>
+							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="preview(null,'stream')"><i class="layui-icon layui-icon-eye" aria-hidden="true"></i> ${commonStr.preview}</button>
 						</div>
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="delMany()"><i class="layui-icon layui-icon-delete"></i> ${commonStr.delAll}</button>
+							<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="delMany()"><i class="layui-icon layui-icon-delete" aria-hidden="true"></i> ${commonStr.delAll}</button>
 						</div>
 					</div>
 				</form>
@@ -77,16 +77,16 @@ input[name='param'] {
 							<td style="width: 50%;">${stream.value}</td>
 							<td>
 								<div class="layui-inline">
-									<button type="button" class="layui-btn layui-btn-sm " onclick="edit('${stream.id}')"><i class="layui-icon layui-icon-edit"></i> ${commonStr.edit}</button>
+									<button type="button" class="layui-btn layui-btn-sm " onclick="edit('${stream.id}')"><i class="layui-icon layui-icon-edit" aria-hidden="true"></i> ${commonStr.edit}</button>
 								</div>
 								<div class="layui-inline">
-									<button type="button" class="layui-btn layui-btn-danger layui-btn-sm " onclick="del('${stream.id}')"><i class="layui-icon layui-icon-delete"></i> ${commonStr.del}</button>
+									<button type="button" class="layui-btn layui-btn-danger layui-btn-sm " onclick="del('${stream.id}')"><i class="layui-icon layui-icon-delete" aria-hidden="true"></i> ${commonStr.del}</button>
 								</div>
 								<div class="layui-inline">
-									<button type="button" class="layui-btn layui-btn-normal layui-btn-sm " onclick="setOrder('${stream.id}', -1)"><i class="layui-icon layui-icon-up"></i> ${commonStr.up}</button>
+									<button type="button" class="layui-btn layui-btn-normal layui-btn-sm " onclick="setOrder('${stream.id}', -1)"><i class="layui-icon layui-icon-up" aria-hidden="true"></i> ${commonStr.up}</button>
 								</div>
 								<div class="layui-inline">
-									<button type="button" class="layui-btn layui-btn-normal layui-btn-sm " onclick="setOrder('${stream.id}', 1)"><i class="layui-icon layui-icon-down"></i> ${commonStr.down}</button>
+									<button type="button" class="layui-btn layui-btn-normal layui-btn-sm " onclick="setOrder('${stream.id}', 1)"><i class="layui-icon layui-icon-down" aria-hidden="true"></i> ${commonStr.down}</button>
 								</div>
 							</td>
 						</tr>
