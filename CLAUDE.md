@@ -1,7 +1,13 @@
 # CLAUDE.md
 
-Guidance for Claude Code (claude.ai/code) when working in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+<!-- SPECKIT START -->
+For additional context about the active work, see plans under [docs/superpowers/plans/](docs/superpowers/plans/) — the most recent dated file is usually the current focus.
+<!-- SPECKIT END -->
+
 > 本檔以英文為主、關鍵處附中文註解。新增使用者可見字串仍須同步三份 i18n（見下）。
+> **Code navigation:** this repo is indexed by CodeGraph (`.codegraph/codegraph.db`). Reach for `codegraph_explore` (MCP) or `codegraph explore "<question>"` (shell) BEFORE grep/find/Read when locating or understanding code — one call returns verbatim source + call paths in far fewer tokens than a grep/read loop.
 
 ## Overview
 nginxWebUI is a web tool that simplifies NGINX configuration — users fill in UI forms instead of hand-writing `nginx.conf` (reverse proxy, SSL, load balancing, security hardening).
@@ -53,6 +59,8 @@ docs/               # design docs & plans
 2. **Multilingual** — every new user-facing string updates all 3 `messages*.properties`.
 3. **Automated tests** — every new/changed feature ships a Playwright test.
 4. **Zero-risk first** — prefer pure-frontend / purely-additive changes.
+5. **A11y baseline** — never introduce `<a href="javascript:...">` pseudo-links for actions; use `<button type="button">`. Header / sidebar / table-action / modal / captcha already migrated; guarded by [tests/e2e/27-a11y-buttons.spec.js](tests/e2e/27-a11y-buttons.spec.js). Icon-only controls need `aria-label`. New pages need an `<h1>` landmark.
+6. **Offline-first frontend** — vendor third-party libs into `static/lib/` rather than loading from a public CDN (this is a self-hosted admin tool, often deployed air-gapped). Guarded by [tests/e2e/26-offline-no-cdn.spec.js](tests/e2e/26-offline-no-cdn.spec.js).
 
 ### Frontend
 - Use Layui components; refresh `select` / `checkbox` with `form.render()`.
@@ -62,13 +70,14 @@ docs/               # design docs & plans
 > 注意：新增任何使用者可見字串，必須同步改三份 properties：`messages.properties`（簡）、`messages_zh_TW.properties`（繁）、`messages_en_US.properties`（英）。CJK 值用 `\uXXXX` escape（檔案是 ISO-8859-1）。
 
 ### Backend
-- Controllers go under `controller/adminPage/` (currently **28**, all under `adminPage/` — none in `controller/` root; incl. CrowdSec / Geo / Asn / ProtectionCert / SiteResource / **Geoip**).
+- Controllers all live under `controller/adminPage/` — none in `controller/` root (incl. CrowdSec / Geo / Asn / ProtectionCert / SiteResource / Geoip).
 - Services: `@Component` + `@Inject SqlHelper sqlHelper;`. Persistence via `SqlHelper` (home-grown ORM, not JPA — see cheatsheet).
 - Primary keys: always `SnowFlakeUtils.getId()` (snowflake; stored as String, generated as Long).
 - Init logic in `InitConfig.java`; runtime config via `app.yml` or launch args.
+- **Seed-on-empty pattern:** fork ships sensible defaults so users don't bootstrap from zero — e.g. `InitConfig.seedDenyAllowRules()` inserts 6 malicious-IP blocklist rules via `DenyAllowService.getDefaultRules()` when the table is empty. Apply the same pattern for any new feature where "empty DB ≈ broken UX."
 
 ### Testing (see docs/superpowers/plans/playwright-guide.md)
-- Specs in `tests/e2e/` — **24** files (`01-login` … `23-geoip-version` + `flag-svg-integrity`).
+- Specs in `tests/e2e/` — numbered `01-login` … `27-a11y-buttons` plus standalone (`flag-svg-integrity`). New feature → next number.
 - Match 簡/繁 button text with regex: `/批量輸入|批量输入/`.
 - Drive Layui widgets via `page.evaluate()`.
 - Run: `npm test` (headed) · `npm run test:fast` (headless/CI) · `npx playwright test tests/e2e/08-crowdsec.spec.js` (one file) · `npm run report` (http://localhost:9400).
@@ -189,10 +198,11 @@ gh release create v5.2.1 ...        # GitHub Release entry
 
 ## Feature Inventory
 **UI/UX:** batch param input · TLS default fix · conf indent + CodeMirror highlight · login password toggle · default http params/templates · HTTP param grouping (`HttpController.GROUP_DEFS`) · template grouping · IP/DenyAllow tag-ization · edit mode · conf error diagnosis · lang switch (flag SVG) · brand logo upload + header 200×60 align.
-**Security:** CrowdSec (IDS + bouncer) · GeoIP2 country block · ASN block · Protection Cert · Real-IP module.
-**GeoIP DB module (NEW, v5.2.0):** header shows Country/City/ASN MMDB build dates (`GeoipService` via maxmind-db) · ProtectionCert Tab-1 GeoIP table (version / schedule / manual download) · `GeoipController` `/adminPage/geoip/{versions,download}` · Java/Hutool download (jar + Docker).
+**Accessibility (Wave 1/2 audit, ongoing):** site-wide pseudo-link `<a href="javascript:">` → `<button>` migration (header, sidebar, table actions, modals, captcha) · semantic landmarks (`<nav>` sidebar, `<h1>` on key pages) · icon button `aria-label`. Specs 27-a11y-buttons + crawler-style assertions guard this.
+**Security:** CrowdSec (IDS + bouncer) · GeoIP2 country block · ASN block · Protection Cert · Real-IP module · **DenyAllow self-seeded blocklist** (6 default malicious-IP rules + scheduled refresh with retry-on-failure + startup catch-up).
+**GeoIP DB module (v5.2.0):** header shows Country/City/ASN MMDB build dates (`GeoipService` via maxmind-db) · ProtectionCert Tab-1 GeoIP table (version / schedule / manual download) · `GeoipController` `/adminPage/geoip/{versions,download}` · Java/Hutool download (jar + Docker).
 **Monitoring/Ops:** nginx module auto-detect (`/adminPage/monitor/nginxInfo`) · Site Resource · connectivity test.
-**Deploy/Test:** test captcha · Compose stack (PG18 + Loki + Grafana + CrowdSec) · sidecars = official images + bind-mount config · optional profiles (monitoring/security) · CI builds 1 image (nginxwebui) · `.gitattributes` LF · Playwright suite (24 specs).
+**Deploy/Test:** test captcha · Compose stack (PG18 + Loki + Grafana + CrowdSec) · sidecars = official images + bind-mount config · optional profiles (monitoring/security) · CI builds 1 image (nginxwebui) · `.gitattributes` LF · Playwright E2E suite (offline-CDN guard + a11y crawler).
 
 ## Docs
 - [Improvement plans & reports](docs/superpowers/plans/)
@@ -206,6 +216,7 @@ java -jar -Dfile.encoding=UTF-8 target/nginxWebUI-<version>.jar --server.port=80
 npm test            # E2E (headed)            #   npm run test:fast (headless)
 npm run report      # test report (port 9400)
 cd docker && docker compose up -d --build     # docker build+run
+codegraph explore "<question or symbol>"      # 1-call code lookup (prefer over grep/find)
 ```
 
 ## app.yml Key Params
