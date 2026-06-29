@@ -1293,3 +1293,28 @@ function showLocation(id){
 	$("#" + id + "_str").removeAttr('style');
 	$("#" + id + "_a").hide();
 }
+
+// === 設置 http 參數 panel (prototype, 2026-06-30) ===
+function openHttpParamPanel() {
+  layer.open({
+    type: 1,
+    title: '設置 http 參數',
+    area: ['85vw', '78vh'],
+    content: $('#httpParamPanelDiv').html(),
+    success: function() {
+      updateHttpParamCount();
+    }
+  });
+}
+
+function updateHttpParamCount() {
+  var n = $('input[name="httpParamItem"]:checked').length;
+  $('#httpParamCountNum').text(n);
+}
+
+function saveHttpParamPanel() {
+  // phase 2: send selected http param ids to backend
+  var ids = $('input[name="httpParamItem"]:checked').map(function(){ return this.value; }).get();
+  console.log('http param panel: would save', ids.length, 'ids =', ids);
+  layer.msg('已選 ' + ids.length + ' 個指令(後端 save 邏輯規劃中)');
+}
