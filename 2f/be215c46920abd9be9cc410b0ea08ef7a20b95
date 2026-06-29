@@ -1,0 +1,46 @@
+src/main/resources/static/js/specsnap-launcher.js
+  s_9b0b398d36a69f::t_570d68dec3e967 3-6,15-23,28-45,47-48,64
+  s_9b0b398d36a69f::t_7563b341fdebc0 24-27
+  s_9b0b398d36a69f::t_ddaae06cdec33b 49-62
+  s_9b0b398d36a69f::t_d9a319520231e2 1-2,7-14,46,63,65
+src/main/resources/messages.properties
+  s_9b0b398d36a69f::t_b3b7eef586e398 174
+src/main/resources/messages_en_US.properties
+  s_9b0b398d36a69f::t_08905c267e0f86 174
+src/main/resources/messages_zh_TW.properties
+  s_9b0b398d36a69f::t_69fd586ad73c3b 174
+package.json
+  s_9b0b398d36a69f::t_e2640f89c96a94 23-25
+  s_9b0b398d36a69f::t_46fdbaf103b9c5 19
+.gitignore
+  s_9b0b398d36a69f::t_8084375fff2ead 68,75
+docs/superpowers/plans/2026-06-30-specsnap-inspector-integration.md
+  s_9b0b398d36a69f::t_36c729e8283586 1-172
+src/main/resources/WEB-INF/view/adminPage/common.html
+  s_9b0b398d36a69f::t_d61c00d40cf20f 43-45
+  s_9b0b398d36a69f::t_d657d5f8300b1f 39-42,46-50
+package-lock.json
+  s_9b0b398d36a69f::t_722280a6451170 12,16-18,41,51,58-61,64-68
+src/main/resources/static/lib/specsnap/fflate.js
+  s_9b0b398d36a69f::t_044a5faa62592e 1-2710
+src/main/resources/static/lib/specsnap/specsnap-core.js
+  s_9b0b398d36a69f::t_b779b1d4a12320 1-712
+src/main/resources/static/lib/specsnap/specsnap-inspector-core.js
+  s_9b0b398d36a69f::t_fa1ec76a772acd 1-647
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "2fbe215c46920abd9be9cc410b0ea08ef7a20b95",
+  "prompts": {},
+  "sessions": {
+    "s_9b0b398d36a69f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da28055b-4c65-4e22-addf-b33cad6ab021",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "tw199501 <tw199501@elf.tw>"
+    }
+  }
+}
