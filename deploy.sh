@@ -33,13 +33,13 @@ else
   echo "[全新安裝] 目標目錄：$INSTALL_DIR"
 fi
 
-# 從 GitHub 拉取 deploy/ 目錄
+# 從 GitHub 拉取 docker/ 目錄
 echo ""
 echo ">>> 從 GitHub 拉取部署檔案..."
 rm -rf "$TMP_DIR"
 git clone --depth 1 --filter=blob:none --sparse "$REPO" "$TMP_DIR"
 cd "$TMP_DIR"
-git sparse-checkout set deploy
+git sparse-checkout set docker
 echo "[完成] 部署檔案已下載"
 
 # 建立安裝目錄
@@ -48,14 +48,14 @@ mkdir -p "$INSTALL_DIR/crowdsec"
 # 複製檔案（不覆蓋 .env）
 echo ""
 echo ">>> 複製部署檔案到 $INSTALL_DIR..."
-cp deploy/docker-compose.yml "$INSTALL_DIR/"
-cp deploy/crowdsec/acquis.yml "$INSTALL_DIR/crowdsec/"
-cp deploy/crowdsec/abuseipdb.yaml "$INSTALL_DIR/crowdsec/"
-cp deploy/crowdsec/profiles.yaml "$INSTALL_DIR/crowdsec/"
+cp docker/docker-compose.yml "$INSTALL_DIR/"
+cp docker/crowdsec/acquis.yml "$INSTALL_DIR/crowdsec/"
+cp docker/crowdsec/abuseipdb.yaml "$INSTALL_DIR/crowdsec/"
+cp docker/crowdsec/profiles.yaml "$INSTALL_DIR/crowdsec/"
 
 # .env 處理
 if [ ! -f "$INSTALL_DIR/.env" ]; then
-  cp deploy/.env.example "$INSTALL_DIR/.env"
+  cp docker/.env.example "$INSTALL_DIR/.env"
   echo "[注意] 已建立 .env，請稍後編輯填入金鑰"
   NEED_ENV=true
 else

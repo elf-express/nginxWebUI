@@ -68,3 +68,6 @@ dev-home-verify/
 .codegraph/
 .specify/
 *.pid
+
+### Scratchpad / one-off generated artifacts (added 2026-06-30) ###
+*-lifecycle-table.html
