@@ -1,0 +1,19 @@
+src/main/resources/static/js/adminPage/server/index.js
+  s_9b0b398d36a69f::t_a117e4d73f4939 202
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "b772d5402ae1aa7fb45691ccd753e7624a972b78",
+  "prompts": {},
+  "sessions": {
+    "s_9b0b398d36a69f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da28055b-4c65-4e22-addf-b33cad6ab021",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "tw199501 <tw199501@elf.tw>"
+    }
+  }
+}
