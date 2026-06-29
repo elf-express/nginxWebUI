@@ -1,0 +1,28 @@
+docs/superpowers/plans/2026-05-23-deploy-stack-refactor.md
+  s_9b0b398d36a69f::t_3e3da12796cfc2 3-4
+docker/.env.example
+  s_9b0b398d36a69f::t_1ac224daf66caf 19-20
+.gitignore
+  s_9b0b398d36a69f::t_13aad46c4d8ff6 71-73
+docs/superpowers/plans/2026-05-25-sidecar-images-ci-release.md
+  s_9b0b398d36a69f::t_37d26f33c5c557 3-4
+deploy.sh
+  s_9b0b398d36a69f::t_67999f03fb6722 36,51-54,58
+  s_9b0b398d36a69f::t_a064b7d3c06952 42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "edc54e008ab496f64358ee54b5f219a743d9f0d4",
+  "prompts": {},
+  "sessions": {
+    "s_9b0b398d36a69f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da28055b-4c65-4e22-addf-b33cad6ab021",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "tw199501 <tw199501@elf.tw>"
+    }
+  }
+}
