@@ -139,30 +139,30 @@ public class ServerController extends BaseController {
 
 				if (location.getType() == 0) {
 					str.add("<span class='path'>" + location.getPath() + "</span>"//
-							+ "<a class='descrBtn' href='javascript:editLocationDescr(\"" + location.getId() + "\")'>" + descr + "</a>"//
+							+ "<button type='button' class='descrBtn' onclick='editLocationDescr(\"" + location.getId() + "\")'>" + descr + "</button>"//
 							+ "<br>"//
 							+ "<span class='value'>" + location.getValue() + "</span>");
 				} else if (location.getType() == 1) {
 					str.add("<span class='path'>" + location.getPath() + "</span>"//
-							+ "<a class='descrBtn' href='javascript:editLocationDescr(\"" + location.getId() + "\")'>" + descr + "</a>"//
+							+ "<button type='button' class='descrBtn' onclick='editLocationDescr(\"" + location.getId() + "\")'>" + descr + "</button>"//
 							+ "<br>"//
 							+ "<span class='value'>" + location.getRootPath() + "</span>");
 				} else if (location.getType() == 2) {
 					Upstream upstream = sqlHelper.findById(location.getUpstreamId(), Upstream.class);
 					if (upstream != null) {
 						str.add("<span class='path'>" + location.getPath() + "</span>"//
-								+ "<a class='descrBtn' href='javascript:editLocationDescr(\"" + location.getId() + "\")'>" + descr + "</a>"//
+								+ "<button type='button' class='descrBtn' onclick='editLocationDescr(\"" + location.getId() + "\")'>" + descr + "</button>"//
 								+ "<br>"//
 								+ "<span class='value'>http://" + upstream.getName() + (location.getUpstreamPath() != null ? location.getUpstreamPath() : "") + "</span>");
 					}
 				} else if (location.getType() == 4) {
 					str.add("<span class='path'>" + location.getPath() + "</span>"//
-							+ "<a class='descrBtn' href='javascript:editLocationDescr(\"" + location.getId() + "\")'>" + descr + "</a>"//
+							+ "<button type='button' class='descrBtn' onclick='editLocationDescr(\"" + location.getId() + "\")'>" + descr + "</button>"//
 							+ "<br>"//
 							+ "<span class='value'>" + location.getReturnUrl() + "</span>");
 				} else if (location.getType() == 3) {
 					str.add("<span class='path'>" + location.getPath() + "</span>" //
-							+ "<a class='descrBtn' href='javascript:editLocationDescr(\"" + location.getId() + "\")'>" + descr + "</a>");
+							+ "<button type='button' class='descrBtn' onclick='editLocationDescr(\"" + location.getId() + "\")'>" + descr + "</button>");
 				}
 			}
 

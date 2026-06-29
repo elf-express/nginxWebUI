@@ -116,7 +116,7 @@
 							<td>${ext.upstream.name}</td>
 							<td style="max-width: 150px;">
 								<#if ext.upstream.descr != null && ext.upstream.descr != "">
-									<button type="button" class="link-button" onclick="editDescr('${ext.upstream.id}')" aria-label="${commonStr.edit}">${ext.upstream.descr}</button>
+									<button type="button" class="link-button" onclick="editDescr('${ext.upstream.id}')">${ext.upstream.descr}</button>
 								</#if>
 								<#if ext.upstream.descr == null || ext.upstream.descr == "">
 									<button type="button" class="link-button" onclick="editDescr('${ext.upstream.id}')">${commonStr.edit}</button>
