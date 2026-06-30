@@ -1,0 +1,19 @@
+docs/superpowers/plans/2026-06-30-server-modal-http-param-panel.md
+  s_9b0b398d36a69f::t_b27a762413e4c5 86-126
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "06f95dd2f0eee608771307a2c8d4eee58694a5a8",
+  "prompts": {},
+  "sessions": {
+    "s_9b0b398d36a69f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da28055b-4c65-4e22-addf-b33cad6ab021",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "tw199501 <tw199501@elf.tw>"
+    }
+  }
+}
