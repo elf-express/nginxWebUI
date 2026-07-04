@@ -33,6 +33,14 @@ Dockerfile    text eol=lf
 *.cmd         text eol=crlf
 *.ps1         text eol=crlf
 
+# ---- GitHub Linguist 語言統計標記 ----
+# 排除第三方 vendored libs（zTree/CodeMirror/Layui 等），避免 340+ HTML 蓋掉 Java/JS 比例
+src/main/resources/static/lib/**       linguist-vendored=true
+# 專案內文件目錄，算文件不算 code
+src/main/resources/static/doc/**       linguist-documentation=true
+# 測試 artifacts（本地產物，一般已 gitignore；雙保險）
+tests/playwright-report/**             linguist-generated=true
+
 # 二進位檔：明確標 binary 避免任何換行處理
 *.png         binary
 *.jpg         binary
