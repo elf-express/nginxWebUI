@@ -1,0 +1,19 @@
+docs/superpowers/plans/2026-07-05-http-param-panel-phase2-design.md
+  s_40e6c34e123f19::t_f0eadffaf1f4a8 1-79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "d87e71ea0980b61d77ef9915f85fb49ac03628c6",
+  "prompts": {},
+  "sessions": {
+    "s_40e6c34e123f19": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59f2918c-ed3a-4f68-aadb-7cdddee39ce8",
+        "model": "unknown"
+      },
+      "human_author": "tw199501 <tw199501@elf.tw>"
+    }
+  }
+}
