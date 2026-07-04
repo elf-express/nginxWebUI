@@ -2,9 +2,12 @@ package com.cym.controller.adminPage;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 import org.noear.solon.annotation.Controller;
 import org.noear.solon.annotation.Inject;
@@ -14,6 +17,7 @@ import org.noear.solon.core.handle.ModelAndView;
 import com.cym.ext.HttpGroupExt;
 import com.cym.model.DenyAllow;
 import com.cym.model.Http;
+import com.cym.service.ConfService;
 import com.cym.service.HttpService;
 import com.cym.service.SettingService;
 import com.cym.utils.BaseController;
@@ -33,6 +37,8 @@ public class HttpController extends BaseController {
 	SettingService settingService;
 	@Inject
 	MessageUtils m;
+	@Inject
+	ConfService confService;
 
 	// 分組定義：groupName → { i18n displayName key, i18n description key, module note key }
 	private static final String[][] GROUP_DEFS = {
@@ -225,5 +231,53 @@ public class HttpController extends BaseController {
 	public JsonResult setEnable(Http http) {
 		sqlHelper.updateById(http);
 		return renderSuccess();
+	}
+
+	/**
+	 * http 參數 panel 存檔:全域 update Http.enable（勾選=true，未勾=false），
+	 * 存檔前跑 nginx -t 預檢，失敗則 rollback。不自動 reload。
+	 */
+	@Mapping("saveEnable")
+	public synchronized JsonResult saveEnable(String checkedIds) {
+		Set<String> checked = new HashSet<>();
+		if (StrUtil.isNotEmpty(checkedIds)) {
+			for (String id : checkedIds.split(",")) {
+				if (StrUtil.isNotBlank(id)) {
+					checked.add(id.trim());
+				}
+			}
+		}
+
+		List<Http> httpList = sqlHelper.findAll(Http.class);
+		Map<String, Boolean> oldEnable = new HashMap<>();
+		for (Http http : httpList) {
+			oldEnable.put(http.getId(), http.getEnable());
+		}
+
+		// 套用新 enable（只更新有變動的）
+		for (Http http : httpList) {
+			boolean want = checked.contains(http.getId());
+			if (!Objects.equals(http.getEnable(), want)) {
+				http.setEnable(want);
+				sqlHelper.updateById(http);
+			}
+		}
+
+		String precheck = confService.precheckConf();
+		if (precheck == null) {
+			return renderSuccess(m.get("serverStr.httpParamSaved"));
+		}
+		if ("SKIPPED".equals(precheck)) {
+			return renderSuccess(m.get("serverStr.httpParamPrecheckSkipped"));
+		}
+		// 預檢失敗 → rollback
+		for (Http http : httpList) {
+			Boolean old = oldEnable.get(http.getId());
+			if (!Objects.equals(http.getEnable(), old)) {
+				http.setEnable(old);
+				sqlHelper.updateById(http);
+			}
+		}
+		return renderError(m.get("serverStr.httpParamPrecheckFail") + "<br>" + precheck.replace("\n", "<br>"));
 	}
 }

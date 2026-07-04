@@ -54,6 +54,7 @@ import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.io.resource.ClassPathResource;
 import cn.hutool.core.util.CharsetUtil;
+import cn.hutool.core.util.RuntimeUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.core.util.ZipUtil;
 
@@ -404,6 +405,49 @@ public class ConfService {
 		}
 
 		return null;
+	}
+
+	/**
+	 * 用「目前 DB 狀態」build 出 nginx.conf，寫臨時檔後跑 nginx -t 語法預檢。
+	 * @return null=預檢通過；"SKIPPED"=nginxExe 未設定，略過；其他字串=nginx -t 錯誤訊息。
+	 */
+	public synchronized String precheckConf() {
+		String nginxExe = ToolUtils.handleConf(settingService.get("nginxExe"));
+		if (StrUtil.isEmpty(nginxExe)) {
+			return "SKIPPED";
+		}
+		String nginxDir = ToolUtils.handleConf(settingService.get("nginxDir"));
+
+		String decompose = settingService.get("decompose");
+		boolean decomposeFlag = StrUtil.isNotEmpty(decompose) && decompose.equals("true");
+		ConfExt confExt = buildConf(decomposeFlag, false);
+		if (confExt == null) {
+			return "buildConf failed";
+		}
+
+		// 寫臨時檔（與 ConfController.check 同路徑/同 replace 流程，isReplace=false 不備份）
+		FileUtil.del(homeConfig.home + "temp");
+		String fileTemp = homeConfig.home + "temp/nginx.conf";
+		List<String> subContent = new ArrayList<>();
+		List<String> subName = new ArrayList<>();
+		for (ConfFile cf : confExt.getFileList()) {
+			subContent.add(cf.getConf());
+			subName.add(cf.getName());
+		}
+		replace(fileTemp, confExt.getConf(), subContent, subName, false, null);
+
+		String cmd = nginxExe + " -t -c " + fileTemp;
+		if (StrUtil.isNotEmpty(nginxDir)) {
+			cmd += " -p " + nginxDir;
+		}
+		String rs;
+		try {
+			rs = RuntimeUtil.execForStr(cmd);
+		} catch (Exception e) {
+			logger.error(e.getMessage(), e);
+			return e.getMessage();
+		}
+		return rs.contains("test is successful") ? null : rs;
 	}
 
 	/**
