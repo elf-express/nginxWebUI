@@ -1,7 +1,12 @@
 const { test, expect } = require('@playwright/test');
 const { login } = require('./helpers');
 
-test.describe('http 參數批量輸入', () => {
+// http 頁工具列於 2026-06-30 依 user 決定精簡:移除「批量輸入 / IP黑白名單 / 添加模板作為參數」
+// 三個按鈕(見 http/index.html 註解),只保留 添加http參數配置 / 簡易配置向導 / 預覽。
+// 批量輸入功能的「行為」測試改由 server 頁的 03-server-batch 覆蓋(server/location 仍有批量輸入)。
+// 本 spec 鎖定「http 頁不再提供批量輸入按鈕」,防止意外回退該精簡決定。
+// NOTE(backlog): http/index.html 仍殘留 batchInputDiv / parseBatchInput 死 code,待清理。
+test.describe('http 頁工具列精簡（2026-06-30）', () => {
 
   test.beforeEach(async ({ page }) => {
     await login(page);
@@ -9,51 +14,13 @@ test.describe('http 參數批量輸入', () => {
     await page.waitForSelector('table');
   });
 
-  test('批量輸入按鈕存在', async ({ page }) => {
-    const btn = page.getByRole('button', { name: /批量輸入|批量输入/ });
-    await expect(btn).toBeVisible();
+  test('http 頁工具列不再有批量輸入按鈕', async ({ page }) => {
+    await expect(page.getByRole('button', { name: /批量輸入|批量输入/ })).toHaveCount(0);
   });
 
-  test('批量輸入彈窗可打開並關閉', async ({ page }) => {
-    await page.getByRole('button', { name: /批量輸入|批量输入/ }).click();
-
-    // 彈窗應出現
-    const textarea = page.locator('#batchInputText');
-    await expect(textarea).toBeVisible();
-
-    // 關閉
-    await page.locator('#batchInputDiv').getByRole('button', { name: /關閉|关闭/ }).click();
-  });
-
-  test('批量輸入多行 nginx 指令', async ({ page }) => {
-    await page.getByRole('button', { name: /批量輸入|批量输入/ }).click();
-
-    const textarea = page.locator('#batchInputText');
-    await textarea.fill('sendfile on;\ntcp_nopush on;\ntcp_nodelay on;');
-
-    await page.getByRole('button', { name: /確認添加|确认添加/ }).click();
-
-    // 頁面刷新後應看到新增的參數
-    await page.waitForTimeout(1000);
-    const table = page.locator('table');
-
-    await expect(table.locator('text=sendfile')).toBeVisible();
-    await expect(table.locator('text=tcp_nopush')).toBeVisible();
-    await expect(table.locator('text=tcp_nodelay')).toBeVisible();
-  });
-
-  test('批量輸入自動去除行末分號', async ({ page }) => {
-    await page.getByRole('button', { name: /批量輸入|批量输入/ }).click();
-
-    const textarea = page.locator('#batchInputText');
-    await textarea.fill('proxy_buffering off;');
-
-    await page.getByRole('button', { name: /確認添加|确认添加/ }).click();
-    await page.waitForTimeout(1000);
-
-    // 值應為 "off" 而不是 "off;"
-    const table = page.locator('table');
-    await expect(table.locator('text=proxy_buffering')).toBeVisible();
+  test('http 頁工具列保留 預覽 與 新增 按鈕', async ({ page }) => {
+    await expect(page.getByRole('button', { name: /預覽|预览/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /添加http參數配置|添加http参数配置/ })).toBeVisible();
   });
 
 });

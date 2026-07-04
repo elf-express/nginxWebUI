@@ -1,71 +1,36 @@
 const { test, expect } = require('@playwright/test');
 const { login } = require('./helpers');
 
-test.describe('TLS 版本預設值與棄用標註', () => {
+// TLSv1 / TLSv1.1 已於 2026-06-30 移除(IETF RFC 8996 deprecated),
+// server add-proxy modal 只保留 TLSv1.2 / TLSv1.3,且預設勾選。
+test.describe('TLS 版本預設值', () => {
 
   test.beforeEach(async ({ page }) => {
     await login(page);
     await page.goto('/adminPage/server');
     await page.waitForSelector('table');
-  });
-
-  test('TLSv1 和 TLSv1.1 標示為已棄用', async ({ page }) => {
-    // 打開「添加反向代理」
     await page.getByRole('button', { name: '添加反向代理' }).click();
     await page.waitForTimeout(500);
-
-    // 開啟 SSL
+    // 開啟 SSL 讓 protocols checkbox 區塊顯示
     await page.evaluate(() => {
       document.getElementById('ssl').value = '1';
       checkSsl('1');
     });
     await page.waitForTimeout(500);
-
-    // 檢查標籤文字
-    const content = await page.content();
-    expect(content).toContain('TLSv1');
-    expect(content).toContain('TLSv1.1');
-
-    // 應包含「已棄用」或「已弃用」或「deprecated」
-    const hasDeprecatedLabel = content.includes('已棄用') || content.includes('已弃用') || content.includes('deprecated');
-    expect(hasDeprecatedLabel).toBe(true);
   });
 
-  test('TLSv1 和 TLSv1.1 預設不勾選', async ({ page }) => {
-    await page.getByRole('button', { name: '添加反向代理' }).click();
-    await page.waitForTimeout(500);
-
-    await page.evaluate(() => {
-      document.getElementById('ssl').value = '1';
-      checkSsl('1');
-    });
-    await page.waitForTimeout(500);
-
-    // TLSv1 checkbox 不應被勾選
-    const tlsv1 = page.locator('input[value="TLSv1"]');
-    await expect(tlsv1).not.toBeChecked();
-
-    // TLSv1.1 checkbox 不應被勾選
-    const tlsv11 = page.locator('input[value="TLSv1.1"]');
-    await expect(tlsv11).not.toBeChecked();
+  test('TLSv1 和 TLSv1.1 已移除（IETF RFC 8996）', async ({ page }) => {
+    // 精確 value 匹配:'TLSv1' / 'TLSv1.1' 不會誤中 'TLSv1.2'
+    await expect(page.locator('input.protocols[value="TLSv1"]')).toHaveCount(0);
+    await expect(page.locator('input.protocols[value="TLSv1.1"]')).toHaveCount(0);
   });
 
-  test('TLSv1.2 和 TLSv1.3 預設勾選', async ({ page }) => {
-    await page.getByRole('button', { name: '添加反向代理' }).click();
-    await page.waitForTimeout(500);
-
-    await page.evaluate(() => {
-      document.getElementById('ssl').value = '1';
-      checkSsl('1');
-    });
-    await page.waitForTimeout(500);
-
-    // TLSv1.2 應被勾選
+  test('TLSv1.2 和 TLSv1.3 存在且預設勾選', async ({ page }) => {
     const tlsv12 = page.locator('input[value="TLSv1.2"]');
-    await expect(tlsv12).toBeChecked();
-
-    // TLSv1.3 應被勾選
     const tlsv13 = page.locator('input[value="TLSv1.3"]');
+    await expect(tlsv12).toHaveCount(1);
+    await expect(tlsv13).toHaveCount(1);
+    await expect(tlsv12).toBeChecked();
     await expect(tlsv13).toBeChecked();
   });
 
