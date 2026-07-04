@@ -1,0 +1,23 @@
+src/main/resources/messages.properties
+  s_40e6c34e123f19::t_72a9cf81146660 583-586
+src/main/resources/messages_en_US.properties
+  s_40e6c34e123f19::t_411f1e2c5d2e08 583-586
+src/main/resources/messages_zh_TW.properties
+  s_40e6c34e123f19::t_43f64a3ad6a4f3 583-586
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "21b21d282560a42abe0222f965b352e0608867a1",
+  "prompts": {},
+  "sessions": {
+    "s_40e6c34e123f19": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59f2918c-ed3a-4f68-aadb-7cdddee39ce8",
+        "model": "unknown"
+      },
+      "human_author": "tw199501 <tw199501@elf.tw>"
+    }
+  }
+}
