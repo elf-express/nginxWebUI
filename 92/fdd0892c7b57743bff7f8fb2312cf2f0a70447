@@ -1,0 +1,19 @@
+.gitattributes
+  s_8d6728a8d15cba::t_52d5afdaed0928 36-43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "92fdd0892c7b57743bff7f8fb2312cf2f0a70447",
+  "prompts": {},
+  "sessions": {
+    "s_8d6728a8d15cba": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "da8ac5bf-6635-4884-a345-244da5043fd8",
+        "model": "unknown"
+      },
+      "human_author": "tw199501 <tw199501@elf.tw>"
+    }
+  }
+}
