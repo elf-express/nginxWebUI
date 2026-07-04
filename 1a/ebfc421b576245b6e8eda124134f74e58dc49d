@@ -1,0 +1,27 @@
+.github/workflows/build.yml
+  s_40e6c34e123f19::t_badfd4264a6f0a 26,29,62,66
+Dockerfile
+  s_40e6c34e123f19::t_7e2fe11892b799 34
+docs/superpowers/plans/2026-07-05-java17-baseline-upgrade.md
+  s_40e6c34e123f19::t_ee98e250402c2f 1-60
+pom.xml
+  s_40e6c34e123f19::t_9fcaca12f91845 19,172-173
+src/main/java/com/cym/service/GeoipService.java
+  s_40e6c34e123f19::t_3d1b046d54f9de 4,142-144,147
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "1aebfc421b576245b6e8eda124134f74e58dc49d",
+  "prompts": {},
+  "sessions": {
+    "s_40e6c34e123f19": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59f2918c-ed3a-4f68-aadb-7cdddee39ce8",
+        "model": "unknown"
+      },
+      "human_author": "tw199501 <tw199501@elf.tw>"
+    }
+  }
+}
