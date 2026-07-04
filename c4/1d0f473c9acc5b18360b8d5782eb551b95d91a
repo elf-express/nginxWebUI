@@ -1,0 +1,38 @@
+src/main/resources/WEB-INF/view/adminPage/server/index.html
+  s_40e6c34e123f19::t_391d0f29077c63 301
+  s_40e6c34e123f19::t_48d526db0bf57e 304
+  s_40e6c34e123f19::t_9e22482c2f4d29 298
+  s_40e6c34e123f19::t_88793ba3c00b16 283
+  s_40e6c34e123f19::t_05dcb71b030d4f 299
+  s_40e6c34e123f19::t_f85776dfd5fce1 300
+src/main/resources/messages_en_US.properties
+  s_40e6c34e123f19::t_a4dde1c01487d0 575-582
+tests/e2e/28-http-param-panel.spec.js
+  s_40e6c34e123f19::t_70a4e553ed1317 4-8,11,15,31,43,49,52
+  s_40e6c34e123f19::t_df5ef03d2ae33d 26-30,32-35,57-67
+  s_40e6c34e123f19::t_e8627e4fdcd9f8 1-3,9-10,12-14,16-25,36-42,44-48,50-51,53-56,68-85
+src/main/resources/static/js/adminPage/server/index.js
+  s_40e6c34e123f19::t_07dbba7ba0b2b9 1301
+  s_40e6c34e123f19::t_2356ca95218c01 1303
+  s_40e6c34e123f19::t_449455744f02d1 1319
+src/main/resources/messages.properties
+  s_40e6c34e123f19::t_fe8ebcf98e329d 575-582
+src/main/resources/messages_zh_TW.properties
+  s_40e6c34e123f19::t_27b76863a6bd8f 575-582
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "c41d0f473c9acc5b18360b8d5782eb551b95d91a",
+  "prompts": {},
+  "sessions": {
+    "s_40e6c34e123f19": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59f2918c-ed3a-4f68-aadb-7cdddee39ce8",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "tw199501 <tw199501@elf.tw>"
+    }
+  }
+}
