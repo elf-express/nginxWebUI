@@ -1298,9 +1298,9 @@ function showLocation(id){
 function openHttpParamPanel() {
   layer.open({
     type: 1,
-    title: '設置 http 參數',
+    title: serverStr.httpParm,
     area: ['85vw', '78vh'],
-    content: $('#httpParamPanelDiv').html(),
+    content: $('#httpParamPanelDiv'),
     success: function() {
       updateHttpParamCount();
     }
@@ -1316,5 +1316,5 @@ function saveHttpParamPanel() {
   // phase 2: send selected http param ids to backend
   var ids = $('input[name="httpParamItem"]:checked').map(function(){ return this.value; }).get();
   console.log('http param panel: would save', ids.length, 'ids =', ids);
-  layer.msg('已選 ' + ids.length + ' 個指令(後端 save 邏輯規劃中)');
+  layer.msg(serverStr.httpParamSelected + ' ' + ids.length + ' ' + serverStr.httpParamUnit);
 }

@@ -280,7 +280,7 @@
 				<!-- left 60% checkbox list -->
 				<div style="flex:0 0 60%;padding:15px;overflow-y:auto;border-right:1px solid #e6e6e6;box-sizing:border-box;">
 					<h3 style="margin:0 0 6px 0;font-size:15px;">${serverStr.httpParm}</h3>
-					<p style="color:#666;font-size:12px;margin-bottom:12px;">預設套用所有 http 全域指令；取消勾選＝不在此 server 套用。</p>
+					<p style="color:#666;font-size:12px;margin-bottom:12px;">${serverStr.httpParamDesc}</p>
 					<#list httpList as h>
 					<label style="display:flex;align-items:center;padding:6px 8px;cursor:pointer;border-bottom:1px solid #f5f5f5;">
 						<input type="checkbox" name="httpParamItem" value="${h.id}" ${(h.enable!true)?then('checked','')} style="margin-right:10px;" onchange="updateHttpParamCount()">
@@ -295,13 +295,13 @@
 				<div style="flex:0 0 40%;background:#1e1e1e;color:#d4d4d4;font-family:Consolas,Menlo,monospace;padding:20px;display:flex;flex-direction:column;box-sizing:border-box;">
 					<div style="color:#569cd6;font-size:13px;margin-bottom:15px;"># ${serverStr.httpParm}</div>
 					<div style="line-height:1.8;font-size:12px;flex:1;color:#cccccc;">
-						<div># 此面板用來決定該 server 套用哪些 http 全域指令。</div>
-						<div style="margin-top:6px;"># 勾選 = 套用，取消 = 不套用。</div>
-						<div style="margin-top:6px;"># 預設全部已勾（沿用全域設定）。</div>
-						<div style="margin-top:18px;color:#6a9955;"># 後端 save 邏輯規劃中（phase 2）。</div>
+						<div># ${serverStr.httpParamNote1}</div>
+						<div style="margin-top:6px;"># ${serverStr.httpParamNote2}</div>
+						<div style="margin-top:6px;"># ${serverStr.httpParamNote3}</div>
+						<div style="margin-top:18px;color:#6a9955;"># ${serverStr.httpParamPhase2}</div>
 					</div>
 					<div style="text-align:center;margin-top:auto;border-top:1px solid #333;padding-top:14px;">
-						<div style="color:#4ec9b0;font-size:13px;margin-bottom:12px;">將套用 <span id="httpParamCountNum" style="color:#fff;font-weight:bold;">0</span> 個指令</div>
+						<div style="color:#4ec9b0;font-size:13px;margin-bottom:12px;">${serverStr.httpParamApply} <span id="httpParamCountNum" style="color:#fff;font-weight:bold;">0</span> ${serverStr.httpParamUnit}</div>
 						<button type="button" class="layui-btn layui-btn-normal" onclick="saveHttpParamPanel()">${commonStr.submit}</button>
 						<button type="button" class="layui-btn layui-btn-primary" onclick="layer.closeAll()">${commonStr.close}</button>
 					</div>
