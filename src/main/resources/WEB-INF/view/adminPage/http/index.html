@@ -44,20 +44,20 @@ input[name='param']{
 							<button type="button" class="layui-btn layui-btn-sm" onclick="guide()"><i class="layui-icon layui-icon-tips" aria-hidden="true"></i> ${httpStr.guide}</button>
 						</div>
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm" onclick="setDenyAllow()">${serverStr.ipDenyAllow}</button>
+							<!-- IP黑白名單 button removed 2026-06-30 per user -->
 						</div>
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm" onclick="selectTemplateAsHttp()"><i class="layui-icon layui-icon-template" aria-hidden="true"></i> ${upstreamStr.selectTemplateAsParam}</button>
+							<!-- 添加模板作為參數 button removed 2026-06-30 per user -->
 						</div>
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm layui-btn-warm" onclick="showBatchInput()"><i class="layui-icon layui-icon-list" aria-hidden="true"></i> ${serverStr.batchInput}</button>
+							<!-- 批量輸入 button removed 2026-06-30 per user -->
 						</div>
 						<div class="layui-inline">
 							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="preview(null,'http')"><i class="layui-icon layui-icon-eye" aria-hidden="true"></i> ${commonStr.preview}</button>
 						</div>
 
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="delMany()"><i class="layui-icon layui-icon-delete" aria-hidden="true"></i> ${commonStr.delAll}</button>
+							<!-- 批量刪除 button removed 2026-06-30 per user -->
 						</div>
 					</div>
 				</form>
@@ -82,7 +82,7 @@ input[name='param']{
 									</th>
 									<th>${commonStr.name}</th>
 									<th>${commonStr.value}</th>
-									<th>${serverStr.status}</th>
+									<th style="width:70px;text-align:center;">${serverStr.status}</th>
 									<th>${commonStr.operation}</th>
 								</tr>
 							</thead>

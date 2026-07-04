@@ -166,7 +166,7 @@ public class InitConfig {
 			// 日誌格式（含真實 IP + GeoIP + ASN）
 			https.add(new Http("log_format", "main '$remote_addr - $remote_user [$time_local] \"$request\" '\r\n                      '$status $body_bytes_sent \"$http_referer\" '\r\n                      '\"$http_user_agent\" \"$geoip2_data_country_code\" \"$geoip2_data_city_name\" \"$geoip2_data_asn\" \"$geoip2_data_asn_org\"'", seq++, "logging"));
 
-			// 預設開啟日誌（供 Promtail / CrowdSec 收集）
+			// 預設開啟日誌（供 CrowdSec 收集）
 			https.add(new Http("access_log", homeConfig.home + "log/access.log main", seq++, "logging"));
 			https.add(new Http("error_log", homeConfig.home + "log/error.log", seq++, "logging"));
 

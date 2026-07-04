@@ -199,7 +199,7 @@ function add() {
 	$("#key").val("");
 	$("#keyPath").html("");
 	$("#itemList").html("");
-	$("#paramJson").val("");
+	$("#serverParamJson").val("");
 
 	$("#denyAllow").val("0");
 	$("#denyId option:first").prop("selected", true);
@@ -1292,4 +1292,29 @@ function editLocationDescr(id) {
 function showLocation(id){
 	$("#" + id + "_str").removeAttr('style');
 	$("#" + id + "_a").hide();
+}
+
+// === 設置 http 參數 panel (prototype, 2026-06-30) ===
+function openHttpParamPanel() {
+  layer.open({
+    type: 1,
+    title: serverStr.httpParm,
+    area: ['85vw', '78vh'],
+    content: $('#httpParamPanelDiv'),
+    success: function() {
+      updateHttpParamCount();
+    }
+  });
+}
+
+function updateHttpParamCount() {
+  var n = $('input[name="httpParamItem"]:checked').length;
+  $('#httpParamCountNum').text(n);
+}
+
+function saveHttpParamPanel() {
+  // phase 2: send selected http param ids to backend
+  var ids = $('input[name="httpParamItem"]:checked').map(function(){ return this.value; }).get();
+  console.log('http param panel: would save', ids.length, 'ids =', ids);
+  layer.msg(serverStr.httpParamSelected + ' ' + ids.length + ' ' + serverStr.httpParamUnit);
 }

@@ -1,5 +1,7 @@
 # nginxWebUI Deploy Stack Refactor Implementation Plan
 
+> **SUPERSEDED 2026-06-30:** Plan 規劃 bake 4 sidecar image(nginxwebui + grafana + promtail + crowdsec),實際走 [2026-06-27-deploy-simplify-single-image.md](2026-06-27-deploy-simplify-single-image.md) 簡化路線(只 build nginxwebui,其餘用官方 image + bind-mount),之後 monitoring stack (Loki/Promtail/Grafana) 又於 2026-06-30 整套移除。本 plan 保留作歷史記錄。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 讓 `docker/docker-compose.yml` 成為完全 self-contained 的部署單元 — 任何 Docker 工具（DockHand / Portainer / Komodo / 純 CLI）拿到 `compose.yml` + `.env` 兩個檔案就能在 server 跑起 7 個 service 全 healthy，無需 bind mount 本機任何檔案。同時清理倉庫重複檔、移除 `--init.*` 預設密碼、目錄改名為國際慣例 `docker/`。

@@ -1,7 +1,13 @@
 # CLAUDE.md
 
-Guidance for Claude Code (claude.ai/code) when working in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+<!-- SPECKIT START -->
+For additional context about the active work, see plans under [docs/superpowers/plans/](docs/superpowers/plans/) — the most recent dated file is usually the current focus.
+<!-- SPECKIT END -->
+
 > 本檔以英文為主、關鍵處附中文註解。新增使用者可見字串仍須同步三份 i18n（見下）。
+> **Code navigation:** this repo is indexed by CodeGraph (`.codegraph/codegraph.db`). Reach for `codegraph_explore` (MCP) or `codegraph explore "<question>"` (shell) BEFORE grep/find/Read when locating or understanding code — one call returns verbatim source + call paths in far fewer tokens than a grep/read loop.
 
 ## Overview
 nginxWebUI is a web tool that simplifies NGINX configuration — users fill in UI forms instead of hand-writing `nginx.conf` (reverse proxy, SSL, load balancing, security hardening).
@@ -20,7 +26,8 @@ Entry point: [com.cym.NginxWebUI](src/main/java/com/cym/NginxWebUI.java) — `@S
   > 注意：2.1.0 是最後支援 Java 8 的版本（3.x 需 Java 11），**勿升級**。
 - **Build:** Maven → `target/nginxWebUI-<version>.jar` (fat jar, `jar-with-dependencies`)
 - **Tests:** Playwright E2E (**no JUnit for end-to-end**)
-- **Containers:** Docker Compose stack (PostgreSQL + Loki + Grafana + CrowdSec). Only `nginxwebui` is self-built; sidecars use official images + bind-mounted config under [docker/](docker/).
+- **Containers:** Docker Compose stack (PostgreSQL + CrowdSec). Only `nginxwebui` is self-built; the CrowdSec sidecar uses the official image + bind-mounted config under [docker/crowdsec/](docker/crowdsec/).
+  > 注意：Loki + Promtail + Grafana 已於 2026-06-30 從本專案移除 — nginx 內建 access/error log 已足夠排查,CrowdSec 直接從共享的 `nginxwebui_log` volume 讀 nginx log,不需要 Loki 中介。
 
 ## Directory Structure
 ```
@@ -53,6 +60,8 @@ docs/               # design docs & plans
 2. **Multilingual** — every new user-facing string updates all 3 `messages*.properties`.
 3. **Automated tests** — every new/changed feature ships a Playwright test.
 4. **Zero-risk first** — prefer pure-frontend / purely-additive changes.
+5. **A11y baseline** — never introduce `<a href="javascript:...">` pseudo-links for actions; use `<button type="button">`. Header / sidebar / table-action / modal / captcha already migrated; guarded by [tests/e2e/27-a11y-buttons.spec.js](tests/e2e/27-a11y-buttons.spec.js). Icon-only controls need `aria-label`. New pages need an `<h1>` landmark.
+6. **Offline-first frontend** — vendor third-party libs into `static/lib/` rather than loading from a public CDN (this is a self-hosted admin tool, often deployed air-gapped). Guarded by [tests/e2e/26-offline-no-cdn.spec.js](tests/e2e/26-offline-no-cdn.spec.js).
 
 ### Frontend
 - Use Layui components; refresh `select` / `checkbox` with `form.render()`.
@@ -62,23 +71,24 @@ docs/               # design docs & plans
 > 注意：新增任何使用者可見字串，必須同步改三份 properties：`messages.properties`（簡）、`messages_zh_TW.properties`（繁）、`messages_en_US.properties`（英）。CJK 值用 `\uXXXX` escape（檔案是 ISO-8859-1）。
 
 ### Backend
-- Controllers go under `controller/adminPage/` (currently **28**, all under `adminPage/` — none in `controller/` root; incl. CrowdSec / Geo / Asn / ProtectionCert / SiteResource / **Geoip**).
+- Controllers all live under `controller/adminPage/` — none in `controller/` root (incl. CrowdSec / Geo / Asn / ProtectionCert / SiteResource / Geoip).
 - Services: `@Component` + `@Inject SqlHelper sqlHelper;`. Persistence via `SqlHelper` (home-grown ORM, not JPA — see cheatsheet).
 - Primary keys: always `SnowFlakeUtils.getId()` (snowflake; stored as String, generated as Long).
 - Init logic in `InitConfig.java`; runtime config via `app.yml` or launch args.
+- **Seed-on-empty pattern:** fork ships sensible defaults so users don't bootstrap from zero — e.g. `InitConfig.seedDenyAllowRules()` inserts 6 malicious-IP blocklist rules via `DenyAllowService.getDefaultRules()` when the table is empty. Apply the same pattern for any new feature where "empty DB ≈ broken UX."
 
 ### Testing (see docs/superpowers/plans/playwright-guide.md)
-- Specs in `tests/e2e/` — **24** files (`01-login` … `23-geoip-version` + `flag-svg-integrity`).
+- Specs in `tests/e2e/` — numbered `01-login` … `27-a11y-buttons` plus standalone (`flag-svg-integrity`). New feature → next number.
 - Match 簡/繁 button text with regex: `/批量輸入|批量输入/`.
 - Drive Layui widgets via `page.evaluate()`.
 - Run: `npm test` (headed) · `npm run test:fast` (headless/CI) · `npx playwright test tests/e2e/08-crowdsec.spec.js` (one file) · `npm run report` (http://localhost:9400).
 > 注意：測試會自動啟動獨立 server（port 18080）+ 獨立 SQLite，不碰 `./dev-home/`。`tests/e2e/helpers.js` 動態解析 `target/nginxWebUI-*.jar`，所以跑測試前要先 `mvn package`。
 
-### Docker (see docs/superpowers/plans/docker-guide.md)
+### Docker (see docs/superpowers/plans/docker-guide.md — partially superseded)
 - container_name: flat `nginxwebui` (app) / `nginxwebui-<service>` (sidecar) — no version suffix since 5.1.0.
 - volume name: `nginxwebui_{purpose}_data` (explicit `name:` to dodge compose project prefix).
 - healthcheck + startup order required; `entrypoint.sh` must be LF (`.gitattributes` enforces).
-- Sidecars (grafana / promtail / crowdsec) run **official images** with config bind-mounted from `docker/<service>/` — only `nginxwebui` is self-built. Monitoring/security are optional compose **profiles** (`monitoring` / `security`); default `docker compose up -d` starts only nginxwebui + postgres.
+- Only `nginxwebui` is self-built. The CrowdSec sidecar runs the **official image** with config bind-mounted from `docker/crowdsec/`. CrowdSec is opt-in via compose **profile** `security`; default `docker compose up -d` starts only nginxwebui + postgres.
 
 ## Architecture Flow
 A typical "user edits HTTP params" request crosses these layers:
@@ -163,7 +173,7 @@ First visit prompts to set the admin password.
 - Skip wizard: `--init.admin=admin --init.pass=admin123 --init.api=true`
   > 注意：`--init.*` 只在 DB 還沒有任何管理員時生效。自 5.1.0 起 compose 的 `BOOT_OPTIONS` 不再內建 `--init.admin/pass`（首次走 UI 引導）。
 
-**Docker Compose (recommended)** — run from `docker/`. Deploy needs `docker-compose.yml` + `.env` + the `docker/<service>/` config dirs (sidecars bind-mount them; default `up -d` = nginxwebui + postgres only, add `--profile monitoring --profile security` for the rest):
+**Docker Compose (recommended)** — run from `docker/`. Deploy needs `docker-compose.yml` + `.env` + `docker/crowdsec/` config dir (CrowdSec bind-mounts it). Default `up -d` = nginxwebui + postgres only; add `--profile security` for CrowdSec IDS:
 ```bash
 cd docker
 docker compose pull && docker compose up -d     # pull release images (:latest = newest tag)
@@ -171,8 +181,9 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build   #
 docker compose ps                                # all healthy
 ```
 
-**Stack** (from [docker/docker-compose.yml](docker/docker-compose.yml)): **always on** — nginxwebui (host **12300**→8080, 80, 443) · postgres:18-alpine. **Optional via profiles** — `monitoring`: loki · grafana (3000) · promtail; `security`: crowdsec · crowdsec-bouncer. Sidecars = official images + bind-mounted config.
+**Stack** (from [docker/docker-compose.yml](docker/docker-compose.yml)): **always on** — nginxwebui (host **12300**→8080, 80, 443) · postgres:18-alpine. **Optional via profile** — `security`: crowdsec · crowdsec-bouncer. CrowdSec sidecar = official image + bind-mounted config.
 > 注意：crowdsec config 改用單檔 bind mount（`docker/crowdsec/*.yaml` → 容器 `/etc/crowdsec/...`），升版自動跟 repo，不再需要 `docker compose down -v` 重新 seed。
+> 注意：Loki / Promtail / Grafana monitoring profile 已於 2026-06-30 從本專案移除。若 server 上還有 `nginxwebui_loki_data` / `nginxwebui_grafana_data` volume 是歷史遺留，可手動 `docker volume rm` 清理。
 
 ## Release Flow (see docs/superpowers/plans/2026-05-21-dev-release-workflow.md)
 **Branches:** `dev` (daily dev + release actions) · `master` (snapshot pointer to last release; never commit/tag here directly) · `tag v*` (cut by `scripts/release.sh`; CI builds image only on tags).
@@ -180,7 +191,7 @@ docker compose ps                                # all healthy
 ```bash
 git checkout dev && git pull origin dev
 scripts/release.sh 5.2.1            # bumps pom.xml + commit + tag v5.2.1 (only touches pom.xml)
-git push origin dev --tags          # CI matrix-builds 4 images → ghcr.io :5.2.1 + :latest
+git push origin dev --tags          # CI builds 1 image (nginxwebui) → ghcr.io :5.2.1 + :latest
 docker manifest inspect ghcr.io/elf-express/nginxwebui:5.2.1   # confirm pushed
 git push origin dev:master          # fast-forward master
 gh release create v5.2.1 ...        # GitHub Release entry
@@ -189,10 +200,11 @@ gh release create v5.2.1 ...        # GitHub Release entry
 
 ## Feature Inventory
 **UI/UX:** batch param input · TLS default fix · conf indent + CodeMirror highlight · login password toggle · default http params/templates · HTTP param grouping (`HttpController.GROUP_DEFS`) · template grouping · IP/DenyAllow tag-ization · edit mode · conf error diagnosis · lang switch (flag SVG) · brand logo upload + header 200×60 align.
-**Security:** CrowdSec (IDS + bouncer) · GeoIP2 country block · ASN block · Protection Cert · Real-IP module.
-**GeoIP DB module (NEW, v5.2.0):** header shows Country/City/ASN MMDB build dates (`GeoipService` via maxmind-db) · ProtectionCert Tab-1 GeoIP table (version / schedule / manual download) · `GeoipController` `/adminPage/geoip/{versions,download}` · Java/Hutool download (jar + Docker).
+**Accessibility (Wave 1/2 audit, ongoing):** site-wide pseudo-link `<a href="javascript:">` → `<button>` migration (header, sidebar, table actions, modals, captcha) · semantic landmarks (`<nav>` sidebar, `<h1>` on key pages) · icon button `aria-label`. Specs 27-a11y-buttons + crawler-style assertions guard this.
+**Security:** CrowdSec (IDS + bouncer) · GeoIP2 country block · ASN block · Protection Cert · Real-IP module · **DenyAllow self-seeded blocklist** (6 default malicious-IP rules + scheduled refresh with retry-on-failure + startup catch-up).
+**GeoIP DB module (v5.2.0):** header shows Country/City/ASN MMDB build dates (`GeoipService` via maxmind-db) · ProtectionCert Tab-1 GeoIP table (version / schedule / manual download) · `GeoipController` `/adminPage/geoip/{versions,download}` · Java/Hutool download (jar + Docker).
 **Monitoring/Ops:** nginx module auto-detect (`/adminPage/monitor/nginxInfo`) · Site Resource · connectivity test.
-**Deploy/Test:** test captcha · Compose stack (PG18 + Loki + Grafana + CrowdSec) · sidecars = official images + bind-mount config · optional profiles (monitoring/security) · CI builds 1 image (nginxwebui) · `.gitattributes` LF · Playwright suite (24 specs).
+**Deploy/Test:** test captcha · Compose stack (PG18 + CrowdSec) · CrowdSec sidecar = official image + bind-mount config · optional `security` profile · CI builds 1 image (nginxwebui) · `.gitattributes` LF · Playwright E2E suite (offline-CDN guard + a11y crawler).
 
 ## Docs
 - [Improvement plans & reports](docs/superpowers/plans/)
@@ -206,6 +218,7 @@ java -jar -Dfile.encoding=UTF-8 target/nginxWebUI-<version>.jar --server.port=80
 npm test            # E2E (headed)            #   npm run test:fast (headless)
 npm run report      # test report (port 9400)
 cd docker && docker compose up -d --build     # docker build+run
+codegraph explore "<question or symbol>"      # 1-call code lookup (prefer over grep/find)
 ```
 
 ## app.yml Key Params

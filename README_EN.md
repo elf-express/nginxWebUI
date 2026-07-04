@@ -1,6 +1,6 @@
 # nginxWebUI · elf-express fork
 
-> Web UI for managing nginx — security-hardened fork with GeoIP / CrowdSec / Loki / Grafana / Vue Dashboard
+> Web UI for managing nginx — security-hardened fork with GeoIP / CrowdSec
 
 **繁體中文** · [README.md](./README.md)　**English** · this file
 
@@ -15,7 +15,6 @@
 | Aspect | Upstream cym1102 | elf-express fork |
 |---|---|---|
 | **Database** | SQLite (single file) | **PostgreSQL 18-alpine** (multi-container, backup-ready) |
-| **Observability** | None | **Loki + Promtail + Grafana** full log/metric pipeline |
 | **Security** | IP allow/deny lists only | + **CrowdSec** IDS, + **GeoIP2** country blocking, + **ASN** blocking, + **auto-fetch from URL** for multiple lists |
 | **Locale** | Simplified Chinese primary | **Traditional Chinese primary** (zh-CN / zh-TW / en-US) |
 | **Frontend** | Pure Layui + jQuery | + **Vue 3 partial mount** (template picker / **Vue Dashboard**) |
@@ -38,17 +37,14 @@ docker compose up -d          # image defaults to :latest, always tracks latest 
 
 Open browser → **http://localhost:12300** → first launch walks you through the admin-setup wizard (no built-in default password)
 
-Seven services up together:
+Only the core two services start by default; CrowdSec is opt-in via the compose `security` profile:
 
-| Service | Port | Purpose |
-|---|---|---|
-| **nginxwebui** | 12300:8080 / 80 / 443 | Main app |
-| postgres | 5432 | Database |
-| loki | 3100 | Log aggregation |
-| **grafana** | 3000 | Monitoring dashboards (admin/admin) |
-| promtail | — | Push nginx + app log to Loki |
-| crowdsec | — | Intrusion detection (v1.7.8) |
-| crowdsec-bouncer | — | nginx traffic filtering (0.5.0) |
+| Service | Port | Purpose | Default |
+|---|---|---|---|
+| **nginxwebui** | 12300:8080 / 80 / 443 | Main app | ✅ |
+| postgres | 5432 | Database | ✅ |
+| crowdsec | — | Intrusion detection (v1.7.8) | profile `security` |
+| crowdsec-bouncer | — | nginx traffic filtering (0.5.0) | profile `security` |
 
 ### Stack architecture
 
@@ -63,14 +59,12 @@ Seven services up together:
 │                       ↓ ConfService generates         │
 │            nginx.conf + reverse proxy + GeoIP/ASN     │
 └───────────────────────────────────────────────────────┘
-            ↓ access log                ↑ HTTP query
-┌─ Promtail ─→ Loki ←─ Grafana Dashboard ──────────────┐
-│                  ←─ nginxwebui Monitor                │
-└───────────────────────────────────────────────────────┘
-            ↓ access log              ↑ cscli / API
+            ↓ access / error log
 ┌─ CrowdSec (IDS) ──→ Bouncer ──→ nginx auth_request   │
 └───────────────────────────────────────────────────────┘
 ```
+
+> For log inspection, read nginx's built-in access/error log directly (in the `nginxwebui_log` volume, also where CrowdSec reads from). Loki / Promtail / Grafana have been removed.
 
 ---
 
@@ -91,18 +85,13 @@ Seven services up together:
 - Upstream load balancing with weight / backup / down settings
 - **19 built-in parameter templates** (with Chinese annotations): WebSocket Proxy / Proxy Headers / Large File Upload / CORS / Rate Limit / Security Headers / GeoIP / CrowdSec auth
 
-### 📊 Observability (continually enhanced)
+### 📊 Observability
 
-- Grafana pre-configured dashboards for nginx traffic + system metrics
-- Loki collects all nginx access log + nginxwebui app log
-- Promtail auto-forwards
-- **In progress**: Native Vue Dashboard integrating Loki queries, 4 metric categories
-  - System (CPU/Mem/Disk/Net)
-  - **Security (blocked IP/country/ASN Top N, CrowdSec alerts/decisions)**
-  - Traffic (RPS / status code / response time / top paths)
-  - TLS (cert expiry warning / TLS version distribution)
+- nginx built-in access log / error log (in the `nginxwebui_log` volume, or under `--project.home`/`log/` in jar mode)
+- System metrics page (CPU / Mem / Disk / Net, via OSHI)
+- CrowdSec cscli / decisions API for the blocked list
 
-→ [Full design doc](./docs/superpowers/plans/2026-05-22-monitor-dashboard-v2.md)
+> This fork previously shipped a full Loki + Promtail + Grafana pipeline; it was removed 2026-06-30 — nginx's built-in logs are sufficient for day-to-day inspection.
 
 ### 🎨 UI
 
@@ -123,7 +112,7 @@ Seven services up together:
 
 ### A. Docker Compose (recommended, production)
 
-Only **nginxwebui is self-built**; the sidecars (grafana / promtail / crowdsec) use **official images + bind-mounted config**. Only the core two services start by default; monitoring / IDS are opt-in via compose **profiles**.
+Only **nginxwebui is self-built**; the CrowdSec sidecar uses **official image + bind-mounted config**. Only the core two services start by default; the IDS is opt-in via the compose `security` **profile**.
 
 **Core only (nginxwebui + postgres) — only two files on the server:**
 
@@ -135,13 +124,13 @@ curl -o .env https://raw.githubusercontent.com/elf-express/nginxWebUI/master/doc
 docker compose up -d                      # starts only nginxwebui + postgres
 ```
 
-**With monitoring / IDS (Loki·Grafana·Promtail / CrowdSec) — needs the whole `docker/` dir (sidecars bind-mount its config):**
+**With CrowdSec IDS — needs the whole `docker/` dir (sidecar bind-mounts `docker/crowdsec/` config):**
 
 ```bash
 git clone https://github.com/elf-express/nginxWebUI.git && cd nginxWebUI/docker
 cp .env.example .env                       # set CROWDSEC_BOUNCER_KEY (any value on first boot)
-docker compose --profile monitoring --profile security up -d
-# or set COMPOSE_PROFILES=monitoring,security in .env, then docker compose up -d
+docker compose --profile security up -d
+# or set COMPOSE_PROFILES=security in .env, then docker compose up -d
 ```
 
 > To build the nginxwebui image from source: after clone, inside `docker/` (run `mvn clean package -DskipTests` first):
@@ -190,7 +179,7 @@ docker compose pull
 docker compose up -d
 ```
 
-> **Upgrading from before 5.2.1 (behavior change):** sidecars (grafana / promtail / crowdsec) now use official images, and monitoring / IDS are compose **profiles**. If you were running monitoring / IDS, set `COMPOSE_PROFILES=monitoring,security` in `.env` after upgrade (or use `docker compose --profile monitoring --profile security up -d`); otherwise `docker compose up -d` keeps only nginxwebui + postgres. The old `nginxwebui_crowdsec_config` volume is no longer used — remove it with `docker volume rm nginxwebui_crowdsec_config`.
+> **2026-06-30 behavior change (monitoring removed):** Loki / Promtail / Grafana have been completely removed from the project (nginx's built-in access/error log is sufficient; CrowdSec reads the nginx log volume directly, no Loki intermediary). If you were running the monitoring profile: after upgrade `docker compose up -d` no longer starts these three services, and the now-orphaned `nginxwebui_loki_data` / `nginxwebui_grafana_data` volumes can be removed with `docker volume rm`. CrowdSec activation via `--profile security` is unchanged.
 
 PostgreSQL schema is **CodeFirst auto-ALTER TABLE** by SqlHelper (custom ORM) — **no manual migration required**.
 
@@ -226,14 +215,6 @@ npm run test:fast             # E2E (headless / CI)
 | [v5.0.4](https://github.com/elf-express/nginxWebUI/releases/tag/v5.0.4) | dev/release pipeline established |
 
 Full changelog: https://github.com/elf-express/nginxWebUI/releases
-
----
-
-## Roadmap
-
-- **Vue Dashboard redesign** (in progress) — 4 metric categories + ECharts + Loki query integration ([design doc](./docs/superpowers/plans/2026-05-22-monitor-dashboard-v2.md))
-- v5.2.0 (planned) — Grafana pre-configured dashboard JSON upgrade, add alert rules
-- v5.3.0 (planned) — Dashboard widget drag-sort + historical trend page
 
 ---
 

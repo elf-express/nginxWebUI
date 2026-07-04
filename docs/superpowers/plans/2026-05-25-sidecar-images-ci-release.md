@@ -1,5 +1,7 @@
 # Sidecar Image CI + Release v5.1.1 Implementation Plan
 
+> **PARTIALLY SUPERSEDED 2026-06-30:** Plan 的 sidecar bake 路線(CI matrix-build 4 image)已於 [2026-06-27-deploy-simplify-single-image.md](2026-06-27-deploy-simplify-single-image.md) 撤回 — 改為只 build nginxwebui,sidecar 一律用官方 image + bind-mount。隨後 monitoring stack (Loki/Promtail/Grafana) 又於 2026-06-30 整套移除。Release flow 本身的概念(tag → CI → ghcr.io)仍適用。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 補完前一個 plan (`docs/superpowers/plans/2026-05-23-deploy-stack-refactor.md`) 漏做的 Phase 6 CI 部分,讓 `.github/workflows/build.yml` 用 matrix 同時 build + push 4 個 image,接著發 v5.1.1 把新架構真正推上 ghcr.io,最後指導 DockHand 端重新部署到全 healthy。

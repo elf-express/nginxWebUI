@@ -1,3 +1,9 @@
+/* server modal (#windowDiv) form-label 改左對齊:label 字長不一時不會擠到 input 下一行 */
+#windowDiv .layui-form-label {
+	text-align: left;
+	padding-left: 0;
+}
+
 .red {
 	color: red;
 }
