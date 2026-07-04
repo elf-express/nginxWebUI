@@ -1,0 +1,19 @@
+docs/superpowers/plans/2026-07-05-http-param-phase2-plan.md
+  s_40e6c34e123f19::t_727b3e15843b19 1-417
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "94495846651f0da18e4a8091b3edb5fa9beca745",
+  "prompts": {},
+  "sessions": {
+    "s_40e6c34e123f19": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59f2918c-ed3a-4f68-aadb-7cdddee39ce8",
+        "model": "unknown"
+      },
+      "human_author": "tw199501 <tw199501@elf.tw>"
+    }
+  }
+}
