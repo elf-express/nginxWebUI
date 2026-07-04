@@ -1,0 +1,19 @@
+tests/e2e/04-tls-defaults.spec.js
+  s_40e6c34e123f19::t_2c20afca0e5c7b 4-6,14,22-25,28,31-33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "886749de77e6587106681330d37653d272f82cdc",
+  "prompts": {},
+  "sessions": {
+    "s_40e6c34e123f19": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59f2918c-ed3a-4f68-aadb-7cdddee39ce8",
+        "model": "unknown"
+      },
+      "human_author": "tw199501 <tw199501@elf.tw>"
+    }
+  }
+}
