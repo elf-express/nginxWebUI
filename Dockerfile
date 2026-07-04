@@ -31,7 +31,7 @@ RUN    apk add --update --no-cache \
 	   nginx-mod-http-cache-purge \
 	   nginx-mod-dynamic-upstream \
 	   nginx-mod-dynamic-healthcheck \
-       openjdk8-jre \
+       openjdk17-jre \
        net-tools \
        curl \
        wget \

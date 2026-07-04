@@ -16,14 +16,14 @@ Entry point: [com.cym.NginxWebUI](src/main/java/com/cym/NginxWebUI.java) — `@S
 > 注意：啟動時會先殺掉同名舊 jar process 再 `Solon.start()`。
 
 ## Tech Stack
-- **Backend:** Java 8 + [Solon 3.3.3](https://solon.noear.org/) — **NOT Spring Boot**
+- **Backend:** Java 17 (LTS) + [Solon 3.10.7](https://solon.noear.org/) — **NOT Spring Boot**
   - DI: `@Component` (services) / `@Controller` (controllers) / `@Inject` (not `@Service` / `@Autowired`)
   - Routing: `@Mapping("/path")` on both class and method level
   - Scheduling: `@Scheduled` from `solon-scheduling-simple`
 - **Frontend:** Layui + jQuery + Freemarker (server-side rendered — **not an SPA**)
 - **DB:** SQLite (default) / PostgreSQL / MySQL — switch via `--spring.database.type`
-- **GeoIP:** `com.maxmind.db:maxmind-db` **2.1.0** reads MMDB `build_epoch` for the version badge.
-  > 注意：2.1.0 是最後支援 Java 8 的版本（3.x 需 Java 11），**勿升級**。
+- **GeoIP:** `com.maxmind.db:maxmind-db` **4.1.0** reads MMDB `build_epoch` for the version badge.
+  > 注意：4.1.0 起 `Metadata` 改為 Java **record**（需 Java 16+），`getBuildDate()` 已移除 → 用 `buildTime()`（Instant）。此版由 dependabot 於 2026-07-05 升級（同批帶動 Java 8→17 地基升級）；讀取邏輯見 `GeoipService.readBuildDate`。
 - **Build:** Maven → `target/nginxWebUI-<version>.jar` (fat jar, `jar-with-dependencies`)
 - **Tests:** Playwright E2E (**no JUnit for end-to-end**)
 - **Containers:** Docker Compose stack (PostgreSQL + CrowdSec). Only `nginxwebui` is self-built; the CrowdSec sidecar uses the official image + bind-mounted config under [docker/crowdsec/](docker/crowdsec/).
@@ -142,13 +142,13 @@ public class HttpService {
 
 | Tool | Version | Check |
 |---|---|---|
-| JDK | Java 8 (1.8) | `java -version` |
+| JDK | Java 17 (LTS) | `java -version` |
 | Maven | 3.6+ | `mvn -version` |
 | Node.js | 18+ | `node -v` |
 | Git | 2.30+ | `.gitattributes` forces LF cross-platform |
 | Docker (optional) | 20.10+ | incl. Compose v2 |
 
-> 注意：Java 8 是建置目標。若本機只有較新 JDK，可用它編譯（`-source/-target 1.8`）；CI 以 JDK 8 為準。
+> 注意：Java 17 是建置目標（2026-07-05 從 Java 8 升級，配合 maxmind-db 4.1.0 需 Java 16+）；CI 以 JDK 17 為準（build.yml）。跑 E2E 時 `spawn('java')` 走 PATH，需確保 PATH 的 java 是 17（否則 Java 8 跑 Java 17 jar 會 UnsupportedClassVersionError）。
 
 ```bash
 git clone <repo-url> nginxWebUI && cd nginxWebUI

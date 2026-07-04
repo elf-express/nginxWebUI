@@ -1,6 +1,7 @@
 package com.cym.service;
 
 import java.io.File;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -138,11 +139,12 @@ public class GeoipService {
 			return null;
 		}
 		try (Reader reader = new Reader(f, Reader.FileMode.MEMORY)) {
-			Date buildDate = reader.getMetadata().getBuildDate();
-			if (buildDate == null) {
+			// maxmind-db 4.x: Metadata 改為 record,getBuildDate() 移除 → 改用 buildTime()(Instant)
+			Instant buildTime = reader.getMetadata().buildTime();
+			if (buildTime == null) {
 				return null;
 			}
-			return DateUtil.format(buildDate, "yyyy.MM.dd");
+			return DateUtil.format(Date.from(buildTime), "yyyy.MM.dd");
 		} catch (Exception e) {
 			logger.warn("讀取 MMDB 版本失敗 {}: {}", f.getName(), e.getMessage());
 			return null;
