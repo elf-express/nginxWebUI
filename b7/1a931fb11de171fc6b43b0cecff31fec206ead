@@ -1,0 +1,27 @@
+.github/workflows/build.yml
+  s_206b53c012066f::t_1115045e422f98 128-130,132-133
+CLAUDE.md
+  s_206b53c012066f::t_828aa2704e34e0 29,91,176,184-185
+docker/.env.example
+  s_206b53c012066f::t_c3b6613737b5be 10
+docker/docker-compose.dev.yml
+  s_206b53c012066f::t_96964ec926bc2c 1
+scripts/release.sh
+  s_206b53c012066f::t_7158e4b1564219 46,67,84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "b71a931fb11de171fc6b43b0cecff31fec206ead",
+  "prompts": {},
+  "sessions": {
+    "s_206b53c012066f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8c0d2e6-94fa-4577-b404-80d16a5d6090",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
