@@ -2,9 +2,12 @@
 # 文件：https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 version: 2
 updates:
-  # Docker base images in docker/docker-compose.yml
+  # Root Dockerfile 的 base image(alpine)。
+  # Dependabot 的 docker ecosystem 需要 Dockerfile(不掃 docker-compose.yml),
+  # 真正的 Dockerfile 在 repo root,故 directory 指 "/"(先前指 /docker 找不到 Dockerfile 而報錯)。
+  # compose 的 sidecar 官方 image(postgres/grafana/crowdsec…)不在此 ecosystem 覆蓋範圍。
   - package-ecosystem: "docker"
-    directory: "/docker"
+    directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
@@ -15,9 +18,6 @@ updates:
     commit-message:
       prefix: "chore(deps)"
       include: "scope"
-    # 自家 release image 由發版流程控管,且為 private → Dependabot 無 creds 去查會 error;排除之
-    ignore:
-      - dependency-name: "ghcr.io/elf-express/nginxwebui"
 
   # GitHub Actions versions in .github/workflows/*.yml
   - package-ecosystem: "github-actions"
