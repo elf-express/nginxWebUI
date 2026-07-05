@@ -15,6 +15,14 @@ async function reopenServerPanel(page) {
   await openPanel(page);
 }
 
+// 存檔;phase 3 起 mutex group(geoip)勾 >1 會先跳 layer.confirm,若出現則點確認後才真存。
+async function saveAndConfirm(page) {
+  await page.locator('button[onclick="saveHttpParamPanel()"]').click();
+  const confirmBtn = page.locator('.layui-layer-dialog .layui-layer-btn0');
+  try { await confirmBtn.click({ timeout: 2000 }); } catch (e) { /* 無 mutex confirm */ }
+  await page.waitForTimeout(900);
+}
+
 test.describe('server modal — ① http 參數 panel 存檔（phase 2）', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
@@ -22,25 +30,23 @@ test.describe('server modal — ① http 參數 panel 存檔（phase 2）', () =
     await page.waitForSelector('table');
   });
 
-  test('取消一項存檔後,重開 panel 該項仍為未勾（enable 落 DB）', async ({ page }) => {
+  test('取消一個 optional 項存檔後,重開該項未勾（enable 落 DB）', async ({ page }) => {
     await openPanel(page);
 
-    // 取消第一個勾選項,記其 id
+    // 取一個 optional(非 locked disabled、非 mutex)可安全取消的項並取消
+    // (phase 3:locked 不可關 + 後端 enforce;mutex 會跳 warn)
     const targetId = await page.evaluate(() => {
       const scope = document.getElementById('httpParamPanelDiv');
-      const cb = scope.querySelector('input[name="httpParamItem"]:checked');
+      const cb = scope.querySelector('input[name="httpParamItem"]:not([disabled]):not([data-mutex]):checked');
       cb.checked = false;
       cb.dispatchEvent(new Event('change'));
       return cb.value;
     });
     expect(targetId).toBeTruthy();
 
-    // 存檔
-    await page.locator('button[onclick="saveHttpParamPanel()"]').click();
-    await page.waitForTimeout(1000); // 等 ajax + layer
+    await saveAndConfirm(page);
 
     try {
-      // 重載 server 頁 + 重開 panel,驗證該 id 未勾（enable=false 已落 DB）
       await reopenServerPanel(page);
       const stillChecked = await page.evaluate((id) => {
         const scope = document.getElementById('httpParamPanelDiv');
@@ -49,25 +55,24 @@ test.describe('server modal — ① http 參數 panel 存檔（phase 2）', () =
       }, targetId);
       expect(stillChecked).toBe(false);
     } finally {
-      // 還原:即使上面斷言失敗也重新啟用該項 + 存檔,避免污染共用 DB
+      // 還原:重新啟用該項 + 存檔,避免污染共用 DB
       await reopenServerPanel(page);
       await page.evaluate((id) => {
         const scope = document.getElementById('httpParamPanelDiv');
         const cb = scope.querySelector('input[name="httpParamItem"][value="' + id + '"]');
         if (cb) { cb.checked = true; cb.dispatchEvent(new Event('change')); }
       }, targetId);
-      await page.locator('button[onclick="saveHttpParamPanel()"]').click();
-      await page.waitForTimeout(1000);
+      await saveAndConfirm(page);
     }
   });
 
   test('存檔顯示後端 i18n 成功 toast（測試環境 nginxExe 未設 → 略過預檢照存）', async ({ page }) => {
     await openPanel(page);
-    await page.locator('button[onclick="saveHttpParamPanel()"]').click();
+    // 全勾含 geoip mutex → saveAndConfirm 會點掉 mutex 提示後真存
+    await saveAndConfirm(page);
     const toast = page.locator('.layui-layer-msg');
     await expect(toast).toBeVisible();
-    // 驗證 toast 文字為後端 i18n（httpParamSaved / httpParamPrecheckSkipped）,
-    // 非空白/undefined —— 守住 renderSuccess 訊息放 obj、前端須讀 data.obj 的接線。
+    // 驗證 toast 文字為後端 i18n（httpParamSaved / httpParamPrecheckSkipped）,非空白/undefined
     const msg = await toast.textContent();
     expect(msg).toMatch(/已存|Saved/i);
     expect(msg).not.toContain('undefined');

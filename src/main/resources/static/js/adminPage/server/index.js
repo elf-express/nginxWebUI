@@ -1313,6 +1313,24 @@ function updateHttpParamCount() {
 }
 
 function saveHttpParamPanel() {
+  // mutex 檢查:任一 data-mutex group 勾選 >1 → warn confirm(不強制)
+  var perGroup = {};
+  $('#httpParamPanelDiv input[name="httpParamItem"][data-mutex="1"]:checked').each(function () {
+    var g = $(this).attr('data-group');
+    perGroup[g] = (perGroup[g] || 0) + 1;
+  });
+  var over = Object.keys(perGroup).some(function (g) { return perGroup[g] > 1; });
+  if (over) {
+    layer.confirm(serverStr.httpParamMutexWarn, function (idx) {
+      layer.close(idx);
+      doSaveHttpParam();
+    });
+    return;
+  }
+  doSaveHttpParam();
+}
+
+function doSaveHttpParam() {
   var ids = $('input[name="httpParamItem"]:checked').map(function(){ return this.value; }).get();
   var loadIndex = layer.load(2);
   $.ajax({
