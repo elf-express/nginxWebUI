@@ -1,0 +1,19 @@
+scripts/release.sh
+  s_206b53c012066f::t_ac43edc2986b09 6-7,9-10,42,84,89,91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "c70ddc1d232497d739b7f6d2e742d7ad3eeeebe5",
+  "prompts": {},
+  "sessions": {
+    "s_206b53c012066f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8c0d2e6-94fa-4577-b404-80d16a5d6090",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
