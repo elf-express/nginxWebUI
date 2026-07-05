@@ -186,16 +186,11 @@ public class NginxService {
 	}
 
 	/**
-	 * Check if ngx_http_geoip2_module.so is enabled and exists on disk.
+	 * Check if geoip2 module is available (dynamic .so OR static compiled-in via nginx -V).
+	 * 順修:原本只認動態 .so,geoip2 若 static 編譯進 nginx 會誤報未裝;改用雙軌 hasModule。
 	 */
 	public boolean hasGeoIp2Module() {
-		List<String> paths = getEnabledModulePaths();
-		for (String path : paths) {
-			if (path.endsWith("ngx_http_geoip2_module.so")) {
-				return true;
-			}
-		}
-		return false;
+		return hasModule("geoip2");
 	}
 
 	/**
@@ -229,6 +224,58 @@ public class NginxService {
 		}
 
 		return paths;
+	}
+
+	/**
+	 * 通用雙軌 module 偵測:動態(DB 已啟用且磁碟存在的 .so 路徑含 keyword)
+	 * OR 靜態(nginx -V configure arguments 含 keyword)。
+	 * static 編譯進 nginx binary 的 module 無 .so,只能靠 nginx -V 看到。
+	 * 非 Linux 一律回 false(呼叫端須自行做 fallback,見 ServerController)。
+	 */
+	public boolean hasModule(String keyword) {
+		if (!SystemTool.isLinux()) {
+			return false;
+		}
+		// 動態:DB 已啟用且磁碟存在的 .so 路徑含 keyword
+		for (String path : getEnabledModulePaths()) {
+			if (path.contains(keyword)) {
+				return true;
+			}
+		}
+		// 靜態:nginx -V 的 configure arguments 含 keyword(--add-module / --with-http_xxx_module)
+		String configureArgs = getNginxConfigureArgs();
+		if (configureArgs != null && configureArgs.contains(keyword)) {
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Check if brotli module is available (dynamic .so or static compiled-in).
+	 */
+	public boolean hasBrotliModule() {
+		return hasModule("brotli");
+	}
+
+	/**
+	 * Execute nginx -V and return full output (includes configure arguments —
+	 * the only way to detect statically compiled-in modules). Null on non-Linux / failure.
+	 */
+	public String getNginxConfigureArgs() {
+		if (!SystemTool.isLinux()) {
+			return null;
+		}
+		try {
+			String nginxExe = settingService.get("nginxExe");
+			if (StrUtil.isEmpty(nginxExe)) {
+				nginxExe = "nginx";
+			}
+			// nginx -V 輸出到 stderr(含 configure arguments),需 2>&1 重導向
+			return RuntimeUtil.execForStr("/bin/sh", "-c", nginxExe + " -V 2>&1");
+		} catch (Exception e) {
+			logger.error("Failed to get nginx -V", e);
+		}
+		return null;
 	}
 
 }

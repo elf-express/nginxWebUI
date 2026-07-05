@@ -27,6 +27,7 @@ import com.cym.model.Stream;
 import com.cym.model.Upstream;
 import com.cym.model.Www;
 import com.cym.service.ConfService;
+import com.cym.service.NginxService;
 import com.cym.service.ParamService;
 import com.cym.service.ServerService;
 import com.cym.service.SettingService;
@@ -38,6 +39,7 @@ import com.cym.sqlhelper.utils.ConditionAndWrapper;
 import com.cym.utils.BaseController;
 import com.cym.utils.JsonResult;
 import com.cym.utils.SnowFlakeUtils;
+import com.cym.utils.SystemTool;
 import com.cym.utils.TelnetUtils;
 import com.cym.utils.ToolUtils;
 import com.github.odiszapc.nginxparser.NgxBlock;
@@ -64,6 +66,8 @@ public class ServerController extends BaseController {
 	SettingService settingService;
 	@Inject
 	ConfService confService;
+	@Inject
+	NginxService nginxService;
 
 	@Mapping("")
 	public ModelAndView index(ModelAndView modelAndView, Page page, String keywords) {
@@ -122,6 +126,21 @@ public class ServerController extends BaseController {
 		modelAndView.put("httpList", sqlHelper.findAll(new Sort("seq", Direction.ASC), Http.class));
 		modelAndView.put("lockedGroups", new ArrayList<>(HttpController.LOCKED_GROUPS));
 		modelAndView.put("mutexGroups", new ArrayList<>(HttpController.MUTEX_GROUPS));
+
+		// module availability filter — 必要 module 偵測(雙軌:動態 .so OR 靜態 nginx -V)
+		// 非 Linux(Windows dev / E2E)視為全可用、不警示,避免誤報
+		boolean isLinux = SystemTool.isLinux();
+		modelAndView.put("isLinux", isLinux);
+		List<String> missingRequiredModules = new ArrayList<>();
+		if (isLinux) {
+			if (!nginxService.hasGeoIp2Module()) {
+				missingRequiredModules.add("geoip");
+			}
+			if (!nginxService.hasBrotliModule()) {
+				missingRequiredModules.add("brotli");
+			}
+		}
+		modelAndView.put("missingRequiredModules", missingRequiredModules);
 
 		modelAndView.put("keywords", keywords);
 		modelAndView.view("/adminPage/server/index.html");

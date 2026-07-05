@@ -288,7 +288,7 @@
 						<span style="font-family:Consolas,Menlo,monospace;font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
 							<span style="color:#0066cc;font-weight:bold;">${h.name?html}</span>
 							<#if h.value??><span style="color:#888;margin-left:8px;">${h.value?html}</span></#if>
-							<#if lockedGroups?seq_contains(h.groupName!'')><i class="layui-icon layui-icon-password" title="${serverStr.httpParamLockedTip?html}" aria-label="${serverStr.httpParamLockedTip?html}" style="color:#c0392b;margin-left:6px;font-size:14px;"></i></#if>
+							<#if lockedGroups?seq_contains(h.groupName!'')><i class="layui-icon layui-icon-password" title="${serverStr.httpParamLockedTip?html}" aria-label="${serverStr.httpParamLockedTip?html}" style="color:#c0392b;margin-left:6px;font-size:14px;"></i></#if><#if isLinux && missingRequiredModules?seq_contains(h.groupName!'')><span class="layui-badge layui-bg-red" title="${serverStr.httpParamModuleMissingTip?html}" style="margin-left:6px;">${serverStr.httpParamModuleMissing}</span></#if>
 						</span>
 					</label>
 					</#list>
