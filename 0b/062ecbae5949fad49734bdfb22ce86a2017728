@@ -1,0 +1,19 @@
+docker/crowdsec/Dockerfile
+  s_ea85a81ddd04f9::t_6cdc3edf6892e4 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "0b062ecbae5949fad49734bdfb22ce86a2017728",
+  "prompts": {},
+  "sessions": {
+    "s_ea85a81ddd04f9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-afef44a9465841856",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
