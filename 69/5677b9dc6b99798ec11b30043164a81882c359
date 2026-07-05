@@ -1,0 +1,19 @@
+CLAUDE.md
+  s_206b53c012066f::t_b68b447ce4b928 189,193-196,206
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "695677b9dc6b99798ec11b30043164a81882c359",
+  "prompts": {},
+  "sessions": {
+    "s_206b53c012066f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8c0d2e6-94fa-4577-b404-80d16a5d6090",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
