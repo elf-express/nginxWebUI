@@ -1,0 +1,19 @@
+Dockerfile
+  s_27a48fac18f590::t_a7b4afc477d6e9 54-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "771e1994fb4333b9261b3a4447a94d3d32890418",
+  "prompts": {},
+  "sessions": {
+    "s_27a48fac18f590": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a3fb3eaffa3d2543f",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
