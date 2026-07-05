@@ -72,10 +72,10 @@ if [ "$NEW_VER" != "$VERSION" ]; then
   exit 1
 fi
 
-# parent 版本必須維持 3.3.3（或當下的 Solon 版本）
+# parent 版本必須維持 3.10.7（當下的 Solon 版本；升 Solon 時同步改這裡）
 PARENT_VER=$(awk '/<parent>/,/<\/parent>/' pom.xml | grep -oP '<version>\K[0-9.]+' | head -1)
-if [ "$PARENT_VER" != "3.3.3" ]; then
-  echo "錯誤：誤改了 parent (solon-parent) 版本（現在是 $PARENT_VER、應是 3.3.3）" >&2
+if [ "$PARENT_VER" != "3.10.7" ]; then
+  echo "錯誤：誤改了 parent (solon-parent) 版本（現在是 $PARENT_VER、應是 3.10.7）" >&2
   git checkout -- pom.xml
   exit 1
 fi
