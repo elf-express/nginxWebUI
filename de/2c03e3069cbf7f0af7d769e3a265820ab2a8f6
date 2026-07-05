@@ -1,0 +1,19 @@
+tests/e2e/30-http-param-mode.spec.js
+  s_40e6c34e123f19::t_5b1e27c0c05d8e 1-96
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "de2c03e3069cbf7f0af7d769e3a265820ab2a8f6",
+  "prompts": {},
+  "sessions": {
+    "s_40e6c34e123f19": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59f2918c-ed3a-4f68-aadb-7cdddee39ce8",
+        "model": "unknown"
+      },
+      "human_author": "tw199501 <tw199501@elf.tw>"
+    }
+  }
+}
