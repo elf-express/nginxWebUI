@@ -1,0 +1,21 @@
+src/main/java/com/cym/controller/adminPage/HttpController.java
+  s_40e6c34e123f19::t_96736ad3f02210 55-59,262,264-265
+src/main/java/com/cym/controller/adminPage/ServerController.java
+  s_40e6c34e123f19::t_bd423159fb1cb5 123-124
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "b15d1b700dfaf1e40b8bc3ed7ecae0e7ede2a5af",
+  "prompts": {},
+  "sessions": {
+    "s_40e6c34e123f19": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59f2918c-ed3a-4f68-aadb-7cdddee39ce8",
+        "model": "unknown"
+      },
+      "human_author": "tw199501 <tw199501@elf.tw>"
+    }
+  }
+}
