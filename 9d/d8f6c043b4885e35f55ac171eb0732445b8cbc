@@ -1,0 +1,19 @@
+docs/superpowers/plans/2026-07-05-http-param-phase3-tristate-mode-design.md
+  s_40e6c34e123f19::t_56bc8afcfe72af 1-78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "9dd8f6c043b4885e35f55ac171eb0732445b8cbc",
+  "prompts": {},
+  "sessions": {
+    "s_40e6c34e123f19": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59f2918c-ed3a-4f68-aadb-7cdddee39ce8",
+        "model": "unknown"
+      },
+      "human_author": "tw199501 <tw199501@elf.tw>"
+    }
+  }
+}
