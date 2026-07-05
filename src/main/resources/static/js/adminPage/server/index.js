@@ -1313,8 +1313,24 @@ function updateHttpParamCount() {
 }
 
 function saveHttpParamPanel() {
-  // phase 2: send selected http param ids to backend
   var ids = $('input[name="httpParamItem"]:checked').map(function(){ return this.value; }).get();
-  console.log('http param panel: would save', ids.length, 'ids =', ids);
-  layer.msg(serverStr.httpParamSelected + ' ' + ids.length + ' ' + serverStr.httpParamUnit);
+  var loadIndex = layer.load(2);
+  $.ajax({
+    type: 'POST',
+    url: ctx + '/adminPage/http/saveEnable',
+    data: { checkedIds: ids.join(",") },
+    dataType: 'json',
+    success: function(data) {
+      layer.close(loadIndex);
+      if (data.success) {
+        layer.msg(data.msg);
+      } else {
+        layer.alert(data.msg);
+      }
+    },
+    error: function() {
+      layer.close(loadIndex);
+      layer.alert(commonStr.errorInfo);
+    }
+  });
 }

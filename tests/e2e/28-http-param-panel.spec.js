@@ -56,17 +56,6 @@ test.describe('server modal — ① 設置 http 參數 panel', () => {
     expect(after.shown).toBe(before.shown - 1);
   });
 
-  test('點提交 → toast 顯示已選數量(覆蓋 saveHttpParamPanel 的 i18n)', async ({ page }) => {
-    const before = await readPanelStats(page);
-    // 面板內提交按鈕(onclick 唯一,傳 DOM 後 #httpParamPanelDiv 唯一 → 按鈕亦唯一)
-    await page.locator('button[onclick="saveHttpParamPanel()"]').click();
-    const toast = page.locator('.layui-layer-msg');
-    await expect(toast).toBeVisible();
-    const msg = await toast.textContent();
-    expect(msg).toMatch(/已选|已選|Selected/);        // serverStr.httpParamSelected
-    expect(msg).toContain(String(before.checked));    // ids.length
-  });
-
   test('i18n:標題與面板文案由 messages*.properties 提供(無 raw key / undefined)', async ({ page }) => {
     // layer 標題來自 serverStr.httpParm
     const titles = await page.evaluate(() =>
