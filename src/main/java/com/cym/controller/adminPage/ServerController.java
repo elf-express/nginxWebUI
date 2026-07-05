@@ -120,6 +120,8 @@ public class ServerController extends BaseController {
 		modelAndView.put("passwordList", sqlHelper.findAll(Password.class));
 		modelAndView.put("denyAllowList", sqlHelper.findAll(DenyAllow.class));
 		modelAndView.put("httpList", sqlHelper.findAll(new Sort("seq", Direction.ASC), Http.class));
+		modelAndView.put("lockedGroups", new ArrayList<>(HttpController.LOCKED_GROUPS));
+		modelAndView.put("mutexGroups", new ArrayList<>(HttpController.MUTEX_GROUPS));
 
 		modelAndView.put("keywords", keywords);
 		modelAndView.view("/adminPage/server/index.html");

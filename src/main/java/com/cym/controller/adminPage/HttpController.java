@@ -52,6 +52,11 @@ public class HttpController extends BaseController {
 		{ "logging", "httpGroup.logging", "httpGroup.loggingDesc", "" },
 	};
 
+	/** 三態 mode:核心不可關(後端 enforce enable=true)。 */
+	public static final Set<String> LOCKED_GROUPS = Set.of("base", "realip");
+	/** 三態 mode:建議互斥(前端存檔時 warn,不強制)。 */
+	public static final Set<String> MUTEX_GROUPS = Set.of("geoip");
+
 	@Mapping("")
 	public ModelAndView index(ModelAndView modelAndView) {
 		List<Http> httpList = httpService.findAll();
@@ -254,9 +259,10 @@ public class HttpController extends BaseController {
 			oldEnable.put(http.getId(), http.getEnable());
 		}
 
-		// 套用新 enable（只更新有變動的）
+		// 套用新 enable（只更新有變動的）；locked group 強制 enable=true（後端 enforce，防繞過）
 		for (Http http : httpList) {
-			boolean want = checked.contains(http.getId());
+			boolean want = checked.contains(http.getId())
+					|| (http.getGroupName() != null && LOCKED_GROUPS.contains(http.getGroupName()));
 			if (!Objects.equals(http.getEnable(), want)) {
 				http.setEnable(want);
 				sqlHelper.updateById(http);
