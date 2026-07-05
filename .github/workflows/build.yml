@@ -1,14 +1,12 @@
 name: Build & Test & Release
 
-# Trigger 模型：
-#   push to dev      → 跑 build/test、不 push image
-#   push to master   → 跑 build/test、不 push image (master 是已 release 快照)
-#   push tag v*      → 跑 build/test + buildx + push image (:x.y.z + :latest)
-#   pull_request to master → 跑 build/test
+# Trigger 模型:
+#   push dev            → build/test(不 push image)
+#   push master         → build/test + release(pom 版本在 ghcr 沒有才 build+push+tag)
+#   pull_request→master → build/test
 on:
   push:
     branches: [master, dev]
-    tags: ['v*']
   pull_request:
     branches: [master]
 
@@ -32,18 +30,13 @@ jobs:
 
       - name: Build with Maven
         run: mvn clean package -DskipTests -q
-        # 註：dev/master push 只需驗證能編譯，不再 upload jar artifact
-        # （137 個 43MB jar 曾把 Actions 儲存配額塞爆 → CI 全紅）。
-        # release 的 jar 由 docker job 在 build image 時自行產生。
-        # Dependabot 若再升級 actions/upload-artifact 版本，本 repo 已不使用此 step，
-        # 可直接 close 該 PR。
 
-  docker:
-    name: Build & Push Docker image (${{ matrix.image.name }})
+  release:
+    name: Release image (${{ matrix.image.name }})
     needs: build
     runs-on: ubuntu-latest
-    # 只在 push tag v* 時才 build + push image
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    # 只在 push master 時跑(版本閘控:pom 版本在 ghcr 沒有才 build+push)
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     permissions:
       contents: read
       packages: write
@@ -52,28 +45,25 @@ jobs:
       matrix:
         image:
           - name: nginxwebui
-            context: .
             dockerfile: Dockerfile
+            context: .
             needs_mvn: true
+          - name: nginxwebui-crowdsec
+            dockerfile: docker/crowdsec/Dockerfile
+            context: docker/crowdsec
+            needs_mvn: false
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
-      - name: Set up JDK 17
-        if: matrix.image.needs_mvn
-        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: maven
+      - name: Extract version from pom.xml
+        id: version
+        run: |
+          VER=$(grep -A1 'artifactId>nginxWebUI' pom.xml | grep version | grep -oP '\d+\.\d+\.\d+')
+          echo "VERSION=$VER" >> "$GITHUB_OUTPUT"
+          echo "pom 版本: $VER"
 
-      - name: Build JAR
-        if: matrix.image.needs_mvn
-        run: mvn clean package -DskipTests -q
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
-
+      # 先登入,version-gate 的 manifest inspect 才能查 private package(否則必失敗→每次重發)
       - name: Login to GitHub Container Registry
         uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4
         with:
@@ -81,33 +71,64 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract version from tag and verify pom.xml
-        id: version
+      - name: Check if this version already on ghcr
+        id: exists
         run: |
-          # 從 tag (refs/tags/v5.1.1) 抓出 5.1.1
-          VER="${GITHUB_REF#refs/tags/v}"
-          echo "VERSION=$VER" >> "$GITHUB_OUTPUT"
-
-          # 主應用 image 額外驗證 pom.xml 的 nginxWebUI 版本與 tag 一致
-          # (sidecar image 沒有 pom.xml，不需要這個檢查)
-          if [ "${{ matrix.image.needs_mvn }}" = "true" ]; then
-            POM_VER=$(grep -A1 'artifactId>nginxWebUI' pom.xml | grep version | grep -oP '\d+\.\d+\.\d+')
-            if [ "$POM_VER" != "$VER" ]; then
-              echo "::error::Tag ($VER) 和 pom.xml ($POM_VER) 不一致 — release script 沒跑或漏改 pom"
-              exit 1
-            fi
-            echo "✓ tag $VER 與 pom.xml $POM_VER 一致"
+          if docker manifest inspect ghcr.io/elf-express/${{ matrix.image.name }}:${{ steps.version.outputs.VERSION }} >/dev/null 2>&1; then
+            echo "PUBLISHED=true" >> "$GITHUB_OUTPUT"
+            echo "${{ matrix.image.name }}:${{ steps.version.outputs.VERSION }} 已存在 → 跳過發布"
+          else
+            echo "PUBLISHED=false" >> "$GITHUB_OUTPUT"
+            echo "${{ matrix.image.name }}:${{ steps.version.outputs.VERSION }} 尚未發布 → 將 build+push"
           fi
 
-      - name: Build and Push (multi-platform)
+      - name: Set up JDK 17
+        if: steps.exists.outputs.PUBLISHED == 'false' && matrix.image.needs_mvn
+        uses: actions/setup-java@1bcf9fb12cf4aa7d266a90ae39939e61372fe520 # v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build JAR
+        if: steps.exists.outputs.PUBLISHED == 'false' && matrix.image.needs_mvn
+        run: mvn clean package -DskipTests -q
+
+      - name: Set up Docker Buildx
+        if: steps.exists.outputs.PUBLISHED == 'false'
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      - name: Build and Push (amd64)
+        if: steps.exists.outputs.PUBLISHED == 'false'
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
         with:
           context: ${{ matrix.image.context }}
           file: ${{ matrix.image.dockerfile }}
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           tags: |
             ghcr.io/elf-express/${{ matrix.image.name }}:${{ steps.version.outputs.VERSION }}
             ghcr.io/elf-express/${{ matrix.image.name }}:latest
           cache-from: type=gha,scope=${{ matrix.image.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image.name }}
+
+  tag:
+    name: Auto-tag release
+    needs: release
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+      - name: Create v<version> tag if new
+        run: |
+          VER=$(grep -A1 'artifactId>nginxWebUI' pom.xml | grep version | grep -oP '\d+\.\d+\.\d+')
+          if git rev-parse "v$VER" >/dev/null 2>&1; then
+            echo "tag v$VER 已存在,跳過"
+          else
+            git tag -a "v$VER" -m "Release v$VER"
+            git push origin "v$VER"
+            echo "已打並推送 tag v$VER"
+          fi
