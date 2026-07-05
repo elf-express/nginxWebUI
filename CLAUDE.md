@@ -186,15 +186,14 @@ docker compose ps                                # all healthy
 > 注意：Loki / Promtail / Grafana monitoring profile 已於 2026-06-30 從本專案移除。若 server 上還有 `nginxwebui_loki_data` / `nginxwebui_grafana_data` volume 是歷史遺留，可手動 `docker volume rm` 清理。
 
 ## Release Flow (see docs/superpowers/plans/2026-05-21-dev-release-workflow.md)
-**Branches:** `dev` (daily dev + release actions) · `master` (snapshot pointer to last release; never commit/tag here directly) · `tag v*` (cut by `scripts/release.sh`; CI builds image only on tags).
+**Branches:** `dev` (daily dev) · `master` (**push master 觸發發版**;CI 版本閘控:pom 版本在 ghcr 沒有才 build+push) · `tag v*` (CI 在 master push 時**自動打**,不再手動).
 
 ```bash
 git checkout dev && git pull origin dev
-scripts/release.sh 5.2.1            # bumps pom.xml + commit + tag v5.2.1 (only touches pom.xml)
-git push origin dev --tags          # CI builds 1 image (nginxwebui) → ghcr.io :5.2.1 + :latest
-docker manifest inspect ghcr.io/elf-express/nginxwebui:5.2.1   # confirm pushed
-git push origin dev:master          # fast-forward master
-gh release create v5.2.1 ...        # GitHub Release entry
+scripts/release.sh 5.2.3            # bumps pom.xml + commit (NO tag — CI auto-tags on master push)
+git push origin dev:master          # push master → CI version-gated: build+push nginxwebui + nginxwebui-crowdsec (amd64) + auto-tag v5.2.3
+docker manifest inspect ghcr.io/elf-express/nginxwebui:5.2.3   # confirm image pushed
+# GitHub Release entry: optional (gh 受組織 PAT 政策 403 時走 GitHub UI 手動建)
 ```
 > 注意：`release.sh` 只改 pom.xml，不碰 README/CLAUDE/.env — 所以部署文件刻意採「不綁版本」寫法（`:latest` + `master` raw URL + jar 萬用字元）避免每次 release 變舊。Hotfix 從 `master` 開 `hotfix/*` 分支（script 允許）。
 
@@ -204,7 +203,7 @@ gh release create v5.2.1 ...        # GitHub Release entry
 **Security:** CrowdSec (IDS + bouncer) · GeoIP2 country block · ASN block · Protection Cert · Real-IP module · **DenyAllow self-seeded blocklist** (6 default malicious-IP rules + scheduled refresh with retry-on-failure + startup catch-up).
 **GeoIP DB module (v5.2.0):** header shows Country/City/ASN MMDB build dates (`GeoipService` via maxmind-db) · ProtectionCert Tab-1 GeoIP table (version / schedule / manual download) · `GeoipController` `/adminPage/geoip/{versions,download}` · Java/Hutool download (jar + Docker).
 **Monitoring/Ops:** nginx module auto-detect (`/adminPage/monitor/nginxInfo`) · Site Resource · connectivity test.
-**Deploy/Test:** test captcha · Compose stack (PG18 + CrowdSec) · CrowdSec sidecar = official image + bind-mount config · optional `security` profile · CI builds 1 image (nginxwebui) · `.gitattributes` LF · Playwright E2E suite (offline-CDN guard + a11y crawler).
+**Deploy/Test:** test captcha · Compose stack (PG18 + CrowdSec) · **CrowdSec = self-built `nginxwebui-crowdsec` (official base + baked config)** · optional `security` profile · **master-triggered release: CI version-gated builds 2 images (nginxwebui + nginxwebui-crowdsec, amd64) + auto-tag** · **geoip MMDB baked at build (offline-ready)** · `.gitattributes` LF · Playwright E2E suite (offline-CDN guard + a11y crawler).
 
 ## Docs
 - [Improvement plans & reports](docs/superpowers/plans/)
