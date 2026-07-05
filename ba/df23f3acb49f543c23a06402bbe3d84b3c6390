@@ -1,0 +1,19 @@
+.github/dependabot.yml
+  s_206b53c012066f::t_2cbee3a903a986 12-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "badf23f3acb49f543c23a06402bbe3d84b3c6390",
+  "prompts": {},
+  "sessions": {
+    "s_206b53c012066f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8c0d2e6-94fa-4577-b404-80d16a5d6090",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
