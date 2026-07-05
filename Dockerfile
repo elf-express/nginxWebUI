@@ -51,6 +51,11 @@ COPY scripts/update-geoip-cf.sh /usr/local/bin/update-geoip-cf.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh /usr/local/bin/update-geoip-cf.sh \
     && mkdir -p /etc/nginx/geoip /etc/nginx/conf.d \
     && echo "0 3 * * 3,6 /usr/local/bin/update-geoip-cf.sh >> /var/log/update-geoip-cf.log 2>&1" > /etc/crontabs/root
+# Bake GeoLite2 MMDB at build time so geoip works offline out-of-box
+# (entrypoint + cron still refresh when online; 7-day freshness skip)
+RUN curl -fL --retry 3 -o /etc/nginx/geoip/GeoLite2-Country.mmdb https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-Country.mmdb \
+    && curl -fL --retry 3 -o /etc/nginx/geoip/GeoLite2-City.mmdb    https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-City.mmdb \
+    && curl -fL --retry 3 -o /etc/nginx/geoip/GeoLite2-ASN.mmdb     https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-ASN.mmdb
 VOLUME ["/home/nginxWebUI"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD curl -sf http://localhost:8080 || exit 1
