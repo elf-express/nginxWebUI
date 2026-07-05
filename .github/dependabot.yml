@@ -15,6 +15,9 @@ updates:
     commit-message:
       prefix: "chore(deps)"
       include: "scope"
+    # 自家 release image 由發版流程控管,且為 private → Dependabot 無 creds 去查會 error;排除之
+    ignore:
+      - dependency-name: "ghcr.io/elf-express/nginxwebui"
 
   # GitHub Actions versions in .github/workflows/*.yml
   - package-ecosystem: "github-actions"
