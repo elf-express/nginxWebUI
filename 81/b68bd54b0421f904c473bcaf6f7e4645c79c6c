@@ -1,0 +1,21 @@
+src/main/resources/static/js/adminPage/server/index.js
+  s_40e6c34e123f19::t_75e849c355f325 1326,1328
+tests/e2e/29-http-param-save.spec.js
+  s_40e6c34e123f19::t_b24a5e8e50d95c 12-17,42-61,64,69-73
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "81b68bd54b0421f904c473bcaf6f7e4645c79c6c",
+  "prompts": {},
+  "sessions": {
+    "s_40e6c34e123f19": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59f2918c-ed3a-4f68-aadb-7cdddee39ce8",
+        "model": "unknown"
+      },
+      "human_author": "tw199501 <tw199501@elf.tw>"
+    }
+  }
+}
