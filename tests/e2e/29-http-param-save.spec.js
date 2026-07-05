@@ -9,6 +9,12 @@ async function openPanel(page) {
   await page.waitForTimeout(300);
 }
 
+async function reopenServerPanel(page) {
+  await page.goto('/adminPage/server');
+  await page.waitForSelector('table');
+  await openPanel(page);
+}
+
 test.describe('server modal — ① http 參數 panel 存檔（phase 2）', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
@@ -33,35 +39,38 @@ test.describe('server modal — ① http 參數 panel 存檔（phase 2）', () =
     await page.locator('button[onclick="saveHttpParamPanel()"]').click();
     await page.waitForTimeout(1000); // 等 ajax + layer
 
-    // 重載 server 頁 + 重開 panel
-    await page.goto('/adminPage/server');
-    await page.waitForSelector('table');
-    await openPanel(page);
-
-    // 該 id 的 checkbox 應為未勾（enable=false 已落 DB）
-    const stillChecked = await page.evaluate((id) => {
-      const scope = document.getElementById('httpParamPanelDiv');
-      const cb = scope.querySelector('input[name="httpParamItem"][value="' + id + '"]');
-      return cb ? cb.checked : null;
-    }, targetId);
-    expect(stillChecked).toBe(false);
-
-    // 還原:重新勾選該項 + 存檔,避免影響其他 spec 的共用 DB
-    await page.evaluate((id) => {
-      const scope = document.getElementById('httpParamPanelDiv');
-      const cb = scope.querySelector('input[name="httpParamItem"][value="' + id + '"]');
-      cb.checked = true;
-      cb.dispatchEvent(new Event('change'));
-    }, targetId);
-    await page.locator('button[onclick="saveHttpParamPanel()"]').click();
-    await page.waitForTimeout(1000);
+    try {
+      // 重載 server 頁 + 重開 panel,驗證該 id 未勾（enable=false 已落 DB）
+      await reopenServerPanel(page);
+      const stillChecked = await page.evaluate((id) => {
+        const scope = document.getElementById('httpParamPanelDiv');
+        const cb = scope.querySelector('input[name="httpParamItem"][value="' + id + '"]');
+        return cb ? cb.checked : null;
+      }, targetId);
+      expect(stillChecked).toBe(false);
+    } finally {
+      // 還原:即使上面斷言失敗也重新啟用該項 + 存檔,避免污染共用 DB
+      await reopenServerPanel(page);
+      await page.evaluate((id) => {
+        const scope = document.getElementById('httpParamPanelDiv');
+        const cb = scope.querySelector('input[name="httpParamItem"][value="' + id + '"]');
+        if (cb) { cb.checked = true; cb.dispatchEvent(new Event('change')); }
+      }, targetId);
+      await page.locator('button[onclick="saveHttpParamPanel()"]').click();
+      await page.waitForTimeout(1000);
+    }
   });
 
-  test('存檔顯示成功 toast（測試環境 nginxExe 未設 → 略過預檢照存）', async ({ page }) => {
+  test('存檔顯示後端 i18n 成功 toast（測試環境 nginxExe 未設 → 略過預檢照存）', async ({ page }) => {
     await openPanel(page);
     await page.locator('button[onclick="saveHttpParamPanel()"]').click();
     const toast = page.locator('.layui-layer-msg');
     await expect(toast).toBeVisible();
+    // 驗證 toast 文字為後端 i18n（httpParamSaved / httpParamPrecheckSkipped）,
+    // 非空白/undefined —— 守住 renderSuccess 訊息放 obj、前端須讀 data.obj 的接線。
+    const msg = await toast.textContent();
+    expect(msg).toMatch(/已存|Saved/i);
+    expect(msg).not.toContain('undefined');
   });
 
   test('panel 顯示「全域設定」警示提示', async ({ page }) => {

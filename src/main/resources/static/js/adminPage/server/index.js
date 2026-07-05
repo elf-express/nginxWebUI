@@ -1323,9 +1323,9 @@ function saveHttpParamPanel() {
     success: function(data) {
       layer.close(loadIndex);
       if (data.success) {
-        layer.msg(data.msg);
+        layer.msg(data.obj);  // renderSuccess(String) 把訊息放 obj（見 conf/index.js 慣例）
       } else {
-        layer.alert(data.msg);
+        layer.alert(data.msg);  // renderError(String) 放 msg
       }
     },
     error: function() {
