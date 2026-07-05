@@ -270,8 +270,10 @@ public class NginxService {
 			if (StrUtil.isEmpty(nginxExe)) {
 				nginxExe = "nginx";
 			}
-			// nginx -V 輸出到 stderr(含 configure arguments),需 2>&1 重導向
-			return RuntimeUtil.execForStr("/bin/sh", "-c", nginxExe + " -V 2>&1");
+			// 直接以 argv 呼叫 binary(不經 shell,杜絕 command injection);
+			// nginx -V 輸出到 stderr,用 redirectErrorStream 併入 stdout 再讀。
+			Process process = new ProcessBuilder(nginxExe, "-V").redirectErrorStream(true).start();
+			return RuntimeUtil.getResult(process);
 		} catch (Exception e) {
 			logger.error("Failed to get nginx -V", e);
 		}
