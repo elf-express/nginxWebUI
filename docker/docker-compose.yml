@@ -53,18 +53,15 @@ services:
   # ── 安全防護 ──────────────────────────────────
 
   crowdsec:
-    image: crowdsecurity/crowdsec:v1.7.8
+    image: ghcr.io/elf-express/nginxwebui-crowdsec:${NGINX_WEBUI_VERSION:-latest}
     container_name: nginxwebui-crowdsec
     restart: unless-stopped
     profiles: ["security"]
-    # config 改單檔 bind mount（只覆蓋自訂的 3 個檔，不碰官方 image 內 /etc/crowdsec 其餘預設），
-    # 升版自動跟 repo config，不再需要 down -v 重新 seed。
+    # config（acquis/profiles/abuseipdb）已烤進自建 image（見 docker/crowdsec/Dockerfile），
+    # 不再 bind mount，升版跟著 image 走。runtime secret 仍走 .env。
     volumes:
       - nginxwebui_log:/var/log/nginx:ro
       - crowdsec_data:/var/lib/crowdsec/data
-      - ./crowdsec/acquis.yml:/etc/crowdsec/acquis.yaml:ro
-      - ./crowdsec/profiles.yaml:/etc/crowdsec/profiles.yaml:ro
-      - ./crowdsec/abuseipdb.yaml:/etc/crowdsec/notifications/abuseipdb.yaml:ro
     environment:
       - COLLECTIONS=crowdsecurity/nginx crowdsecurity/http-cve crowdsecurity/base-http-scenarios
       - BOUNCER_KEY_nginx=${CROWDSEC_BOUNCER_KEY}
