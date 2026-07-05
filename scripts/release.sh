@@ -3,15 +3,11 @@
 #
 # 動作流程：
 #   1. 驗證分支與工作區乾淨
-#   2. 確認 tag 不存在
-#   3. 改 pom.xml 的 nginxWebUI 版本（不會誤改 parent solon-parent 版本）
-#   4. commit "chore(release): bump version to X.Y.Z"
-#   5. 打 git tag vX.Y.Z
+#   2. 改 pom.xml 的 nginxWebUI 版本（不會誤改 parent solon-parent 版本）
+#   3. commit "chore(release): bump version to X.Y.Z"
 #
-# 後續手動動作：
-#   git push origin <current-branch> --tags     # 觸發 CI build image
-#   等 image 推上去
-#   git push origin <current-branch>:master     # master fast-forward
+# 後續手動動作（主線觸發發版）：
+#   git push origin <current-branch>:master     # push master → CI 版本閘控 build+push image + 自動打 tag v<version>
 #
 # 用法：scripts/release.sh 5.0.4
 
@@ -43,13 +39,7 @@ if ! git diff --cached --quiet; then
   exit 1
 fi
 
-# === 2. 確認 tag 不存在 ===
-if git rev-parse "v$VERSION" >/dev/null 2>&1; then
-  echo "錯誤：tag v$VERSION 已存在" >&2
-  exit 1
-fi
-
-# === 3. 拉最新（同名遠端分支）===
+# === 2. 拉最新（同名遠端分支）===
 echo "拉最新 origin/$CURRENT_BRANCH ..."
 git pull --ff-only origin "$CURRENT_BRANCH"
 
@@ -91,15 +81,11 @@ if [ "$PARENT_VER" != "3.3.3" ]; then
 fi
 echo "✓ pom.xml: nginxWebUI=$NEW_VER, parent solon-parent=$PARENT_VER"
 
-# === 6. commit + tag ===
+# === commit（tag 由 CI 在 master push 時自動打，不在此打）===
 git add pom.xml
 git commit -m "chore(release): bump version to $VERSION"
-git tag -a "v$VERSION" -m "Release v$VERSION"
 
 echo ""
-echo "✓ 本地完成。下一步："
-echo "    git push origin $CURRENT_BRANCH --tags"
-echo "    # 等 CI 完成、確認 ghcr.io 上 :$VERSION 已 push"
+echo "✓ pom 已升到 $VERSION 並 commit。下一步："
 echo "    git push origin $CURRENT_BRANCH:master"
-echo ""
-echo "  CI 會自動 build：ghcr.io/elf-express/nginxwebui:$VERSION + :latest"
+echo "    # push master → CI 版本閘控 build+push（nginxwebui + nginxwebui-crowdsec）+ 自動打 tag v$VERSION"
