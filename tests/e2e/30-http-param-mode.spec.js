@@ -21,6 +21,9 @@ async function restoreAllEnabled(page) {
     });
   });
   await page.locator('button[onclick="saveHttpParamPanel()"]').click();
+  // 全勾含 geoip mutex → 會跳 confirm,點確認才真存(否則還原 POST 不會送出)
+  const confirmBtn = page.locator('.layui-layer-dialog .layui-layer-btn0');
+  try { await confirmBtn.click({ timeout: 2000 }); } catch (e) { /* 無 mutex confirm */ }
   await page.waitForTimeout(1000);
 }
 
@@ -63,6 +66,13 @@ test.describe('server modal — ① http 參數 panel 三態 mode（phase 3）',
         return locked.length > 0 && locked.every((c) => c.checked);
       });
       expect(lockedAllChecked).toBe(true);   // enforce:locked 不受空送影響
+      // 反向不變量:空 POST 確實生效(optional gzip 被打成未勾),證明非 no-op
+      const gzipUnchecked = await page.evaluate(() => {
+        const scope = document.getElementById('httpParamPanelDiv');
+        const gzip = scope.querySelector('input[name="httpParamItem"][data-group="gzip"]');
+        return gzip ? gzip.checked : null;
+      });
+      expect(gzipUnchecked).toBe(false);
     } finally {
       await restoreAllEnabled(page);
     }
