@@ -43,7 +43,7 @@ fi
 echo "拉最新 origin/$CURRENT_BRANCH ..."
 git pull --ff-only origin "$CURRENT_BRANCH"
 
-# === 4. 改 pom.xml 版本 ===
+# === 3. 改 pom.xml 版本 ===
 # pom.xml 第一個 <version> 是 <parent>solon-parent 的版本，不能改！
 # 要改的是 <artifactId>nginxWebUI</artifactId> 之後的那個 <version>
 CURRENT_VER=$(grep -A1 'artifactId>nginxWebUI' pom.xml | grep version | grep -oP '\d+\.\d+\.\d+')
@@ -64,7 +64,7 @@ awk -v new="$VERSION" '
   { print }
 ' pom.xml > pom.xml.tmp && mv pom.xml.tmp pom.xml
 
-# === 5. 驗證改寫成功且沒誤改 parent ===
+# === 4. 驗證改寫成功且沒誤改 parent ===
 NEW_VER=$(grep -A1 'artifactId>nginxWebUI' pom.xml | grep version | grep -oP '\d+\.\d+\.\d+')
 if [ "$NEW_VER" != "$VERSION" ]; then
   echo "錯誤：pom.xml 改寫失敗（預期 $VERSION、實際 $NEW_VER）" >&2
@@ -81,7 +81,7 @@ if [ "$PARENT_VER" != "3.10.7" ]; then
 fi
 echo "✓ pom.xml: nginxWebUI=$NEW_VER, parent solon-parent=$PARENT_VER"
 
-# === commit（tag 由 CI 在 master push 時自動打，不在此打）===
+# === 5. commit（tag 由 CI 在 master push 時自動打，不在此打）===
 git add pom.xml
 git commit -m "chore(release): bump version to $VERSION"
 

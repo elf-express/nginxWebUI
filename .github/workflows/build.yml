@@ -125,9 +125,12 @@ jobs:
       - name: Create v<version> tag if new
         run: |
           VER=$(grep -A1 'artifactId>nginxWebUI' pom.xml | grep version | grep -oP '\d+\.\d+\.\d+')
-          if git rev-parse "v$VER" >/dev/null 2>&1; then
-            echo "tag v$VER 已存在,跳過"
+          # 查遠端(checkout 是淺 clone、不含 tags,不能用 local git rev-parse)
+          if git ls-remote --exit-code --tags origin "v$VER" >/dev/null 2>&1; then
+            echo "tag v$VER 已存在(遠端),跳過"
           else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git tag -a "v$VER" -m "Release v$VER"
             git push origin "v$VER"
             echo "已打並推送 tag v$VER"

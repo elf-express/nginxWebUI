@@ -26,7 +26,7 @@ Entry point: [com.cym.NginxWebUI](src/main/java/com/cym/NginxWebUI.java) — `@S
   > 注意：4.1.0 起 `Metadata` 改為 Java **record**（需 Java 16+），`getBuildDate()` 已移除 → 用 `buildTime()`（Instant）。此版由 dependabot 於 2026-07-05 升級（同批帶動 Java 8→17 地基升級）；讀取邏輯見 `GeoipService.readBuildDate`。
 - **Build:** Maven → `target/nginxWebUI-<version>.jar` (fat jar, `jar-with-dependencies`)
 - **Tests:** Playwright E2E (**no JUnit for end-to-end**)
-- **Containers:** Docker Compose stack (PostgreSQL + CrowdSec). Only `nginxwebui` is self-built; the CrowdSec sidecar uses the official image + bind-mounted config under [docker/crowdsec/](docker/crowdsec/).
+- **Containers:** Docker Compose stack (PostgreSQL + CrowdSec). **Two self-built images: `nginxwebui` + `nginxwebui-crowdsec`** (crowdsec = official base + config baked from [docker/crowdsec/](docker/crowdsec/)).
   > 注意：Loki + Promtail + Grafana 已於 2026-06-30 從本專案移除 — nginx 內建 access/error log 已足夠排查,CrowdSec 直接從共享的 `nginxwebui_log` volume 讀 nginx log,不需要 Loki 中介。
 
 ## Directory Structure
@@ -88,7 +88,7 @@ docs/               # design docs & plans
 - container_name: flat `nginxwebui` (app) / `nginxwebui-<service>` (sidecar) — no version suffix since 5.1.0.
 - volume name: `nginxwebui_{purpose}_data` (explicit `name:` to dodge compose project prefix).
 - healthcheck + startup order required; `entrypoint.sh` must be LF (`.gitattributes` enforces).
-- Only `nginxwebui` is self-built. The CrowdSec sidecar runs the **official image** with config bind-mounted from `docker/crowdsec/`. CrowdSec is opt-in via compose **profile** `security`; default `docker compose up -d` starts only nginxwebui + postgres.
+- **Two self-built images:** `nginxwebui` (root Dockerfile) + `nginxwebui-crowdsec` (`docker/crowdsec/Dockerfile` = official crowdsec base + baked config). CrowdSec is opt-in via compose **profile** `security`; default `docker compose up -d` starts only nginxwebui + postgres.
 
 ## Architecture Flow
 A typical "user edits HTTP params" request crosses these layers:
@@ -173,7 +173,7 @@ First visit prompts to set the admin password.
 - Skip wizard: `--init.admin=admin --init.pass=admin123 --init.api=true`
   > 注意：`--init.*` 只在 DB 還沒有任何管理員時生效。自 5.1.0 起 compose 的 `BOOT_OPTIONS` 不再內建 `--init.admin/pass`（首次走 UI 引導）。
 
-**Docker Compose (recommended)** — run from `docker/`. Deploy needs `docker-compose.yml` + `.env` + `docker/crowdsec/` config dir (CrowdSec bind-mounts it). Default `up -d` = nginxwebui + postgres only; add `--profile security` for CrowdSec IDS:
+**Docker Compose (recommended)** — run from `docker/`. Deploy needs `docker-compose.yml` + `.env` (crowdsec config is baked into its self-built image, no bind-mount needed). Default `up -d` = nginxwebui + postgres only; add `--profile security` for CrowdSec IDS:
 ```bash
 cd docker
 docker compose pull && docker compose up -d     # pull release images (:latest = newest tag)
@@ -181,8 +181,8 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build   #
 docker compose ps                                # all healthy
 ```
 
-**Stack** (from [docker/docker-compose.yml](docker/docker-compose.yml)): **always on** — nginxwebui (host **12300**→8080, 80, 443) · postgres:18-alpine. **Optional via profile** — `security`: crowdsec · crowdsec-bouncer. CrowdSec sidecar = official image + bind-mounted config.
-> 注意：crowdsec config 改用單檔 bind mount（`docker/crowdsec/*.yaml` → 容器 `/etc/crowdsec/...`），升版自動跟 repo，不再需要 `docker compose down -v` 重新 seed。
+**Stack** (from [docker/docker-compose.yml](docker/docker-compose.yml)): **always on** — nginxwebui (host **12300**→8080, 80, 443) · postgres:18-alpine. **Optional via profile** — `security`: crowdsec · crowdsec-bouncer. CrowdSec = self-built `nginxwebui-crowdsec`（官方 base + 烤 config）。
+> 注意：crowdsec config（acquis/profiles/abuseipdb）已烤進自建 image（`docker/crowdsec/Dockerfile`），升版跟著 image 走;runtime secret 仍走 `.env`。
 > 注意：Loki / Promtail / Grafana monitoring profile 已於 2026-06-30 從本專案移除。若 server 上還有 `nginxwebui_loki_data` / `nginxwebui_grafana_data` volume 是歷史遺留，可手動 `docker volume rm` 清理。
 
 ## Release Flow (see docs/superpowers/plans/2026-05-21-dev-release-workflow.md)

@@ -1,4 +1,4 @@
-# 本機從原始碼 build nginxwebui（其餘 sidecar 一律用官方 image，不在這裡 build）。
+# 本機從原始碼 build nginxwebui（crowdsec 用已發布的自建 nginxwebui-crowdsec image，dev overlay 不本機 build 它）。
 # 用法（在 docker/ 目錄）：
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 # 前置：先在 repo 根跑 mvn clean package -DskipTests（Dockerfile 會 COPY target/*.jar）
