@@ -129,7 +129,7 @@
 		<dependency>
 			<groupId>com.jayway.jsonpath</groupId>
 			<artifactId>json-path</artifactId>
-			<version>2.10.0</version>
+			<version>3.0.0</version>
 		</dependency>
 
 		<!-- 讀取 GeoIP MMDB metadata 的 build date（顯示資料庫版本）。
