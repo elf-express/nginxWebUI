@@ -1,0 +1,19 @@
+pom.xml
+  s_206b53c012066f::t_1bfeecf06c387d 14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "58070eb4d4912060b8afc5c72feeb74cfd1931d3",
+  "prompts": {},
+  "sessions": {
+    "s_206b53c012066f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8c0d2e6-94fa-4577-b404-80d16a5d6090",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
