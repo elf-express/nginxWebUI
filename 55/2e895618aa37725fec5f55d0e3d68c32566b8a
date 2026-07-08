@@ -1,0 +1,19 @@
+docs/superpowers/specs/2026-07-09-denyallow-ssrf-guard-design.md
+  s_c8ef65e070d276::t_176abdd0b59bf9 1-120
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "552e895618aa37725fec5f55d0e3d68c32566b8a",
+  "prompts": {},
+  "sessions": {
+    "s_c8ef65e070d276": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50a5711e-6dec-48f3-95d8-31c9541c3480",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
