@@ -113,7 +113,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.image.name }}
 
   tag:
-    name: Auto-tag release
+    name: Auto-tag + GitHub Release
     needs: release
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
@@ -134,4 +134,23 @@ jobs:
             git tag -a "v$VER" -m "Release v$VER"
             git push origin "v$VER"
             echo "已打並推送 tag v$VER"
+          fi
+
+      # git tag ≠ GitHub Release entry；這步用內建 GITHUB_TOKEN 自動建 Release
+      # (需要 job 上方的 permissions.contents: write；不受本地組織 PAT 政策影響)
+      - name: Create GitHub Release if new
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VER=$(grep -A1 'artifactId>nginxWebUI' pom.xml | grep version | grep -oP '\d+\.\d+\.\d+')
+          # 冪等:release 已存在就跳過(重跑 CI 不會重複建)
+          if gh release view "v$VER" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "GitHub Release v$VER 已存在,跳過"
+          else
+            gh release create "v$VER" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "v$VER" \
+              --target master \
+              --generate-notes
+            echo "已建立 GitHub Release v$VER"
           fi
