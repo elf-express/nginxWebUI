@@ -1,4 +1,4 @@
-FROM alpine:3.22
+FROM alpine:3.24
 ENV LANG=zh_TW.UTF-8 \
     TZ=Asia/Taipei \
     JVM_XMX=256m \
