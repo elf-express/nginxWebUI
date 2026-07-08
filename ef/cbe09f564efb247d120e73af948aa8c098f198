@@ -1,0 +1,19 @@
+pom.xml
+  s_c8ef65e070d276::t_12db0e1cc6cb95 14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "efcbe09f564efb247d120e73af948aa8c098f198",
+  "prompts": {},
+  "sessions": {
+    "s_c8ef65e070d276": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50a5711e-6dec-48f3-95d8-31c9541c3480",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
