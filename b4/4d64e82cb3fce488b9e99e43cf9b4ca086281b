@@ -1,0 +1,32 @@
+src/main/java/com/cym/utils/UpdateUtils.java
+  s_c8ef65e070d276::t_6251a022e2e5c8 59-63
+.github/workflows/build.yml
+  s_c8ef65e070d276::t_370827a32db811 20-21
+src/main/resources/static/js/adminPage/upstream/index.js
+  s_c8ef65e070d276::t_100c95ea953a35 556-564
+  s_c8ef65e070d276::t_6f06e068b2ac4c 576-577
+  s_c8ef65e070d276::t_6347f30c0e6a48 350,353
+  s_c8ef65e070d276::t_2afadb58875021 200-201,213
+src/main/java/com/cym/controller/adminPage/WwwController.java
+  s_c8ef65e070d276::t_6a96ce4f93241d 106
+src/main/resources/static/js/adminPage/server/index.js
+  s_c8ef65e070d276::t_2032fe40252b44 859,862
+src/main/resources/static/js/adminPage/select_template.js
+  s_c8ef65e070d276::t_73413b270aa211 1-10,147,150
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "b44d64e82cb3fce488b9e99e43cf9b4ca086281b",
+  "prompts": {},
+  "sessions": {
+    "s_c8ef65e070d276": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50a5711e-6dec-48f3-95d8-31c9541c3480",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
