@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.cym.ext.GeoipDbInfo;
+import com.cym.ext.GeoipStatus;
 import com.maxmind.db.Reader;
 
 import cn.hutool.core.date.DateUtil;
@@ -40,6 +41,12 @@ public class GeoipService {
 
 	/** 下載逾時（City 庫約 60MB，給寬一點）。 */
 	private static final int DOWNLOAD_TIMEOUT_MS = 120_000;
+
+	/** 一天毫秒數。 */
+	public static final long DAY_MS = 24L * 60 * 60 * 1000;
+
+	/** realip.conf 檔名;路徑一律 GEOIP_DIR + REALIP_CONF_NAME,不硬編第二處(spec 路徑單一來源)。 */
+	public static final String REALIP_CONF_NAME = "realip.conf";
 
 	/** 三個資料庫：{ key, 檔名, 下載 URL }（mirror 沿用 scripts/update-geoip-cf.sh 的 P3TERX）。 */
 	private static final String[][] DBS = {
@@ -147,6 +154,57 @@ public class GeoipService {
 			return DateUtil.format(Date.from(buildTime), "yyyy.MM.dd");
 		} catch (Exception e) {
 			logger.warn("讀取 MMDB 版本失敗 {}: {}", f.getName(), e.getMessage());
+			return null;
+		}
+	}
+
+	/**
+	 * 交叉驗證判定(距今基準,純函式,不碰 IO/i18n)。
+	 * 規則①(mmdb + Cloudflare 通用):檔案最後修改距今 > 7 天 → fileStale。
+	 * 規則②(僅 mmdb):build date 距今 > 14 天 → buildStale。
+	 * 規則③(僅 mmdb):build date 讀取失敗(null,檔案存在時呼叫)→ corrupt。
+	 * 多規則同時觸發 → reasons 收集全部;無觸發 → status=ok。
+	 *
+	 * @param lastModifiedAt 檔案最後修改 epoch ms(null 代表檔案不存在,不套規則①)
+	 * @param buildDate      mmdb 建置日期 "yyyy.MM.dd"(null=讀失敗;Cloudflare 列傳 null)
+	 * @param now            現在 epoch ms(測試注入)
+	 * @param isCloudflare   true=Cloudflare 列(只套規則①)
+	 */
+	public static GeoipStatus evaluateStatus(Long lastModifiedAt, String buildDate, long now, boolean isCloudflare) {
+		List<GeoipStatus.Reason> reasons = new ArrayList<>();
+
+		// 規則①:檔案最後修改距今 > 7 天(嚴格 >)
+		if (lastModifiedAt != null) {
+			long ageMs = now - lastModifiedAt;
+			if (ageMs > 7L * DAY_MS) {
+				reasons.add(new GeoipStatus.Reason("fileStale", (int) (ageMs / DAY_MS)));
+			}
+		}
+
+		if (!isCloudflare) {
+			if (buildDate != null) {
+				// 規則②:build date 距今 > 14 天
+				Long buildMs = parseBuildDate(buildDate);
+				if (buildMs != null) {
+					long ageMs = now - buildMs;
+					if (ageMs > 14L * DAY_MS) {
+						reasons.add(new GeoipStatus.Reason("buildStale", (int) (ageMs / DAY_MS)));
+					}
+				}
+			} else {
+				// 規則③:檔案存在但 build date 讀失敗
+				reasons.add(new GeoipStatus.Reason("corrupt", null));
+			}
+		}
+
+		return new GeoipStatus(reasons.isEmpty() ? "ok" : "warn", reasons);
+	}
+
+	/** "yyyy.MM.dd" → 當天 00:00 epoch ms;解析失敗回 null。 */
+	private static Long parseBuildDate(String buildDate) {
+		try {
+			return DateUtil.parse(buildDate, "yyyy.MM.dd").getTime();
+		} catch (Exception e) {
 			return null;
 		}
 	}
