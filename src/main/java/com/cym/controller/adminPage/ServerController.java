@@ -27,6 +27,7 @@ import com.cym.model.Stream;
 import com.cym.model.Upstream;
 import com.cym.model.Www;
 import com.cym.service.ConfService;
+import com.cym.service.DenyAllowService;
 import com.cym.service.NginxService;
 import com.cym.service.ParamService;
 import com.cym.service.ServerService;
@@ -68,6 +69,8 @@ public class ServerController extends BaseController {
 	ConfService confService;
 	@Inject
 	NginxService nginxService;
+	@Inject
+	DenyAllowService denyAllowService;
 
 	@Mapping("")
 	public ModelAndView index(ModelAndView modelAndView, Page page, String keywords) {
@@ -122,7 +125,8 @@ public class ServerController extends BaseController {
 		modelAndView.put("wwwList", sqlHelper.findAll(Www.class));
 
 		modelAndView.put("passwordList", sqlHelper.findAll(Password.class));
-		modelAndView.put("denyAllowList", sqlHelper.findAll(DenyAllow.class));
+		modelAndView.put("denyList", denyAllowService.listByType("deny"));
+		modelAndView.put("allowList", denyAllowService.listByType("allow"));
 		modelAndView.put("httpList", sqlHelper.findAll(new Sort("seq", Direction.ASC), Http.class));
 		modelAndView.put("lockedGroups", new ArrayList<>(HttpController.LOCKED_GROUPS));
 		modelAndView.put("mutexGroups", new ArrayList<>(HttpController.MUTEX_GROUPS));

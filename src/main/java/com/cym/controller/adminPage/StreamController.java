@@ -12,6 +12,7 @@ import org.noear.solon.core.handle.ModelAndView;
 
 import com.cym.model.DenyAllow;
 import com.cym.model.Stream;
+import com.cym.service.DenyAllowService;
 import com.cym.service.SettingService;
 import com.cym.service.StreamService;
 import com.cym.utils.BaseController;
@@ -27,13 +28,16 @@ public class StreamController extends BaseController {
 	StreamService streamService;
 	@Inject
 	SettingService settingService;
+	@Inject
+	DenyAllowService denyAllowService;
 
 	@Mapping("")
 	public ModelAndView index(ModelAndView modelAndView) {
 		List<Stream> streamList = streamService.findAll();
 
 		modelAndView.put("streamList", streamList);
-		modelAndView.put("denyAllowList", sqlHelper.findAll(DenyAllow.class));
+		modelAndView.put("denyList", denyAllowService.listByType("deny"));
+		modelAndView.put("allowList", denyAllowService.listByType("allow"));
 		
 		modelAndView.view("/adminPage/stream/index.html");
 		return modelAndView;

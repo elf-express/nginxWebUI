@@ -168,10 +168,10 @@ input[name='param'] {
 			<div class="layui-form-item" id="denyDiv">
 				<label class="layui-form-label long">${serverStr.blacklist}</label>
 				<div class="layui-input-block" style="border:1px solid #e5e7eb;border-radius:4px;padding:8px 12px;max-height:160px;overflow-y:auto;">
-					<#if denyAllowList?size == 0>
+					<#if denyList?size == 0>
 						<span style="color:#999;">${commonStr.pleaseSelect}</span>
 					</#if>
-					<#list denyAllowList as denyAllow>
+					<#list denyList as denyAllow>
 						<label style="display:inline-block;margin-right:14px;margin-bottom:4px;">
 							<input type="checkbox" name="denyIds" value="${denyAllow.id}" lay-skin="primary"> ${denyAllow.name}
 						</label>
@@ -182,10 +182,10 @@ input[name='param'] {
 			<div class="layui-form-item" id="allowDiv">
 				<label class="layui-form-label long">${serverStr.whitelist}</label>
 				<div class="layui-input-block" style="border:1px solid #e5e7eb;border-radius:4px;padding:8px 12px;max-height:160px;overflow-y:auto;">
-					<#if denyAllowList?size == 0>
+					<#if allowList?size == 0>
 						<span style="color:#999;">${commonStr.pleaseSelect}</span>
 					</#if>
-					<#list denyAllowList as denyAllow>
+					<#list allowList as denyAllow>
 						<label style="display:inline-block;margin-right:14px;margin-bottom:4px;">
 							<input type="checkbox" name="allowIds" value="${denyAllow.id}" lay-skin="primary"> ${denyAllow.name}
 						</label>

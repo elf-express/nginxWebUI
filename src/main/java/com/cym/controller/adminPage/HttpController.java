@@ -18,6 +18,7 @@ import com.cym.ext.HttpGroupExt;
 import com.cym.model.DenyAllow;
 import com.cym.model.Http;
 import com.cym.service.ConfService;
+import com.cym.service.DenyAllowService;
 import com.cym.service.HttpService;
 import com.cym.service.SettingService;
 import com.cym.utils.BaseController;
@@ -39,6 +40,8 @@ public class HttpController extends BaseController {
 	MessageUtils m;
 	@Inject
 	ConfService confService;
+	@Inject
+	DenyAllowService denyAllowService;
 
 	// 分組定義：groupName → { i18n displayName key, i18n description key, module note key }
 	private static final String[][] GROUP_DEFS = {
@@ -122,7 +125,8 @@ public class HttpController extends BaseController {
 
 		modelAndView.put("httpList", httpList);
 		modelAndView.put("groupList", groupList);
-		modelAndView.put("denyAllowList", sqlHelper.findAll(DenyAllow.class));
+		modelAndView.put("denyList", denyAllowService.listByType("deny"));
+		modelAndView.put("allowList", denyAllowService.listByType("allow"));
 
 		modelAndView.view("/adminPage/http/index.html");
 		return modelAndView;
