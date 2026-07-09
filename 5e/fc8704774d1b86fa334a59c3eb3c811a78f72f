@@ -1,0 +1,19 @@
+src/main/java/com/cym/controller/adminPage/GeoipController.java
+  s_61de20440f124b::t_1cd1dac760f102 41-50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "5efc8704774d1b86fa334a59c3eb3c811a78f72f",
+  "prompts": {},
+  "sessions": {
+    "s_61de20440f124b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a20135b83813b6746",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
