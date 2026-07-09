@@ -1,0 +1,29 @@
+src/main/java/com/cym/controller/adminPage/HttpController.java
+  s_30f3e703936939::t_bb2f0eaedf9f50 21,43-44,128-129
+src/main/java/com/cym/controller/adminPage/ServerController.java
+  s_30f3e703936939::t_aac172b7c3ea68 30,72-73,128-129
+src/main/java/com/cym/controller/adminPage/StreamController.java
+  s_30f3e703936939::t_4f56f1616d5c78 15,31-32,39-40
+src/main/resources/WEB-INF/view/adminPage/http/index.html
+  s_30f3e703936939::t_83be4b565955bd 304,307,318,321
+src/main/resources/WEB-INF/view/adminPage/server/index.html
+  s_30f3e703936939::t_27bd43e9b568d2 679,682,693,696
+src/main/resources/WEB-INF/view/adminPage/stream/index.html
+  s_30f3e703936939::t_2acd7e58cd248f 171,174,185,188
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "393c3fea38280df8ff6f1873597f0596bce80301",
+  "prompts": {},
+  "sessions": {
+    "s_30f3e703936939": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a79bee434ccfdaf46",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
