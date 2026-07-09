@@ -5,9 +5,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
 import org.noear.solon.annotation.Component;
 import org.noear.solon.annotation.Inject;
 import org.slf4j.Logger;
@@ -36,6 +33,9 @@ public class GeoipService {
 	@Inject
 	SettingService settingService;
 
+	@Inject
+	com.cym.utils.MessageUtils m;
+
 	/** MMDB 目錄；預設與 nginx 設定一致（InitConfig 寫死 /etc/nginx/geoip/），可由系統屬性 geoip.dir 覆寫（dev/測試用）。 */
 	public static final String GEOIP_DIR = System.getProperty("geoip.dir", "/etc/nginx/geoip/");
 
@@ -55,9 +55,6 @@ public class GeoipService {
 			{ "asn", "GeoLite2-ASN.mmdb", "https://github.com/P3TERX/GeoLite.mmdb/raw/download/GeoLite2-ASN.mmdb" },
 	};
 
-	/** version(build date) 記憶體快取：key -> "yyyy.MM.dd"。下載後清掉重讀。 */
-	private final Map<String, String> versionCache = new ConcurrentHashMap<>();
-
 	/**
 	 * 讀取排程時間 geoip.fetchTime，驗證 "HH:mm"（00:00-23:59）格式；
 	 * 未設定或格式無效一律 fallback "03:00"，避免無效值讓排程靜默失效（code review I-1）。
@@ -70,11 +67,12 @@ public class GeoipService {
 		return "03:00";
 	}
 
-	/** 給 header 下拉與防護頁表格用：三個資料庫的版本 / 上次更新 / 排程。 */
+	/** 給 header 下拉與防護頁表格用:資料庫的版本 / 檔案 stat / 交叉驗證狀態 / 排程,尾端加 Cloudflare 列。 */
 	public List<GeoipDbInfo> getDbInfos() {
 		List<GeoipDbInfo> list = new ArrayList<>();
-		// 排程時間由 geoip.fetchTime 設定（預設 03:00），與 ScheduleTask.fetchGeoip() 一致
 		String fetchTime = getFetchTime();
+		long now = System.currentTimeMillis();
+
 		for (String[] db : DBS) {
 			String key = db[0];
 			String fileName = db[1];
@@ -85,10 +83,18 @@ public class GeoipService {
 			info.setFileName(fileName);
 			info.setDisplayName(displayName(key));
 			info.setExists(f.exists());
+			info.setFilePath(f.getAbsolutePath());
+			info.setCloudflare(false);
 
+			String buildDate = null;
+			Long lastModifiedAt = null;
 			if (f.exists()) {
-				info.setVersion(getVersionCached(key, f));
+				buildDate = readBuildDate(f); // 即時讀,不快取(治本:排程/cron 背景更新後版本立即反映)
+				info.setVersion(buildDate);
 				info.setSizeStr(FileUtil.readableFileSize(f.length()));
+				lastModifiedAt = f.lastModified();
+				info.setLastModifiedAt(lastModifiedAt);
+				info.setLastModifiedStr(DateUtil.format(new Date(lastModifiedAt), "yyyy-MM-dd HH:mm"));
 			}
 
 			String updatedAt = settingService.get("geoip." + key + ".updatedAt");
@@ -102,13 +108,21 @@ public class GeoipService {
 				}
 			}
 
-			// 排程由 Java @Scheduled（ScheduleTask.fetchGeoip）每日於 geoip.fetchTime 執行（JAR/Docker 通用）。
-			// scheduleStr 供 versions JSON;前端表格以 i18n geoipStr.scheduleValue 模板套 scheduleTime 顯示（誠實反映 fetchTime）。
 			info.setScheduleStr("Daily " + fetchTime);
 			info.setScheduleTime(fetchTime);
 
+			if (f.exists()) {
+				GeoipStatus st = evaluateStatus(lastModifiedAt, buildDate, now, false);
+				info.setStatus(st.status());
+				info.setStatusReasons(buildReasonTexts(st));
+			}
+
 			list.add(info);
 		}
+
+		// Cloudflare IP 清單列(realip.conf;只套規則①,無 mmdb build date)
+		list.add(buildCloudflareInfo(now));
+
 		return list;
 	}
 
@@ -125,15 +139,54 @@ public class GeoipService {
 		return key;
 	}
 
-	private String getVersionCached(String key, File f) {
-		String v = versionCache.get(key);
-		if (v == null) {
-			v = readBuildDate(f);
-			if (v != null) {
-				versionCache.put(key, v);
-			}
+	/** 組 Cloudflare 列:讀 realip.conf stat(路徑=GEOIP_DIR + REALIP_CONF_NAME,單一來源)。 */
+	private GeoipDbInfo buildCloudflareInfo(long now) {
+		File f = new File(GEOIP_DIR, REALIP_CONF_NAME);
+		GeoipDbInfo info = new GeoipDbInfo();
+		info.setKey("cloudflare");
+		info.setFileName(REALIP_CONF_NAME);
+		info.setDisplayName("Cloudflare IP");
+		info.setExists(f.exists());
+		info.setFilePath(f.getAbsolutePath());
+		info.setCloudflare(true);
+		info.setScheduleStr("Daily " + getFetchTime());
+		info.setScheduleTime(getFetchTime());
+		if (f.exists()) {
+			info.setSizeStr(FileUtil.readableFileSize(f.length()));
+			long lm = f.lastModified();
+			info.setLastModifiedAt(lm);
+			info.setLastModifiedStr(DateUtil.format(new Date(lm), "yyyy-MM-dd HH:mm"));
+			GeoipStatus st = evaluateStatus(lm, null, now, true);
+			info.setStatus(st.status());
+			info.setStatusReasons(buildReasonTexts(st));
 		}
-		return v;
+		return info;
+	}
+
+	/** reason code → i18n 顯示文字(套 geoipStr.reason* 模板,{days} 代入天數)。 */
+	private List<String> buildReasonTexts(GeoipStatus st) {
+		List<String> texts = new ArrayList<>();
+		for (GeoipStatus.Reason r : st.reasons()) {
+			String tmpl;
+			switch (r.code()) {
+			case "fileStale":
+				tmpl = m.get("geoipStr.reasonFileStale");
+				break;
+			case "buildStale":
+				tmpl = m.get("geoipStr.reasonBuildStale");
+				break;
+			case "corrupt":
+			default:
+				tmpl = m.get("geoipStr.reasonCorrupt");
+				break;
+			}
+			// i18n key 缺失時 MessageUtils.get 回 null(Properties.getProperty),fallback code 名避免 NPE
+			if (tmpl == null) {
+				tmpl = r.code();
+			}
+			texts.add(r.days() != null ? tmpl.replace("{days}", String.valueOf(r.days())) : tmpl);
+		}
+		return texts;
 	}
 
 	/**
@@ -249,7 +302,6 @@ public class GeoipService {
 				FileUtil.move(tmp, dest, true);
 
 				settingService.set("geoip." + dbKey + ".updatedAt", String.valueOf(System.currentTimeMillis()));
-				versionCache.remove(dbKey);
 				logger.info("GeoIP {} 已更新（{}）", fileName, FileUtil.readableFileSize(size));
 			} catch (Exception e) {
 				logger.error("下載 GeoIP {} 失敗: {}", fileName, e.getMessage());
