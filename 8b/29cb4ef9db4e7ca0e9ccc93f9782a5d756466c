@@ -1,0 +1,19 @@
+src/main/resources/WEB-INF/view/adminPage/protectionCert/index.html
+  s_3524614bb183b8::t_6023fdaac6ab8e 80-82,89,91-93,98-103,107,113-115,121-123,126-146,153,155-160,164,173,175,178,181-182,185-186,190-204,206-228,231-233,239,275,298,447
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "8b29cb4ef9db4e7ca0e9ccc93f9782a5d756466c",
+  "prompts": {},
+  "sessions": {
+    "s_3524614bb183b8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a3aa09d581155b846",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
