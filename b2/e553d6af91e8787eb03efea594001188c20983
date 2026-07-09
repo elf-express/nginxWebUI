@@ -1,0 +1,19 @@
+docs/superpowers/plans/2026-07-09-readme-restructure-and-release-flow.md
+  s_c8ef65e070d276::t_5cfa99d00ac5bc 1-43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "b2e553d6af91e8787eb03efea594001188c20983",
+  "prompts": {},
+  "sessions": {
+    "s_c8ef65e070d276": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50a5711e-6dec-48f3-95d8-31c9541c3480",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
