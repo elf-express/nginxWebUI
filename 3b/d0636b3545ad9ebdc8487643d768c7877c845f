@@ -1,0 +1,23 @@
+src/main/java/com/cym/ext/GeoipStatus.java
+  s_eb794b22a00d7b::t_8b0fa2ed41aaf7 1-13
+src/main/java/com/cym/service/GeoipService.java
+  s_eb794b22a00d7b::t_d393098c635a94 17,45-50,161-211
+src/test/java/com/cym/service/GeoipStatusTest.java
+  s_eb794b22a00d7b::t_80ad6893f18554 1-91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "3bd0636b3545ad9ebdc8487643d768c7877c845f",
+  "prompts": {},
+  "sessions": {
+    "s_eb794b22a00d7b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-ae3f4e33194c860b9",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
