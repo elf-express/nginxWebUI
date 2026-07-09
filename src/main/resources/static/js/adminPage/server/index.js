@@ -856,10 +856,10 @@ function fillTable(params) {
 			html += `
 			<tr name="param" id=${uuid}>
 				<td>
-					<textarea  name="name" class="layui-textarea">${param.name}</textarea>
+					<textarea  name="name" class="layui-textarea">${escapeHtml(param.name)}</textarea>
 				</td>
 				<td  style="width: 40%;">
-					<textarea  name="value" class="layui-textarea">${param.value}</textarea>
+					<textarea  name="value" class="layui-textarea">${escapeHtml(param.value)}</textarea>
 				</td>
 				<td style="width: 100px;">
 					<select name="position" style="height: 30px;">

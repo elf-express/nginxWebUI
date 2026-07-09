@@ -1,3 +1,13 @@
+// XSS 防護:escape 使用者/範本可控字串再插入 .html()/.append()(與各頁 index.js 一致)
+function escapeHtml(text) {
+	if (!text) return "";
+	return String(text).replace(/&/g, "&amp;")
+	           .replace(/</g, "&lt;")
+	           .replace(/>/g, "&gt;")
+	           .replace(/"/g, "&quot;")
+	           .replace(/'/g, "&#039;");
+}
+
 $(function() {
 	$.ajax({
 		type: 'POST',
@@ -134,10 +144,10 @@ function selectTemplateOver() {
 						html += `
 						<tr name="param" id=${uuid}>
 							<td>
-								<textarea  name="name" class="layui-textarea">${param.name}</textarea>
+								<textarea  name="name" class="layui-textarea">${escapeHtml(param.name)}</textarea>
 							</td>
 							<td  style="width: ${includePosition ? '40%' : '50%'};">
-								<textarea  name="value" class="layui-textarea">${param.value}</textarea>
+								<textarea  name="value" class="layui-textarea">${escapeHtml(param.value)}</textarea>
 							</td>
 							${positionTd}
 							<td>

@@ -197,8 +197,8 @@ function edit(id,clone) {
 											<input type="checkbox" name="enable" value="${upstreamServer.id}" lay-skin="switch" ${checked}>
 										</div>
 									</td>
-									<td><input type="text" name="server" class="layui-input" value="${upstreamServer.server}"></td>
-									<td><input type="number" name="port" class="layui-input" value="${upstreamServer.port}"></td>
+									<td><input type="text" name="server" class="layui-input" value="${escapeHtml(upstreamServer.server)}"></td>
+									<td><input type="number" name="port" class="layui-input" value="${escapeHtml(upstreamServer.port)}"></td>
 									<td><input type="number" name="weight" class="layui-input" value="${upstreamServer.weight}"></td>
 									<td><input type="number" name="maxFails" class="layui-input" value="${upstreamServer.maxFails}"></td>
 									<td><input type="number" name="maxConns" class="layui-input" value="${upstreamServer.maxConns}"></td>
@@ -210,7 +210,7 @@ function edit(id,clone) {
 											<option ${upstreamServer.status == 'backup' ? 'selected' : ''} value="backup">${upstreamStr.backup}</option>
 										</select>
 									</td>
-									<td><input type="text" name="param" class="layui-input" value="${upstreamServer.param}"></td>
+									<td><input type="text" name="param" class="layui-input" value="${escapeHtml(upstreamServer.param)}"></td>
 									<td><button type="button" class="layui-btn layui-btn-sm layui-btn-danger" onclick="delTr('${uuid}')">${commonStr.del}</button></td>
 							</tr>`
 				}
@@ -347,10 +347,10 @@ function fillTable(params) {
 			html += `
 			<tr name="param" id=${uuid}>
 				<td>
-					<textarea  name="name" class="layui-textarea">${param.name}</textarea>
+					<textarea  name="name" class="layui-textarea">${escapeHtml(param.name)}</textarea>
 				</td>
 				<td  style="width: 40%;">
-					<textarea  name="value" class="layui-textarea">${param.value}</textarea>
+					<textarea  name="value" class="layui-textarea">${escapeHtml(param.value)}</textarea>
 				</td>
 				<td style="width: 100px;">
 					<select name="position" style="height: 30px;">
@@ -553,6 +553,15 @@ function addBatch(){
 	});
 }
 
+function escapeHtml(text) {
+	if (!text) return "";
+	return String(text).replace(/&/g, "&amp;")
+	           .replace(/</g, "&lt;")
+	           .replace(/>/g, "&gt;")
+	           .replace(/"/g, "&quot;")
+	           .replace(/'/g, "&#039;");
+}
+
 function addBatchOver(){
 	var batchIp = $("#batchIp").val();
 
@@ -564,8 +573,8 @@ function addBatchOver(){
 		var port = list[i].split(":")[1];
 		var uuid = guid();
 		html += `<tr id='${uuid}'>
-						<td><input type="text" name="server" class="layui-input" value="${ip}"></td>
-						<td><input type="number" name="port" class="layui-input" value="${port}"></td>
+						<td><input type="text" name="server" class="layui-input" value="${escapeHtml(ip)}"></td>
+						<td><input type="number" name="port" class="layui-input" value="${escapeHtml(port)}"></td>
 						<td><input type="number" name="weight" class="layui-input"></td>
 						<td><input type="number" name="maxFails" class="layui-input"></td>
 						<td><input type="number" name="maxConns" class="layui-input"></td>

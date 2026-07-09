@@ -56,7 +56,11 @@ public class UpdateUtils {
 			cmd = "nohup java -jar -Dfile.encoding=UTF-8 " + path + param + " > /dev/null &";
 		}
 
-		LOG.info(cmd);
+		// 遮蔽 DB 密碼後再記 log(避免明文密碼寫入日誌;exec 仍用原 cmd)
+		String logCmd = (password == null || password.isEmpty())
+				? cmd
+				: cmd.replace("--spring.datasource.password=" + password, "--spring.datasource.password=***");
+		LOG.info(logCmd);
 		RuntimeUtil.exec(cmd);
 	}
 
