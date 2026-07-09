@@ -25,6 +25,18 @@ public class GeoipDbInfo {
 	private String scheduleStr;
 	/** 排程時間 HH:mm（來自 geoip.fetchTime）；前端表格以 i18n 模板套此值顯示 */
 	private String scheduleTime;
+	/** 檔案絕對路徑 */
+	private String filePath;
+	/** 檔案最後修改 epoch millis;不存在為 null */
+	private Long lastModifiedAt;
+	/** 檔案最後修改格式化字串 yyyy-MM-dd HH:mm;不存在為 null */
+	private String lastModifiedStr;
+	/** 交叉驗證狀態:ok=正常、warn=待確認 */
+	private String status;
+	/** 待確認原因文字(已套 i18n);正常時空 list */
+	private java.util.List<String> statusReasons;
+	/** 是否為 Cloudflare IP 清單列(realip.conf,無 mmdb build date) */
+	private Boolean cloudflare;
 
 	public String getKey() {
 		return key;
@@ -104,5 +116,53 @@ public class GeoipDbInfo {
 
 	public void setScheduleTime(String scheduleTime) {
 		this.scheduleTime = scheduleTime;
+	}
+
+	public String getFilePath() {
+		return filePath;
+	}
+
+	public void setFilePath(String filePath) {
+		this.filePath = filePath;
+	}
+
+	public Long getLastModifiedAt() {
+		return lastModifiedAt;
+	}
+
+	public void setLastModifiedAt(Long lastModifiedAt) {
+		this.lastModifiedAt = lastModifiedAt;
+	}
+
+	public String getLastModifiedStr() {
+		return lastModifiedStr;
+	}
+
+	public void setLastModifiedStr(String lastModifiedStr) {
+		this.lastModifiedStr = lastModifiedStr;
+	}
+
+	public String getStatus() {
+		return status;
+	}
+
+	public void setStatus(String status) {
+		this.status = status;
+	}
+
+	public java.util.List<String> getStatusReasons() {
+		return statusReasons;
+	}
+
+	public void setStatusReasons(java.util.List<String> statusReasons) {
+		this.statusReasons = statusReasons;
+	}
+
+	public Boolean getCloudflare() {
+		return cloudflare;
+	}
+
+	public void setCloudflare(Boolean cloudflare) {
+		this.cloudflare = cloudflare;
 	}
 }
