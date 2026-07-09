@@ -170,7 +170,7 @@
 							</tr>
 						</thead>
 						<tbody>
-							<#list blackPage.records as ext>
+							<#list blackList as ext>
 							<tr>
 								<td><input type="checkbox" name="blackIds" title="" lay-skin="primary" value="${ext.denyAllow.id}"></td>
 								<td>${ext.denyAllow.name}</td>
@@ -187,7 +187,7 @@
 								</td>
 							</tr>
 							</#list>
-							<#if blackPage.records?size == 0>
+							<#if blackList?size == 0>
 							<tr><td colspan="99" class="empty-state"><i class="layui-icon layui-icon-face-surprised" aria-hidden="true"></i><p>${commonStr.noData}</p></td></tr>
 							</#if>
 						</tbody>
@@ -212,7 +212,7 @@
 							</tr>
 						</thead>
 						<tbody>
-							<#list whitePage.records as ext>
+							<#list whiteList as ext>
 							<tr>
 								<td><input type="checkbox" name="whiteIds" title="" lay-skin="primary" value="${ext.denyAllow.id}"></td>
 								<td>${ext.denyAllow.name}</td>
@@ -229,7 +229,7 @@
 								</td>
 							</tr>
 							</#list>
-							<#if whitePage.records?size == 0>
+							<#if whiteList?size == 0>
 							<tr><td colspan="99" class="empty-state"><i class="layui-icon layui-icon-face-surprised" aria-hidden="true"></i><p>${commonStr.noData}</p></td></tr>
 							</#if>
 						</tbody>

@@ -35,33 +35,23 @@ public class ProtectionCertController extends BaseController {
 	GeoipService geoipService;
 
 	@Mapping("")
-	public ModelAndView index(ModelAndView modelAndView, Page page, String certKeywords) {
-		// DenyAllow data (paginated) — 黑白名單分頁
-		setPage(page);
-
+	public ModelAndView index(ModelAndView modelAndView, String certKeywords) {
+		// DenyAllow data (full list) — 黑白名單全列（與 ASN tab 一致，無需分頁）
 		List<Server> allServers = sqlHelper.findAll(Server.class);
 		String httpDenyId = settingService.get("denyId");
 		String httpAllowId = settingService.get("allowId");
 		String streamDenyId = settingService.get("denyIdStream");
 		String streamAllowId = settingService.get("allowIdStream");
 
-		// 黑名單分頁(type=deny)
-		Page blackPage = new Page();
-		blackPage.setCurr(page.getCurr());
-		blackPage.setLimit(page.getLimit());
-		blackPage = denyAllowService.searchByType(blackPage, "deny");
-		blackPage.setRecords(buildExts((List<DenyAllow>) blackPage.getRecords(), allServers,
-				httpDenyId, httpAllowId, streamDenyId, streamAllowId));
-		modelAndView.put("blackPage", blackPage);
+		// 黑名單全列(type=deny)
+		List<DenyAllowExt> blackList = buildExts(denyAllowService.listByType("deny"), allServers,
+				httpDenyId, httpAllowId, streamDenyId, streamAllowId);
+		modelAndView.put("blackList", blackList);
 
-		// 白名單分頁(type=allow)
-		Page whitePage = new Page();
-		whitePage.setCurr(1);
-		whitePage.setLimit(page.getLimit());
-		whitePage = denyAllowService.searchByType(whitePage, "allow");
-		whitePage.setRecords(buildExts((List<DenyAllow>) whitePage.getRecords(), allServers,
-				httpDenyId, httpAllowId, streamDenyId, streamAllowId));
-		modelAndView.put("whitePage", whitePage);
+		// 白名單全列(type=allow)
+		List<DenyAllowExt> whiteList = buildExts(denyAllowService.listByType("allow"), allServers,
+				httpDenyId, httpAllowId, streamDenyId, streamAllowId);
+		modelAndView.put("whiteList", whiteList);
 
 		// GeoIP 資料庫資訊（Tab 1 黑名單表格前面的版本 / 排程 / 下載表格）
 		modelAndView.put("geoipDbInfos", geoipService.getDbInfos());

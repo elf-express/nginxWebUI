@@ -23,8 +23,8 @@ import cn.hutool.http.HttpUtil;
  * GeoIP MMDB 資料庫：讀版本（maxmind-db build date）+ 手動下載（Hutool 抓 mirror）。
  *
  * 設計重點：
- * - 版本（build date）即時讀取 mmdb metadata（header-only，Reader 讀完即關），不快取；
- *   如此排程/手動更新後版本立即反映，無需清快取。
+ * - 版本（build date）以 (檔名, lastModified) 為 key 快取；背景/手動更新改 mtime → 新 key
+ *   自動失效重讀，避免每 request 讀整個 mmdb（~80MB/次）。
  * - 所有讀版本路徑容錯：檔案不存在 / 讀失敗一律回 null，不丟例外（header 每頁都載，不能卡）。
  * - 下載走 Java（Hutool），jar 與 Docker 都能用；先寫 .tmp 再 move，避免半截檔。
  */
@@ -49,6 +49,9 @@ public class GeoipService {
 
 	/** realip.conf 檔名;路徑一律 GEOIP_DIR + REALIP_CONF_NAME,不硬編第二處(spec 路徑單一來源)。 */
 	public static final String REALIP_CONF_NAME = "realip.conf";
+
+	/** build date 快取: key = fileName + "@" + lastModified;檔案更新(mtime 變)→ 新 key → 自動失效重讀,不需手動清。 */
+	private final java.util.Map<String, String> buildDateCache = new java.util.concurrent.ConcurrentHashMap<>();
 
 	/** 三個資料庫：{ key, 檔名, 下載 URL }（mirror 沿用 scripts/update-geoip-cf.sh 的 P3TERX）。 */
 	private static final String[][] DBS = {
@@ -91,10 +94,17 @@ public class GeoipService {
 			String buildDate = null;
 			Long lastModifiedAt = null;
 			if (f.exists()) {
-				buildDate = readBuildDate(f); // 即時讀,不快取(治本:排程/cron 背景更新後版本立即反映)
+				lastModifiedAt = f.lastModified();
+				String cacheKey = fileName + "@" + lastModifiedAt;
+				buildDate = buildDateCache.get(cacheKey);
+				if (buildDate == null) {
+					buildDate = readBuildDate(f); // 只在 mtime 變或首次時讀整個 mmdb
+					if (buildDate != null) {
+						buildDateCache.put(cacheKey, buildDate);
+					}
+				}
 				info.setVersion(buildDate);
 				info.setSizeStr(FileUtil.readableFileSize(f.length()));
-				lastModifiedAt = f.lastModified();
 				info.setLastModifiedAt(lastModifiedAt);
 				info.setLastModifiedStr(DateUtil.format(new Date(lastModifiedAt), "yyyy-MM-dd HH:mm"));
 			}
@@ -123,7 +133,7 @@ public class GeoipService {
 		}
 
 		// Cloudflare IP 清單列(realip.conf;只套規則①,無 mmdb build date)
-		list.add(buildCloudflareInfo(now));
+		list.add(buildCloudflareInfo(now, fetchTime));
 
 		return list;
 	}
@@ -142,7 +152,7 @@ public class GeoipService {
 	}
 
 	/** 組 Cloudflare 列:讀 realip.conf stat(路徑=GEOIP_DIR + REALIP_CONF_NAME,單一來源)。 */
-	private GeoipDbInfo buildCloudflareInfo(long now) {
+	private GeoipDbInfo buildCloudflareInfo(long now, String fetchTime) {
 		File f = new File(GEOIP_DIR, REALIP_CONF_NAME);
 		GeoipDbInfo info = new GeoipDbInfo();
 		info.setKey("cloudflare");
@@ -151,8 +161,8 @@ public class GeoipService {
 		info.setExists(f.exists());
 		info.setFilePath(f.getAbsolutePath());
 		info.setCloudflare(true);
-		info.setScheduleStr("Daily " + getFetchTime());
-		info.setScheduleTime(getFetchTime());
+		info.setScheduleStr("Daily " + fetchTime);
+		info.setScheduleTime(fetchTime);
 		if (f.exists()) {
 			info.setSizeStr(FileUtil.readableFileSize(f.length()));
 			long lm = f.lastModified();

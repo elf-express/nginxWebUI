@@ -184,11 +184,6 @@ var denyAllowNS = {};
 	}
 
 	// === Main page logic ===
-	function search() {
-		$("input[name='curr']").val(1);
-		$("#daSearchForm").submit();
-	}
-
 	function add(type) {
 		$("#daId").val("");
 		$("#daName").val("");
@@ -397,7 +392,6 @@ var denyAllowNS = {};
 	ns.showBatchImport = showBatchImport;
 	ns.doBatchImport = doBatchImport;
 	ns.processImportText = processImportText;
-	ns.search = search;
 	ns.add = add;
 	ns.edit = edit;
 	ns.addOver = addOver;

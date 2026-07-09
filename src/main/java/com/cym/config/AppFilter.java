@@ -259,7 +259,8 @@ public class AppFilter implements Filter {
 			ctx.attrSet("brandLogoUrl", ctxStr + "/adminPage/admin/logo?v=" + System.currentTimeMillis());
 		}
 
-		// GeoIP 三個資料庫版本（header 下拉顯示）；即時讀取檔案 stat + mmdb metadata（header-only，開銷小）
+		// GeoIP 三個資料庫版本（header 下拉顯示）；build date 以 (檔名,lastModified) 為 key 快取，
+		// 背景/手動更新改 mtime 自動失效重讀，避免每 request 讀整個 mmdb。
 		ctx.attrSet("geoipDbInfos", geoipService.getDbInfos());
 
 		ctx.attrSet("showAdmin", ctx.param("showAdmin"));
