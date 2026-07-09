@@ -38,4 +38,14 @@ public class GeoipController extends BaseController {
 		}
 		return renderError(m.get("geoipStr.downloadFail"));
 	}
+
+	/** 手動更新 Cloudflare Real IP 清單(realip.conf)。 */
+	@Mapping("downloadCloudflare")
+	public JsonResult downloadCloudflare() {
+		boolean ok = geoipService.downloadCloudflare();
+		if (ok) {
+			return renderSuccess();
+		}
+		return renderError(m.get("geoipStr.downloadFail"));
+	}
 }
