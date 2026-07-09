@@ -1,0 +1,19 @@
+src/main/resources/static/js/adminPage/protectionCert/geoip.js
+  s_84ee932098e8bf::t_4b59090c0cefe4 32-68,70-71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "f77e8ea78bdd8eeed53f5246dcf5c407371a2edf",
+  "prompts": {},
+  "sessions": {
+    "s_84ee932098e8bf": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-ab03530aa2ccbcb2a",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
