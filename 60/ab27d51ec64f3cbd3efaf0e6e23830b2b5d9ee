@@ -1,0 +1,19 @@
+src/test/java/com/cym/service/DenyAllowTypeTest.java
+  s_c8ef65e070d276::t_4dc5d5f0c2fc4c 1-55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "60ab27d51ec64f3cbd3efaf0e6e23830b2b5d9ee",
+  "prompts": {},
+  "sessions": {
+    "s_c8ef65e070d276": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50a5711e-6dec-48f3-95d8-31c9541c3480",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
