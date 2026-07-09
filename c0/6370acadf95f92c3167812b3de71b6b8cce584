@@ -1,0 +1,19 @@
+src/main/java/com/cym/controller/adminPage/DenyAllowController.java
+  s_58c1736058bed2::t_47d3eae1f52866 94-103
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "c06370acadf95f92c3167812b3de71b6b8cce584",
+  "prompts": {},
+  "sessions": {
+    "s_58c1736058bed2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-aaca6da2bb8e87514",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
