@@ -103,7 +103,7 @@ public class WwwController extends BaseController {
 
 				// 通常还需要检查解压后文件的完整路径，以确保它仍然位于输出文件夹内
 				File file = new File(outputFolder, name);
-				if (!file.getCanonicalPath().startsWith(outputFolder.getCanonicalPath())) {
+				if (!file.getCanonicalPath().startsWith(outputFolder.getCanonicalPath() + File.separator)) {
 					return false;
 				}
 			}
