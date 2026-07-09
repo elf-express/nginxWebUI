@@ -1,0 +1,19 @@
+src/main/java/com/cym/controller/adminPage/ProtectionCertController.java
+  s_154a5aa5a1e447::t_ca66b3c3bf0804 39,48-91,93,96,119
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "4c6aa7a884af4c093984fdd1ff212e9d04fb04e7",
+  "prompts": {},
+  "sessions": {
+    "s_154a5aa5a1e447": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a7e2e51442ce8848d",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
