@@ -103,4 +103,24 @@ test.describe('server modal — ① http 參數 panel 三態 mode（phase 3）',
     expect(gzip).not.toBeNull();
     expect(gzip.disabled).toBe(false);   // optional 不 disabled
   });
+
+  test('checkbox 點擊取消後能再勾回（lay-ignore fix:防 layui label 雙重觸發回歸）', async ({ page }) => {
+    // bug:checkbox 無 lay-skin 又被 layui 渲染 + 包在 label 裡,點擊時 label 原生 toggle
+    // 與 layui 假 checkbox 雙重觸發互相抵消 → 取消後勾不回。修法:lay-ignore 讓 layui 別碰它。
+    // 關鍵:必須用「真實 label.click()」走使用者點擊路徑;.checked= 直接改 DOM 會繞過事件、測不到此 bug。
+    const label = page.locator('#httpParamPanelDiv label').filter({
+      has: page.locator('input[name="httpParamItem"][data-group="gzip"]'),
+    }).first();
+    const cb = label.locator('input[name="httpParamItem"]');
+
+    await expect(cb).toBeChecked();       // gzip 預設 enable
+    await label.click();
+    await expect(cb).not.toBeChecked();   // 點一下取消
+    await label.click();
+    await expect(cb).toBeChecked();       // 再點勾回 ← 修復前這裡會失敗
+    await label.click();
+    await expect(cb).not.toBeChecked();   // 再來回一次確保穩定
+    await label.click();
+    await expect(cb).toBeChecked();
+  });
 });
