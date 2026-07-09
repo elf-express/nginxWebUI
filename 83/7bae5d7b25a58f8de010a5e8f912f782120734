@@ -1,0 +1,21 @@
+tests/e2e/23-geoip-version.spec.js
+  s_aa67f579ffbacf::t_82270c3732a910 26-28,54,61-62,65
+tests/e2e/32-firewall-ip-tabs.spec.js
+  s_aa67f579ffbacf::t_e91d567f364efe 1-43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "837bae5d7b25a58f8de010a5e8f912f782120734",
+  "prompts": {},
+  "sessions": {
+    "s_aa67f579ffbacf": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-ab2e8c8e23c70e5c1",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
