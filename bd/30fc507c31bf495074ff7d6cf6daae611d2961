@@ -1,0 +1,31 @@
+src/main/resources/messages.properties
+  s_1da316d06634c5::t_b3ebe2784a1e21 279-281,830,845-857
+src/main/resources/messages_en_US.properties
+  s_c8ef65e070d276::t_ef25406ec30bbd 279-281,830,845-857
+src/main/resources/messages_zh_TW.properties
+  s_1da316d06634c5::t_ee88b471740fd6 279-281,830,845-857
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "bd30fc507c31bf495074ff7d6cf6daae611d2961",
+  "prompts": {},
+  "sessions": {
+    "s_1da316d06634c5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a9ef1c05513b32fd7",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    },
+    "s_c8ef65e070d276": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50a5711e-6dec-48f3-95d8-31c9541c3480",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
