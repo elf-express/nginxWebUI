@@ -1502,18 +1502,93 @@ git commit -m "test(e2e): firewall 6-tab UI — tabs, Cloudflare row, black/whit
 
 ---
 
+### Task 16: 引用端下拉依 type 過濾(server / http / stream 反向代理編輯頁)
+
+**Files:**
+- Modify: `src/main/java/com/cym/service/DenyAllowService.java`(加 `listByType`)
+- Modify: `src/main/java/com/cym/controller/adminPage/HttpController.java`(index line 125)
+- Modify: `src/main/java/com/cym/controller/adminPage/StreamController.java`(index line 36)
+- Modify: `src/main/java/com/cym/controller/adminPage/ServerController.java`(index line 125)
+- Modify: `src/main/resources/WEB-INF/view/adminPage/http/index.html`(denyDiv/allowDiv,line 301-327)
+- Modify: `src/main/resources/WEB-INF/view/adminPage/stream/index.html`(denyDiv/allowDiv,line 168-194)
+- Modify: `src/main/resources/WEB-INF/view/adminPage/server/index.html`(denyDiv/allowDiv,line 676-702)
+
+**Interfaces:**
+- Consumes: DenyAllow.type(Task 1)、migration(Task 10 確保無 null)。
+- Produces: `DenyAllowService.listByType(String type)` → `List<DenyAllow>`。view model 新增 `denyList`(type=deny) / `allowList`(type=allow),取代 `denyAllowList`。
+
+**背景:** 三個編輯頁的 denyDiv(勾黑名單→denyIds)/allowDiv(勾白名單→allowIds)結構一致,現都 `<#list denyAllowList>` 列全部。type 過濾後 denyDiv 只列 deny、allowDiv 只列 allow。不改 server/index.js 的 setDenyAllow 勾選邏輯(仍比對 CSV)。
+
+- [ ] **Step 1: DenyAllowService 加 listByType**
+
+在 `searchByType`(Task 7 新增)附近加:
+
+```java
+	/** 依 type 取全部(非分頁),供引用端下拉。 */
+	public List<DenyAllow> listByType(String type) {
+		return sqlHelper.findListByQuery(new ConditionAndWrapper().eq("type", type), DenyAllow.class);
+	}
+```
+
+- [ ] **Step 2: 三個 controller index 改傳 denyList / allowList**
+
+三處都需 `@Inject DenyAllowService denyAllowService;`(HttpController line 34-41 區、StreamController line 26-29 區、ServerController inject 區各加一行;ServerController 若已注入則略)。
+
+HttpController.index — 把 line 125 `modelAndView.put("denyAllowList", ...)` 換成:
+
+```java
+		modelAndView.put("denyList", denyAllowService.listByType("deny"));
+		modelAndView.put("allowList", denyAllowService.listByType("allow"));
+```
+
+StreamController.index line 36、ServerController.index line 125 同樣換法(各自 import `com.cym.service.DenyAllowService`;model import 已含 DenyAllow)。
+
+- [ ] **Step 3: 三個 view 的 denyDiv 用 denyList、allowDiv 用 allowList**
+
+以 server/index.html 為例(line 679-700),denyDiv 內:
+
+```html
+					<#if denyList?size==0>
+						<span style="color:#999;">${commonStr.pleaseSelect}</span>
+					</#if>
+					<#list denyList as denyAllow>
+						<label style="display:inline-block;margin-right:14px;margin-bottom:4px;">
+							<input type="checkbox" name="denyIds" value="${denyAllow.id}" lay-skin="primary"> ${denyAllow.name}
+						</label>
+					</#list>
+```
+
+allowDiv 內把 `denyList` 換 `allowList`、`name="denyIds"` 換 `name="allowIds"`(name 本就是 allowIds,只改 list 名)。http/index.html(line 304-325)、stream/index.html(line 171-192)結構相同,同樣把 denyDiv 的 `denyAllowList`→`denyList`、allowDiv 的 `denyAllowList`→`allowList`。
+
+- [ ] **Step 4: build + 手動驗證**
+
+Run: `mvn -q package -DskipTests`,起服務。建一個黑名單(type=deny)+ 一個白名單(type=allow),開 server 反向代理編輯頁 → 黑名單設定 Modal:denyDiv 只出現黑名單、allowDiv 只出現白名單。http / stream 全域設定同樣驗。
+
+- [ ] **Step 5: E2E 補一斷言(引用端下拉過濾)**
+
+在 `tests/e2e/32-firewall-ip-tabs.spec.js` 加一個 test:先經 protectionCert 各建一筆黑/白名單,再到 `/adminPage/server` 開編輯 Modal 觸發 `setDenyAllow()`,斷言 `#denyDiv` 內含黑名單名、不含白名單名(反之 allowDiv)。若 Modal 互動過重,退而驗後端:`GET /adminPage/server` 頁面 HTML 中 denyDiv 區塊只含 deny 名單 id。
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/main/java/com/cym/service/DenyAllowService.java src/main/java/com/cym/controller/adminPage/HttpController.java src/main/java/com/cym/controller/adminPage/StreamController.java src/main/java/com/cym/controller/adminPage/ServerController.java src/main/resources/WEB-INF/view/adminPage/http/index.html src/main/resources/WEB-INF/view/adminPage/stream/index.html src/main/resources/WEB-INF/view/adminPage/server/index.html
+git commit -m "feat(denyAllow): filter reference dropdowns by type (deny→denyDiv, allow→allowDiv) across server/http/stream"
+```
+
+---
+
 ## Self-Review(寫完計畫的檢查)
 
 **Spec 覆蓋對照:**
 - §3.1 移 versionCache → Task 4 ✓;filePath/lastModified/status/statusReasons → Task 3+4 ✓;Cloudflare 列 → Task 4 ✓;realip 路徑單一來源(GEOIP_DIR + REALIP_CONF_NAME)→ Task 2/4 ✓;手動更新 Java 版 → Task 5+6 ✓。
 - §3.2 距今三規則 + 純函式 + reasons 收集全部 → Task 2 ✓。
-- §3.3 type 欄 @InitValue → Task 1 ✓;反查 migration → Task 7+10 ✓;衝突檢查 → Task 7+8 ✓;引用下拉 type 過濾 → **見下方待確認**。
+- §3.3 type 欄 @InitValue → Task 1 ✓;反查 migration → Task 7+10 ✓;衝突檢查 → Task 7+8 ✓;引用下拉 type 過濾 → Task 16 ✓(使用者 pre-flight 確認納入)。
 - §3.4 6 tab + 表格擴充 + 黑白拆 → Task 11 ✓;versions JSON 擴充前端刷新 → Task 13 reverify ✓。
 - §3.5 i18n ×3 → Task 14 ✓;判定單元測試 → Task 2 ✓;E2E 只驗 UI → Task 15 ✓。
 
 **待實作者注意 / 已知邊界:**
 1. **既有 E2E `23-geoip-version.spec.js`** 可能斷言舊 GeoIP 表格(4 欄 / `geoipStr.version` 表頭)。Task 11 改表格後若該 spec 紅,需同步更新其斷言(屬本次改動範圍,實作 Task 15 Step 3 時處理)。
-2. **§3.3「引用端下拉依 type 過濾」**:server / http / stream 反向代理設定頁的 denyId(選黑名單)/ allowId(選白名單)下拉,理想上各自只列對應 type。本計畫未含該前端改動(那是 server/http/stream 編輯頁,非 protectionCert 頁),因 spec 核心是 protectionCert 重構。**若要一併做**,需另加 task 改 `HttpController.getDenyAllow` / `StreamController.getDenyAllow` / server 編輯頁下拉來源依 type 過濾 —— 建議獨立小 plan,避免本 plan 範圍膨脹。實作前與使用者確認是否納入。
+2. **§3.3「引用端下拉依 type 過濾」→ Task 16 已納入**(使用者 pre-flight 確認):server / http / stream 編輯頁的 denyDiv 只列黑名單(type=deny)、allowDiv 只列白名單(type=allow)。實作端是各 controller index 改傳 `denyList`/`allowList`(非 `getDenyAllow` 端點 —— 那只回目前選中的 setting 值,下拉選項來源是 index 的 `denyAllowList`)。Task 16 依賴 Task 10 migration 先跑(runtime 無 null type)。
 3. **Cloudflare 手動更新在 Docker**:Task 5 的 Java `downloadCloudflare` 會覆寫 update-geoip-cf.sh 生成的同檔;兩者格式一致,下次 cron 再覆寫,無害。但 Java 版不會 `nginx -s reload`(僅產檔),與 sh 版差異已在方法註解標明。
 
 **Placeholder 掃描:** 無 TBD/TODO;每個 code step 附完整 code。
