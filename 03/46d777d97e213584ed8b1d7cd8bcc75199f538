@@ -1,0 +1,19 @@
+src/main/java/com/cym/config/InitConfig.java
+  s_f255049dc3896f::t_ce41f9d69d5d3d 22,27,31,290-312
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "0346d777d97e213584ed8b1d7cd8bcc75199f538",
+  "prompts": {},
+  "sessions": {
+    "s_f255049dc3896f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-ab105d52ff6660f4f",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
