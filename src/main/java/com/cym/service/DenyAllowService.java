@@ -9,7 +9,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.cym.model.DenyAllow;
+import com.cym.model.Server;
 import com.cym.sqlhelper.bean.Page;
+import com.cym.sqlhelper.utils.ConditionAndWrapper;
 import com.cym.sqlhelper.utils.SqlHelper;
 
 import cn.hutool.core.util.StrUtil;
@@ -43,6 +45,73 @@ public class DenyAllowService {
 			}
 		}
 		return false;
+	}
+
+	/** 依 type 過濾分頁(type 空 → 全部)。 */
+	public Page searchByType(Page page, String type) {
+		if (StrUtil.isBlank(type)) {
+			return sqlHelper.findPage(page, DenyAllow.class);
+		}
+		return sqlHelper.findPage(new ConditionAndWrapper().eq("type", type), page, DenyAllow.class);
+	}
+
+	/** 依 type 取全部(非分頁),供引用端下拉。 */
+	public List<DenyAllow> listByType(String type) {
+		return sqlHelper.findListByQuery(new ConditionAndWrapper().eq("type", type), DenyAllow.class);
+	}
+
+	/**
+	 * 反查引用決定 type(純函式):被任一 allowId(server / http global / stream global)引用且未被 denyId 引用 → allow;
+	 * 否則(含被 denyId 引用、矛盾同時被兩者引用、未被引用)→ deny。
+	 */
+	public static String resolveTypeByReference(String daId, List<Server> servers,
+			String httpDenyId, String httpAllowId, String streamDenyId, String streamAllowId) {
+		boolean referencedByDeny = csvContainsId(httpDenyId, daId) || csvContainsId(streamDenyId, daId);
+		boolean referencedByAllow = csvContainsId(httpAllowId, daId) || csvContainsId(streamAllowId, daId);
+		if (servers != null) {
+			for (Server s : servers) {
+				if (csvContainsId(s.getDenyId(), daId)) {
+					referencedByDeny = true;
+				}
+				if (csvContainsId(s.getAllowId(), daId)) {
+					referencedByAllow = true;
+				}
+			}
+		}
+		if (referencedByAllow && !referencedByDeny) {
+			return "allow";
+		}
+		return "deny";
+	}
+
+	/**
+	 * 存檔前黑白衝突檢查:回傳此名單中「已存在於另一 type 名單」的 IP 清單(空=無衝突)。
+	 * type=deny 時查所有 allow 名單、反之亦然;排除自己(同 id)。
+	 */
+	public List<String> findConflictIps(DenyAllow da, String type) {
+		List<String> conflicts = new java.util.ArrayList<>();
+		if (da == null || StrUtil.isBlank(da.getIp()) || StrUtil.isBlank(type)) {
+			return conflicts;
+		}
+		String otherType = "deny".equals(type) ? "allow" : "deny";
+		List<DenyAllow> others = sqlHelper.findListByQuery(new ConditionAndWrapper().eq("type", otherType), DenyAllow.class);
+		LinkedHashSet<String> otherIps = new LinkedHashSet<>();
+		for (DenyAllow o : others) {
+			if (da.getId() != null && da.getId().equals(o.getId())) {
+				continue;
+			}
+			if (StrUtil.isNotBlank(o.getIp())) {
+				for (String ip : o.getIp().split("\n")) {
+					otherIps.add(ip.trim());
+				}
+			}
+		}
+		for (String ip : da.getIp().split("\n")) {
+			if (otherIps.contains(ip.trim())) {
+				conflicts.add(ip.trim());
+			}
+		}
+		return conflicts;
 	}
 
 	public void removeSame(DenyAllow denyAllow) {
