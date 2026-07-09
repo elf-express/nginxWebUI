@@ -189,11 +189,12 @@ var denyAllowNS = {};
 		$("#daSearchForm").submit();
 	}
 
-	function add() {
+	function add(type) {
 		$("#daId").val("");
 		$("#daName").val("");
 		$("#daSourceUrl").val("");
 		$("#daFetchTime").val("");
+		$("#daType").val(type || 'deny');
 		ipTags = [];
 		searchFilter = '';
 		$('#daTagSearch').val('');
@@ -277,6 +278,7 @@ var denyAllowNS = {};
 					$("#daName").val(denyAllow.name);
 					$("#daSourceUrl").val(denyAllow.sourceUrl || "");
 					$("#daFetchTime").val(denyAllow.fetchTime || "");
+					$("#daType").val(denyAllow.type || 'deny');
 					loadFromTextarea(denyAllow.ip);
 					form.render();
 					showWindow(commonStr.edit);
@@ -311,47 +313,40 @@ var denyAllowNS = {};
 		}
 	}
 
-	function delMany() {
+	function delMany(scope) {
 		if (confirm(commonStr.confirmDel)) {
+			var inputName = scope === 'white' ? 'whiteIds' : 'blackIds';
 			var ids = [];
-			$("input[name='daIds']").each(function() {
+			$("input[name='" + inputName + "']").each(function() {
 				if ($(this).prop("checked")) {
 					ids.push($(this).val());
 				}
 			});
-
 			if (ids.length == 0) {
 				layer.msg(commonStr.unselected);
 				return;
 			}
-
 			$.ajax({
 				type: 'POST',
 				url: ctx + '/adminPage/denyAllow/del',
 				data: { id: ids.join(",") },
 				dataType: 'json',
 				success: function(data) {
-					if (data.success) {
-						location.reload();
-					} else {
-						layer.msg(data.msg);
-					}
+					if (data.success) { location.reload(); } else { layer.msg(data.msg); }
 				},
-				error: function() {
-					layer.alert(commonStr.errorInfo);
-				}
+				error: function() { layer.alert(commonStr.errorInfo); }
 			});
 		}
 	}
 
 	// === Init event handlers ===
 	$(function() {
-		form.on('checkbox(daCheckAll)', function(data) {
-			if (data.elem.checked) {
-				$("input[name='daIds']").prop("checked", true);
-			} else {
-				$("input[name='daIds']").prop("checked", false);
-			}
+		form.on('checkbox(blackCheckAll)', function(data) {
+			$("input[name='blackIds']").prop("checked", data.elem.checked);
+			form.render();
+		});
+		form.on('checkbox(whiteCheckAll)', function(data) {
+			$("input[name='whiteIds']").prop("checked", data.elem.checked);
 			form.render();
 		});
 
