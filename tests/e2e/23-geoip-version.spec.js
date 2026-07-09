@@ -23,9 +23,9 @@ test.describe('GeoIP 版本顯示與手動下載', () => {
     await page.goto('/adminPage/protectionCert');
     await page.waitForSelector('.layui-tab');
 
-    // 三顆手動下載按鈕（Country / City / ASN 各一）
-    const dlButtons = page.locator('button', { hasText: /手動下載|手动下载/ });
-    await expect(dlButtons).toHaveCount(3);
+    // 四顆手動下載按鈕（Country / City / ASN / Cloudflare 各一；Task 11 新增 Cloudflare 列後改為 4）
+    const dlButtons = page.locator('button', { hasText: /手動下載|手动下载|Manual Download/ });
+    await expect(dlButtons).toHaveCount(4);
 
     // 排程欄顯示每日自動更新（Java @Scheduled，含時間 03:00）
     await expect(page.locator('text=03:00').first()).toBeVisible();
@@ -51,17 +51,18 @@ test.describe('GeoIP 版本顯示與手動下載', () => {
     }
   });
 
-  test('GET /adminPage/geoip/versions 回三個資料庫資訊', async ({ page, baseURL }) => {
+  test('GET /adminPage/geoip/versions 回四個資料庫資訊（含 Cloudflare）', async ({ page, baseURL }) => {
     await login(page);
 
     const res = await page.request.get(baseURL + '/adminPage/geoip/versions');
     const data = await res.json();
     expect(data.success).toBe(true);
     expect(Array.isArray(data.obj)).toBe(true);
-    expect(data.obj.length).toBe(3);
+    // Task 11 新增 Cloudflare 列後回 4 筆（country / city / asn / cloudflare）
+    expect(data.obj.length).toBe(4);
 
     const keys = data.obj.map((o) => o.key).sort();
-    expect(keys).toEqual(['asn', 'city', 'country']);
+    expect(keys).toEqual(['asn', 'city', 'cloudflare', 'country']);
 
     for (const o of data.obj) {
       expect(o).toHaveProperty('displayName');
