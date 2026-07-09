@@ -1,0 +1,19 @@
+src/main/resources/static/js/adminPage/protectionCert/denyAllow.js
+  s_f3c0cf0115d145::t_98ab770a537aa0 192,197,281,316,318,320,335,337,344-349
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "6831facf5348dca519c9d42cf8aa1ded339f54f6",
+  "prompts": {},
+  "sessions": {
+    "s_f3c0cf0115d145": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a903bfd219338ede7",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
