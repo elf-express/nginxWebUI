@@ -1,0 +1,19 @@
+src/main/java/com/cym/ext/GeoipDbInfo.java
+  s_4ca2277ff57e88::t_12f6b67f9419d1 28-39,120-167
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "df94267189612f0df1eb32fe94692ab1b63c8b0f",
+  "prompts": {},
+  "sessions": {
+    "s_4ca2277ff57e88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a3570f91f794c45e0",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
