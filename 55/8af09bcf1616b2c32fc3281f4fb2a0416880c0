@@ -1,0 +1,19 @@
+src/main/java/com/cym/model/DenyAllow.java
+  s_26c539a87d45ae::t_855edae00e3b83 35-40,81-88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "558af09bcf1616b2c32fc3281f4fb2a0416880c0",
+  "prompts": {},
+  "sessions": {
+    "s_26c539a87d45ae": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a320e17f280b3aa4e",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
