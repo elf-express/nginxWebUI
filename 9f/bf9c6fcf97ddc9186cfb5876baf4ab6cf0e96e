@@ -1,0 +1,25 @@
+src/main/java/com/cym/config/AppFilter.java
+  s_bb5ea19fc2cbbb::t_fd4653e087a2bf 262-263
+src/main/java/com/cym/controller/adminPage/ProtectionCertController.java
+  s_bb5ea19fc2cbbb::t_4963b58e6e5682 38-39,46-49,51-54
+src/main/java/com/cym/service/GeoipService.java
+  s_bb5ea19fc2cbbb::t_4555054668203c 26-27,53-55,97-105,136,155,164-165
+src/main/resources/WEB-INF/view/adminPage/protectionCert/index.html
+  s_bb5ea19fc2cbbb::t_c83fc9e307349b 173,190,215,232
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "9fbf9c6fcf97ddc9186cfb5876baf4ab6cf0e96e",
+  "prompts": {},
+  "sessions": {
+    "s_bb5ea19fc2cbbb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-acbd1811fe56ac39e",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
