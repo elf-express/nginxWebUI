@@ -16,6 +16,7 @@ import com.maxmind.db.Reader;
 
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.io.FileUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.http.HttpUtil;
 
 /**
@@ -310,5 +311,60 @@ public class GeoipService {
 			}
 		}
 		return allOk;
+	}
+
+	private static final String CF_V4_URL = "https://www.cloudflare.com/ips-v4";
+	private static final String CF_V6_URL = "https://www.cloudflare.com/ips-v6";
+	/** 本機/內網信任來源(對齊 scripts/update-geoip-cf.sh 的 LOCAL_TRUST)。 */
+	private static final String[] LOCAL_TRUST = { "127.0.0.1", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16" };
+
+	/**
+	 * 手動更新 Cloudflare Real IP 清單:抓 ips-v4/v6 生成 realip.conf(jar 與 Docker 通用)。
+	 * 格式對齊 update-geoip-cf.sh;先寫 .tmp 再 move(原子性)。回傳是否成功。
+	 * 注意:僅產生檔案,不執行 nginx -s reload(交由既有排程 / 使用者手動 reload)。
+	 */
+	public boolean downloadCloudflare() {
+		File dir = new File(GEOIP_DIR);
+		if (!dir.exists() && !dir.mkdirs()) {
+			logger.error("GeoIP 目錄無法建立: {}", GEOIP_DIR);
+			return false;
+		}
+		try {
+			String v4 = HttpUtil.get(CF_V4_URL, 30_000);
+			String v6 = HttpUtil.get(CF_V6_URL, 30_000);
+			if (StrUtil.isBlank(v4) || StrUtil.isBlank(v6)) {
+				logger.error("Cloudflare IP 清單抓取為空(v4={}, v6={})", StrUtil.isBlank(v4), StrUtil.isBlank(v6));
+				return false;
+			}
+			StringBuilder sb = new StringBuilder();
+			sb.append("# Cloudflare Real IP - Updated by nginxWebUI ")
+					.append(DateUtil.format(new Date(), "yyyy-MM-dd HH:mm:ss")).append("\n\n# IPv4\n");
+			for (String line : v4.split("\\r?\\n")) {
+				if (StrUtil.isNotBlank(line)) {
+					sb.append("set_real_ip_from ").append(line.trim()).append(";\n");
+				}
+			}
+			sb.append("\n# IPv6\n");
+			for (String line : v6.split("\\r?\\n")) {
+				if (StrUtil.isNotBlank(line)) {
+					sb.append("set_real_ip_from ").append(line.trim()).append(";\n");
+				}
+			}
+			sb.append("\n# Local / Docker / Private Network Trust\n");
+			for (String cidr : LOCAL_TRUST) {
+				sb.append("set_real_ip_from ").append(cidr).append(";\n");
+			}
+			sb.append("\nreal_ip_header CF-Connecting-IP;\nreal_ip_recursive on;\n");
+
+			File tmp = new File(dir, REALIP_CONF_NAME + "." + System.nanoTime() + ".tmp");
+			File dest = new File(dir, REALIP_CONF_NAME);
+			FileUtil.writeString(sb.toString(), tmp, java.nio.charset.StandardCharsets.UTF_8);
+			FileUtil.move(tmp, dest, true);
+			logger.info("Cloudflare Real IP 清單已更新: {}", dest.getAbsolutePath());
+			return true;
+		} catch (Exception e) {
+			logger.error("Cloudflare Real IP 清單更新失敗: {}", e.getMessage());
+			return false;
+		}
 	}
 }
