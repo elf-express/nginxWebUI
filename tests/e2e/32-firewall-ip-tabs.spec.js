@@ -59,7 +59,7 @@ test.describe('引用端下拉依 type 過濾 — server 編輯頁', () => {
       form: {
         name: denyName,
         type: 'deny',
-        content: '192.0.2.1',
+        ip: '192.0.2.1',
       },
     });
     expect(denyResp.ok()).toBeTruthy();
@@ -71,7 +71,7 @@ test.describe('引用端下拉依 type 過濾 — server 編輯頁', () => {
       form: {
         name: allowName,
         type: 'allow',
-        content: '192.0.2.2',
+        ip: '192.0.2.2',
       },
     });
     expect(allowResp.ok()).toBeTruthy();

@@ -297,9 +297,6 @@ public class InitConfig {
 			List<DenyAllow> daList = sqlHelper.findAll(DenyAllow.class);
 			int migrated = 0;
 			for (DenyAllow da : daList) {
-				if (StrUtil.isNotEmpty(da.getType())) {
-					continue; // 已有 type 不動
-				}
 				String resolved = DenyAllowService.resolveTypeByReference(
 						da.getId(), daServers, httpDenyId, httpAllowId, streamDenyId, streamAllowId);
 				da.setType(resolved);

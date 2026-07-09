@@ -23,7 +23,8 @@ import cn.hutool.http.HttpUtil;
  * GeoIP MMDB 資料庫：讀版本（maxmind-db build date）+ 手動下載（Hutool 抓 mirror）。
  *
  * 設計重點：
- * - 版本（build date）走記憶體快取，避免 header 每個請求都讀檔。
+ * - 版本（build date）即時讀取 mmdb metadata（header-only，Reader 讀完即關），不快取；
+ *   如此排程/手動更新後版本立即反映，無需清快取。
  * - 所有讀版本路徑容錯：檔案不存在 / 讀失敗一律回 null，不丟例外（header 每頁都載，不能卡）。
  * - 下載走 Java（Hutool），jar 與 Docker 都能用；先寫 .tmp 再 move，避免半截檔。
  */
