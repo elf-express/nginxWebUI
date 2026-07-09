@@ -1,0 +1,23 @@
+src/main/java/com/cym/config/AppFilter.java
+  s_bea05856525493::t_5fbad93dcce9f8 262
+src/main/java/com/cym/service/GeoipService.java
+  s_bea05856525493::t_5b6a0c0dd72f7b 26-27
+tests/e2e/32-firewall-ip-tabs.spec.js
+  s_bea05856525493::t_60dd2e82495351 62,74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "5f614de5b401442429b82ea647c9c953cefe8a9b",
+  "prompts": {},
+  "sessions": {
+    "s_bea05856525493": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a1f70343664b964d7",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
