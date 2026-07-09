@@ -32,6 +32,12 @@ public class DenyAllow extends BaseModel {
 	 */
 	Long lastFetchAt;
 
+	/**
+	 * 名單類型：deny=黑名單、allow=白名單。舊資料(null)由 InitConfig migration 反查引用歸類。
+	 */
+	@InitValue("deny")
+	String type;
+
 	public String getName() {
 		return name;
 	}
@@ -70,6 +76,14 @@ public class DenyAllow extends BaseModel {
 
 	public void setLastFetchAt(Long lastFetchAt) {
 		this.lastFetchAt = lastFetchAt;
+	}
+
+	public String getType() {
+		return type;
+	}
+
+	public void setType(String type) {
+		this.type = type;
 	}
 
 }
