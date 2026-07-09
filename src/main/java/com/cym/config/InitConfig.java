@@ -19,13 +19,16 @@ import org.slf4j.LoggerFactory;
 
 import com.cym.model.Admin;
 import com.cym.model.Basic;
+import com.cym.model.DenyAllow;
 import com.cym.model.GeoRule;
 import com.cym.model.Http;
 import com.cym.model.Param;
 import com.cym.model.Module;
+import com.cym.model.Server;
 import com.cym.model.Template;
 import com.cym.service.BasicService;
 import com.cym.service.ConfService;
+import com.cym.service.DenyAllowService;
 import com.cym.service.NginxService;
 import com.cym.service.SettingService;
 import com.cym.service.TemplateService;
@@ -282,6 +285,29 @@ public class InitConfig {
 				}
 			}
 			settingService.set("moduleInitMigrated", "1");
+		}
+
+		// 遷移：為既有 DenyAllow 反查引用歸類 type（被 allowId 引用→allow、否則→deny）
+		if (!"1".equals(settingService.get("denyAllowTypeMigrated"))) {
+			List<Server> daServers = sqlHelper.findAll(Server.class);
+			String httpDenyId = settingService.get("denyId");
+			String httpAllowId = settingService.get("allowId");
+			String streamDenyId = settingService.get("denyIdStream");
+			String streamAllowId = settingService.get("allowIdStream");
+			List<DenyAllow> daList = sqlHelper.findAll(DenyAllow.class);
+			int migrated = 0;
+			for (DenyAllow da : daList) {
+				if (StrUtil.isNotEmpty(da.getType())) {
+					continue; // 已有 type 不動
+				}
+				String resolved = DenyAllowService.resolveTypeByReference(
+						da.getId(), daServers, httpDenyId, httpAllowId, streamDenyId, streamAllowId);
+				da.setType(resolved);
+				sqlHelper.updateById(da);
+				migrated++;
+			}
+			settingService.set("denyAllowTypeMigrated", "1");
+			logger.info("Migration: assigned type to {} existing DenyAllow records (reference-based)", migrated);
 		}
 
 		// 释放基础nginx配置文件
