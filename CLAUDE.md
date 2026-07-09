@@ -186,16 +186,20 @@ docker compose ps                                # all healthy
 > 注意：Loki / Promtail / Grafana monitoring profile 已於 2026-06-30 從本專案移除。若 server 上還有 `nginxwebui_loki_data` / `nginxwebui_grafana_data` volume 是歷史遺留，可手動 `docker volume rm` 清理。
 
 ## Release Flow (see docs/superpowers/plans/2026-05-21-dev-release-workflow.md)
-**Branches:** `dev` (daily dev) · `master` (**push master 觸發發版**;CI 版本閘控:pom 版本在 ghcr 沒有才 build+push) · `tag v*` (CI 在 master push 時**自動打**,不再手動).
+**Branches:** `dev` (常駐日常開發) · `release/x.y.z` (發版臨時分支,merge 後刪) · `master` (**push 觸發發版**;CI 版本閘控:pom 版本在 ghcr 沒有才 build+push;自動打 `v*` tag + 建 GitHub Release).
 
+**發版走 `release/*` PR — 別拿常駐 `dev` 當 PR head(GitHub merge 的「Delete branch」會刪掉 dev):**
 ```bash
 git checkout dev && git pull origin dev
-scripts/release.sh 5.2.3            # bumps pom.xml + commit (NO tag — CI auto-tags on master push)
-git push origin dev:master          # push master → CI version-gated: build+push nginxwebui + nginxwebui-crowdsec (amd64) + auto-tag v5.2.3
-docker manifest inspect ghcr.io/elf-express/nginxwebui:5.2.3   # confirm image pushed
-# GitHub Release entry: optional (gh 受組織 PAT 政策 403 時走 GitHub UI 手動建)
+git checkout -b release/5.2.6 && scripts/release.sh 5.2.6   # bump pom + commit (tag 由 CI 在 master push 時打)
+git push origin release/5.2.6
+# 開 release/5.2.6 → master PR → claude-code-review.yml 自動 review → merge(GitHub 刪 release 分支,dev 不動)
+git checkout dev && git merge release/5.2.6                 # 版本號同步回 dev
+docker manifest inspect ghcr.io/elf-express/nginxwebui:5.2.6   # 確認 image pushed
+# merge 觸發 CI:build+push nginxwebui + nginxwebui-crowdsec (amd64) + auto-tag + 建 Release(--generate-notes)
 ```
-> 注意：`release.sh` 只改 pom.xml，不碰 README/CLAUDE/.env — 所以部署文件刻意採「不綁版本」寫法（`:latest` + `master` raw URL + jar 萬用字元）避免每次 release 變舊。Hotfix 從 `master` 開 `hotfix/*` 分支（script 允許）。
+> 快捷(不需 PR review 保險時):`git push origin dev:master` 直接推,不走 PR、不刪 dev,但沒有 claude-code-review 自動審。
+> `release.sh` 只改 pom.xml,不碰 README/README_TW/CLAUDE/.env — 部署文件刻意「不綁版本」(`:latest` + `master` raw URL + jar 萬用字元)。Hotfix 從 `master` 開 `hotfix/*` 分支。
 
 ## Feature Inventory
 **UI/UX:** batch param input · TLS default fix · conf indent + CodeMirror highlight · login password toggle · default http params/templates · HTTP param grouping (`HttpController.GROUP_DEFS`) · template grouping · IP/DenyAllow tag-ization · edit mode · conf error diagnosis · lang switch (flag SVG) · brand logo upload + header 200×60 align.
@@ -206,6 +210,7 @@ docker manifest inspect ghcr.io/elf-express/nginxwebui:5.2.3   # confirm image p
 **Deploy/Test:** test captcha · Compose stack (PG18 + CrowdSec) · **CrowdSec = self-built `nginxwebui-crowdsec` (official base + baked config)** · optional `security` profile · **master-triggered release: CI version-gated builds 2 images (nginxwebui + nginxwebui-crowdsec, amd64) + auto-tag** · **geoip MMDB baked at build (offline-ready)** · `.gitattributes` LF · Playwright E2E suite (offline-CDN guard + a11y crawler).
 
 ## Docs
+- **README:** `README.md`=英文(主) · `README_TW.md`=繁中;語言切換連結雙向,改內容須同步兩版。
 - [Improvement plans & reports](docs/superpowers/plans/)
 - [Playwright guide](docs/superpowers/plans/playwright-guide.md) · [Docker guide](docs/superpowers/plans/docker-guide.md) · [Docker standard](docs/superpowers/plans/docker-standard.md)
 - [Dev/release workflow](docs/superpowers/plans/2026-05-21-dev-release-workflow.md)

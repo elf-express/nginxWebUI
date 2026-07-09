@@ -1,0 +1,48 @@
+name: Claude Code Review
+
+# Claude Code 自動 PR Review — 團隊每個 PR 開啟/更新時,Claude 自動審查並留言。
+# 與 claude.yml(@claude 互動)互補:這個不用手動提及,PR 一開就自動 review。
+# 認證:沿用同一 repo secret CLAUDE_CODE_OAUTH_TOKEN(Claude Max OAuth token,`claude setup-token` 產生)。
+# 官方文件:https://code.claude.com/docs/en/github-actions
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+# 同一 PR 連續 push 時,取消前一次未完成的 review,只 review 最新一版(省額度)
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  claude-review:
+    # 略過 draft PR,避免半成品白燒 Agent SDK 額度與 Actions 分鐘
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # 讀程式碼做 review
+      pull-requests: write # 在 PR 留 review 留言
+      id-token: write # OIDC — claude-code-action 交換 GitHub token(缺這行會 "Could not fetch an OIDC token")
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code Review
+        uses: anthropics/claude-code-action@558b1d6cab4085c7753fe402c10bef0fbb92ac7a # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # 直接給 review 任務(不需 @claude 提及)
+          prompt: |
+            請 review 這個 PR,並用繁體中文在 PR 留言。聚焦:
+            - Bug、邏輯錯誤、未處理的邊界情況
+            - 安全性:輸入驗證、注入、認證授權
+            - 專案慣例(見 CLAUDE.md):Solon 非 Spring、SqlHelper 非 JPA;
+              新使用者可見字串必須同步三份 messages*.properties(簡/繁/英);
+              a11y 不可用 <a href="javascript:"> 假連結(改用 <button>);
+              前端第三方 lib 不可依賴外網 CDN(離線部署)
+            - 對應的 Playwright E2E 測試是否齊備
+            只點出真正重要的問題,附檔案/行號與具體修法;不要吹毛求疵。
+            最後用 `gh pr comment` 留一則總結。
+          claude_args: "--max-turns 5 --model claude-sonnet-4-6"
