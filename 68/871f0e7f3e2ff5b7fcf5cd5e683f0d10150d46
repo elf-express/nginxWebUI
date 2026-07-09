@@ -1,0 +1,19 @@
+src/main/java/com/cym/service/GeoipService.java
+  s_5a76e14fb96f5e::t_5943ad86fbcafb 19,315-369
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "68871f0e7f3e2ff5b7fcf5cd5e683f0d10150d46",
+  "prompts": {},
+  "sessions": {
+    "s_5a76e14fb96f5e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a32f8598e72fe5c0a",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
