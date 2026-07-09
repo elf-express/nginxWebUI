@@ -1,0 +1,19 @@
+src/main/java/com/cym/service/GeoipService.java
+  s_c8ef65e070d276::t_f086ebec12e254 36-38,70,74-75,86-87,89-90,92-93,95-97,114-119,122-125,142-185,187,189
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "87af3c688ad023607328f798cac37ab23c21001b",
+  "prompts": {},
+  "sessions": {
+    "s_c8ef65e070d276": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50a5711e-6dec-48f3-95d8-31c9541c3480",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
