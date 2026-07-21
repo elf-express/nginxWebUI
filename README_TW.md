@@ -112,7 +112,7 @@ docker compose up -d          # image 預設拉 :latest，永遠跟最新 releas
 
 ### A. Docker Compose（推薦、生產環境）
 
-只有 **nginxwebui 是自建 image**；CrowdSec sidecar 用**官方 image + bind-mount config**。預設只起核心兩個服務，IDS 用 compose `security` **profile** 視需要開啟。
+**兩個 image 都是自建**：`nginxwebui` 與 `nginxwebui-crowdsec`（官方 CrowdSec base、config 烤進 image — 不需 bind-mount）。預設只起核心兩個服務，IDS 用 compose `security` **profile** 視需要開啟。
 
 **只跑核心（nginxwebui + postgres）—— 線上只需兩個檔：**
 
@@ -124,7 +124,7 @@ curl -o .env https://raw.githubusercontent.com/elf-express/nginxWebUI/master/doc
 docker compose up -d                      # 只起 nginxwebui + postgres
 ```
 
-**要加 CrowdSec IDS —— 需要整個 `docker/` 目錄（sidecar 要 bind-mount `docker/crowdsec/` 下 config）：**
+**要加 CrowdSec IDS —— 加上 compose `security` profile 即可（config 已烤進 `nginxwebui-crowdsec` image，不需 bind-mount）：**
 
 ```bash
 git clone https://github.com/elf-express/nginxWebUI.git && cd nginxWebUI/docker

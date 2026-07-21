@@ -112,7 +112,7 @@ Only the core two services start by default; CrowdSec is opt-in via the compose 
 
 ### A. Docker Compose (recommended, production)
 
-Only **nginxwebui is self-built**; the CrowdSec sidecar uses **official image + bind-mounted config**. Only the core two services start by default; the IDS is opt-in via the compose `security` **profile**.
+**Both images are self-built**: `nginxwebui` and `nginxwebui-crowdsec` (official CrowdSec base with config baked in — no bind-mounts). Only the core two services start by default; the IDS is opt-in via the compose `security` **profile**.
 
 **Core only (nginxwebui + postgres) — only two files on the server:**
 
@@ -124,7 +124,7 @@ curl -o .env https://raw.githubusercontent.com/elf-express/nginxWebUI/master/doc
 docker compose up -d                      # starts only nginxwebui + postgres
 ```
 
-**With CrowdSec IDS — needs the whole `docker/` dir (sidecar bind-mounts `docker/crowdsec/` config):**
+**With CrowdSec IDS — add the compose `security` profile (config is baked into the `nginxwebui-crowdsec` image, no bind-mount needed):**
 
 ```bash
 git clone https://github.com/elf-express/nginxWebUI.git && cd nginxWebUI/docker

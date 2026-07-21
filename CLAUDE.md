@@ -33,7 +33,7 @@ Entry point: [com.cym.NginxWebUI](src/main/java/com/cym/NginxWebUI.java) — `@S
 ```
 src/main/java/com/cym/
 ├── config/         # init, filters, config (InitConfig, AppFilter)
-├── controller/     # controllers (feature-split under adminPage/)
+├── controller/     # adminPage/ (28 page controllers) + api/ (11 REST API controllers)
 ├── ext/            # view DTOs (e.g. DenyAllowExt, GeoipDbInfo) — 非 @Table
 ├── model/          # data models (@Table entities: Server, Location, Http, ...)
 ├── service/        # business logic (@Component + @Inject SqlHelper)
@@ -71,14 +71,14 @@ docs/               # design docs & plans
 > 注意：新增任何使用者可見字串，必須同步改三份 properties：`messages.properties`（簡）、`messages_zh_TW.properties`（繁）、`messages_en_US.properties`（英）。CJK 值用 `\uXXXX` escape（檔案是 ISO-8859-1）。
 
 ### Backend
-- Controllers all live under `controller/adminPage/` — none in `controller/` root (incl. CrowdSec / Geo / Asn / ProtectionCert / SiteResource / Geoip).
+- Controllers live under `controller/adminPage/` (page controllers, incl. CrowdSec / Geo / Asn / ProtectionCert / SiteResource / Geoip) and `controller/api/` (REST API: `*Api` for basic/cert/denyAllow/nginx/param/password/server/upstream/www + `Token` / `Upload`) — none in `controller/` root.
 - Services: `@Component` + `@Inject SqlHelper sqlHelper;`. Persistence via `SqlHelper` (home-grown ORM, not JPA — see cheatsheet).
 - Primary keys: always `SnowFlakeUtils.getId()` (snowflake; stored as String, generated as Long).
 - Init logic in `InitConfig.java`; runtime config via `app.yml` or launch args.
 - **Seed-on-empty pattern:** fork ships sensible defaults so users don't bootstrap from zero — e.g. `InitConfig.seedDenyAllowRules()` inserts 6 malicious-IP blocklist rules via `DenyAllowService.getDefaultRules()` when the table is empty. Apply the same pattern for any new feature where "empty DB ≈ broken UX."
 
 ### Testing (see docs/superpowers/plans/playwright-guide.md)
-- Specs in `tests/e2e/` — numbered `01-login` … `27-a11y-buttons` plus standalone (`flag-svg-integrity`). New feature → next number.
+- Specs in `tests/e2e/` — numbered `01-login` … `32-firewall-ip-tabs` (contiguous) plus standalone (`flag-svg-integrity`). New feature → next number.
 - Match 簡/繁 button text with regex: `/批量輸入|批量输入/`.
 - Drive Layui widgets via `page.evaluate()`.
 - Run: `npm test` (headed) · `npm run test:fast` (headless/CI) · `npx playwright test tests/e2e/08-crowdsec.spec.js` (one file) · `npm run report` (http://localhost:9400).
@@ -89,6 +89,7 @@ docs/               # design docs & plans
 - volume name: `nginxwebui_{purpose}_data` (explicit `name:` to dodge compose project prefix).
 - healthcheck + startup order required; `entrypoint.sh` must be LF (`.gitattributes` enforces).
 - **Two self-built images:** `nginxwebui` (root Dockerfile) + `nginxwebui-crowdsec` (`docker/crowdsec/Dockerfile` = official crowdsec base + baked config). CrowdSec is opt-in via compose **profile** `security`; default `docker compose up -d` starts only nginxwebui + postgres.
+- Container-side GeoIP refresh: [scripts/update-geoip-cf.sh](scripts/update-geoip-cf.sh) — downloads GeoLite2 Country/City/ASN mmdb + Cloudflare ips-v4/v6 into `/etc/nginx/geoip`（entrypoint 啟動跑一次 + crontab 每週三、六;7 天內已更新則跳過,避免每次 restart 重抓 ~80 MB）。
 
 ## Architecture Flow
 A typical "user edits HTTP params" request crosses these layers:
@@ -186,28 +187,28 @@ docker compose ps                                # all healthy
 > 注意：Loki / Promtail / Grafana monitoring profile 已於 2026-06-30 從本專案移除。若 server 上還有 `nginxwebui_loki_data` / `nginxwebui_grafana_data` volume 是歷史遺留，可手動 `docker volume rm` 清理。
 
 ## Release Flow (see docs/superpowers/plans/2026-05-21-dev-release-workflow.md)
-**Branches:** `dev` (常駐日常開發) · `release/x.y.z` (發版臨時分支,merge 後刪) · `master` (**push 觸發發版**;CI 版本閘控:pom 版本在 ghcr 沒有才 build+push;自動打 `v*` tag + 建 GitHub Release).
+**Branches:** `dev` (常駐日常開發) · `master` (**push 觸發發版**;CI 版本閘控:pom 版本在 ghcr 沒有才 build+push;自動打 `v*` tag + 建 GitHub Release) · `hotfix/*` (從 `master` 開).
 
-**發版走 `release/*` PR — 別拿常駐 `dev` 當 PR head(GitHub merge 的「Delete branch」會刪掉 dev):**
+**Primary path — bump on `dev`, push straight to `master` (no PR):**
 ```bash
 git checkout dev && git pull origin dev
-git checkout -b release/5.2.6 && scripts/release.sh 5.2.6   # bump pom + commit (tag 由 CI 在 master push 時打)
-git push origin release/5.2.6
-# 開 release/5.2.6 → master PR → claude-code-review.yml 自動 review → merge(GitHub 刪 release 分支,dev 不動)
-git checkout dev && git merge release/5.2.6                 # 版本號同步回 dev
+scripts/release.sh 5.2.6        # 只在 dev 或 hotfix/* 能跑(script 有分支閘);只改 pom 的 nginxWebUI <version> + commit,不打 tag、不 push
+git push origin dev             # 同步 origin/dev
+git push origin dev:master      # 觸發 CI:build+push 2 images (amd64) + auto-tag v5.2.6 + GitHub Release(--generate-notes)
 docker manifest inspect ghcr.io/elf-express/nginxwebui:5.2.6   # 確認 image pushed
-# merge 觸發 CI:build+push nginxwebui + nginxwebui-crowdsec (amd64) + auto-tag + 建 Release(--generate-notes)
 ```
-> 快捷(不需 PR review 保險時):`git push origin dev:master` 直接推,不走 PR、不刪 dev,但沒有 claude-code-review 自動審。
-> `release.sh` 只改 pom.xml,不碰 README/README_TW/CLAUDE/.env — 部署文件刻意「不綁版本」(`:latest` + `master` raw URL + jar 萬用字元)。Hotfix 從 `master` 開 `hotfix/*` 分支。
+> 注意：**不要開 dev → master 的 PR** — GitHub merge 後的「Delete branch」會刪掉常駐 `dev`。直接 push `dev:master` 不走 PR、不刪 dev(代價是沒有 claude-code-review 自動審)。
+
+**Optional PR variant(要 claude-code-review 保險時):** 先在 `dev` 跑 `scripts/release.sh`(它的分支閘不接受 `release/*`),再 `git checkout -b release/5.2.6` 推上去開 release/5.2.6 → master PR;merge 時 GitHub 刪的是 release 分支,`dev` 不動,merge 後 `git checkout dev && git pull` 即已同步(bump commit 本來就在 dev)。
+> `release.sh` 只改 pom.xml,不碰 README/README_TW/CLAUDE/.env — 部署文件刻意「不綁版本」(`:latest` + `master` raw URL + jar 萬用字元)。Hotfix:從 `master` 開 `hotfix/*`,同樣 `scripts/release.sh x.y.z` 後 `git push origin hotfix/xxx:master`。
 
 ## Feature Inventory
-**UI/UX:** batch param input · TLS default fix · conf indent + CodeMirror highlight · login password toggle · default http params/templates · HTTP param grouping (`HttpController.GROUP_DEFS`) · template grouping · IP/DenyAllow tag-ization · edit mode · conf error diagnosis · lang switch (flag SVG) · brand logo upload + header 200×60 align.
+**UI/UX:** batch param input · TLS default fix · conf indent + CodeMirror highlight · login password toggle · default http params/templates · HTTP param grouping (`HttpController.GROUP_DEFS`) · template grouping · IP/DenyAllow tag-ization · edit mode · conf error diagnosis · lang switch (flag SVG) · brand logo upload + header 200×60 align · HTTP param panel phase 2/3: tri-state enable mode + nginx module-availability filter (specs 28–31).
 **Accessibility (Wave 1/2 audit, ongoing):** site-wide pseudo-link `<a href="javascript:">` → `<button>` migration (header, sidebar, table actions, modals, captcha) · semantic landmarks (`<nav>` sidebar, `<h1>` on key pages) · icon button `aria-label`. Specs 27-a11y-buttons + crawler-style assertions guard this.
-**Security:** CrowdSec (IDS + bouncer) · GeoIP2 country block · ASN block · Protection Cert · Real-IP module · **DenyAllow self-seeded blocklist** (6 default malicious-IP rules + scheduled refresh with retry-on-failure + startup catch-up).
-**GeoIP DB module (v5.2.0):** header shows Country/City/ASN MMDB build dates (`GeoipService` via maxmind-db) · ProtectionCert Tab-1 GeoIP table (version / schedule / manual download) · `GeoipController` `/adminPage/geoip/{versions,download}` · Java/Hutool download (jar + Docker).
+**Security:** CrowdSec (IDS + bouncer) · GeoIP2 country block · ASN block · Protection Cert · Real-IP module · **DenyAllow black/white lists** (`type` deny/allow, `@InitValue("deny")`; self-seeded 6 malicious-IP rules + scheduled URL refresh with retry-on-failure + startup catch-up; type-filtered reference dropdowns across server/http/stream (`denyDiv`/`allowDiv`), cross-type IP conflict rejected on save, legacy rows migrated by reference) · **firewall page = 6 tabs** (IP database / 黑名單 / 白名單 / GeoIP country / ASN / Protection Cert).
+**GeoIP DB module (v5.2.0+):** header shows Country/City/ASN MMDB build dates (`GeoipService` via maxmind-db; build-date cache keyed by file mtime — 避免每 request 重讀 ~80MB mmdb) · ProtectionCert Tab-1 IP-database table (version / schedule / manual download / status cross-verify: `GeoipService.evaluateStatus` + `reverifyAll` + per-file stat/status fields) · **Cloudflare Real-IP auto-download** (`/adminPage/geoip/downloadCloudflare` → `realip.conf`, Cloudflare status row in the same table) · `GeoipController` `/adminPage/geoip/{versions,download,downloadCloudflare,…}` · Java/Hutool download (jar + Docker).
 **Monitoring/Ops:** nginx module auto-detect (`/adminPage/monitor/nginxInfo`) · Site Resource · connectivity test.
-**Deploy/Test:** test captcha · Compose stack (PG18 + CrowdSec) · **CrowdSec = self-built `nginxwebui-crowdsec` (official base + baked config)** · optional `security` profile · **master-triggered release: CI version-gated builds 2 images (nginxwebui + nginxwebui-crowdsec, amd64) + auto-tag** · **geoip MMDB baked at build (offline-ready)** · `.gitattributes` LF · Playwright E2E suite (offline-CDN guard + a11y crawler).
+**Deploy/Test:** test captcha · Compose stack (PG18 + CrowdSec) · **CrowdSec = self-built `nginxwebui-crowdsec` (official base + baked config)** · optional `security` profile · **master-triggered release: CI version-gated builds 2 images (nginxwebui + nginxwebui-crowdsec, amd64) + auto-tag + auto GitHub Release** · **geoip MMDB baked at build (offline-ready)** · `.gitattributes` LF · Playwright E2E suite (offline-CDN guard + a11y crawler) · `@claude` mention responder ([.github/workflows/claude.yml](.github/workflows/claude.yml)).
 
 ## Docs
 - **README:** `README.md`=英文(主) · `README_TW.md`=繁中;語言切換連結雙向,改內容須同步兩版。
