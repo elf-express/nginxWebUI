@@ -2,13 +2,12 @@ const { test, expect } = require('@playwright/test');
 const { login } = require('./helpers');
 
 async function openPanel(page) {
-  await page.getByRole('button', { name: /添加反向代理/ }).click();
   await page.getByRole('button', { name: /设置http参数|設置http參數|HTTP params/ }).click();
   await page.waitForSelector('input[name="httpParamItem"]', { state: 'attached' });
   await page.waitForTimeout(300);
 }
 async function reopenPanel(page) {
-  await page.goto('/adminPage/server');
+  await page.goto('/adminPage/http');
   await page.waitForSelector('table');
   await openPanel(page);
 }
@@ -27,10 +26,10 @@ async function restoreAllEnabled(page) {
   await page.waitForTimeout(1000);
 }
 
-test.describe('server modal — ① http 參數 panel 三態 mode（phase 3）', () => {
+test.describe('http 參數配置頁 — 參數面板三態 mode', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
-    await page.goto('/adminPage/server');
+    await page.goto('/adminPage/http');
     await page.waitForSelector('table');
     await openPanel(page);
   });

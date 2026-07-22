@@ -274,43 +274,6 @@
 	<div style="height: 0px; width: 0px; overflow: hidden;">
 		<!-- 弹出框 -->
 
-		<!-- ① 設置 http 參數 modal (prototype: 60/40 split, right pane = dark area + save button) -->
-		<div class="layui-form" id="httpParamPanelDiv" style="display:none;">
-			<div style="display:flex;height:65vh;">
-				<!-- left 60% checkbox list -->
-				<div style="flex:0 0 60%;padding:15px;overflow-y:auto;border-right:1px solid #e6e6e6;box-sizing:border-box;">
-					<h3 style="margin:0 0 6px 0;font-size:15px;">${serverStr.httpParm}</h3>
-					<p style="color:#666;font-size:12px;margin-bottom:12px;">${serverStr.httpParamDesc}</p>
-					<p style="color:#c0392b;font-size:12px;margin:0 0 12px 0;font-weight:bold;">${serverStr.httpParamGlobalHint}</p>
-					<#list httpList as h>
-					<label style="display:flex;align-items:center;padding:6px 8px;cursor:pointer;border-bottom:1px solid #f5f5f5;">
-						<input type="checkbox" name="httpParamItem" lay-ignore value="${h.id}" data-group="${h.groupName!''}"${mutexGroups?seq_contains(h.groupName!'')?then(' data-mutex="1"','')} ${(h.enable!true)?then('checked','')} ${lockedGroups?seq_contains(h.groupName!'')?then('disabled','')} style="margin-right:10px;width:16px;height:16px;accent-color:#16baaa;cursor:pointer;" onchange="updateHttpParamCount()">
-						<span style="font-family:Consolas,Menlo,monospace;font-size:12px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-							<span style="color:#0066cc;font-weight:bold;">${h.name?html}</span>
-							<#if h.value??><span style="color:#888;margin-left:8px;">${h.value?html}</span></#if>
-							<#if lockedGroups?seq_contains(h.groupName!'')><i class="layui-icon layui-icon-password" title="${serverStr.httpParamLockedTip?html}" aria-label="${serverStr.httpParamLockedTip?html}" style="color:#c0392b;margin-left:6px;font-size:14px;"></i></#if><#if isLinux && missingRequiredModules?seq_contains(h.groupName!'')><span class="layui-badge layui-bg-red" title="${serverStr.httpParamModuleMissingTip?html}" style="margin-left:6px;">${serverStr.httpParamModuleMissing}</span></#if>
-						</span>
-					</label>
-					</#list>
-				</div>
-				<!-- right 40% dark area: 說明 + count + 存檔 -->
-				<div style="flex:0 0 40%;background:#1e1e1e;color:#d4d4d4;font-family:Consolas,Menlo,monospace;padding:20px;display:flex;flex-direction:column;box-sizing:border-box;">
-					<div style="color:#569cd6;font-size:13px;margin-bottom:15px;"># ${serverStr.httpParm}</div>
-					<div style="line-height:1.8;font-size:12px;flex:1;color:#cccccc;">
-						<div># ${serverStr.httpParamNote1}</div>
-						<div style="margin-top:6px;"># ${serverStr.httpParamNote2}</div>
-						<div style="margin-top:6px;"># ${serverStr.httpParamNote3}</div>
-						<div style="margin-top:18px;color:#6a9955;"># ${serverStr.httpParamPhase2}</div>
-					</div>
-					<div style="text-align:center;margin-top:auto;border-top:1px solid #333;padding-top:14px;">
-						<div style="color:#4ec9b0;font-size:13px;margin-bottom:12px;">${serverStr.httpParamApply} <span id="httpParamCountNum" style="color:#fff;font-weight:bold;">0</span> ${serverStr.httpParamUnit}</div>
-						<button type="button" class="layui-btn layui-btn-normal" onclick="saveHttpParamPanel()">${commonStr.submit}</button>
-						<button type="button" class="layui-btn layui-btn-primary" onclick="layer.closeAll()">${commonStr.close}</button>
-					</div>
-				</div>
-			</div>
-		</div>
-
 		<div class="layui-form" id="windowDiv" style="padding: 15px; display: none">
 			<form id="addForm">
 				<input type="hidden" id="id" name="id">
@@ -477,10 +440,9 @@
 
 				<div class="layui-container" style="margin-left: 0px;">
 					<div style="width: 50px; display: inline-block;"></div>
-					<div class="layui-inline"><button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="openHttpParamPanel()">① ${serverStr.httpParm}</button></div>
-					<div class="layui-inline"><button type="button" class="layui-btn layui-btn-sm layui-btn-normal proxyHttp" onclick="addItem()">② ${serverStr.addLocation}</button></div>
-					<div class="layui-inline"><button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="serverParam()">③ ${serverStr.serverParm}</button></div>
-					<div class="layui-inline"><button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="layer.msg('Proxy 參數設定：後續調整')">④ ${serverStr.proxyParm}</button></div>
+					<!-- 全域 http 參數面板已移至「http參數配置」頁(全域設定歸全域頁);精靈只留逐站步驟 -->
+					<div class="layui-inline"><button type="button" class="layui-btn layui-btn-sm layui-btn-normal proxyHttp" onclick="addItem()">① ${serverStr.addLocation}</button></div>
+					<div class="layui-inline"><button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="serverParam()">② ${serverStr.serverParm}</button></div>
 					
 					<textarea style="display: none;" id="serverParamJson" name="serverParamJson"></textarea>
 				</div>

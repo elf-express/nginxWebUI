@@ -18,14 +18,13 @@ async function readPanelStats(page) {
   });
 }
 
-test.describe('server modal — ① 設置 http 參數 panel', () => {
+test.describe('http 參數配置頁 — 全域參數啟用面板', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
-    await page.goto('/adminPage/server');
+    await page.goto('/adminPage/http');
     await page.waitForSelector('table');
-    // 走真實 UI 路徑:開 add-proxy modal → 點 toolbar 的「① 設置http參數」按鈕
-    // (涵蓋 index.html 按鈕的 onclick="openHttpParamPanel()" 佈線)
-    await page.getByRole('button', { name: /添加反向代理/ }).click();
+    // 走真實 UI 路徑:http 參數配置頁 toolbar 的「設置http參數」按鈕
+    // (面板已自 server 編輯視窗移入本頁:全域設定歸全域頁)
     await page.getByRole('button', { name: /设置http参数|設置http參數|HTTP params/ }).click();
     // input 被 layui 隱藏,等 attached 而非 visible;再等 success callback 把 count 算出來(>0)
     await page.waitForSelector('input[name="httpParamItem"]', { state: 'attached' });

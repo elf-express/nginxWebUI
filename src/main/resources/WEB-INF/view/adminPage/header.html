@@ -15,14 +15,14 @@
 			<button type="button" class="header-link-btn" onclick="showModuleList()" style="color: #01AAED;" id="nginxVersionLink" aria-label="${commonStr.moduleList}"></button>
 		</li>
 
-		<!-- GeoIP 三庫版本：直接堆疊顯示（不下拉），一眼可見 -->
+		<!-- GeoIP 庫版本：2×2 網格一眼可見（4 列垂直堆疊會撐破 60px header 高度而疊字） -->
 		<li class="layui-nav-item" id="geoipVersionItem" style="line-height:normal;padding:0 15px;">
 			<div style="display:flex;align-items:center;height:60px;gap:10px;">
 				<span style="font-weight:bold;color:#01AAED;white-space:nowrap;">${geoipStr.headerLabel}</span>
-				<div style="display:flex;flex-direction:column;justify-content:center;font-size:12px;line-height:1.6;white-space:nowrap;">
+				<div style="display:grid;grid-template-columns:auto auto;column-gap:16px;row-gap:2px;align-content:center;font-size:12px;line-height:1.5;white-space:nowrap;">
 					<#if geoipDbInfos??>
 						<#list geoipDbInfos as g>
-						<span><span style="display:inline-block;width:58px;color:#9aa6b2;">${g.displayName}</span><#if g.version??><span style="color:#fff;">${g.version}</span><#else><span style="color:#e8a33d;">${geoipStr.notDownloaded}</span></#if></span>
+						<span><span style="display:inline-block;min-width:58px;color:#9aa6b2;margin-right:6px;">${g.displayName}</span><#if g.version??><span style="color:#fff;">${g.version}</span><#else><span style="color:#e8a33d;">${geoipStr.notDownloaded}</span></#if></span>
 						</#list>
 					</#if>
 				</div>

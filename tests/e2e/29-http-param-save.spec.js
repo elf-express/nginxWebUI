@@ -1,16 +1,15 @@
 const { test, expect } = require('@playwright/test');
 const { login } = require('./helpers');
 
-// 開 add-proxy modal → 開 http 參數 panel,回傳 panel 已就緒的 page
+// 在 http 參數配置頁開啟全域參數面板,回傳 panel 已就緒的 page
 async function openPanel(page) {
-  await page.getByRole('button', { name: /添加反向代理/ }).click();
   await page.getByRole('button', { name: /设置http参数|設置http參數|HTTP params/ }).click();
   await page.waitForSelector('input[name="httpParamItem"]', { state: 'attached' });
   await page.waitForTimeout(300);
 }
 
 async function reopenServerPanel(page) {
-  await page.goto('/adminPage/server');
+  await page.goto('/adminPage/http');
   await page.waitForSelector('table');
   await openPanel(page);
 }
@@ -23,10 +22,10 @@ async function saveAndConfirm(page) {
   await page.waitForTimeout(900);
 }
 
-test.describe('server modal — ① http 參數 panel 存檔（phase 2）', () => {
+test.describe('http 參數配置頁 — 參數面板存檔', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
-    await page.goto('/adminPage/server');
+    await page.goto('/adminPage/http');
     await page.waitForSelector('table');
   });
 

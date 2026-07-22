@@ -18,6 +18,8 @@ import com.cym.ext.HttpGroupExt;
 import com.cym.model.Http;
 import com.cym.service.ConfService;
 import com.cym.service.HttpService;
+import com.cym.service.NginxService;
+import com.cym.utils.SystemTool;
 import com.cym.service.SettingService;
 import com.cym.utils.BaseController;
 import com.cym.utils.JsonResult;
@@ -38,6 +40,8 @@ public class HttpController extends BaseController {
 	MessageUtils m;
 	@Inject
 	ConfService confService;
+	@Inject
+	NginxService nginxService;
 
 	// 分組定義：groupName → { i18n displayName key, i18n description key, module note key }
 	private static final String[][] GROUP_DEFS = {
@@ -121,6 +125,25 @@ public class HttpController extends BaseController {
 
 		modelAndView.put("httpList", httpList);
 		modelAndView.put("groupList", groupList);
+
+		// 參數啟用面板(自 server 編輯視窗移入:全域設定歸全域頁,精靈只留逐站步驟)
+		modelAndView.put("lockedGroups", new ArrayList<>(LOCKED_GROUPS));
+		modelAndView.put("mutexGroups", new ArrayList<>(MUTEX_GROUPS));
+
+		// module availability filter — 必要 module 偵測(雙軌:動態 .so OR 靜態 nginx -V)
+		// 非 Linux(Windows dev / E2E)視為全可用、不警示,避免誤報
+		boolean isLinux = SystemTool.isLinux();
+		modelAndView.put("isLinux", isLinux);
+		List<String> missingRequiredModules = new ArrayList<>();
+		if (isLinux) {
+			if (!nginxService.hasGeoIp2Module()) {
+				missingRequiredModules.add("geoip");
+			}
+			if (!nginxService.hasBrotliModule()) {
+				missingRequiredModules.add("brotli");
+			}
+		}
+		modelAndView.put("missingRequiredModules", missingRequiredModules);
 
 		modelAndView.view("/adminPage/http/index.html");
 		return modelAndView;

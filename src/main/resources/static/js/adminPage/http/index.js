@@ -351,3 +351,63 @@ function setOrder(id, count) {
 }
 
 
+// === 全域 http 參數啟用面板(自 server/index.js 移入:全域設定歸全域頁) ===
+
+function openHttpParamPanel() {
+  layer.open({
+    type: 1,
+    title: serverStr.httpParm,
+    area: ['85vw', '78vh'],
+    content: $('#httpParamPanelDiv'),
+    success: function() {
+      updateHttpParamCount();
+    }
+  });
+}
+
+function updateHttpParamCount() {
+  var n = $('input[name="httpParamItem"]:checked').length;
+  $('#httpParamCountNum').text(n);
+}
+
+function saveHttpParamPanel() {
+  // mutex 檢查:任一 data-mutex group 勾選 >1 → warn confirm(不強制)
+  var perGroup = {};
+  $('#httpParamPanelDiv input[name="httpParamItem"][data-mutex="1"]:checked').each(function () {
+    var g = $(this).attr('data-group');
+    perGroup[g] = (perGroup[g] || 0) + 1;
+  });
+  var over = Object.keys(perGroup).some(function (g) { return perGroup[g] > 1; });
+  if (over) {
+    layer.confirm(serverStr.httpParamMutexWarn, function (idx) {
+      layer.close(idx);
+      doSaveHttpParam();
+    });
+    return;
+  }
+  doSaveHttpParam();
+}
+
+function doSaveHttpParam() {
+  var ids = $('input[name="httpParamItem"]:checked').map(function(){ return this.value; }).get();
+  var loadIndex = layer.load(2);
+  $.ajax({
+    type: 'POST',
+    url: ctx + '/adminPage/http/saveEnable',
+    data: { checkedIds: ids.join(",") },
+    dataType: 'json',
+    success: function(data) {
+      layer.close(loadIndex);
+      if (data.success) {
+        layer.msg(data.obj);  // renderSuccess(String) 把訊息放 obj（見 conf/index.js 慣例）
+      } else {
+        layer.alert(data.msg);  // renderError(String) 放 msg
+      }
+    },
+    error: function() {
+      layer.close(loadIndex);
+      layer.alert(commonStr.errorInfo);
+    }
+  });
+}
+
