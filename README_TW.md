@@ -72,7 +72,7 @@ docker compose up -d          # image 預設拉 :latest，永遠跟最新 releas
 
 ### 🛡 安全防護
 
-- **IP 黑白名單清單** — 多個 list、可同時套用（CSV multi-select）、**每日定時從 URL 自動抓**（SpamHaus DROP / FireHOL / Emerging Threats / IPsum / Binary Defense 等）
+- **IP 黑白名單清單** — 防護頁集中管理、**自動全站生效**（白名單優先於黑名單，零綁定操作）；出廠自帶 6 條惡意 IP feed 規則，**每日定時從 URL 自動抓**（Spamhaus DROP / Blocklist.de / Emerging Threats / CINS Army / Feodo Tracker / GreenSnow）
 - **GeoIP2 國家封鎖** — 預設白名單 17 國（CN/JP/HK/KR/SG/TH/MY/TW/VN/GB/FR/DE/GR/CA/US/MO/LA），用戶可自訂
 - **ASN 封鎖** — 按 Autonomous System Number 封整段網路
 - **CrowdSec 整合** — 容器化部署、bouncer 攔截攻擊 IP

@@ -78,7 +78,7 @@ async function startApp() {
     fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
   }
 
-  serverProcess = spawn('java', [
+  const args = [
     '-jar',
     '-Dfile.encoding=UTF-8',
     JAR_PATH,
@@ -87,7 +87,25 @@ async function startApp() {
     `--init.admin=${TEST_ADMIN}`,
     `--init.pass=${TEST_PASS}`,
     `--project.testCaptcha=${TEST_CAPTCHA}`,
-  ], {
+    '--project.skipSeedFetch=true',
+  ];
+
+  // PG smoke 模式:E2E_DB=postgresql 時連 PostgreSQL(容器由 global-setup-pg.js 啟動,fresh DB)
+  if (process.env.E2E_DB === 'postgresql') {
+    args.push(
+      '--spring.database.type=postgresql',
+      `--spring.datasource.url=${process.env.E2E_PG_URL || 'jdbc:postgresql://localhost:15432/nginxwebui'}`,
+      `--spring.datasource.username=${process.env.E2E_PG_USER || 'nginxwebui'}`,
+      `--spring.datasource.password=${process.env.E2E_PG_PASS || 'nginxwebui123'}`,
+    );
+  }
+
+  // PATH 上的 java 可能是 Java 8(跑不動 Java 17 jar);優先用 JAVA_HOME
+  const javaBin = process.env.JAVA_HOME
+    ? path.join(process.env.JAVA_HOME, 'bin', 'java')
+    : 'java';
+
+  serverProcess = spawn(javaBin, args, {
     cwd: PROJECT_ROOT,
     stdio: 'pipe',
   });

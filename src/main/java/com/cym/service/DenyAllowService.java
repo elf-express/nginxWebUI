@@ -1,5 +1,6 @@
 package com.cym.service;
 
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 
@@ -53,6 +54,32 @@ public class DenyAllowService {
 			return sqlHelper.findPage(page, DenyAllow.class);
 		}
 		return sqlHelper.findPage(new ConditionAndWrapper().eq("type", type), page, DenyAllow.class);
+	}
+
+	/**
+	 * 預設惡意 IP 黑名單(seed-on-empty:InitConfig 首次啟動播種,使用者可自行刪改)。
+	 * ip 先空,播種後由 InitConfig 非同步首抓 + ScheduleTask 每日排程更新;
+	 * fetchTime 錯開避免同一分鐘齊發。來源皆為純文字 IP/CIDR 清單,parser(fetchAndUpdate)可解析。
+	 */
+	public static List<DenyAllow> defaultBlocklistRules() {
+		String[][] defs = {
+				{ "Spamhaus DROP", "https://www.spamhaus.org/drop/drop.txt", "03:10" },
+				{ "Blocklist.de All", "https://lists.blocklist.de/lists/all.txt", "03:20" },
+				{ "ET Compromised IPs", "https://rules.emergingthreats.net/blockrules/compromised-ips.txt", "03:30" },
+				{ "CINS Army Bad Guys", "https://cinsscore.com/list/ci-badguys.txt", "03:40" },
+				{ "Feodo Tracker Botnet C2", "https://feodotracker.abuse.ch/downloads/ipblocklist.txt", "03:50" },
+				{ "GreenSnow", "https://blocklist.greensnow.co/greensnow.txt", "04:00" },
+		};
+		List<DenyAllow> rules = new ArrayList<>();
+		for (String[] d : defs) {
+			DenyAllow da = new DenyAllow();
+			da.setName(d[0]);
+			da.setSourceUrl(d[1]);
+			da.setFetchTime(d[2]);
+			da.setType("deny");
+			rules.add(da);
+		}
+		return rules;
 	}
 
 	/** 依 type 取全部(非分頁),供引用端下拉。 */

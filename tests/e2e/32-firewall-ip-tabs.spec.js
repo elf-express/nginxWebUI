@@ -42,11 +42,12 @@ test.describe('防火牆管理 — 6 tab + IP 資料庫交叉驗證', () => {
   });
 });
 
-test.describe('引用端下拉依 type 過濾 — server 編輯頁', () => {
+test.describe('黑白名單全站自動生效 — 綁定 UI 已移除', () => {
   // 策略：透過 API 建一筆 deny 規則與一筆 allow 規則，
-  // 再 GET /adminPage/server，驗 HTML 中 #denyDiv 只含黑名單名稱、
-  // #allowDiv 只含白名單名稱，不互相混入。
-  test('⑤ server 頁 denyDiv 只含黑名單、allowDiv 只含白名單', async ({ page }) => {
+  // 驗 (a) server 頁不再有逐 server 綁定殘留(denyDiv/allowDiv/黑白名單按鈕),
+  // (b) http 層級 conf preview 自動掛上中央黑白名單 include(全站生效),
+  // (c) 防護頁兩個 tab 顯示規則 + 全站生效徽章。
+  test('⑤ 中央規則全站自動生效,server 頁無綁定殘留', async ({ page }) => {
     // 先登入（page context 持有 session cookie）
     await login(page);
 
@@ -78,20 +79,28 @@ test.describe('引用端下拉依 type 過濾 — server 編輯頁', () => {
     const allowBody = await allowResp.json();
     expect(allowBody.success).toBeTruthy();
 
-    // 前往 server 首頁（controller 會把 denyList/allowList 傳入 view）
-    // denyDiv/allowDiv 在頁面 DOM 中但預設 hidden，只需確保 DOM 已附加而非 visible
+    // (a) server 頁已無逐 server 綁定 UI 殘留
     await page.goto('/adminPage/server');
-    await page.waitForSelector('#denyDiv', { state: 'attached' });
+    await page.waitForSelector('table');
+    expect(await page.locator('#denyDiv').count()).toBe(0);
+    expect(await page.locator('#allowDiv').count()).toBe(0);
+    expect(await page.locator("button[onclick='setDenyAllow()']").count()).toBe(0);
 
-    const denyHtml = await page.locator('#denyDiv').innerHTML();
-    const allowHtml = await page.locator('#allowDiv').innerHTML();
+    // (b) http 層級 conf 自動掛上中央黑白名單 include(不需任何綁定操作)
+    const previewResp = await page.request.post('/adminPage/main/preview', {
+      form: { type: 'http' },
+    });
+    expect(previewResp.ok()).toBeTruthy();
+    const previewBody = await previewResp.json();
+    expect(previewBody.success).toBeTruthy();
+    expect(String(previewBody.obj)).toMatch(/include .*deny_http\.conf/);
 
-    // denyDiv 含黑名單名稱、不含白名單名稱
-    expect(denyHtml).toContain(denyName);
-    expect(denyHtml).not.toContain(allowName);
-
-    // allowDiv 含白名單名稱、不含黑名單名稱
-    expect(allowHtml).toContain(allowName);
-    expect(allowHtml).not.toContain(denyName);
+    // (c) 防護頁黑/白 tab 各自顯示規則與全站生效徽章
+    await page.goto('/adminPage/protectionCert');
+    await page.waitForSelector('.layui-tab-title');
+    const content = await page.content();
+    expect(content).toContain(denyName);
+    expect(content).toContain(allowName);
+    expect(content).toMatch(/全站自動生效|全站自动生效|Site-wide/);
   });
 });

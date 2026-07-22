@@ -29,6 +29,7 @@ import com.cym.model.Template;
 import com.cym.service.BasicService;
 import com.cym.service.ConfService;
 import com.cym.service.DenyAllowService;
+import com.cym.service.GeoipService;
 import com.cym.service.NginxService;
 import com.cym.service.SettingService;
 import com.cym.service.TemplateService;
@@ -80,6 +81,10 @@ public class InitConfig {
 	@Inject
 	NginxService nginxService;
 	@Inject
+	DenyAllowService denyAllowService;
+	@Inject
+	GeoipService geoipService;
+	@Inject
 	DataSourceEmbed dataSourceEmbed;
 	@Inject("${project.beanPackage}")
 	String packageName;
@@ -87,6 +92,9 @@ public class InitConfig {
 	Boolean findPass;
 	@Inject("${spring.database.type}")
 	String databaseType;
+
+	@Inject("${project.skipSeedFetch:false}")
+	Boolean skipSeedFetch;
 
 	@Inject("${init.admin}")
 	String initAdmin;
@@ -137,7 +145,7 @@ public class InitConfig {
 			https.add(new Http("default_type", "application/octet-stream", seq++, "base"));
 
 			// Real IP（Cloudflare）
-			https.add(new Http("include", "/etc/nginx/geoip/realip.conf", seq++, "realip"));
+			https.add(new Http("include", GeoipService.GEOIP_DIR + GeoipService.REALIP_CONF_NAME, seq++, "realip"));
 
 			// GeoIP2（國家、城市、ASN）
 			https.add(new Http("geoip2", "/etc/nginx/geoip/GeoLite2-Country.mmdb {\r\n    auto_reload 60m;\r\n    $geoip2_data_country_code country iso_code;\r\n    $geoip2_data_country_name country names en;\r\n}", seq++, "geoip"));
@@ -342,7 +350,36 @@ public class InitConfig {
 			settingService.set("denyAllowStream", "0");
 		}
 
+		// 種子:預設惡意 IP 黑名單(seed-on-empty;flag 保證只播一次,使用者刪光不重播)
+		if (!"1".equals(settingService.get("denyAllowSeeded"))) {
+			if (sqlHelper.findAllCount(DenyAllow.class) == 0) {
+				List<DenyAllow> seedRules = DenyAllowService.defaultBlocklistRules();
+				for (DenyAllow da : seedRules) {
+					sqlHelper.insertOrUpdate(da);
+				}
+				logger.info("Seeded {} default DenyAllow blocklist rules", seedRules.size());
+				// 非同步首抓(失敗不影響啟動;規則留空,交由每日排程重試)。
+				// E2E/離線環境用 --project.skipSeedFetch=true 關閉,避免每次測試都打外部 feed。
+				if (!skipSeedFetch) {
+					ThreadUtil.execute(() -> {
+						for (DenyAllow da : seedRules) {
+							if (denyAllowService.fetchAndUpdate(da)) {
+								// 使用者可能已在首抓完成前刪除該規則 → 確認仍存在才寫回,避免以新 id 復活
+								if (sqlHelper.findById(da.getId(), DenyAllow.class) != null) {
+									sqlHelper.updateById(da);
+								}
+							}
+						}
+					});
+				}
+			}
+			// 升級型安裝(已有規則)也補設 flag:日後刪光全部規則時不重播種子
+			settingService.set("denyAllowSeeded", "1");
+		}
+
 		if (SystemTool.isLinux()) {
+			// realip.conf 保底:locked include 缺檔會讓 nginx -t 永遠失敗 → 存檔死鎖
+			geoipService.ensureRealipPlaceholder();
 			// 查找ngx_stream_module模块
 			if (!basicService.contain("ngx_stream_module.so") && FileUtil.exist("/usr/lib/nginx/modules/ngx_stream_module.so")) {
 				Basic basic = new Basic("load_module", "/usr/lib/nginx/modules/ngx_stream_module.so", -10l);

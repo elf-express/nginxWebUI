@@ -28,28 +28,7 @@ $(function() {
 	// 初始化 collapse
 	layui.element.init();
 
-	form.on('select(denyAllowValue)', function(data) {
-		checkDenyAllow(data.value);
-	});
-
 })
-
-
-function checkDenyAllow(value) {
-	$("#denyDiv").hide();
-	$("#allowDiv").hide();
-
-	if (value == 1) {
-		$("#denyDiv").show();
-	}
-	if (value == 2) {
-		$("#allowDiv").show();
-	}
-	if (value == 3) {
-		$("#denyDiv").show();
-		$("#allowDiv").show();
-	}
-}
 
 
 function search() {
@@ -372,78 +351,3 @@ function setOrder(id, count) {
 }
 
 
-function setDenyAllow() {
-
-	$.ajax({
-		type: 'POST',
-		url: ctx + '/adminPage/http/getDenyAllow',
-		dataType: 'json',
-		success: function(data) {
-			closeLoad();
-			if (data.success) {
-				var map = data.obj;
-
-				$("#denyAllowValue").val(map.denyAllow);
-				// denyId / allowId 是 CSV「id1,id2,id3」(single id 也是合法 csv)
-				$("#denyDiv input[name='denyIds']").prop("checked", false);
-				$("#allowDiv input[name='allowIds']").prop("checked", false);
-				if (map.denyId != null && map.denyId !== "") {
-					var denyArr = String(map.denyId).split(",");
-					$("#denyDiv input[name='denyIds']").each(function() {
-						if (denyArr.indexOf($(this).val()) >= 0) { $(this).prop("checked", true); }
-					});
-				}
-				if (map.allowId != null && map.allowId !== "") {
-					var allowArr = String(map.allowId).split(",");
-					$("#allowDiv input[name='allowIds']").each(function() {
-						if (allowArr.indexOf($(this).val()) >= 0) { $(this).prop("checked", true); }
-					});
-				}
-				checkDenyAllow(map.denyAllow);
-
-				form.render();
-				layer.open({
-					type: 1,
-					title: serverStr.denyAllowModel,
-					area: ['650px', '500px'], // 宽高
-					content: $('#denyAllowDiv')
-				});
-			} else {
-				layer.msg(data.msg)
-			}
-		},
-		error: function() {
-			closeLoad();
-			layer.alert(commonStr.errorInfo);
-		}
-	});
-}
-
-function setDenyAllowOver() {
-	var denyAllow = $("#denyAllowValue").val();
-	// 收集勾選 checkbox value 合成 CSV
-	var denyId = $("#denyDiv input[name='denyIds']:checked").map(function() { return $(this).val(); }).get().join(",");
-	var allowId = $("#allowDiv input[name='allowIds']:checked").map(function() { return $(this).val(); }).get().join(",");
-
-	$.ajax({
-		type: 'POST',
-		url: ctx + '/adminPage/http/setDenyAllow',
-		data: {
-			denyAllow: denyAllow,
-			denyId: denyId,
-			allowId: allowId
-		},
-		dataType: 'json',
-		success: function(data) {
-			if (data.success) {
-				location.reload();
-			} else {
-				layer.msg(data.msg)
-			}
-		},
-		error: function() {
-			closeLoad();
-			layer.alert(commonStr.errorInfo);
-		}
-	});
-}

@@ -186,15 +186,15 @@ test.describe('黑白名單 Tag 編輯器', () => {
     expect(textareaVal).toContain('\n');
   });
 
-  test('「被引用」欄位在列表中顯示', async ({ page }) => {
+  test('「生效範圍」欄位在列表中顯示全站生效', async ({ page }) => {
     await login(page);
     await page.goto('/adminPage/protectionCert');
     await page.waitForSelector('.layui-tab');
 
-    // 表頭應有 usedBy 欄位
+    // 表頭應有生效範圍欄位(規則一律全站自動生效,取代舊的逐項「被引用」)
     const content = await page.content();
-    // usedBy 欄位名稱（i18n）
-    expect(content).toMatch(/引用|used/i);
+    expect(content).toMatch(/生效範圍|生效范围|Scope/);
+    expect(content).toMatch(/全站自動生效|全站自动生效|Site-wide/);
   });
 
 });

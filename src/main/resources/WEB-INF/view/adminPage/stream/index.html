@@ -42,9 +42,6 @@ input[name='param'] {
 							<button type="button" class="layui-btn layui-btn-sm" onclick="guide()">${httpStr.guide}</button>
 						</div>
 						<div class="layui-inline">
-							<button type="button" class="layui-btn layui-btn-sm" onclick="setDenyAllow()">${serverStr.ipDenyAllow}</button>
-						</div>
-						<div class="layui-inline">
 							<button type="button" class="layui-btn layui-btn-sm" onclick="selectTemplateAsStream()">${upstreamStr.selectTemplateAsParam}</button>
 						</div>
 						<div class="layui-inline">
@@ -152,53 +149,6 @@ input[name='param'] {
 			</form>
 		</div>
 		
-		<div class="layui-form" id="denyAllowDiv" style="padding: 15px; display: none">
-			<div class="layui-form-item">
-				<label class="layui-form-label long">${serverStr.denyAllowModel}</label>
-				<div class="layui-input-inline" style="width: 250px;">
-					<select id="denyAllowValue" lay-filter="denyAllowValue">
-						<option value="0">${serverStr.normalMode}</option>
-						<option value="1">${serverStr.blackMode}</option>
-						<option value="2">${serverStr.whiteMode}</option>
-						<option value="3">${serverStr.blackWhiteMode}</option>
-					</select>
-				</div>
-			</div>
-			
-			<div class="layui-form-item" id="denyDiv">
-				<label class="layui-form-label long">${serverStr.blacklist}</label>
-				<div class="layui-input-block" style="border:1px solid #e5e7eb;border-radius:4px;padding:8px 12px;max-height:160px;overflow-y:auto;">
-					<#if denyList?size == 0>
-						<span style="color:#999;">${commonStr.pleaseSelect}</span>
-					</#if>
-					<#list denyList as denyAllow>
-						<label style="display:inline-block;margin-right:14px;margin-bottom:4px;">
-							<input type="checkbox" name="denyIds" value="${denyAllow.id}" lay-skin="primary"> ${denyAllow.name}
-						</label>
-					</#list>
-				</div>
-			</div>
-
-			<div class="layui-form-item" id="allowDiv">
-				<label class="layui-form-label long">${serverStr.whitelist}</label>
-				<div class="layui-input-block" style="border:1px solid #e5e7eb;border-radius:4px;padding:8px 12px;max-height:160px;overflow-y:auto;">
-					<#if allowList?size == 0>
-						<span style="color:#999;">${commonStr.pleaseSelect}</span>
-					</#if>
-					<#list allowList as denyAllow>
-						<label style="display:inline-block;margin-right:14px;margin-bottom:4px;">
-							<input type="checkbox" name="allowIds" value="${denyAllow.id}" lay-skin="primary"> ${denyAllow.name}
-						</label>
-					</#list>
-				</div>
-			</div>
-			
-			
-			<div class="layui-form-item center">
-				<button type="button" class="layui-btn layui-btn-normal" onclick="setDenyAllowOver()">${commonStr.ok}</button>
-				<button type="button" class="layui-btn" onclick="layer.closeAll()">${commonStr.close}</button>
-			</div>
-		</div>
 	</div>
 
 	<#include '/adminPage/script.html'/>

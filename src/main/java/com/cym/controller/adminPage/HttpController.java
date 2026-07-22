@@ -15,10 +15,8 @@ import org.noear.solon.annotation.Mapping;
 import org.noear.solon.core.handle.ModelAndView;
 
 import com.cym.ext.HttpGroupExt;
-import com.cym.model.DenyAllow;
 import com.cym.model.Http;
 import com.cym.service.ConfService;
-import com.cym.service.DenyAllowService;
 import com.cym.service.HttpService;
 import com.cym.service.SettingService;
 import com.cym.utils.BaseController;
@@ -40,8 +38,6 @@ public class HttpController extends BaseController {
 	MessageUtils m;
 	@Inject
 	ConfService confService;
-	@Inject
-	DenyAllowService denyAllowService;
 
 	// 分組定義：groupName → { i18n displayName key, i18n description key, module note key }
 	private static final String[][] GROUP_DEFS = {
@@ -125,8 +121,6 @@ public class HttpController extends BaseController {
 
 		modelAndView.put("httpList", httpList);
 		modelAndView.put("groupList", groupList);
-		modelAndView.put("denyList", denyAllowService.listByType("deny"));
-		modelAndView.put("allowList", denyAllowService.listByType("allow"));
 
 		modelAndView.view("/adminPage/http/index.html");
 		return modelAndView;
@@ -212,27 +206,6 @@ public class HttpController extends BaseController {
 	@Mapping("setOrder")
 	public JsonResult setOrder(String id, Integer count) {
 		httpService.setSeq(id, count);
-		return renderSuccess();
-	}
-
-	@Mapping("getDenyAllow")
-	public JsonResult getDenyAllow() {
-
-		Map<String, String> map = new HashMap<>();
-		map.put("denyAllow", settingService.get("denyAllow"));
-		map.put("denyId", settingService.get("denyId"));
-		map.put("allowId", settingService.get("allowId"));
-
-		return renderSuccess(map);
-	}
-
-	@Mapping("setDenyAllow")
-	public JsonResult setDenyAllow(String denyAllow, String denyId, String allowId) {
-
-		settingService.set("denyAllow", denyAllow);
-		settingService.set("denyId", denyId);
-		settingService.set("allowId", allowId);
-
 		return renderSuccess();
 	}
 

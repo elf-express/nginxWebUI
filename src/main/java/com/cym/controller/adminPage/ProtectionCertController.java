@@ -11,7 +11,6 @@ import org.noear.solon.core.handle.ModelAndView;
 import com.cym.ext.DenyAllowExt;
 import com.cym.model.Cert;
 import com.cym.model.DenyAllow;
-import com.cym.model.Server;
 import com.cym.service.CertService;
 import com.cym.service.DenyAllowService;
 import com.cym.service.GeoipService;
@@ -37,20 +36,12 @@ public class ProtectionCertController extends BaseController {
 	@Mapping("")
 	public ModelAndView index(ModelAndView modelAndView, String certKeywords) {
 		// DenyAllow data (full list) — 黑白名單全列（與 ASN tab 一致，無需分頁）
-		List<Server> allServers = sqlHelper.findAll(Server.class);
-		String httpDenyId = settingService.get("denyId");
-		String httpAllowId = settingService.get("allowId");
-		String streamDenyId = settingService.get("denyIdStream");
-		String streamAllowId = settingService.get("allowIdStream");
-
 		// 黑名單全列(type=deny)
-		List<DenyAllowExt> blackList = buildExts(denyAllowService.listByType("deny"), allServers,
-				httpDenyId, httpAllowId, streamDenyId, streamAllowId);
+		List<DenyAllowExt> blackList = buildExts(denyAllowService.listByType("deny"));
 		modelAndView.put("blackList", blackList);
 
 		// 白名單全列(type=allow)
-		List<DenyAllowExt> whiteList = buildExts(denyAllowService.listByType("allow"), allServers,
-				httpDenyId, httpAllowId, streamDenyId, streamAllowId);
+		List<DenyAllowExt> whiteList = buildExts(denyAllowService.listByType("allow"));
 		modelAndView.put("whiteList", whiteList);
 
 		// GeoIP 資料庫資訊（Tab 1 黑名單表格前面的版本 / 排程 / 下載表格）
@@ -76,30 +67,13 @@ public class ProtectionCertController extends BaseController {
 		return modelAndView;
 	}
 
-	/** DenyAllow → DenyAllowExt(含 ipCount / usedBy / lastFetchAtStr)。 */
-	private List<DenyAllowExt> buildExts(List<DenyAllow> list, List<Server> allServers,
-			String httpDenyId, String httpAllowId, String streamDenyId, String streamAllowId) {
+	/** DenyAllow → DenyAllowExt(含 ipCount / lastFetchAtStr;規則一律全站生效,無逐項綁定)。 */
+	private List<DenyAllowExt> buildExts(List<DenyAllow> list) {
 		List<DenyAllowExt> exts = new ArrayList<DenyAllowExt>();
 		for (DenyAllow denyAllow : list) {
 			DenyAllowExt ext = new DenyAllowExt();
 			ext.setDenyAllow(denyAllow);
 			ext.setIpCount(StrUtil.isBlankIfStr(denyAllow.getIp()) ? 0 : denyAllow.getIp().split("\n").length);
-
-			List<String> usedBy = new ArrayList<String>();
-			String daId = denyAllow.getId();
-			if (DenyAllowService.csvContainsId(httpDenyId, daId) || DenyAllowService.csvContainsId(httpAllowId, daId)) {
-				usedBy.add("HTTP Global");
-			}
-			if (DenyAllowService.csvContainsId(streamDenyId, daId) || DenyAllowService.csvContainsId(streamAllowId, daId)) {
-				usedBy.add("Stream Global");
-			}
-			for (Server s : allServers) {
-				if (DenyAllowService.csvContainsId(s.getDenyId(), daId) || DenyAllowService.csvContainsId(s.getAllowId(), daId)) {
-					String label = StrUtil.isNotEmpty(s.getServerName()) ? s.getServerName() : s.getListen();
-					usedBy.add("Server: " + label);
-				}
-			}
-			ext.setUsedBy(usedBy);
 
 			if (denyAllow.getLastFetchAt() != null) {
 				ext.setLastFetchAtStr(DateUtil.format(new java.util.Date(denyAllow.getLastFetchAt()), "yyyy-MM-dd HH:mm"));

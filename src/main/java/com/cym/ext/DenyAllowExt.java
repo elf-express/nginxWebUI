@@ -1,13 +1,10 @@
 package com.cym.ext;
 
-import java.util.List;
-
 import com.cym.model.DenyAllow;
 
 public class DenyAllowExt {
 	DenyAllow denyAllow;
 	Integer ipCount;
-	List<String> usedBy;
 	/** yyyy-MM-dd HH:mm 格式，null 表示尚未抓取過 */
 	String lastFetchAtStr;
 
@@ -33,14 +30,6 @@ public class DenyAllowExt {
 
 	public void setIpCount(Integer ipCount) {
 		this.ipCount = ipCount;
-	}
-
-	public List<String> getUsedBy() {
-		return usedBy;
-	}
-
-	public void setUsedBy(List<String> usedBy) {
-		this.usedBy = usedBy;
 	}
 
 }

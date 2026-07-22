@@ -41,11 +41,23 @@ public class TableUtils {
 					sqlUtils.checkOrCreateColumn(clazz, field.getName(), columns);
 				}
 
-				// 更新表默认值
+				boolean isBooleanField = field.getType() == Boolean.class || field.getType() == boolean.class;
+
+				// Boolean 欄位正規化 migration:歷史寫入混雜 'true'/'false'(@InitValue backfill、
+				// PG 原生綁定)與 '1'/'0'(sqlite-jdbc),統一為 '1'/'0'(冪等,每次啟動掃一次)
+				if (isBooleanField) {
+					sqlUtils.normalizeBooleanColumn(clazz, field.getName());
+				}
+
+				// 更新表默认值(Boolean 的 @InitValue "true"/"false" 先轉 '1'/'0' 再回填,避免再混入)
 				if (field.isAnnotationPresent(InitValue.class)) {
 					InitValue defaultValue = field.getAnnotation(InitValue.class);
 					if (defaultValue.value() != null) {
-						sqlUtils.updateDefaultValue(clazz, field.getName(), defaultValue.value());
+						String value = defaultValue.value();
+						if (isBooleanField) {
+							value = Boolean.parseBoolean(value) ? "1" : "0";
+						}
+						sqlUtils.updateDefaultValue(clazz, field.getName(), value);
 					}
 				}
 			}

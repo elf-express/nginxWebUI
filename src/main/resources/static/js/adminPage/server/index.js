@@ -31,9 +31,6 @@ $(function() {
 	form.on('select(rewrite)', function(data) {
 		checkRewrite(data.value);
 	});
-	form.on('select(denyAllowValue)', function(data) {
-		checkDenyAllow(data.value);
-	});
 
 	form.on('checkbox(checkAll)', function(data) {
 		if (data.elem.checked) {
@@ -156,22 +153,6 @@ function checkRewrite(value) {
 	}
 }
 
-function checkDenyAllow(value) {
-	$("#denyDiv").hide();
-	$("#allowDiv").hide();
-
-	if (value == 1) {
-		$("#denyDiv").show();
-	}
-	if (value == 2) {
-		$("#allowDiv").show();
-	}
-	if (value == 3) {
-		$("#denyDiv").show();
-		$("#allowDiv").show();
-	}
-}
-
 function search() {
 	$("input[name='curr']").val(1);
 	$("#searchForm").submit();
@@ -200,10 +181,6 @@ function add() {
 	$("#keyPath").html("");
 	$("#itemList").html("");
 	$("#serverParamJson").val("");
-
-	$("#denyAllow").val("0");
-	$("#denyId option:first").prop("selected", true);
-	$("#allowId option:first").prop("selected", true);
 
 	$(".protocols").prop("checked", false);
 	$("#TLSv1_2").prop("checked", true);
@@ -331,10 +308,6 @@ function addOver() {
 	});
 	server.protocols = protocols.join(" ");
 
-	server.denyAllow = $("#denyAllow").val();
-	server.denyId = $("#denyId").val();
-	server.allowId = $("#allowId").val();
-
 	var serverParamJson = $("#serverParamJson").val();
 
 	var locations = [];
@@ -439,9 +412,6 @@ function edit(id, clone) {
 				$("#proxyType").val(server.proxyType);
 				$("#proxyUpstreamId").val(server.proxyUpstreamId);
 				$("#serverParamJson").val(data.obj.paramJson);
-				$("#denyAllow").val(server.denyAllow);
-				$("#denyId").val(server.denyId);
-				$("#allowId").val(server.allowId);
 				$("#passwordId").val(server.passwordId);
 
 
@@ -796,52 +766,6 @@ function locationParam(uuid) {
 	$("#targertId").val("locationParamJson_" + uuid);
 	var params = json != '' ? JSON.parse(json) : [];
 	fillTable(params);
-}
-
-var denyAllowIndex;
-function setDenyAllow() {
-	var denyAllow = $("#denyAllow").val();
-	var denyId = $("#denyId").val();
-	var allowId = $("#allowId").val();
-
-	$("#denyAllowValue").val(denyAllow);
-	// denyId / allowId 是 CSV「id1,id2,id3」(single id 也是合法 csv)，逐個勾選對應 checkbox
-	$("#denyDiv input[name='denyIds']").prop("checked", false);
-	$("#allowDiv input[name='allowIds']").prop("checked", false);
-	if (denyId != null && denyId !== "") {
-		var denyArr = denyId.split(",");
-		$("#denyDiv input[name='denyIds']").each(function() {
-			if (denyArr.indexOf($(this).val()) >= 0) { $(this).prop("checked", true); }
-		});
-	}
-	if (allowId != null && allowId !== "") {
-		var allowArr = allowId.split(",");
-		$("#allowDiv input[name='allowIds']").each(function() {
-			if (allowArr.indexOf($(this).val()) >= 0) { $(this).prop("checked", true); }
-		});
-	}
-	checkDenyAllow(denyAllow);
-
-	form.render();
-	denyAllowIndex = layer.open({
-		type: 1,
-		title: serverStr.denyAllowModel,
-		area: ['600px', '500px'], // 宽高
-		content: $('#denyAllowDiv')
-	});
-}
-
-function setDenyAllowOver() {
-	var denyAllow = $("#denyAllowValue").val();
-	// 收集所有勾選的 checkbox value，join 成 CSV「id1,id2,id3」
-	var denyIds = $("#denyDiv input[name='denyIds']:checked").map(function() { return $(this).val(); }).get();
-	var allowIds = $("#allowDiv input[name='allowIds']:checked").map(function() { return $(this).val(); }).get();
-
-	$("#denyAllow").val(denyAllow);
-	$("#denyId").val(denyIds.join(","));
-	$("#allowId").val(allowIds.join(","));
-
-	layer.close(denyAllowIndex)
 }
 
 var paramIndex;

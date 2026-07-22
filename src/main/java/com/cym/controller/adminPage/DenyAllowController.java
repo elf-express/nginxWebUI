@@ -15,7 +15,6 @@ import com.cym.ext.ServerExt;
 import com.cym.model.Admin;
 import com.cym.model.DenyAllow;
 import com.cym.model.Log;
-import com.cym.model.Server;
 import com.cym.model.Upstream;
 import com.cym.service.DenyAllowService;
 import com.cym.service.SettingService;
@@ -41,13 +40,6 @@ public class DenyAllowController extends BaseController {
 		setPage(page);
 		page = denyAllowService.search(page);
 
-		// 預載所有 Server 用於 usedBy 查詢
-		List<Server> allServers = sqlHelper.findAll(Server.class);
-		String httpDenyId = settingService.get("denyId");
-		String httpAllowId = settingService.get("allowId");
-		String streamDenyId = settingService.get("denyIdStream");
-		String streamAllowId = settingService.get("allowIdStream");
-
 		List<DenyAllowExt> exts = new ArrayList<DenyAllowExt>();
 		for (DenyAllow denyAllow : (List<DenyAllow>) page.getRecords()) {
 			DenyAllowExt denyAllowExt = new DenyAllowExt();
@@ -58,23 +50,6 @@ public class DenyAllowController extends BaseController {
 			} else {
 				denyAllowExt.setIpCount(denyAllow.getIp().split("\n").length);
 			}
-
-			// 計算 usedBy — denyId / allowId 可能是 CSV「id1,id2,id3」, 用 csvContainsId 比對
-			List<String> usedBy = new ArrayList<String>();
-			String daId = denyAllow.getId();
-			if (DenyAllowService.csvContainsId(httpDenyId, daId) || DenyAllowService.csvContainsId(httpAllowId, daId)) {
-				usedBy.add("HTTP Global");
-			}
-			if (DenyAllowService.csvContainsId(streamDenyId, daId) || DenyAllowService.csvContainsId(streamAllowId, daId)) {
-				usedBy.add("Stream Global");
-			}
-			for (Server s : allServers) {
-				if (DenyAllowService.csvContainsId(s.getDenyId(), daId) || DenyAllowService.csvContainsId(s.getAllowId(), daId)) {
-					String label = StrUtil.isNotEmpty(s.getServerName()) ? s.getServerName() : s.getListen();
-					usedBy.add("Server: " + label);
-				}
-			}
-			denyAllowExt.setUsedBy(usedBy);
 
 			if (denyAllow.getLastFetchAt() != null) {
 				denyAllowExt.setLastFetchAtStr(DateUtil.format(new java.util.Date(denyAllow.getLastFetchAt()), "yyyy-MM-dd HH:mm"));

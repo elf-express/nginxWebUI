@@ -41,17 +41,19 @@ public abstract class ConditionWrapper {
 							block = buildColumn(condition.getColumn(), String.class) + " " + condition.getOperation() + " null";
 						}
 					} else {
+						// 值一律經 JdbcTemplate.normalize 正規化(Boolean→"1"/"0"):
+						// 欄位皆為 TEXT,toString() 的 "true" 與寫入端存的 "1" 對不上會讓查詢永遠 miss
 						if (condition.getValue() instanceof List) {
 							block = buildColumn(condition.getColumn(), condition.getValue().getClass()) + " " + condition.getOperation() + " " + buildIn(condition.getValue());
 							for (Object val : (List<Object>) condition.getValue()) {
-								values.add(val.toString());
+								values.add((String) JdbcTemplate.normalize(val));
 							}
 						} else {
 							block = buildColumn(condition.getColumn(), condition.getValue().getClass()) + " " + condition.getOperation() + " ?";
 							if (!condition.getOperation().equals("LIKE")) {
-								values.add(condition.getValue().toString());
+								values.add((String) JdbcTemplate.normalize(condition.getValue()));
 							} else {
-								values.add("%" + condition.getValue().toString().replace("%", "\\%") + "%");
+								values.add("%" + ((String) JdbcTemplate.normalize(condition.getValue())).replace("%", "\\%") + "%");
 							}
 						}
 					}

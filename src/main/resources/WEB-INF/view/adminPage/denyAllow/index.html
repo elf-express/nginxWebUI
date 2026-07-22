@@ -94,6 +94,10 @@
 									<button type="button" class="layui-btn layui-btn-danger layui-btn-sm" onclick="delMany()">${commonStr.delAll}</button>
 								</div>
 
+								<div class="layui-inline" style="color:#666;">
+									<i class="layui-icon layui-icon-tips" aria-hidden="true"></i> ${denyAllowStr.globalNote}
+								</div>
+
 								<input type="hidden" name="curr" value="${page.curr}">
 								<input type="hidden" name="limit" value="${page.limit}">
 							</form>
@@ -107,7 +111,7 @@
 										<th>${denyAllowStr.name}</th>
 										<th>${denyAllowStr.ipCount}</th>
 										<th>${denyAllowStr.lastFetchAt}</th>
-										<th>${denyAllowStr.usedBy}</th>
+										<th>${denyAllowStr.scope}</th>
 										<th>${commonStr.operation}</th>
 									</tr>
 								</thead>
@@ -126,15 +130,7 @@
 												<span style="color:#bbb;">${denyAllowStr.neverFetched}</span>
 											</#if>
 										</td>
-										<td>
-											<#if ext.usedBy?? && (ext.usedBy?size > 0)>
-												<#list ext.usedBy as ref>
-													<span class="layui-badge layui-bg-blue" style="margin:2px;">${ref}</span>
-												</#list>
-											<#else>
-												<span style="color:#999;">--</span>
-											</#if>
-										</td>
+										<td><span class="layui-badge layui-bg-green">${denyAllowStr.globalScope}</span></td>
 										<td>
 											<div class="layui-inline">
 												<button type="button" class="layui-btn layui-btn-sm " onclick="edit('${ext.denyAllow.id}')">${commonStr.edit}</button>

@@ -6,6 +6,7 @@
   "scripts": {
     "test": "npx playwright test --config=tests/e2e/playwright.config.js",
     "test:fast": "npx playwright test --config=tests/e2e/playwright.fast.config.js",
+    "test:pg": "npx playwright test --config=tests/e2e/playwright.pg.config.js",
     "report": "npx playwright show-report tests/playwright-report/html --port 9400"
   },
   "repository": {

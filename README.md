@@ -72,7 +72,7 @@ Only the core two services start by default; CrowdSec is opt-in via the compose 
 
 ### 🛡 Security
 
-- **IP allow/deny lists** — multiple lists, simultaneously applicable (CSV multi-select), **auto-fetch daily from URL** (SpamHaus DROP / FireHOL / Emerging Threats / IPsum / Binary Defense, etc.)
+- **IP allow/deny lists** — managed centrally on the Protection page and **applied site-wide automatically** (whitelist overrides blacklist, zero binding steps); ships with 6 default malicious-IP feed rules, **auto-fetched daily from URL** (Spamhaus DROP / Blocklist.de / Emerging Threats / CINS Army / Feodo Tracker / GreenSnow)
 - **GeoIP2 country blocking** — default whitelist of 17 countries (CN/JP/HK/KR/SG/TH/MY/TW/VN/GB/FR/DE/GR/CA/US/MO/LA), user-customizable
 - **ASN blocking** — block whole network segments by Autonomous System Number
 - **CrowdSec integration** — containerized deployment, bouncer intercepts attacker IPs

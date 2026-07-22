@@ -243,7 +243,7 @@ public class SqlHelper extends SqlUtils {
 		for (Entry<String, Object> entry : update.getSets().entrySet()) {
 			if (entry.getKey() != null && entry.getValue() != null) {
 				fieldsPart.add(SQLConstants.SUFFIX + StrUtil.toUnderlineCase(entry.getKey()) + SQLConstants.SUFFIX + "=?");
-				paramValues.add(entry.getValue().toString());
+				paramValues.add((String) JdbcTemplate.normalize(entry.getValue()));
 			}
 		}
 
@@ -257,29 +257,8 @@ public class SqlHelper extends SqlUtils {
 	}
 
 	/**
-	 * 累加某一个字段的数量,原子操作
-	 * 
-	 * @param object
-	 */
-	public void addCountById(String id, String property, Long count, Class<?> clazz) {
-		String sql = "UPDATE " + SQLConstants.SUFFIX + StrUtil.toUnderlineCase(clazz.getSimpleName()) + SQLConstants.SUFFIX + " SET " + SQLConstants.SUFFIX + property + SQLConstants.SUFFIX + " = CAST(" + SQLConstants.SUFFIX + property + SQLConstants.SUFFIX + " AS DECIMAL(30,10)) + ? WHERE id =  ?";
-		Object[] params = new Object[] { count, id };
-		logQuery(formatSql(sql), params);
-		jdbcTemplate.execute(formatSql(sql), params);
-	}
-
-	/**
-	 * 累加某一个字段的数量,原子操作
-	 * 
-	 * @param object
-	 */
-	public <T, R> void addCountById(String id, SerializableFunction<T, R> property, Long count, Class<?> clazz) {
-		addCountById(id, ReflectionUtil.getFieldName(property), count, clazz);
-	}
-
-	/**
 	 * 根据id更新
-	 * 
+	 *
 	 * @param object 对象
 	 */
 	public void updateAllColumnById(Object object) {

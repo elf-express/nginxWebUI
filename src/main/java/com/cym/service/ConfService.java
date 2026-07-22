@@ -8,6 +8,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -145,8 +146,8 @@ public class ConfService {
 			// 當 server/location 使用了 limit_conn 或 limit_req，但 http 區塊沒有對應的 zone 定義時自動注入
 			autoInjectMissingZones(httpList, ngxBlockHttp);
 
-			// 黑白名单
-			buildDenyAllow(ngxBlockHttp, "http", "http", confExt);
+			// 黑白名单(中央規則全站生效)
+			buildDenyAllow(ngxBlockHttp, "http", confExt);
 
 			// 國家存取控制 — map 指令放在 http block
 			List<GeoRule> geoRules = sqlHelper.findAll(GeoRule.class);
@@ -325,8 +326,8 @@ public class ConfService {
 				hasStream = true;
 			}
 
-			// 黑白名单
-			buildDenyAllow(ngxBlockStream, "stream", "stream", confExt);
+			// 黑白名单(中央規則全站生效)
+			buildDenyAllow(ngxBlockStream, "stream", confExt);
 
 			// 添加upstream
 			upstreams = upstreamService.getListByProxyType(1);
@@ -440,12 +441,35 @@ public class ConfService {
 		if (StrUtil.isNotEmpty(nginxDir)) {
 			cmd += " -p " + nginxDir;
 		}
+		// 「無法驗證」≠「驗證失敗」:nginx 跑不起來(binary 不存在/無權限)或逾時一律 SKIPPED,
+		// 不能因此 rollback 使用者設定 — 否則 nginx 異常環境下所有儲存永久被駁回(死鎖)。
+		// 輸出用背景執行緒邊跑邊讀:waitFor 後才讀在輸出超過 pipe buffer 時會互相卡死。
 		String rs;
 		try {
-			rs = RuntimeUtil.execForStr(cmd);
+			Process process = RuntimeUtil.exec(cmd);
+			StringBuilder out = new StringBuilder();
+			Thread reader = new Thread(() -> {
+				try {
+					out.append(cn.hutool.core.io.IoUtil.readUtf8(process.getInputStream()));
+				} catch (Exception ignored) {
+				}
+			});
+			reader.setDaemon(true);
+			reader.start();
+			if (!process.waitFor(15, java.util.concurrent.TimeUnit.SECONDS)) {
+				process.destroyForcibly();
+				logger.warn("nginx -t 逾時(15s),略過語法預檢: {}", cmd);
+				return "SKIPPED";
+			}
+			reader.join(2000);
+			rs = out.toString();
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			logger.warn("nginx 預檢被中斷,略過語法預檢");
+			return "SKIPPED";
 		} catch (Exception e) {
-			logger.error(e.getMessage(), e);
-			return e.getMessage();
+			logger.warn("nginx 無法執行,略過語法預檢: {}", e.getMessage());
+			return "SKIPPED";
 		}
 		return rs.contains("test is successful") ? null : rs;
 	}
@@ -495,85 +519,124 @@ public class ConfService {
 	}
 
 	/**
-	 * 收集 csvIds 對應的所有 DenyAllow 清單 IP（"id1,id2,id3" → 三個清單的 IP 合併）。
-	 * single id 也是合法 CSV (split 後 array 只一個 element)、舊資料不需 migration。
+	 * 中央黑白名單全站自動生效:防護頁維護的規則直接套用在 http/stream 層級(涵蓋所有 server),
+	 * 零綁定操作。先 allow(白名單)再 deny(黑名單),且不加 deny all; — nginx 預設放行,
+	 * 效果 = 白名單覆蓋黑名單、名單外不受影響。
+	 * 舊的 Settings CSV 模式(denyAllow/denyId/allowId/…Stream)與逐 server 綁定已淘汰,
+	 * 資料列保留但不再讀取。
 	 */
-	private List<String> collectIpsFromCsvIds(String csvIds) {
-		List<String> ips = new ArrayList<>();
-		if (csvIds == null || csvIds.trim().isEmpty()) {
-			return ips;
+	public void buildDenyAllow(NgxBlock ngxBlock, String id, ConfExt confExt) {
+		List<String> strs = new ArrayList<>();
+		for (String ip : collectIps(denyAllowService.listByType("allow"))) {
+			strs.add("allow " + ip + ";");
 		}
-		for (String id : csvIds.split(",")) {
-			String trimmedId = id.trim();
-			if (trimmedId.isEmpty()) {
-				continue;
-			}
-			DenyAllow da = sqlHelper.findById(trimmedId, DenyAllow.class);
-			if (da == null || da.getIp() == null || da.getIp().isEmpty()) {
+		for (String ip : collectIps(denyAllowService.listByType("deny"))) {
+			strs.add("deny " + ip + ";");
+		}
+		if (strs.isEmpty()) {
+			return;
+		}
+		String filename = addConfFile(confExt, "deny_" + id + ".conf", strs);
+		NgxParam ngxParam = new NgxParam();
+		ngxParam.addValue("include " + filename);
+		ngxBlock.addEntry(ngxParam);
+	}
+
+	/**
+	 * 合併多個清單的 IP(行分隔),跨清單去重。略過 "all" — 遠端 feed 若混入 all 會產生
+	 * deny all; 直接鎖死全站,這裡防禦性排除(白名單模式已淘汰,all 無正當用途)。
+	 * 非法 token(截斷殘行、雜訊)一律略過:寫進 deny_*.conf 會讓 nginx -t 真失敗 →
+	 * saveEnable 全數 rollback,一行壞 feed 資料就重現全站存檔死鎖。
+	 */
+	private List<String> collectIps(List<DenyAllow> list) {
+		LinkedHashSet<String> ips = new LinkedHashSet<>();
+		int skipped = 0;
+		for (DenyAllow da : list) {
+			if (da.getIp() == null || da.getIp().isEmpty()) {
 				continue;
 			}
 			for (String ipLine : da.getIp().split("\n")) {
 				String ip = ipLine.trim();
-				if (!ip.isEmpty()) {
-					ips.add(ip);
+				if (ip.isEmpty() || "all".equalsIgnoreCase(ip)) {
+					continue;
 				}
+				if (!isValidIpOrCidr(ip)) {
+					skipped++;
+					continue;
+				}
+				ips.add(ip);
 			}
 		}
-		return ips;
+		if (skipped > 0) {
+			logger.warn("collectIps: 略過 {} 個非法 IP/CIDR token(feed 雜訊防護)", skipped);
+		}
+		return new ArrayList<>(ips);
 	}
 
-	public void buildDenyAllow(NgxBlock ngxBlock, String type, String id, ConfExt confExt) {
-		Integer denyAllowValue = null;
-		String denyId = null;
-		String allowId = null;
-
-		if (type.equals("http")) {
-			denyAllowValue = Integer.parseInt(settingService.get("denyAllow"));
-			denyId = settingService.get("denyId");
-			allowId = settingService.get("allowId");
-		} else if (type.equals("stream")) {
-			denyAllowValue = Integer.parseInt(settingService.get("denyAllowStream"));
-			denyId = settingService.get("denyIdStream");
-			allowId = settingService.get("allowIdStream");
-		} else if (type.equals("server")) {
-			Server server = sqlHelper.findById(id, Server.class);
-			denyAllowValue = server.getDenyAllow();
-			denyId = server.getDenyId();
-			allowId = server.getAllowId();
-		}
-
-		List<String> strs = new ArrayList<>();
-		if (denyAllowValue == 1) {
-			// 黑名单 — denyId 可能是 CSV "id1,id2,id3"，loop 蒐集所有清單的 IP
-			for (String ip : collectIpsFromCsvIds(denyId)) {
-				strs.add("deny " + ip + ";");
+	/**
+	 * 嚴格驗證 IPv4/IPv6(可帶 CIDR prefix)。/0(封鎖全世界)一律拒絕 — feed 沒有正當理由包含它。
+	 */
+	static boolean isValidIpOrCidr(String s) {
+		String ip = s;
+		int slash = s.indexOf('/');
+		if (slash >= 0) {
+			ip = s.substring(0, slash);
+			int prefix;
+			try {
+				prefix = Integer.parseInt(s.substring(slash + 1));
+			} catch (NumberFormatException e) {
+				return false;
 			}
-			strs.add("allow all;");
-		}
-		if (denyAllowValue == 2) {
-			// 白名单 — allowId 同樣 CSV
-			for (String ip : collectIpsFromCsvIds(allowId)) {
-				strs.add("allow " + ip + ";");
-			}
-			strs.add("deny all;");
-		}
-
-		if (denyAllowValue == 3) {
-			// 黑白名单 — 同時處理 allow 與 deny 兩個 CSV
-			for (String ip : collectIpsFromCsvIds(allowId)) {
-				strs.add("allow " + ip + ";");
-			}
-			for (String ip : collectIpsFromCsvIds(denyId)) {
-				strs.add("deny " + ip + ";");
+			int max = ip.indexOf(':') >= 0 ? 128 : 32;
+			if (prefix < 1 || prefix > max) {
+				return false;
 			}
 		}
+		return ip.indexOf(':') >= 0 ? isValidIpv6(ip) : isValidIpv4(ip);
+	}
 
-		if (denyAllowValue != 0) {
-			String filename = addConfFile(confExt, "deny_" + id + ".conf", strs);
-			NgxParam ngxParam = new NgxParam();
-			ngxParam.addValue("include " + filename);
-			ngxBlock.addEntry(ngxParam);
+	private static boolean isValidIpv4(String ip) {
+		String[] parts = ip.split("\\.", -1);
+		if (parts.length != 4) {
+			return false;
 		}
+		for (String p : parts) {
+			if (p.isEmpty() || p.length() > 3 || !p.chars().allMatch(Character::isDigit)) {
+				return false;
+			}
+			if (Integer.parseInt(p) > 255) {
+				return false;
+			}
+			if (p.length() > 1 && p.charAt(0) == '0') {
+				return false; // 拒絕前導零(部分解析器視為八進位)
+			}
+		}
+		return true;
+	}
+
+	private static boolean isValidIpv6(String ip) {
+		if (ip.chars().anyMatch(c -> Character.digit(c, 16) < 0 && c != ':')) {
+			return false;
+		}
+		int doubleColon = ip.indexOf("::");
+		if (doubleColon >= 0 && ip.indexOf("::", doubleColon + 1) >= 0) {
+			return false; // "::" 至多一次
+		}
+		String[] groups = ip.split(":", -1);
+		if (groups.length > 8) {
+			return false;
+		}
+		boolean hasEmpty = false;
+		for (String g : groups) {
+			if (g.isEmpty()) {
+				hasEmpty = true;
+				continue;
+			}
+			if (g.length() > 4) {
+				return false;
+			}
+		}
+		return doubleColon >= 0 || (groups.length == 8 && !hasEmpty);
 	}
 
 	public NgxBlock buildBlockUpstream(Upstream upstream) {
@@ -785,9 +848,6 @@ public class ConfService {
 			// ssl配置
 			setServerSsl(server, ngxBlockServer);
 
-			// IP黑白名单
-			buildDenyAllow(ngxBlockServer, "server", server.getId(), confExt);
-
 			// 國家存取控制 — if 指令放在 server block
 			{
 				// 先查 server 專屬規則
@@ -993,8 +1053,6 @@ public class ConfService {
 
 			// ssl配置
 			setServerSsl(server, ngxBlockServer);
-			// IP黑白名单
-			buildDenyAllow(ngxBlockServer, "server", server.getId(), confExt);
 
 			// 自定义参数
 			String type = "server";

@@ -41,7 +41,7 @@ public class SqlUtils {
 	public void checkOrCreateTable(Class<?> clazz) {
 		String sql = "CREATE TABLE IF NOT EXISTS " + SQLConstants.SUFFIX + StrUtil.toUnderlineCase(clazz.getSimpleName()) + SQLConstants.SUFFIX + " (id VARCHAR(32) NOT NULL PRIMARY KEY)";
 		logQuery(formatSql(sql));
-		jdbcTemplate.execute(formatSql(sql));
+		jdbcTemplate.executeQuietly(formatSql(sql));
 
 	}
 
@@ -100,7 +100,7 @@ public class SqlUtils {
 
 			String sql = "CREATE " + type + "  " + SQLConstants.SUFFIX + StrUtil.toUnderlineCase(name) + SQLConstants.SUFFIX + " ON " + SQLConstants.SUFFIX + StrUtil.toUnderlineCase(clazz.getSimpleName()) + SQLConstants.SUFFIX + "(" + StrUtil.join(",", columList) + ")";
 			logQuery(formatSql(sql));
-			jdbcTemplate.execute(formatSql(sql));
+			jdbcTemplate.executeQuietly(formatSql(sql));
 		}
 
 	}
@@ -111,9 +111,21 @@ public class SqlUtils {
 			logQuery(formatSql(sql));
 			logger.debug("checkOrCreateColumn sql:{} ",formatSql(sql));
 			//System.out.println("checkOrCreateColumn sql: "+formatSql(sql));
-			jdbcTemplate.execute(formatSql(sql));
+			jdbcTemplate.executeQuietly(formatSql(sql));
 		}
 
+	}
+
+	/**
+	 * Boolean 欄位表現形正規化:'true'→'1'、'false'→'0'(冪等)。
+	 * 歷史資料混雜兩種形式(@InitValue backfill 寫 'true'/'false'、sqlite-jdbc 綁定寫 1/0、
+	 * PG 原生 Boolean 綁定寫 'true'),查詢端統一綁 '1'/'0' 後必須把存量資料收斂到同一形式。
+	 */
+	public void normalizeBooleanColumn(Class<?> clazz, String column) {
+		String tableName = SQLConstants.SUFFIX + StrUtil.toUnderlineCase(clazz.getSimpleName()) + SQLConstants.SUFFIX;
+		String columnName = SQLConstants.SUFFIX + StrUtil.toUnderlineCase(column) + SQLConstants.SUFFIX;
+		jdbcTemplate.execute("UPDATE " + tableName + " SET " + columnName + " = '1' WHERE " + columnName + " = 'true'");
+		jdbcTemplate.execute("UPDATE " + tableName + " SET " + columnName + " = '0' WHERE " + columnName + " = 'false'");
 	}
 
 	public void updateDefaultValue(Class<?> clazz, String column, String value) {
