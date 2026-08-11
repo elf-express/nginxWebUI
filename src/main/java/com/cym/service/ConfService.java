@@ -326,6 +326,24 @@ public class ConfService {
 				hasStream = true;
 			}
 
+			// 自動套用 def=stream 的模板參數到 stream{} 頂層（如 limit_conn_zone / limit_conn_log_level）
+			// 與 server/location 的 getListByTypeId 對稱；http 的 conn_limit zone 不可與此共用名稱
+			List<Template> streamDefTemplates = sqlHelper.findListByQuery(
+					new ConditionAndWrapper().eq(Template::getDef, "stream"), Template.class);
+			for (Template tpl : streamDefTemplates) {
+				List<Param> tplParams = sqlHelper.findListByQuery(
+						new ConditionAndWrapper().eq(Param::getTemplateId, tpl.getId()), Param.class);
+				for (Param p : tplParams) {
+					if (StrUtil.isEmpty(p.getName())) {
+						continue;
+					}
+					ngxParam = new NgxParam();
+					ngxParam.addValue(p.getName().trim() + (StrUtil.isNotEmpty(p.getValue()) ? " " + p.getValue().trim() : ""));
+					ngxBlockStream.addEntry(ngxParam);
+					hasStream = true;
+				}
+			}
+
 			// 黑白名单(中央規則全站生效)
 			buildDenyAllow(ngxBlockStream, "stream", confExt);
 

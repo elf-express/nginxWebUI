@@ -7,7 +7,9 @@ import com.cym.sqlhelper.config.Table;
 public class Template extends BaseModel{
 	String name;
 
-	String def; // 默认配置 "" "server" "server1" "server2" "location" "upstream"
+	// 自动套用目标: "" 仅手动; server/server1/server2/location/upstream 由 ParamService 注入实体;
+	// stream = 注入全域 stream{} (ConfService.buildConf)
+	String def;
 
 	String groupName;
 

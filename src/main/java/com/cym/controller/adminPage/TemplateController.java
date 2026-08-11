@@ -27,14 +27,27 @@ public class TemplateController extends BaseController {
 	@Inject
 	TemplateService templateService;
 
-	private static final String[][] GROUP_DEFS = {
-		{ "proxy",     "templateGroup.proxy",     "templateGroup.proxyDesc" },
-		{ "cache",     "templateGroup.cache",     "templateGroup.cacheDesc" },
-		{ "cors",      "templateGroup.cors",      "templateGroup.corsDesc" },
-		{ "rateLimit", "templateGroup.rateLimit", "templateGroup.rateLimitDesc" },
-		{ "security",  "templateGroup.security",  "templateGroup.securityDesc" },
-		{ "geoip",     "templateGroup.geoip",     "templateGroup.geoipDesc" },
-		{ "crowdsec",  "templateGroup.crowdsec",  "templateGroup.crowdsecDesc" },
+	/** 頂級分組：{ groupName key, displayName i18n, description i18n } — 與列表 collapse / 編輯下拉共用 */
+	public static final String[][] GROUP_DEFS = {
+		{ "proxy",        "templateGroup.proxy",        "templateGroup.proxyDesc" },
+		{ "cache",        "templateGroup.cache",        "templateGroup.cacheDesc" },
+		{ "cors",         "templateGroup.cors",         "templateGroup.corsDesc" },
+		{ "rateLimit",    "templateGroup.rateLimit",    "templateGroup.rateLimitDesc" },
+		{ "security",     "templateGroup.security",     "templateGroup.securityDesc" },
+		{ "geoip",        "templateGroup.geoip",        "templateGroup.geoipDesc" },
+		{ "crowdsec",     "templateGroup.crowdsec",     "templateGroup.crowdsecDesc" },
+		{ "compress",     "templateGroup.compress",     "templateGroup.compressDesc" },
+		{ "observe",      "templateGroup.observe",      "templateGroup.observeDesc" },
+		{ "auth",         "templateGroup.auth",         "templateGroup.authDesc" },
+		{ "njs",          "templateGroup.njs",          "templateGroup.njsDesc" },
+		{ "keyval",       "templateGroup.keyval",       "templateGroup.keyvalDesc" },
+		{ "util",         "templateGroup.util",         "templateGroup.utilDesc" },
+		{ "media",        "templateGroup.media",        "templateGroup.mediaDesc" },
+		{ "upload",       "templateGroup.upload",       "templateGroup.uploadDesc" },
+		{ "realtime",     "templateGroup.realtime",     "templateGroup.realtimeDesc" },
+		{ "waf",          "templateGroup.waf",          "templateGroup.wafDesc" },
+		{ "upstream_ext", "templateGroup.upstreamExt",  "templateGroup.upstreamExtDesc" },
+		{ "mail",         "templateGroup.mail",         "templateGroup.mailDesc" },
 	};
 
 	@Mapping("")
@@ -98,6 +111,16 @@ public class TemplateController extends BaseController {
 
 		modelAndView.put("templateList", allExts);
 		modelAndView.put("groupList", groupList);
+		// 編輯彈窗分組下拉
+		List<Map<String, String>> groupOptions = new ArrayList<>();
+		for (String[] def : GROUP_DEFS) {
+			Map<String, String> opt = new LinkedHashMap<>();
+			opt.put("key", def[0]);
+			opt.put("label", m.get(def[1]));
+			opt.put("desc", m.get(def[2]));
+			groupOptions.add(opt);
+		}
+		modelAndView.put("groupOptions", groupOptions);
 		modelAndView.view("/adminPage/template/index.html");
 		return modelAndView;
 	}

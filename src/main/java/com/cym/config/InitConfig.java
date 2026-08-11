@@ -231,23 +231,34 @@ public class InitConfig {
 			logger.info("Migration: appended Chinese annotation to template names");
 		}
 
-		// 初始化模組管理表
+		// 遷移：既有庫補 stream 連線限制模板（參數不動舊四個 rateLimit；zone 名 s_conn_perip 與 http 隔離）
+		if (!"1".equals(settingService.get("streamConnLimitTemplatesSeeded"))) {
+			seedStreamConnLimitTemplatesIfMissing();
+			settingService.set("streamConnLimitTemplatesSeeded", "1");
+		}
+
+		// 遷移：社群慣用參數模板庫（僅手動套用 def=""；名稱含建議；不覆蓋已存在同名）
+		if (!"1".equals(settingService.get("moduleCommunityTemplatesSeeded"))) {
+			int n = seedModuleCommunityTemplatesIfMissing();
+			settingService.set("moduleCommunityTemplatesSeeded", "1");
+			if (n > 0) {
+				logger.info("Migration: seeded {} community module param template(s)", n);
+			}
+		}
+
+		// 初始化模組管理表（全量 MODULE_CATALOG；新裝預設 enable=false，由 moduleInitMigrated 對磁碟模組自動開啟）
 		Long moduleCount = sqlHelper.findAllCount(Module.class);
 		if (moduleCount == 0) {
-			List<Module> modules = new ArrayList<>();
-			long seq = 0;
-			modules.add(new Module("ngx_stream_module.so",                    "descrStream",          false, seq++));
-			modules.add(new Module("ngx_stream_geoip2_module.so",             "descrStreamGeoip2",    false, seq++));
-			modules.add(new Module("ngx_http_geoip2_module.so",               "descrHttpGeoip2",      false, seq++));
-			modules.add(new Module("ndk_http_module.so",                      "descrNdk",             false, seq++));
-			modules.add(new Module("ngx_http_lua_module.so",                  "descrLua",             false, seq++));
-			modules.add(new Module("ngx_http_brotli_filter_module.so",        "descrBrotliFilter",    false, seq++));
-			modules.add(new Module("ngx_http_brotli_static_module.so",        "descrBrotliStatic",    false, seq++));
-			modules.add(new Module("ngx_http_zstd_filter_module.so",          "descrZstdFilter",      false, seq++));
-			modules.add(new Module("ngx_http_zstd_static_module.so",          "descrZstdStatic",      false, seq++));
-			modules.add(new Module("ngx_http_headers_more_filter_module.so",  "descrHeadersMore",     false, seq++));
-			modules.add(new Module("ngx_http_cache_purge_module.so",          "descrCachePurge",      false, seq++));
-			sqlHelper.insertAll(modules);
+			sqlHelper.insertAll(buildModuleCatalogSeed());
+		}
+
+		// 遷移：既有庫補上 Alpine 全量模組列（已存在 name 不覆蓋 enable）
+		if (!"1".equals(settingService.get("moduleCatalogFullSeeded"))) {
+			int added = seedMissingModulesFromCatalog();
+			settingService.set("moduleCatalogFullSeeded", "1");
+			if (added > 0) {
+				logger.info("Migration: added {} module catalog row(s)", added);
+			}
 		}
 
 		// 遷移：為已有 Http 記錄填充 groupName
@@ -582,6 +593,15 @@ public class InitConfig {
 			{ "limit_conn", "conn_limit 50" },
 			{ "limit_conn_status", "429" },
 		});
+		// stream 專用 zone 名 s_conn_perip — 不可與 http 的 conn_limit 同名（跨模組 shared zone 衝突）
+		// 先 stream 層宣告，再 stream server 層使用；勿抄 limit_conn_status（stream 無狀態碼）
+		addTemplate("Connection Limit (stream) (連線數限制 — stream 層)", "stream", "rateLimit", new String[][] {
+			{ "limit_conn_zone", "$binary_remote_addr zone=s_conn_perip:10m" },
+			{ "limit_conn_log_level", "warn" },
+		});
+		addTemplate("Connection Limit (stream server) (連線數限制 — stream server 層)", "server1", "rateLimit", new String[][] {
+			{ "limit_conn", "s_conn_perip 50" },
+		});
 
 		// ── 安全類 ──
 		addTemplate("Security Headers (HSTS) (安全標頭 HSTS)", "", "security", new String[][] {
@@ -625,6 +645,9 @@ public class InitConfig {
 			{ "auth_request", "/crowdsec-check" },
 			{ "auth_request_set", "$auth_status $upstream_status" },
 		});
+
+		// 其餘開源模組社群範本（與 seedModuleCommunityTemplatesIfMissing 同源）
+		seedModuleCommunityTemplatesCore();
 	}
 
 	private void addTemplate(String name, String def, String groupName, String[][] params) {
@@ -642,6 +665,264 @@ public class InitConfig {
 		}
 
 		templateService.addOver(template, paramList);
+	}
+
+	/** 空庫：依 NginxService.MODULE_CATALOG 建立模組管理列（預設不啟用）。 */
+	private List<Module> buildModuleCatalogSeed() {
+		List<Module> modules = new ArrayList<>();
+		long seq = 0;
+		for (String[] row : NginxService.MODULE_CATALOG) {
+			modules.add(new Module(row[0], row[1], false, seq++));
+		}
+		return modules;
+	}
+
+	/** 既有庫：補 catalog 中缺少的 name，不改既有 enable。 */
+	private int seedMissingModulesFromCatalog() {
+		List<Module> existing = sqlHelper.findAll(Module.class);
+		java.util.HashSet<String> names = new java.util.HashSet<>();
+		long maxSeq = -1;
+		for (Module m : existing) {
+			if (m.getName() != null) {
+				names.add(m.getName());
+			}
+			if (m.getSeq() != null && m.getSeq() > maxSeq) {
+				maxSeq = m.getSeq();
+			}
+		}
+		long seq = maxSeq + 1;
+		int added = 0;
+		for (String[] row : NginxService.MODULE_CATALOG) {
+			if (names.contains(row[0])) {
+				continue;
+			}
+			sqlHelper.insert(new Module(row[0], row[1], false, seq++));
+			added++;
+		}
+		return added;
+	}
+
+	/**
+	 * 既有 DB 補 stream 連線限制模板。名稱已存在則跳過（不改參數、不覆蓋使用者改過的列）。
+	 * zone 必須用 s_conn_perip，不可重用 http 的 conn_limit。
+	 */
+	private void seedStreamConnLimitTemplatesIfMissing() {
+		String streamZoneName = "Connection Limit (stream) (連線數限制 — stream 層)";
+		String streamServerName = "Connection Limit (stream server) (連線數限制 — stream server 層)";
+		int added = 0;
+		if (templateService.getCountByName(streamZoneName) == 0) {
+			addTemplate(streamZoneName, "stream", "rateLimit", new String[][] {
+				{ "limit_conn_zone", "$binary_remote_addr zone=s_conn_perip:10m" },
+				{ "limit_conn_log_level", "warn" },
+			});
+			added++;
+		}
+		if (templateService.getCountByName(streamServerName) == 0) {
+			// server1 = TCP stream server（與 ConfService proxyType=1 的 type 字串一致）
+			addTemplate(streamServerName, "server1", "rateLimit", new String[][] {
+				{ "limit_conn", "s_conn_perip 50" },
+			});
+			added++;
+		}
+		if (added > 0) {
+			logger.info("Migration: seeded {} stream connection-limit template(s)", added);
+		}
+	}
+
+	/** 空庫 initDefaultTemplates 直接插入社群範本。 */
+	private void seedModuleCommunityTemplatesCore() {
+		for (Object[] row : communityTemplateDefs()) {
+			@SuppressWarnings("unchecked")
+			String[][] params = (String[][]) row[3];
+			addTemplate((String) row[0], (String) row[1], (String) row[2], params);
+		}
+	}
+
+	/** 既有庫：同名略過。回傳新增筆數。 */
+	private int seedModuleCommunityTemplatesIfMissing() {
+		int added = 0;
+		for (Object[] row : communityTemplateDefs()) {
+			String name = (String) row[0];
+			if (templateService.getCountByName(name) > 0) {
+				continue;
+			}
+			@SuppressWarnings("unchecked")
+			String[][] params = (String[][]) row[3];
+			addTemplate(name, (String) row[1], (String) row[2], params);
+			added++;
+		}
+		return added;
+	}
+
+	/**
+	 * 社群慣用參數模板（參考 nginx.org / 模組 README）。
+	 * row = { name, def, groupName, String[][] params }
+	 * 原則：def 多為 ""（僅手動）；名稱含建議；不含舊版 geoip v1。
+	 */
+	private List<Object[]> communityTemplateDefs() {
+		List<Object[]> list = new ArrayList<>();
+
+		// ── compress（模組：brotli / zstd；http 參數頁可能已有全域值，此為可選包）──
+		list.add(new Object[] { "Brotli Full (Brotli 完整 — 建議 http 層 / 需 brotli 模組)", "", "compress",
+				new String[][] {
+					{ "brotli", "on" },
+					{ "brotli_comp_level", "6" },
+					{ "brotli_static", "on" },
+					{ "brotli_types", "text/plain text/css application/javascript application/json application/xml image/svg+xml" },
+				} });
+		list.add(new Object[] { "Zstd Full (Zstd 完整 — 建議 http 層 / 需 zstd 模組)", "", "compress",
+				new String[][] {
+					{ "zstd", "on" },
+					{ "zstd_comp_level", "3" },
+					{ "zstd_static", "on" },
+					{ "zstd_types", "text/plain text/css application/javascript application/json application/xml image/svg+xml" },
+				} });
+
+		// ── observe：VTS（社群常用 vhost_traffic_status）──
+		list.add(new Object[] { "VTS Zone (流量狀態 zone — 建議 http 層 / 需 vts 模組)", "", "observe",
+				new String[][] {
+					{ "vhost_traffic_status_zone", "shared:vhost_traffic_status:32m" },
+					{ "vhost_traffic_status_filter_by_host", "on" },
+				} });
+		list.add(new Object[] { "VTS Status Location (狀態頁 — 建議 location=/status 且限制 IP)", "", "observe",
+				new String[][] {
+					{ "vhost_traffic_status_display", "" },
+					{ "vhost_traffic_status_display_format", "html" },
+					{ "access_log", "off" },
+					{ "allow", "127.0.0.1" },
+					{ "deny", "all" },
+				} });
+
+		// ── auth：JWT ──
+		list.add(new Object[] { "Auth JWT (JWT 驗證 — 建議 location / 需 auth_jwt 模組)", "", "auth",
+				new String[][] {
+					{ "auth_jwt", "\"closed site\"" },
+					{ "auth_jwt_key_file", "/etc/nginx/jwt/secret.jwk" },
+					{ "auth_jwt_header", "Authorization" },
+					{ "error_page", "401 = @error401" },
+				} });
+
+		// ── njs ──
+		list.add(new Object[] { "njs Import (njs 載入 — 建議 http 層 / 需 http_js 模組)", "", "njs",
+				new String[][] {
+					{ "js_import", "main from conf.d/njs/main.js" },
+					{ "js_path", "/etc/nginx/njs/;" },
+				} });
+		list.add(new Object[] { "njs Content (njs 回應 — 建議 location)", "", "njs",
+				new String[][] {
+					{ "js_content", "main.handler" },
+				} });
+
+		// ── keyval ──
+		list.add(new Object[] { "Keyval Zone HTTP (keyval zone — 建議 http 層 / 需 keyval 模組)", "", "keyval",
+				new String[][] {
+					{ "keyval_zone", "zone=kv:1m" },
+					{ "keyval", "$arg_key $kv_value zone=kv" },
+				} });
+		list.add(new Object[] { "Keyval Zone Stream (stream keyval — 建議 stream 層 / 需 stream_keyval)", "", "keyval",
+				new String[][] {
+					{ "keyval_zone", "zone=s_kv:1m" },
+					{ "keyval", "$remote_addr $s_kv_val zone=s_kv" },
+				} });
+
+		// ── util ──
+		list.add(new Object[] { "Set Misc Basics (set_misc 常用 — 建議 server/location / 需 NDK+set_misc)", "", "util",
+				new String[][] {
+					{ "set_real_ip_from", "0.0.0.0/0" },
+					{ "set_secure_random_alphanum", "$sid 32" },
+					{ "set_escape_uri", "$escaped $arg_q" },
+				} });
+		list.add(new Object[] { "Echo Debug (echo 除錯 — 建議 location / 需 echo 模組)", "", "util",
+				new String[][] {
+					{ "echo", "\"OK $remote_addr\"" },
+					{ "echo_duplicate", "1 $request_uri" },
+				} });
+		list.add(new Object[] { "Cookie Flag (Cookie 旗標 — 建議 location / 需 cookie_flag)", "", "util",
+				new String[][] {
+					{ "proxy_cookie_flags", "~ nosecure samesite=lax" },
+				} });
+		list.add(new Object[] { "Headers More Clear (清除敏感頭 — 需 headers_more)", "", "util",
+				new String[][] {
+					{ "more_clear_headers", "Server" },
+					{ "more_clear_headers", "X-Powered-By" },
+					{ "more_set_headers", "\"X-Content-Type-Options: nosniff\"" },
+				} });
+
+		// ── media ──
+		list.add(new Object[] { "Image Filter Thumb (縮圖 — 建議 location / 需 image_filter)", "", "media",
+				new String[][] {
+					{ "image_filter", "resize 200 200" },
+					{ "image_filter_jpeg_quality", "85" },
+					{ "image_filter_buffer", "10M" },
+				} });
+		list.add(new Object[] { "VOD HLS Skeleton (VOD 骨架 — 需 vod 模組，路徑請改)", "", "media",
+				new String[][] {
+					{ "vod", "hls" },
+					{ "vod_mode", "local" },
+					{ "alias", "/var/media/;" },
+					{ "add_header", "Access-Control-Allow-Origin *" },
+				} });
+
+		// ── upload ──
+		list.add(new Object[] { "Upload Progress (上傳進度 — 建議 location / 需 upload_progress)", "", "upload",
+				new String[][] {
+					{ "upload_progress", "uploads 1m" },
+					{ "track_uploads", "uploads 30s" },
+				} });
+
+		// ── realtime：Nchan ──
+		list.add(new Object[] { "Nchan PubSub (Nchan 發訂 — 建議 location / 需 nchan)", "", "realtime",
+				new String[][] {
+					{ "nchan_pubsub", "" },
+					{ "nchan_channel_id", "$arg_id" },
+					{ "nchan_message_timeout", "5m" },
+					{ "nchan_store_messages", "on" },
+				} });
+
+		// ── waf：NAXSI ──
+		list.add(new Object[] { "NAXSI Basic (WAF 骨架 — 需 naxsi 與規則 include)", "", "waf",
+				new String[][] {
+					{ "SecRulesEnabled", "" },
+					{ "DeniedUrl", "/RequestDenied" },
+					{ "CheckRule", "\"$SQL >= 8\" BLOCK" },
+					{ "CheckRule", "\"$RFI >= 8\" BLOCK" },
+					{ "CheckRule", "\"$TRAVERSAL >= 4\" BLOCK" },
+					{ "CheckRule", "\"$XSS >= 8\" BLOCK" },
+				} });
+
+		// ── upstream_ext ──
+		list.add(new Object[] { "Upstream Fair Hint (fair 提示 — 在 upstream 選 fair / 需 fair 模組)", "", "upstream_ext",
+				new String[][] {
+					{ "fair", "" },
+				} });
+
+		// ── mail（非 HTTP；僅範本庫）──
+		list.add(new Object[] { "Mail Auth Basic (mail 認證骨架 — 需 mail 模組)", "", "mail",
+				new String[][] {
+					{ "auth_http", "127.0.0.1:9000/auth" },
+					{ "auth_http_timeout", "5s" },
+					{ "proxy_pass_error_message", "on" },
+				} });
+
+		// ── cache purge 使用端 ──
+		list.add(new Object[] { "Cache Purge Location (快取清除 — 建議 location 且限制方法/IP)", "", "cache",
+				new String[][] {
+					{ "proxy_cache_purge", "PURGE from $host$request_uri" },
+					{ "allow", "127.0.0.1" },
+					{ "deny", "all" },
+				} });
+
+		// ── dynamic healthcheck 提示 ──
+		list.add(new Object[] { "Dynamic Healthcheck Hint (動態健康檢查 — 需 dynamic_healthcheck 模組)", "", "upstream_ext",
+				new String[][] {
+					{ "healthcheck_uri", "/health" },
+					{ "healthcheck_interval", "5s" },
+					{ "healthcheck_timeout", "2s" },
+					{ "healthcheck_fall", "3" },
+					{ "healthcheck_rise", "2" },
+				} });
+
+		return list;
 	}
 
 	// 既有 DB 內舊英文 template name → 加上「English (中文)」註解

@@ -15,6 +15,16 @@
 input[name='param']{
 	width: 100px;
 }
+
+/* 參數模板：name/value 單行高度約 40px 即可，不必預設 100px */
+#paramList textarea.layui-textarea {
+	height: 40px !important;
+	min-height: 40px !important;
+	line-height: 1.4;
+	padding-top: 8px;
+	padding-bottom: 8px;
+	resize: vertical !important;
+}
 </style>
 </head>
 <body class="layui-layout-body">
@@ -59,12 +69,13 @@ input[name='param']{
 						<table class="layui-table layui-form" lay-size="sm" style="table-layout:fixed; WORD-BREAK:break-all;">
 							<thead>
 								<tr>
-									<th style="width: 20px;">
+									<th style="width: 36px;">
 										<input type="checkbox" lay-filter="checkGroup" lay-skin="primary" data-group="${group.groupName}">
 									</th>
 									<th>${commonStr.name}</th>
-									<th>${templateStr.paramCount}</th>
-									<th>${commonStr.operation}</th>
+									<th style="width: 72px;">${templateStr.paramCount}</th>
+									<th style="width: 180px;">${templateStr.def}</th>
+									<th style="width: 170px;">${commonStr.operation}</th>
 								</tr>
 							</thead>
 							<tbody>
@@ -73,8 +84,18 @@ input[name='param']{
 									<td>
 										<input type="checkbox" name="ids" title="" lay-skin="primary" value="${ext.template.id}" data-group="${group.groupName}">
 									</td>
-									<td>${ext.template.name}</td>
-									<td>${ext.count}</td>
+									<td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${ext.template.name?html}">${ext.template.name}</td>
+									<td style="text-align:center;">${ext.count}</td>
+									<td style="font-size:12px;color:#666;">
+										<#if ext.template.def?? && ext.template.def == "server">${templateStr.defServerHttp}
+										<#elseif ext.template.def?? && ext.template.def == "server1">${templateStr.defServerTcp}
+										<#elseif ext.template.def?? && ext.template.def == "server2">${templateStr.defServerUdp}
+										<#elseif ext.template.def?? && ext.template.def == "stream">${templateStr.defStream}
+										<#elseif ext.template.def?? && ext.template.def == "location">${templateStr.defLocation}
+										<#elseif ext.template.def?? && ext.template.def == "upstream">${templateStr.defUpstream}
+										<#else><span style="color:#bbb;">${templateStr.defNone}</span>
+										</#if>
+									</td>
 									<td>
 										<div class="layui-inline">
 										<button type="button" class="layui-btn layui-btn-sm " onclick="edit('${ext.template.id}')"><i class="layui-icon layui-icon-edit"></i> ${commonStr.edit}</button>
@@ -98,26 +119,48 @@ input[name='param']{
 	</div>
 
 	<div style="height: 0px; width: 0px; overflow: hidden;">
-		<!-- 弹出框 -->
-		<div id="windowDiv" class="layui-form" style="display: none;padding: 15px;">
+		<!-- 弹出框：分組（頂級標題）→ 名稱 → 自動套用；參數 textarea 約 40px -->
+		<div id="windowDiv" class="layui-form" style="display: none;padding: 15px 20px;">
 			<input type="hidden" id="id" name="id">
 
 			<div class="layui-form-item">
-				<label class="layui-form-label">${templateStr.name}</label>
-				<div class="layui-input-inline">
-					<input type="text" name="name" id="name" class="layui-input">
-				</div>
-
-				<label class="layui-form-label">${templateStr.def}</label>
-				<div class="layui-input-inline">
-					<select name="def" id="def">
-						<option value="">${commonStr.null}</option>
-						<option value="server">${menuStr.server}(http)</option>
-						<option value="server1">${menuStr.server}(tcp)</option>
-						<option value="server2">${menuStr.server}(udp)</option>
-						<option value="location">${menuStr.location}</option>
-						<option value="upstream">${menuStr.upstream}</option>
+				<label class="layui-form-label" style="width:110px;">${templateStr.group}</label>
+				<div class="layui-input-block" style="margin-left:140px;">
+					<select name="groupName" id="groupName" style="width:100%;" lay-filter="templateGroup">
+						<#if groupOptions??>
+						<#list groupOptions as g>
+						<option value="${g.key}">${g.label}<#if g.desc?? && g.desc != ""> — ${g.desc}</#if></option>
+						</#list>
+						</#if>
+						<option value="_custom">${templateGroup.custom}</option>
 					</select>
+					<div id="groupNameCustomWrap" style="display:none;margin-top:8px;">
+						<input type="text" id="groupNameCustom" class="layui-input" placeholder="${templateStr.groupCustomPlaceholder}" autocomplete="off">
+					</div>
+					<div class="layui-form-mid layui-word-aux" style="margin-left:0;padding:6px 0 0;float:none;display:block;white-space:normal;line-height:1.5;">${templateStr.groupTip}</div>
+				</div>
+			</div>
+
+			<div class="layui-form-item">
+				<label class="layui-form-label" style="width:110px;">${templateStr.name}</label>
+				<div class="layui-input-block" style="margin-left:140px;">
+					<input type="text" name="name" id="name" class="layui-input" style="width:100%;" autocomplete="off">
+				</div>
+			</div>
+
+			<div class="layui-form-item">
+				<label class="layui-form-label" style="width:110px;">${templateStr.def}</label>
+				<div class="layui-input-block" style="margin-left:140px;">
+					<select name="def" id="def" style="width:100%;">
+						<option value="">${templateStr.defNone}</option>
+						<option value="server">${templateStr.defServerHttp}</option>
+						<option value="server1">${templateStr.defServerTcp}</option>
+						<option value="server2">${templateStr.defServerUdp}</option>
+						<option value="stream">${templateStr.defStream}</option>
+						<option value="location">${templateStr.defLocation}</option>
+						<option value="upstream">${templateStr.defUpstream}</option>
+					</select>
+					<div class="layui-form-mid layui-word-aux" style="margin-left:0;padding:6px 0 0;float:none;display:block;white-space:normal;line-height:1.5;">${templateStr.defTip}</div>
 				</div>
 			</div>
 

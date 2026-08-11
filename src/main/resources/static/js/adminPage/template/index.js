@@ -6,14 +6,39 @@ $(function() {
 		form.render();
 	});
 
+	// 分組下拉：選「自訂」時顯示手輸 groupName
+	form.on('select(templateGroup)', function(data) {
+		toggleGroupCustom(data.value === '_custom');
+	});
+
 	// Init collapse
 	element.init();
 })
+
+function toggleGroupCustom(show) {
+	if (show) {
+		$("#groupNameCustomWrap").show();
+	} else {
+		$("#groupNameCustomWrap").hide();
+		$("#groupNameCustom").val("");
+	}
+}
+
+/** 解析實際要送出的 groupName */
+function resolveGroupName() {
+	var sel = $("#groupName").val() || "";
+	if (sel === "_custom") {
+		return ($("#groupNameCustom").val() || "").trim();
+	}
+	return sel;
+}
 
 function add() {
 	$("#id").val("");
 	$("#name").val("");
 	$("#def option:first").prop("selected", true);
+	$("#groupName option:first").prop("selected", true);
+	toggleGroupCustom(false);
 	$("#paramList").html("");
 
 	form.render();
@@ -25,7 +50,8 @@ function showWindow(title) {
 	layer.open({
 		type: 1,
 		title: title,
-		area: ['min(800px, 90vw)', 'min(600px, 90vh)'], // 宽高
+		// 較寬以完整顯示長模板名與「預設配置到」下拉選項（+50px）
+		area: ['min(850px, 92vw)', 'min(620px, 90vh)'],
 		content: $('#windowDiv')
 	});
 }
@@ -33,6 +59,12 @@ function showWindow(title) {
 function addOver() {
 	if ($("#name").val() == "") {
 		layer.msg(templateStr.noname);
+		return;
+	}
+
+	var groupName = resolveGroupName();
+	if (!groupName) {
+		layer.msg(templateStr.groupRequired || templateStr.noname);
 		return;
 	}
 
@@ -52,8 +84,9 @@ function addOver() {
 		url: ctx + '/adminPage/template/addOver',
 		data: {
 			id: $("#id").val(),
-			name : $("#name").val(),
-			def : $("#def").val(), 
+			name: $("#name").val(),
+			def: $("#def").val(),
+			groupName: groupName,
 			paramJson: JSON.stringify(templateParams),
 		},
 		dataType: 'json',
@@ -86,8 +119,28 @@ function edit(id) {
 
 				$("#id").val(ext.template.id);
 				$("#name").val(ext.template.name);
-				$("#def").val(ext.template.def);
-				
+				$("#def").val(ext.template.def || "");
+
+				// 分組：已知 key 選中；否則走自訂
+				var gn = ext.template.groupName || "";
+				var known = false;
+				$("#groupName option").each(function() {
+					if ($(this).val() === gn) {
+						known = true;
+					}
+				});
+				if (known && gn) {
+					$("#groupName").val(gn);
+					toggleGroupCustom(false);
+				} else if (gn) {
+					$("#groupName").val("_custom");
+					toggleGroupCustom(true);
+					$("#groupNameCustom").val(gn);
+				} else {
+					$("#groupName option:first").prop("selected", true);
+					toggleGroupCustom(false);
+				}
+
 				var html = ``;
 				for (let i = 0; i < list.length; i++) {
 					var param = list[i];
@@ -166,7 +219,7 @@ function delMany() {
 
 		$.ajax({
 			type: 'POST',
-			url : ctx + '/adminPage/template/del',
+			url: ctx + '/adminPage/template/del',
 			data: {
 				id: ids.join(",")
 			},
@@ -205,6 +258,6 @@ function addParam() {
 	$("#paramList").append(html);
 }
 
-function delTr(id){
+function delTr(id) {
 	$("#" + id).remove();
 }

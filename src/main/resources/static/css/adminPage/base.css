@@ -78,6 +78,27 @@ textarea {
 	margin-bottom: 1px;
 }
 
+/*
+ * 輸入框靜止態邊框：layui 預設 border-color:#eee，白底幾乎不可見。
+ * 僅提高未聚焦對比；hover / focus 仍沿用 layui 加深與主題色。
+ */
+.layui-input,
+.layui-textarea,
+.layui-select,
+.layui-form-select .layui-input {
+	border-color: #c9cdd4 !important;
+}
+.layui-input:hover,
+.layui-textarea:hover,
+.layui-form-select:hover .layui-input {
+	border-color: #a8aeb8 !important;
+}
+.layui-input:focus,
+.layui-textarea:focus,
+.layui-form-select .layui-input:focus {
+	border-color: #16b777 !important;
+}
+
 /* =============================================
    v5.0.2 UI Polish
    ============================================= */
