@@ -168,6 +168,9 @@ public class GeoipService {
 			long lm = f.lastModified();
 			info.setLastModifiedAt(lm);
 			info.setLastModifiedStr(DateUtil.format(new Date(lm), "yyyy-MM-dd HH:mm"));
+			// Header 與 mmdb 一樣看 version 欄；Cloudflare 無 buildTime → 用檔案 mtime 當顯示日期
+			// （否則 header 永遠落到「尚未下載」假陰性，即使 realip.conf 已存在）
+			info.setVersion(DateUtil.format(new Date(lm), "yyyy.MM.dd"));
 			GeoipStatus st = evaluateStatus(lm, null, now, true);
 			info.setStatus(st.status());
 			info.setStatusReasons(buildReasonTexts(st));
