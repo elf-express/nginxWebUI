@@ -39,37 +39,31 @@
 			</div>
 		</li>
 
-		<li class="layui-nav-item">
-			<span style="color: white;">${commonStr.currentUser}: ${admin.name}</span>
+		<!-- 帳戶區：2×2 上下兩排，避免「當前用戶 / 語系 / 教程 / 退出」擠成一橫排連在一起 -->
+		<li class="layui-nav-item" id="headerAccountItem" style="line-height:normal;padding:0 12px;">
+			<div style="display:grid;grid-template-columns:max-content max-content;column-gap:14px;row-gap:2px;align-content:center;justify-items:start;height:60px;font-size:12px;line-height:1.45;white-space:nowrap;text-align:left;">
+				<span style="color:#fff;align-self:center;">${commonStr.currentUser}: ${admin.name}</span>
+				<button type="button" class="header-link-btn" onclick="showHelp()" style="color:#fff;align-self:center;text-align:left;">${commonStr.userTutorial}</button>
+				<button type="button" class="header-link-btn" onclick="changeLang()" style="display:inline-flex;align-items:center;gap:6px;color:#fff;align-self:center;" aria-label="${commonStr.changeLang}">
+					<#if lang?? && lang == "zh_TW">
+						<img src="${ctx}/img/tw.svg" alt="tw" aria-hidden="true" style="width:16px;height:auto;border:1px solid rgba(255,255,255,0.25);border-radius:2px;">
+					<#elseif lang?? && lang == "en_US">
+						<img src="${ctx}/img/gb.svg" alt="en" aria-hidden="true" style="width:16px;height:auto;border:1px solid rgba(255,255,255,0.25);border-radius:2px;">
+					<#else>
+						<img src="${ctx}/img/cn.svg" alt="cn" aria-hidden="true" style="width:16px;height:auto;border:1px solid rgba(255,255,255,0.25);border-radius:2px;">
+					</#if>
+					<span>${langType}</span>
+				</button>
+				<button type="button" class="header-link-btn" onclick="loginOut()" style="color:#fff;align-self:center;text-align:left;">${commonStr.exit}</button>
+			</div>
 		</li>
 
-		<li class="layui-nav-item">
-			<button type="button" class="header-link-btn" onclick="changeLang()" style="display:inline-flex;align-items:center;gap:6px;" aria-label="${commonStr.changeLang}">
-				<#if lang?? && lang == "zh_TW">
-					<img src="${ctx}/img/tw.svg" alt="tw" aria-hidden="true" style="width:20px;height:auto;vertical-align:middle;border:1px solid rgba(255,255,255,0.25);border-radius:2px;">
-				<#elseif lang?? && lang == "en_US">
-					<img src="${ctx}/img/gb.svg" alt="en" aria-hidden="true" style="width:20px;height:auto;vertical-align:middle;border:1px solid rgba(255,255,255,0.25);border-radius:2px;">
-				<#else>
-					<img src="${ctx}/img/cn.svg" alt="cn" aria-hidden="true" style="width:20px;height:auto;vertical-align:middle;border:1px solid rgba(255,255,255,0.25);border-radius:2px;">
-				</#if>
-				<span>${langType}</span>
-			</button>
-		</li>
-
-		<li class="layui-nav-item">
-			<button type="button" class="header-link-btn" onclick="showHelp()">${commonStr.userTutorial}</button>
-		</li>
-
-
-		<li class="layui-nav-item">
+		<li class="layui-nav-item" style="line-height:normal;">
 			<#if hasNewVersion == 1 && newVersion != null>
-				<button type="button" class="header-link-btn" onclick="showUpdate('${newVersion.version}','${newVersion.url}','${newVersion.docker}','${newVersion.update}')" style="font-weight: bold;color: red;">${commonStr.newVersion} ${newVersion.version}</button>
+				<div style="display:flex;align-items:center;height:60px;">
+					<button type="button" class="header-link-btn" onclick="showUpdate('${newVersion.version}','${newVersion.url}','${newVersion.docker}','${newVersion.update}')" style="font-weight: bold;color: red;">${commonStr.newVersion} ${newVersion.version}</button>
+				</div>
 			</#if>
-		</li>
-
-
-		<li class="layui-nav-item">
-			<button type="button" class="header-link-btn" onclick="loginOut()">${commonStr.exit}</button>
 		</li>
 	</ul>
 </div>
