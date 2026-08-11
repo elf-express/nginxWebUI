@@ -94,13 +94,15 @@ const PH_R = '@';
 const ph = (n) => `${PH_L}${n}${PH_R}`;
 const PH_RE = new RegExp(`${PH_L}\\s*(\\d+)\\s*${PH_R}`, 'g');
 
+// markdown 連結拆成三段：[ 和 ](url) 各自當佔位符，中間 label 照翻。
+// 整個連結包起來的話 label 就永遠翻不到（目錄頁整頁都是連結）；
+// 只遮 ](url) 又會留下孤立的 [，引擎會自己補一個 ] 造成錯位。
+const LINK_RE = /\[([^\]\n]*)\]\(([^)\s]*)\)/g;
+
 // 順序有意義：先吃掉大結構，再吃行內片段。
 const PROTECT_RULES = [
   /<[^>]+>/g,                                   // HTML 標籤
   /`[^`\n]*`/g,                                 // 反引號行內程式碼
-  // 整個 markdown 連結一起保護。只遮 ](url) 會留下孤立的 [，
-  // 翻譯引擎看到未閉合的括號會自己補一個 ]，還原後就多出一個。
-  /\[[^\]\n]*\]\([^)\s]*\)/g,
   /https?:\/\/\S+/g,                            // 裸 URL
   // 指令／模組名：proxy_pass、ngx_http_core_module。
   // 這批 md 的底線是跳脫過的（ngx\_mail\_smtp\_module），所以 \\? 不能省。
@@ -108,17 +110,25 @@ const PROTECT_RULES = [
   /&[a-z]+;|&#\d+;/gi,                          // HTML entity，例如 &nbsp;
 ];
 
+// 行首的 markdown 標記（#、-、1.、>）連同縮排整段切下來，永遠不送翻。
+// 引擎會吃掉它們：#### Example Configuration 被譯成「#配置示例」，標題層級就毀了。
+const PREFIX_RE = /^(?:\s*(?:#{1,6}|[-*+]|\d+\.|>)\s+)+/;
+
 function protect(line) {
   const slots = [];
-  let masked = line;
+  const push = (s) => { slots.push(s); return ph(slots.length - 1); };
+  const prefix = (PREFIX_RE.exec(line) || [''])[0];
+  let masked = line.slice(prefix.length);
+
+  masked = masked.replace(LINK_RE, (_, label, url) => `${push('[')}${label}${push(`](${url})`)}`);
+
   for (const re of PROTECT_RULES) {
     masked = masked.replace(re, (m) => {
       if (m.includes(PH_L)) return m;   // 已經是佔位符就別再包一層
-      slots.push(m);
-      return ph(slots.length - 1);
+      return push(m);
     });
   }
-  return { masked, slots };
+  return { prefix, masked, slots };
 }
 
 // 遮罩後剩不到兩個英文單字的行（例如 "Syntax: @0@ @1@;"）不送翻：
@@ -293,7 +303,7 @@ const count = (s, re) => (s.match(re) || []).length;
 // 只差兩個就整份 5000 行都不翻，太浪費）。
 function lineIsSafe(original, out, profile) {
   if (profile === 'nginx' && DAMAGE_PATTERNS.some((re) => re.test(out))) return false;
-  for (const re of [/`/g, /\[/g, /\]/g, /\]\(/g, /<[^>]+>/g]) {
+  for (const re of [/`/g, /\[/g, /\]/g, /\]\(/g, /<[^>]+>/g, /#/g]) {
     if (count(original, re) !== count(out, re)) return false;
   }
   if (count(out, /;/g) < count(original, /;/g)) return false;
@@ -361,8 +371,9 @@ async function translateFile(file, opt, engine) {
     if (opt.print > 0) {
       console.log(`\n── ${path.basename(file)} 前 ${opt.print} 行送翻內容 ──`);
       for (const i of targets.slice(0, opt.print)) {
-        const { masked, slots } = protect(lines[i]);
+        const { prefix, masked, slots } = protect(lines[i]);
         console.log(`  L${i + 1} 原文 : ${lines[i].slice(0, 150)}`);
+        console.log(`  L${i + 1} 前綴 : ${JSON.stringify(prefix)}（不送翻）`);
         console.log(`  L${i + 1} 送翻 : ${masked.slice(0, 150)}`);
         console.log(`  L${i + 1} 保護 : ${slots.length} 段 ${JSON.stringify(slots.slice(0, 6))}`);
       }
@@ -385,9 +396,10 @@ async function translateFile(file, opt, engine) {
     if (!out) continue;                                   // 引擎失敗 → 留原文
     const { text, ok } = restore(out, prepared[k].slots);
     if (!ok) { restoreFailed++; continue; }               // 佔位符沒歸位 → 留原文
+    const rebuilt = prepared[k].prefix + text;
     const before = lines[prepared[k].line];
-    if (!lineIsSafe(before, text, opt.profile)) { unsafe++; continue; }
-    lines[prepared[k].line] = text;
+    if (!lineIsSafe(before, rebuilt, opt.profile)) { unsafe++; continue; }
+    lines[prepared[k].line] = rebuilt;
     applied++;
   }
 
