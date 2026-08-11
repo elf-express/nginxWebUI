@@ -42,6 +42,7 @@ translate-docs.js — 保護程式碼的 markdown 批次翻譯工具
   --profile <name>   nginx(預設) 會額外檢查 nginx 專屬的譯壞特徵；none 關閉
   --limit <n>        最多處理 n 個檔案（試跑用）
   --concurrency <n>  同時處理幾個檔案，預設 2
+  --force            連手動校對過的檔案也重翻（預設會自動跳過保護）
   --dry-run          只統計不呼叫 API、不寫檔
   --print <n>        搭配 --dry-run，印出前 n 行實際送翻的遮罩結果
   -h, --help         顯示這份說明
@@ -58,13 +59,14 @@ function parseArgs(argv) {
   const opt = {
     dir: null, files: 'all', engine: 'tencent', lang: 'zh-TW',
     dryRun: false, limit: Infinity, concurrency: 2, print: 0,
-    match: null, recursive: true, profile: 'nginx',
+    match: null, recursive: true, profile: 'nginx', force: false,
   };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--dry-run') opt.dryRun = true;
     else if (a === '--help' || a === '-h') { console.log(USAGE); process.exit(0); }
     else if (a === '--no-recursive') opt.recursive = false;
+    else if (a === '--force') opt.force = true;
     else if (a === '--print') opt.print = parseInt(argv[++i], 10);
     else if (a === '--dir') opt.dir = argv[++i];
     else if (a === '--files') opt.files = argv[++i];
@@ -286,6 +288,18 @@ const DAMAGE_PATTERNS = [
 
 const count = (s, re) => (s.match(re) || []).length;
 
+// 行層級守恆檢查。放在這一層，壞的那一行退回原文就好，
+// 不必為了一行而放棄整個檔案（007page.md 有 2468 個反引號，
+// 只差兩個就整份 5000 行都不翻，太浪費）。
+function lineIsSafe(original, out, profile) {
+  if (profile === 'nginx' && DAMAGE_PATTERNS.some((re) => re.test(out))) return false;
+  for (const re of [/`/g, /\[/g, /\]/g, /\]\(/g, /<[^>]+>/g]) {
+    if (count(original, re) !== count(out, re)) return false;
+  }
+  if (count(out, /;/g) < count(original, /;/g)) return false;
+  return true;
+}
+
 function sanityCheck(original, translated, profile) {
   const problems = [];
 
@@ -319,6 +333,16 @@ async function translateFile(file, opt, engine) {
   // 備份跟著檔案所在目錄走，遞迴翻多層目錄時才不會互相蓋掉同名檔
   const backupDir = path.join(path.dirname(file), '.translate-backup');
   const backup = path.join(backupDir, path.basename(file));
+
+  // 上次腳本產出的版本。目前檔案若跟它不一樣，代表有人手動校對過，
+  // 這時絕不能從備份重翻覆蓋掉人工成果（--force 才強制蓋）。
+  const stamp = `${backup}.out`;
+  if (!opt.force && fs.existsSync(stamp)) {
+    const current = fs.readFileSync(file, 'utf8');
+    if (current !== fs.readFileSync(stamp, 'utf8')) {
+      return { file, translated: 0, candidates: 0, manualEdit: true };
+    }
+  }
 
   // 有備份就從備份讀，確保重跑冪等（不會拿譯文再翻一次）
   const source = fs.existsSync(backup) ? backup : file;
@@ -355,11 +379,14 @@ async function translateFile(file, opt, engine) {
 
   let applied = 0;
   let restoreFailed = 0;
+  let unsafe = 0;
   for (let k = 0; k < prepared.length; k++) {
     const out = results[k];
     if (!out) continue;                                   // 引擎失敗 → 留原文
     const { text, ok } = restore(out, prepared[k].slots);
     if (!ok) { restoreFailed++; continue; }               // 佔位符沒歸位 → 留原文
+    const before = lines[prepared[k].line];
+    if (!lineIsSafe(before, text, opt.profile)) { unsafe++; continue; }
     lines[prepared[k].line] = text;
     applied++;
   }
@@ -374,8 +401,9 @@ async function translateFile(file, opt, engine) {
     if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
     if (!fs.existsSync(backup)) fs.writeFileSync(backup, original, 'utf8');
     fs.writeFileSync(file, translated, 'utf8');
+    fs.writeFileSync(stamp, translated, 'utf8');   // 供下次比對，辨識人工校對
   }
-  return { file, translated: applied, candidates: prepared.length, restoreFailed };
+  return { file, translated: applied, candidates: prepared.length, restoreFailed, unsafe };
 }
 
 // ── 主流程 ────────────────────────────────────────────────────────────
@@ -423,7 +451,7 @@ async function main() {
   console.log(`引擎 ${engine.name} · 目標 ${opt.lang} · ${files.length} 個檔案${opt.dryRun ? ' · DRY RUN' : ''}`);
 
   const queue = [...files];
-  const summary = { done: 0, lines: 0, rolledBack: [], restoreFailed: 0, candidates: 0 };
+  const summary = { done: 0, lines: 0, rolledBack: [], restoreFailed: 0, candidates: 0, manualEdit: 0, unsafe: 0 };
 
   async function worker() {
     while (queue.length) {
@@ -433,7 +461,11 @@ async function main() {
       summary.lines += r.translated;
       summary.candidates += r.candidates;
       summary.restoreFailed += r.restoreFailed || 0;
-      if (r.rolledBack) {
+      summary.unsafe += r.unsafe || 0;
+      if (r.manualEdit) {
+        summary.manualEdit++;
+        console.log(`  - ${path.basename(file)} 已人工校對過，跳過（--force 可覆蓋）`);
+      } else if (r.rolledBack) {
         summary.rolledBack.push({ file: path.basename(file), problems: r.problems });
         console.log(`  x ${path.basename(file)} 回滾：${r.problems.join('；')}`);
       } else if (!opt.dryRun) {
@@ -450,6 +482,8 @@ async function main() {
   } else {
     console.log(`完成：${summary.done} 檔 / 譯出 ${summary.lines} 行 / 候選 ${summary.candidates} 行`);
     if (summary.restoreFailed) console.log(`佔位符還原失敗而保留原文：${summary.restoreFailed} 行`);
+    if (summary.unsafe) console.log(`行層級檢查不過而保留原文：${summary.unsafe} 行`);
+    if (summary.manualEdit) console.log(`已人工校對而跳過：${summary.manualEdit} 檔`);
     if (summary.rolledBack.length) console.log(`安全檢查回滾：${summary.rolledBack.length} 檔`);
     console.log('原文備份在各來源目錄下的 .translate-backup/（重跑會從備份讀，不會二次翻譯）');
   }
