@@ -1,0 +1,28 @@
+src/main/java/com/cym/config/InitConfig.java
+  s_492e18725e3eaa::t_d1ddec67e476bd 90-91
+  s_492e18725e3eaa::t_7d5ef17bb573be 33
+  s_492e18725e3eaa::t_54fcc7141870d2 454-458
+pom.xml
+  s_492e18725e3eaa::t_c98d2f0c01e450 28-33
+src/main/java/com/cym/config/AppFilter.java
+  s_492e18725e3eaa::t_df65753b89b322 90-110
+  s_492e18725e3eaa::t_0875c1f186dc37 14
+src/main/java/com/cym/mcp/NginxDocMcpServer.java
+  s_492e18725e3eaa::t_0a2aadd572ea3d 1-184
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "3334cbe76afa1cf96dd542e5b64118abe8bfd9b1",
+  "prompts": {},
+  "sessions": {
+    "s_492e18725e3eaa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0393758c-a272-4bb9-a97c-c1ed6354bc61",
+        "model": "claude-opus-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
