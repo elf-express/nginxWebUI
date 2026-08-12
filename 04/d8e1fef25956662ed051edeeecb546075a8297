@@ -1,0 +1,19 @@
+src/main/java/com/cym/utils/NetGuard.java
+  s_04d4411f7672c7::t_ded3d19d86dd53 1-88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "04d8e1fef25956662ed051edeeecb546075a8297",
+  "prompts": {},
+  "sessions": {
+    "s_04d4411f7672c7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-amcp-secondopinion-79af61039306d1ed",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
