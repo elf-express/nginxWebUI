@@ -87,4 +87,227 @@ public class NginxConfCheckerTest {
 				""";
 		assertEquals(List.of(), NginxConfChecker.check(conf, svc));
 	}
+
+	@Test
+	public void check_context寫any的指令到哪都合法() {
+		// include 是全語料唯一 context 為 any 的指令。照字面比對 contexts.contains("http") 會失敗,
+		// 而 include 幾乎出現在每一份 nginx.conf —— 這一條沒擋住,檢查器對任何真實設定都會噴錯。
+		String conf = """
+				include mime.types;
+				http {
+				    include realip.conf;
+				    server {
+				        include common.conf;
+				        location / {
+				            include proxy_params;
+				        }
+				    }
+				}
+				""";
+		assertEquals(List.of(), NginxConfChecker.check(conf, svc));
+	}
+
+	@Test
+	public void check_map區塊裡的對照資料不當成指令() {
+		// map / geo / types / charset_map / split_clients 的內容是「值對值」的資料,不是指令。
+		// 逐行當指令查會把 default、CN、'' 這些值報成拼錯的指令。
+		String conf = """
+				http {
+				    map $http_upgrade $connection_upgrade {
+				        default upgrade;
+				        ''      close;
+				    }
+				    geo $remote_addr $is_internal {
+				        default 0;
+				        10.0.0.0/8 1;
+				    }
+				    charset_map koi8-r utf-8 {
+				        C0  D18E;
+				    }
+				    split_clients "${remote_addr}" $variant {
+				        50%  .one;
+				        *    "";
+				    }
+				}
+				""";
+		assertEquals(List.of(), NginxConfChecker.check(conf, svc));
+	}
+
+	@Test
+	public void check_location裡的if區塊兩種context都收() {
+		// 官方對 if 用了兩個名字:rewrite 模組的 return/set 寫 if,另外 28 條(add_header、expires…)
+		// 寫 if in location。只認其中一個,另一半就會在同一個 if 區塊裡被誤判。
+		String conf = """
+				http {
+				    server {
+				        location / {
+				            if ($http_user_agent ~ MSIE) {
+				                add_header X-Legacy 1;
+				                return 403;
+				            }
+				        }
+				    }
+				}
+				""";
+		assertEquals(List.of(), NginxConfChecker.check(conf, svc));
+	}
+
+	@Test
+	public void check_server層的if不放行location專屬指令() {
+		// 「if 兩種 context 都收」不能退化成無條件放行:proxy_pass 只允許 location / if in location /
+		// limit_except,直接掛在 server 的 if 底下是真的錯,nginx 會拒絕啟動。
+		String conf = """
+				http {
+				    server {
+				        if ($host = old.example.com) {
+				            proxy_pass http://backend;
+				        }
+				    }
+				}
+				""";
+		List<String> problems = NginxConfChecker.check(conf, svc);
+		assertEquals(1, problems.size(), "實際:" + problems);
+		assertTrue(problems.get(0).contains("proxy_pass"), problems.get(0));
+	}
+
+	@Test
+	public void check_跨行字串的續行不當成指令() {
+		// log_format 是 ConfService 會寫進 http 的參數之一,而且幾乎一定跨行。續行以 '$status 開頭、
+		// 以 ; 結尾,形狀上就是一條指令 —— 但指令名不可能長這樣(語料 969 條全是 [a-z][a-z0-9_]*),
+		// 所以寧可閉嘴。沒有這一條會冒出「未知指令 '$status,是否想寫 status ?」。
+		String conf = """
+				http {
+				    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+				                    '$status $body_bytes_sent "$http_referer"';
+				}
+				""";
+		assertEquals(List.of(), NginxConfChecker.check(conf, svc));
+	}
+
+	@Test
+	public void check_本專案自己產生的設定零誤報() {
+		// 檢查器的第一個使用者是 nginxWebUI 自己。這份 conf 用的都是 ConfService / GeoipService
+		// 實際會寫出來的指令(limit_req_zone、set_real_ip_from、geoip2 map、if 國別阻擋、stream proxy_pass)。
+		// 這裡多出任何一則,就是使用者第一次用就會看到的誤報。
+		String conf = """
+				user  nginx;
+				worker_processes  auto;
+
+				events {
+				    worker_connections  1024;
+				}
+
+				http {
+				    include       mime.types;
+				    default_type  application/octet-stream;
+				    variables_hash_max_size 2048;
+
+				    limit_conn_zone $binary_remote_addr zone=conn_limit:10m;
+				    limit_req_zone $binary_remote_addr zone=req_limit:10m rate=10r/s;
+
+				    include realip.conf;
+				    set_real_ip_from 173.245.48.0/20;
+				    real_ip_header CF-Connecting-IP;
+				    real_ip_recursive on;
+
+				    allow 10.0.0.0/8;
+				    deny 45.148.10.0/24;
+
+				    geoip2 /etc/nginx/geoip/GeoLite2-Country.mmdb {
+				        auto_reload 60m;
+				        $geoip2_data_country_code country iso_code;
+				    }
+
+				    map $geoip2_data_country_code $geo_block_global {
+				        default 0;
+				        CN 1;
+				    }
+
+				    upstream backend {
+				        server 127.0.0.1:8080 weight=1 max_fails=2;
+				        keepalive 32;
+				    }
+
+				    server {
+				        listen 443 ssl;
+				        server_name example.com;
+				        ssl_certificate /home/nginxWebUI/cert/example.pem;
+				        ssl_certificate_key /home/nginxWebUI/cert/example.key;
+				        limit_req zone=req_limit burst=20 nodelay;
+				        limit_conn conn_limit 10;
+				        limit_req_status 429;
+
+				        if ($geo_block_global = 1) {
+				            return 403;
+				        }
+
+				        location / {
+				            proxy_pass http://backend;
+				            proxy_set_header Host $host;
+				            proxy_set_header X-Real-IP $remote_addr;
+				            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+				        }
+				    }
+				}
+
+				stream {
+				    limit_conn_zone $binary_remote_addr zone=s_conn_perip:10m;
+
+				    upstream tcp_backend {
+				        server 127.0.0.1:3306;
+				    }
+
+				    server {
+				        listen 3306;
+				        limit_conn s_conn_perip 10;
+				        proxy_pass tcp_backend;
+				    }
+				}
+				""";
+		assertEquals(List.of(), NginxConfChecker.check(conf, svc));
+	}
+
+	@Test
+	public void check_真的寫錯的設定一則都不能漏() {
+		// 上面那一堆「不要誤報」的規則,最容易的過關方式就是什麼都不報。這條反向對照
+		// 盯著另一邊:每一行都是 nginx 會直接拒絕啟動的錯,一則都不該被放行。
+		String conf = """
+				http {
+				    listen 80;
+				    worker_connections 1024;
+				    proxy_pass http://backend;
+				    server {
+				        proxy_pas http://backend;
+				    }
+				    upstream u {
+				        root /var/www;
+				    }
+				}
+				""";
+		List<String> problems = NginxConfChecker.check(conf, svc);
+		assertEquals(5, problems.size(), "實際:" + problems);
+		assertTrue(problems.get(0).startsWith("第 2 行: listen 不能用在 http"), problems.get(0));
+		assertTrue(problems.get(1).startsWith("第 3 行: worker_connections 不能用在 http"), problems.get(1));
+		assertTrue(problems.get(2).startsWith("第 4 行: proxy_pass 不能用在 http"), problems.get(2));
+		assertTrue(problems.get(3).startsWith("第 6 行: 未知指令 proxy_pas"), problems.get(3));
+		assertTrue(problems.get(4).startsWith("第 9 行: root 不能用在 upstream"), problems.get(4));
+		// 官方連結是使用者查證的唯一入口,訊息裡不能只有一句話。
+		assertTrue(problems.get(0).contains("https://nginx.org/"), problems.get(0));
+	}
+
+	@Test
+	public void check_右大括號後面帶註解仍然關掉區塊() {
+		// 漏掉這個 pop,後面每一行的 context 都會少算一層 —— listen 會被當成寫在 location 裡。
+		String conf = """
+				http {
+				    server {
+				        location / {
+				            proxy_pass http://backend;
+				        }  # end location
+				        listen 80;
+				    }
+				}
+				""";
+		assertEquals(List.of(), NginxConfChecker.check(conf, svc));
+	}
 }
