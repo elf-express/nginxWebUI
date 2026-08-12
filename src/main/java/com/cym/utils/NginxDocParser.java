@@ -10,10 +10,14 @@ import com.cym.model.NginxDirective;
 /**
  * 把抓取自 nginx.org 的 markdown 解析成指令定義。
  *
- * 全語料 947 個指令表格格式零變異,所以這裡不需要處理特例:
+ * 全語料 947 個指令表格格式零變異,表格本身不需要處理特例:
  *   <tr><th>Syntax:</th><td><code><strong>NAME</strong> ...;</code></td></tr>
  *   <tr><th>Default:</th><td><pre>VALUE</pre></td></tr>   (無預設值時是 —)
  *   <tr><th>Context:</th><td><code>ctx</code>, <code>ctx</code></td></tr>
+ *
+ * 但頁首的 Source 與 Module 標題有擷取畸形,各需一道防線:
+ *   - Source 可能被寫成 markdown 連結 [url](url) → 見 SOURCE 的 \[?
+ *   - Module 標題的底線可能被剝掉 → 見 moduleFromUrl 的 fallback
  *
  * 判斷「這是不是官方頁面」用內容特徵而非檔名:自寫文件放進同一目錄也不會污染指令索引。
  */
@@ -58,7 +62,7 @@ public class NginxDocParser {
 
 		Matcher mod = MODULE.matcher(markdown);
 		String module = mod.find() ? stripHtml(mod.group(1)) : "";
-		if (!module.matches("ngx_[a-z_]+_module")) {
+		if (!module.matches("ngx_[a-z0-9_]+_module")) {
 			String fromUrl = moduleFromUrl(sourceUrl);
 			if (!fromUrl.isEmpty()) {
 				module = fromUrl;

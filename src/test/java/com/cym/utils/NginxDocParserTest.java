@@ -61,7 +61,17 @@ public class NginxDocParserTest {
 		List<NginxDirective> list = NginxDocParser.parsePage(page("131page.md"));
 		NginxDirective d = list.stream().filter(x -> "pass".equals(x.name())).findFirst().orElseThrow();
 		assertEquals("ngx_stream_pass_module", d.module(), "標題底線被剝掉時應從 sourceUrl 推導");
+		// sourceUrl 必須是乾淨的 URL:若 SOURCE 的字元類被放寬成 \S+,這裡會抓進 ](...) 尾巴,
+		// 而 moduleFromUrl 仍會算出正確模組名 → 沒有這條斷言,髒 URL 會一路流進 MCP 回應。
+		assertEquals("https://nginx.org/en/docs/stream/ngx_stream_pass_module.html", d.sourceUrl());
 		assertTrue(d.contexts().contains("server"));
+	}
+
+	@Test
+	public void parsePage_非nginx官方網域的Source要被擋下() {
+		String md = "> Source: https://example.com/x\n\n<table cellspacing=\"0\"><tbody><tr><th>Syntax:</th>"
+				+ "<td><code><strong>fake</strong> on;</code></td></tr></tbody></table>";
+		assertTrue(NginxDocParser.parsePage(md).isEmpty());
 	}
 
 	@Test
