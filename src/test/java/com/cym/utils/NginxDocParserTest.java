@@ -234,6 +234,23 @@ public class NginxDocParserTest {
 	}
 
 	@Test
+	public void parsePage_fenced_block開頭的註解不可被當成語法() {
+		String md = FAKE_PAGE_HEADER + """
+				#### `fake_directive`
+
+				```nginx
+				# 範例說明:註解寫在範例開頭很常見
+				fake_directive on;
+				```
+
+				- 說明文字。
+				""";
+		// MCP 會把 syntax 當成權威的 nginx 語法餵給 AI。顯示成 `# 範例說明` 比顯示成空字串糟得多 ——
+		// 空字串至少誠實,錯值會被當真。與上面那條(註解在指令行之後)互補,鎖住 fence 內註解的前後兩種位置。
+		assertEquals("fake_directive on;", only(md).syntax());
+	}
+
+	@Test
 	public void parsePage_標題有多個括號時仍找得到context() {
 		String md = FAKE_PAGE_HEADER + """
 				#### `fake_directive`（1.3.0）（僅 `http`）

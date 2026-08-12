@@ -257,7 +257,12 @@ public class NginxDocParser {
 		return value.isEmpty() ? null : value;
 	}
 
-	/** 語法先看 - **語法：** 條列,沒有就取段落內第一個 fenced block 的第一行。 */
+	/**
+	 * 語法先看 - **語法：** 條列,沒有就取段落內第一個 fenced block 的第一行**實際指令**。
+	 *
+	 * 跳過 nginx `# 註解`:範例區塊開頭寫註解很常見,而 MCP 會把 syntax 當成權威語法餵給 AI。
+	 * 把註解當成語法比回空字串糟得多 —— 空字串至少誠實,錯值會被當真。
+	 */
 	private static String syntaxOf(String body) {
 		Matcher bullet = SYNTAX_BULLET.matcher(body);
 		if (bullet.find()) {
@@ -272,7 +277,7 @@ public class NginxDocParser {
 				inFence = true;
 				continue;
 			}
-			if (inFence && !line.isBlank()) {
+			if (inFence && !line.isBlank() && !line.trim().startsWith("#")) {
 				return line.trim();
 			}
 		}
