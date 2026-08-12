@@ -1,7 +1,9 @@
 package com.cym.controller.adminPage;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.noear.solon.annotation.Controller;
 import org.noear.solon.annotation.Inject;
@@ -16,6 +18,7 @@ import com.cym.service.DenyAllowService;
 import com.cym.service.GeoipService;
 import com.cym.service.SettingService;
 import com.cym.sqlhelper.bean.Page;
+import com.cym.utils.AsnSourceUrls;
 import com.cym.utils.BaseController;
 
 import cn.hutool.core.date.DateUtil;
@@ -62,6 +65,14 @@ public class ProtectionCertController extends BaseController {
 		}
 		modelAndView.put("certPage", certPage);
 		modelAndView.put("certKeywords", certKeywords);
+
+		// ASN tab: single-source external links (AsnSourceUrls)
+		Map<String, String> asnSourceUrls = new LinkedHashMap<>();
+		asnSourceUrls.put("lens", AsnSourceUrls.LENS_HOME);
+		asnSourceUrls.put("meta", AsnSourceUrls.REPO_AS_METADATA);
+		asnSourceUrls.put("blocks", AsnSourceUrls.REPO_AS_IP_BLOCKS);
+		asnSourceUrls.put("tools", AsnSourceUrls.REPO_TOOLS);
+		modelAndView.put("asnSourceUrls", asnSourceUrls);
 
 		modelAndView.view("/adminPage/protectionCert/index.html");
 		return modelAndView;
