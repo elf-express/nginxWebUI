@@ -373,6 +373,19 @@ public class NginxConfCheckerTest {
 		List<String> problems = NginxConfChecker.check(conf, svc);
 		assertEquals(1, problems.size(), "實際:" + problems);
 		assertTrue(problems.get(0).startsWith("第 3 行: root 不能用在 upstream"), problems.get(0));
+
+		// 跳脫的引號:少了跳脫處理,\" 會被當成關引號,後面的 # 就變註解,整行被砍成殘句而消失。
+		// 同樣用真的放錯層的 root 當探針 —— 抓不到就代表這一行沒能走完檢查。
+		String escaped = """
+				http {
+				    upstream u {
+				        root "a\\"b #1";
+				    }
+				}
+				""";
+		List<String> escapedProblems = NginxConfChecker.check(escaped, svc);
+		assertEquals(1, escapedProblems.size(), "實際:" + escapedProblems);
+		assertTrue(escapedProblems.get(0).startsWith("第 3 行: root 不能用在 upstream"), escapedProblems.get(0));
 	}
 
 	@Test
