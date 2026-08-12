@@ -48,9 +48,9 @@ server {
 
 ```nginx
 map $ssl_preread_alpn_protocols $proxy {
-    ~\\bh2\\b           127.0.0.1:8001;
-    ~\\bhttp/1.1\\b     127.0.0.1:8002;
-    ~\\bxmpp-client\\b  127.0.0.1:8003;
+    ~\bh2\b           127.0.0.1:8001;
+    ~\bhttp/1.1\b     127.0.0.1:8002;
+    ~\bxmpp-client\b  127.0.0.1:8003;
 }
 
 server {

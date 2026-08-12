@@ -56,7 +56,7 @@ http {
             my $ua = $r->header_in("User-Agent");
 
             return "" if $ua =~ /Opera/;
-            return "1" if $ua =~ / MSIE [6-9]\\.\\d+/;
+            return "1" if $ua =~ / MSIE [6-9]\.\d+/;
             return "";
         }
 
@@ -82,10 +82,10 @@ sub handler {
     $r->send_http_header("text/html");
     return OK if $r->header_only;
 
-    $r->print("hello!\\n<br/>");
+    $r->print("hello!\n<br/>");
 
     if (-f $r->filename or -d _) {
-        $r->print($r->uri, " exists!\\n");
+        $r->print($r->uri, " exists!\n");
     }
 
     return OK;
@@ -146,7 +146,7 @@ sub handler {
         return DECLINED;
     }
 
-    if ($r->has_request_body(**\\&post**)) {
+    if ($r->has_request_body(**\&post**)) {
         return OK;
     }
 
@@ -158,8 +158,8 @@ sub **post** {
 
     $r->send_http_header;
 
-    $r->print("request_body: \\"", $r->request_body, "\\"<br/>");
-    $r->print("request_body_file: \\"", $r->request_body_file, "\\"<br/>\\n");
+    $r->print("request_body: \"", $r->request_body, "\"<br/>");
+    $r->print("request_body_file: \"", $r->request_body_file, "\"<br/>\n");
 
     return OK;
 }
@@ -249,7 +249,7 @@ sub handler {
 
     $r->discard_request_body;
     $r->variable("var", "OK");
-    $r->sleep(1000, **\\&next**);
+    $r->sleep(1000, **\&next**);
 
     return OK;
 }

@@ -23,7 +23,7 @@
 #### 配置示例
 
 ```nginx
-location ~ \\.flv$ {
+location ~ \.flv$ {
     flv;
 }
 ```

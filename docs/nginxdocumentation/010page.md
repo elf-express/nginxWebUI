@@ -131,7 +131,7 @@ http {
             #rewrite_log  on;
 
             # rewrite /download/*/mp3/*.any_ext to /download/*/mp3/*.mp3
-            rewrite ^/(download/.*)/mp3/(.*)\\..*$
+            rewrite ^/(download/.*)/mp3/(.*)\..*$
                     /$1/mp3/$2.mp3                   break;
 
             root         /spool/www;
@@ -139,7 +139,7 @@ http {
             access_log   /var/log/nginx-download.access_log  download;
         }
 
-        location ~* \\.(jpg|jpeg|gif)$ {
+        location ~* \.(jpg|jpeg|gif)$ {
             root         /spool/www;
             access_log   off;
             expires      30d;

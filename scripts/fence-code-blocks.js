@@ -40,8 +40,12 @@ function splitBlocks(lines) {
 function stripQuote(line) {
   return line.replace(/^\s*>\s?/, '');
 }
+// CommonMark 的可跳脫字元集＝全部 ASCII 標點。fence 內沒有 markdown 語法，
+// 引用塊裡被 markdown 吃掉的每一個反斜線，進了 fence 都會變成畫面上的字元——
+// 只還原 \_ \* \[ \] \` 的話，nginx regex 的 \\. 會渲染成 \\.（068page.md:25 形態）。
+// 逐字左到右單趟替換，語意與 markdown 一致：\\\\d → \\d，不是 \d。
 function unescapeMd(s) {
-  return s.replace(/\\([_*[\]`])/g, '$1');
+  return s.replace(/\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g, '$1');
 }
 
 // 引用行 → 內容行。只剝一層 "> " 是刻意的：巢狀 `> >` 的內層 > 屬於內容本身
@@ -156,8 +160,10 @@ function fenceScan(lines) {
 
 // 指紋刻意自己寫一份剝除規則，不共用 stripQuote / unescapeMd：
 // 它是轉換的獨立對照組，共用同一份程式碼的話，剝除規則一起走錯也照樣對得起來。
+// 這兩份 pattern 必須與 stripQuote / unescapeMd 逐字元相同，但刻意各寫一份：
+// 改了一邊沒改另一邊，指紋當場對不起來、整批檔案退回，比兩邊一起走錯安全。
 const FP_QUOTE_RE = /^\s*>\s?/;
-const FP_ESCAPE_RE = /\\([_*[\]`])/g;
+const FP_ESCAPE_RE = /\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g;
 
 // 去掉所有標記與空白後的字元序列。轉換前後必須相同，
 // 這是「不動任何程式碼字元」這條約束的機器可驗形式。

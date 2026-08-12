@@ -68,8 +68,8 @@ CFLAGS='-fPIC' make libquickjs.a
 At the module compilation step, also specify the include (`-I`) and library (`-L`) paths with the `--with-cc-opt=` and `--with-ld-opt=` configuration parameters:
 
 ```bash
-./configure --add-module=`*path-to-njs*`/nginx \\
-    --with-cc-opt="-I `*path-to-quickjs*`" \\
+./configure --add-module=`*path-to-njs*`/nginx \
+    --with-cc-opt="-I `*path-to-quickjs*`" \
     --with-ld-opt="-L `*path-to-quickjs*`"
 ```
 

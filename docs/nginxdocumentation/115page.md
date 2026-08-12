@@ -1686,14 +1686,14 @@ By default all strings in njs are Unicode strings. They correspond to ECMAScript
 Byte strings contain a sequence of bytes and are used to serialize Unicode strings to external data and deserialize from external sources. For example, the [toUTF8()](https://nginx.org/en/docs/njs/reference.html#string_toutf8) method serializes a Unicode string to a byte string using UTF-8 encoding:
 
 ```
-\>> '£'.toUTF8().toString('hex')
+>> '£'.toUTF8().toString('hex')
 'c2a3'  /* C2 A3 is the UTF-8 representation of 00A3 ('£') code point */
 ```
 
 The [toBytes()](https://nginx.org/en/docs/njs/reference.html#string_tobytes) method serializes a Unicode string with code points up to 255 into a byte string, otherwise, `null` is returned:
 
 ```
-\>> '£'.toBytes().toString('hex')
+>> '£'.toBytes().toString('hex')
 'a3'  /* a3 is a byte equal to 00A3 ('£') code point  */
 ```
 
@@ -1726,14 +1726,14 @@ the property was made obsolete in [0.7.7](https://nginx.org/en/docs/njs/changes.
 the property was made obsolete in [0.7.7](https://nginx.org/en/docs/njs/changes.html#njs0.7.7) and was removed in [0.8.0](https://nginx.org/en/docs/njs/changes.html#njs0.8.0). Before [0.7.7](https://nginx.org/en/docs/njs/changes.html#njs0.7.7), encoded a string to `hex`, `base64`, or `base64url`:
 
 ```
-\>>  'αβγδ'.toString('base64url')
+>>  'αβγδ'.toString('base64url')
 'zrHOss6zzrQ'
 ```
 
 Before version [0.4.3](https://nginx.org/en/docs/njs/changes.html#njs0.4.3), only a [byte string](https://nginx.org/en/docs/njs/reference.html#string_tobytes) could be encoded:
 
 ```
-\>>  'αβγδ'.toUTF8().toString('base64url')
+>>  'αβγδ'.toUTF8().toString('base64url')
 'zrHOss6zzrQ'
 ```
 
@@ -1781,7 +1781,7 @@ Returns a string with the text decoded from the `buffer` by [`TextDecoder()`](ht
 boolean flag indicating if additional data will follow in subsequent calls to `decode()`: `true` if processing the data in chunks, and `false` for the final chunk or if the data is not chunked. By default is `false`.
 
 ```
-\>> (new TextDecoder()).decode(new Uint8Array([206,177,206,178]))
+>> (new TextDecoder()).decode(new Uint8Array([206,177,206,178]))
 αβ
 ```
 

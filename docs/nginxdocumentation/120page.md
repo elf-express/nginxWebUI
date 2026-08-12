@@ -265,7 +265,7 @@ It is also possible to use regular expressions in server names, preceding the na
 
 ```nginx
 server {
-    server_name www.example.com ~^www\\d+\\.example\\.com$;
+    server_name www.example.com ~^www\d+\.example\.com$;
 }
 ```
 
@@ -273,7 +273,7 @@ Regular expressions can contain captures that can later be used in other directi
 
 ```nginx
 server {
-    server_name ~^(www\\.)?(.+)$;
+    server_name ~^(www\.)?(.+)$;
 
     proxy_pass www.$2:12345;
 }
@@ -283,7 +283,7 @@ Named captures in regular expressions create variables that can later be used in
 
 ```nginx
 server {
-    server_name ~^(www\\.)?(?<domain>.+)$;
+    server_name ~^(www\.)?(?<domain>.+)$;
 
     proxy_pass www.$domain:12345;
 }

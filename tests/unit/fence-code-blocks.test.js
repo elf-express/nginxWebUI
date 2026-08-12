@@ -5,9 +5,13 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const {
-  splitBlocks, isCodeBlock, detectLanguage, toFence, stripQuote, convertFile,
+  splitBlocks, isCodeBlock, detectLanguage, toFence, stripQuote, unescapeMd, convertFile,
   parseArgs, selectFiles,
 } = require('../../scripts/fence-code-blocks.js');
+
+// 測試自己再寫一份剝除規則，跟 unescapeMd／FP_ESCAPE_RE 一樣刻意不共用：
+// 三份都得一起改錯，錯誤才有辦法溜過去。
+const UNESCAPE_RE = /\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g;
 
 const CLI = path.join(__dirname, '..', '..', 'scripts', 'fence-code-blocks.js');
 
@@ -246,6 +250,42 @@ test('toFence 還原 markdown 跳脫', () => {
   assert.strictEqual(out[1], 'output_buffers 1 64k;');
 });
 
+test('unescapeMd 還原整套 CommonMark ASCII 標點', () => {
+  // fence 內沒有 markdown 語法，引用塊裡被吃掉的每一個反斜線都得還原；
+  // 少還原一個，它就會變成畫面上的字元。
+  const punct = '!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~';
+  assert.strictEqual(punct.length, 32);
+  for (const c of punct) {
+    assert.strictEqual(unescapeMd('\\' + c), c, `\\${c} 沒有被還原`);
+  }
+});
+
+test('unescapeMd 不碰非標點的反斜線序列', () => {
+  // \d \w \n 是 regex 與 C 的跳脫，markdown 從來沒吃掉它們——
+  // 一起還原的話會把 nginx regex 改壞，那才是真的動到程式碼字元。
+  assert.strictEqual(unescapeMd('\\d\\w\\s\\n\\t'), '\\d\\w\\s\\n\\t');
+  assert.strictEqual(unescapeMd('location ~ \\d+'), 'location ~ \\d+');
+});
+
+test('unescapeMd 還原語料裡真實出現的四種形態', () => {
+  // 這四條是 fence 轉換留下的渲染退步，逐條對回原本引用塊的渲染結果。
+  // 068page.md:25 —— nginx regex，最痛的一種：\\. 會渲染成 \\.
+  assert.strictEqual(unescapeMd('~\\\\.google\\\\.;'), '~\\.google\\.;');
+  // 007page.md:310 —— C 字串裡的 regex，單趟替換所以 \\\\d 收斂到 \\d 而不是 \d
+  assert.strictEqual(unescapeMd('ngx_string("message (\\\\\\\\d)")'), 'ngx_string("message (\\\\d)")');
+  // 082page.md:204 —— 註解的 #
+  assert.strictEqual(unescapeMd('\\# status is 200'), '# status is 200');
+  // 115page.md:1689 —— njs REPL 的提示符
+  assert.strictEqual(unescapeMd("\\>> 'x'.toUTF8()"), ">> 'x'.toUTF8()");
+});
+
+test('unescapeMd 單趟替換：還原出來的反斜線不再被吃第二次', () => {
+  // \\_ 在 markdown 是「跳脫的反斜線」加上一個底線，渲染成 \_；
+  // 若做兩趟（或先窄後寬地疊加），會再吃掉一次變成 _，那是實打實的內容損壞。
+  assert.strictEqual(unescapeMd('\\\\_foo'), '\\_foo');
+  assert.strictEqual(unescapeMd('\\\\*'), '\\*');
+});
+
 test('toFence 無語言標註時不留多餘字元', () => {
   assert.strictEqual(toFence(['> plain text'], '')[0], '```');
 });
@@ -257,11 +297,18 @@ test('toFence 保留區塊內的空行', () => {
 });
 
 test('toFence 內容不變量：剝除標記後與原文逐字相同', () => {
-  const src = ['> server {', '>     grpc\\_pass 127.0.0.1:9000;', '> }'];
+  const src = [
+    '> server {',
+    '>     grpc\\_pass 127.0.0.1:9000;',
+    '>     server\\_name ~\\\\.example\\\\.com;',
+    '> }',
+  ];
   const out = toFence(src, 'nginx');
   const body = out.slice(1, -1).join('\n');
-  const expected = src.map((l) => l.replace(/^\s*>\s?/, '').replace(/\\([_*[\]`])/g, '$1')).join('\n');
+  const expected = src.map((l) => l.replace(/^\s*>\s?/, '').replace(UNESCAPE_RE, '$1')).join('\n');
   assert.strictEqual(body, expected);
+  // 兩邊都由 src 推導，所以順便釘住結果長什麼樣：nginx regex 要留住單一反斜線
+  assert.ok(body.includes('server_name ~\\.example\\.com;'));
 });
 
 test('stripQuote 只剝一層引用前綴', () => {
@@ -302,10 +349,30 @@ test('convertFile 跳過已有 fence 的區域', () => {
 });
 
 test('convertFile 內容守恆：所有非空白字元不增不減', () => {
+  // 這裡的 strip 兩邊都套一次還原，所以樣本不能留下殘餘的 \<標點>——
+  // 輸出那邊會被吃第二次。真正涵蓋殘餘跳脫的是下面那條指紋測試。
   const src = ['> server {', '>     grpc\\_pass 127.0.0.1:9000;', '> }'].join('\n');
   const r = convertFile(src);
-  const strip = (s) => s.replace(/```[a-z]*/g, '').replace(/^\s*>\s?/gm, '').replace(/\\([_*[\]`])/g, '$1').replace(/\s+/g, '');
+  const strip = (s) => s.replace(/```[a-z]*/g, '').replace(/^\s*>\s?/gm, '').replace(UNESCAPE_RE, '$1').replace(/\s+/g, '');
   assert.strictEqual(strip(r.text), strip(src));
+});
+
+test('convertFile 指紋跟得上加寬後的跳脫集合', () => {
+  // contentFingerprint 的 FP_ESCAPE_RE 是 unescapeMd 的刻意複本：兩邊必須同步。
+  // 只改一邊的話，輸入端的 \\. 不會被還原、輸出端 fence 內的 \. 原樣保留，
+  // 指紋當場對不起來 —— 整檔被判成「轉換改動了程式碼字元」而退回。
+  // 這條測試就是那個對照組的守門人。
+  const src = [
+    '> server {',
+    '>     valid\\_referers ~\\\\.google\\\\.;',
+    '>     # exit code is 200 or 204',
+    '> }',
+  ].join('\n');
+  const r = convertFile(src);
+  assert.deepStrictEqual(r.problems, []);
+  assert.strictEqual(r.converted, 1);
+  assert.ok(r.text.includes('valid_referers ~\\.google\\.;'));
+  assert.ok(!r.text.includes('\\\\.'));
 });
 
 test('convertFile 指紋不誤判巢狀引用：fence 內的 > 是內容不是引用標記', () => {

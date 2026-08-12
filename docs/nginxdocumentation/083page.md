@@ -525,11 +525,11 @@ Example:
 
 ```nginx
 map $cookie_jsessionid $route_cookie {
-    ~.+\\.(?P<route>\\w+)$ $route;
+    ~.+\.(?P<route>\w+)$ $route;
 }
 
 map $request_uri $route_uri {
-    ~jsessionid=.+\\.(?P<route>\\w+)$ $route;
+    ~jsessionid=.+\.(?P<route>\w+)$ $route;
 }
 
 upstream backend {

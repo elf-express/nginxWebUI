@@ -129,8 +129,8 @@ Example:
 ```nginx
 server {
     ...
-    rewrite ^(/download/.*)/media/(.*)\\..*$ $1/mp3/$2.mp3 last;
-    rewrite ^(/download/.*)/audio/(.*)\\..*$ $1/mp3/$2.ra  last;
+    rewrite ^(/download/.*)/media/(.*)\..*$ $1/mp3/$2.mp3 last;
+    rewrite ^(/download/.*)/audio/(.*)\..*$ $1/mp3/$2.ra  last;
     return  403;
     ...
 }
@@ -140,8 +140,8 @@ server {
 
 ```nginx
 location /download/ {
-    rewrite ^(/download/.*)/media/(.*)\\..*$ $1/mp3/$2.mp3 break;
-    rewrite ^(/download/.*)/audio/(.*)\\..*$ $1/mp3/$2.ra  break;
+    rewrite ^(/download/.*)/media/(.*)\..*$ $1/mp3/$2.mp3 break;
+    rewrite ^(/download/.*)/audio/(.*)\..*$ $1/mp3/$2.ra  break;
     return  403;
 }
 ```
@@ -182,7 +182,7 @@ location /download/ {
         limit_rate 10k;
     }
 
-    rewrite ^/(download/.*)/media/(.*)\\..*$ /$1/mp3/$2.mp3 break;
+    rewrite ^/(download/.*)/media/(.*)\..*$ /$1/mp3/$2.mp3 break;
 }
 ```
 
@@ -210,13 +210,13 @@ copy $2
 該指令
 
 ```nginx
-rewrite ^/(download/.*)/media/(.*)\\..*$ /$1/mp3/$2.mp3 break;
+rewrite ^/(download/.*)/media/(.*)\..*$ /$1/mp3/$2.mp3 break;
 ```
 
 如果正則表達式中的第一個斜槓放在括號內，則可以通過一條指令使其變小：
 
 ```nginx
-rewrite ^(**/**download/.*)/media/(.*)\\..*$ $1/mp3/$2.mp3 break;
+rewrite ^(**/**download/.*)/media/(.*)\..*$ $1/mp3/$2.mp3 break;
 ```
 
 相應的指令將如下所示：

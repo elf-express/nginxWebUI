@@ -201,7 +201,7 @@ If several tests are specified, the response matches only if it matches all test
 Examples:
 
 ```nginx
-\# status is 200, content type is "text/html",
+# status is 200, content type is "text/html",
 # and body contains "Welcome to nginx!"
 match welcome {
     status 200;
@@ -211,7 +211,7 @@ match welcome {
 ```
 
 ```nginx
-\# status is not one of 301, 302, 303, or 307, and header does not have "Refresh:"
+# status is not one of 301, 302, 303, or 307, and header does not have "Refresh:"
 match not_redirect {
     status ! 301-303 307;
     header ! Refresh;
@@ -219,7 +219,7 @@ match not_redirect {
 ```
 
 ```nginx
-\# status ok and not in maintenance mode
+# status ok and not in maintenance mode
 match server_ok {
     status 200-399;
     body !~ "maintenance mode";
@@ -227,7 +227,7 @@ match server_ok {
 ```
 
 ```nginx
-\# status is 200 or 204
+# status is 200 or 204
 map $upstream_status $good_status {
     200 1;
     204 1;

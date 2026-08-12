@@ -113,7 +113,7 @@ The `*path*` value can contain variables, except `$document_root` and `$realpath
 If `alias` is used inside a location defined with a regular expression then such regular expression should contain captures and `alias` should refer to these captures (0.7.40), for example:
 
 ```nginx
-location ~ ^/users/(.+\\.(?:gif|jpe?g|png))$ {
+location ~ ^/users/(.+\.(?:gif|jpe?g|png))$ {
     alias /data/w3/images/$1;
 }
 ```
@@ -680,7 +680,7 @@ location ^~ /images/ {
     [ configuration D ]
 }
 
-location ~* \\.(gif|jpg|jpeg)$ {
+location ~* \.(gif|jpg|jpeg)$ {
     [ configuration E ]
 }
 ```
@@ -973,7 +973,7 @@ It is also possible to use regular expressions in server names, preceding the na
 
 ```nginx
 server {
-    server_name www.example.com ~^www\\d+\\.example\\.com$;
+    server_name www.example.com ~^www\d+\.example\.com$;
 }
 ```
 
@@ -981,7 +981,7 @@ Regular expressions can contain captures (0.7.40) that can later be used in othe
 
 ```nginx
 server {
-    server_name ~^(www\\.)?(.+)$;
+    server_name ~^(www\.)?(.+)$;
 
     location / {
         root /sites/$2;
@@ -1001,7 +1001,7 @@ Named captures in regular expressions create variables (0.8.25) that can later b
 
 ```nginx
 server {
-    server_name ~^(www\\.)?(?<domain>.+)$;
+    server_name ~^(www\.)?(?<domain>.+)$;
 
     location / {
         root /sites/$domain;
@@ -1124,7 +1124,7 @@ location / {
     try_files $uri $uri/ @drupal;
 }
 
-location ~ \\.php$ {
+location ~ \.php$ {
     try_files $uri @drupal;
 
     fastcgi_pass ...;
@@ -1167,7 +1167,7 @@ location / {
 And here,
 
 ```nginx
-location ~ \\.php$ {
+location ~ \.php$ {
     try_files $uri @drupal;
 
     fastcgi_pass ...;
@@ -1187,7 +1187,7 @@ location / {
     try_files $uri $uri/ @wordpress;
 }
 
-location ~ \\.php$ {
+location ~ \.php$ {
     try_files $uri @wordpress;
 
     fastcgi_pass ...;

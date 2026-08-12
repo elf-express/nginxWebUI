@@ -580,8 +580,8 @@ fastcgi_pass unix:/tmp/fastcgi.socket;
 定義捕獲`$fastcgi_path_info`變量值的正則表達式。正則表達式應具有兩個捕獲：第一個捕獲為`$fastcgi_script_name`變量的值，第二個捕獲為`$fastcgi_path_info`變量的值。例如，使用以下設置
 
 ```nginx
-location ~ ^(.+\\.php)(.*)$ {
-    fastcgi_split_path_info       ^(.+\\.php)(.*)$;
+location ~ ^(.+\.php)(.*)$ {
+    fastcgi_split_path_info       ^(.+\.php)(.*)$;
     fastcgi_param SCRIPT_FILENAME /path/to/php$fastcgi_script_name;
     fastcgi_param PATH_INFO       $fastcgi_path_info;
 ```

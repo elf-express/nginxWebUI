@@ -22,7 +22,7 @@
 ```nginx
 >valid_referers沒有阻止server_names
                *. example.com example.* www.example.com
-               ~\\.google\\.;
+               ~\.google\.;
 
 if ($invalid_referer) {
     return 403;
@@ -74,7 +74,7 @@ Example:
 ```nginx
 >valid_referers沒有阻止server_names
                *. example.com example.* www.example.com
-               ~\\.google\\.;
+               ~\.google\.;
 ```
 
 #### 嵌入變量

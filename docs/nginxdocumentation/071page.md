@@ -66,7 +66,7 @@ location /s/ {
 在UNIX上，`*md5*`request參數值可以通過以下方式獲得：
 
 ```
-echo -n '2147483647/s/link127.0.0.1 secret'| \\
+echo -n '2147483647/s/link127.0.0.1 secret'| \
     openssl md5 -binary| openssl base64| tr +/ -_|tr -d =
 ```
 

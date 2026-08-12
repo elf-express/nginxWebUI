@@ -307,7 +307,7 @@ ngx_regex_compile_t   rc;
 
 u_char                errstr[NGX_MAX_CONF_ERRSTR];
 
-ngx_str_t  value = ngx_string("message (\\\\d\\\\d\\\\d).*Codeword is '(?<cw>\\\\w+)'");
+ngx_str_t  value = ngx_string("message (\\d\\d\\d).*Codeword is '(?<cw>\\w+)'");
 
 ngx_memzero(&rc, sizeof(ngx_regex_compile_t));
 
@@ -2098,7 +2098,7 @@ ngx_http_variable_request_set_size(ngx_http_request_t *r,
 
     if (s == NGX_ERROR) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
-                      "invalid size \\"%V\\"", &val);
+                      "invalid size \"%V\"", &val);
         return;
     }
 
@@ -3247,8 +3247,8 @@ Macro names start from `ngx_` or `NGX_` (or more specific) prefix. Macro names f
 
 #define ngx_buf_in_memory(b)  (b->temporary || b->memory || b->mmap)
 
-#define ngx_buf_size(b)                                                      \\
-    (ngx_buf_in_memory(b) ? (off_t) (b->last - b->pos):                      \\
+#define ngx_buf_size(b)                                                      \
+    (ngx_buf_in_memory(b) ? (off_t) (b->last - b->pos):                      \
                             (b->file_last - b->file_pos))
 
 #define ngx_null_string  { 0, NULL }
@@ -3434,7 +3434,7 @@ There is no space after the function name and opening parenthesis. Long function
 
 ```c
 ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
-               "http header: \\"%V: %V\\"",
+               "http header: \"%V: %V\"",
                &h->key, &h->value);
 
 hc->busy = ngx_palloc(r->connection->pool,

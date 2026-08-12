@@ -19,7 +19,7 @@ Windows版nginx使用原生Win32 API（不是Cygwin仿真層）。只有`select(
 要安裝nginx/Windows，[download](https://nginx.org/en/download.html)最新的主線版本發行版（1.31.3），因為nginx的主線分支包含所有已知的修復。然後解壓縮發行版，轉到nginx-1.31.3目錄，並運行`nginx`。下面是驅動器C：根目錄的示例：
 
 ```
-cd c:\\
+cd c:\
 unzip nginx-1.31.3.zip
 cd nginx-1.31.3
 >啟動nginx
@@ -28,7 +28,7 @@ cd nginx-1.31.3
 運行`tasklist`命令行工具查看nginx進程：
 
 ```
-C：\\nginx-1.31.3>tasklist /fi「imagine eq nginx.exe」
+C：\nginx-1.31.3>tasklist /fi「imagine eq nginx.exe」
 
 >圖片名稱           PID會話名稱     會話編號    內存使用
 =============== ======== ============== ========== ============

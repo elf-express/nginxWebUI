@@ -37,8 +37,8 @@ pid$target：：*ngx_http_process_request：條目
     this->request = (ngx_http_request_t *)copyin(arg0, sizeof(ngx_http_request_t));
     request_line =字符串of（copyin（（uintptr_t）this->request->request_line. data，
                                          this->request->request_line.len));
-    printf("request line = %s\\n", this->request_line);
-    printf("request start sec = %d\\n", this->request->start_sec);
+    printf("request line = %s\n", this->request_line);
+    printf("request start sec = %d\n", this->request->start_sec);
 }
 ```
 

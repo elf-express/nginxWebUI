@@ -67,7 +67,7 @@ $ cat >數據包. json <<EOF
   "license":     "some_license_here",
   「私有」：     說真，
   "scripts": {
-    「test」：「echo \\「錯誤：未指定測試\\」&& exit 1」
+    「test」：「echo \「錯誤：未指定測試\」&& exit 1」
   }
 }
 EOF
@@ -311,7 +311,7 @@ module.exports = {
     },
     module : {
         rules: [{
-            測試：/\\.m？js$$/，
+            測試：/\.m？js$$/，
             exclude: /(bower_components)/,
             use: {
                 裝載機：「巴比倫裝載機」，

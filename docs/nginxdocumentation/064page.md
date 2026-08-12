@@ -336,14 +336,14 @@ proxy_cookie_domain www.$host $host;
 The directive can also be specified using regular expressions. In this case, `*domain*` should start from the “`~`” symbol. A regular expression can contain named and positional captures, and `*replacement*` can reference them:
 
 ```nginx
-proxy_cookie_domain ~\\.(?P<sl_domain>[-0-9a-z]+\\.[a-z]+)$ $sl_domain;
+proxy_cookie_domain ~\.(?P<sl_domain>[-0-9a-z]+\.[a-z]+)$ $sl_domain;
 ```
 
 Several `proxy_cookie_domain` directives can be specified on the same level:
 
 ```nginx
 proxy_cookie_domain localhost example.org;
-proxy_cookie_domain ~\\.([a-z]+\\.[a-z]+)$ $1;
+proxy_cookie_domain ~\.([a-z]+\.[a-z]+)$ $1;
 ```
 
 If several directives can be applied to the cookie, the first matching directive will be chosen.
@@ -733,7 +733,7 @@ proxy_redirect http://$proxy_host:8000/ /;
 The directive can be specified (1.1.11) using regular expressions. In this case, `*redirect*` should either start with the “`~`” symbol for a case-sensitive matching, or with the “`~*`” symbols for case-insensitive matching. The regular expression can contain named and positional captures, and `*replacement*` can reference them:
 
 ```nginx
-proxy_redirect ~^(http://[^:]+):\\d+(/.+)$ $1$2;
+proxy_redirect ~^(http://[^:]+):\d+(/.+)$ $1$2;
 proxy_redirect ~*/user/([^/]+)/(.+)$      http://$1.example.com/$2;
 ```
 

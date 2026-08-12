@@ -146,7 +146,7 @@ upstream backend {
 }
 
 match http {
-    send     "GET / HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n";
+    send     "GET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
     expect ~ "200 OK";
 }
 
