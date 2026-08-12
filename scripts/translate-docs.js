@@ -42,6 +42,7 @@ translate-docs.js — 保護程式碼的 markdown 批次翻譯工具
   --profile <name>   nginx(預設) 會額外檢查 nginx 專屬的譯壞特徵；none 關閉
   --limit <n>        最多處理 n 個檔案（試跑用）
   --concurrency <n>  同時處理幾個檔案，預設 2
+  --repair           不翻譯，只用備份把被吃掉的行首標記補回來（零 API 呼叫）
   --force            連手動校對過的檔案也重翻（預設會自動跳過保護）
   --dry-run          只統計不呼叫 API、不寫檔
   --print <n>        搭配 --dry-run，印出前 n 行實際送翻的遮罩結果
@@ -59,7 +60,7 @@ function parseArgs(argv) {
   const opt = {
     dir: null, files: 'all', engine: 'tencent', lang: 'zh-TW',
     dryRun: false, limit: Infinity, concurrency: 2, print: 0,
-    match: null, recursive: true, profile: 'nginx', force: false,
+    match: null, recursive: true, profile: 'nginx', force: false, repair: false, stripNav: false,
   };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
@@ -67,6 +68,8 @@ function parseArgs(argv) {
     else if (a === '--help' || a === '-h') { console.log(USAGE); process.exit(0); }
     else if (a === '--no-recursive') opt.recursive = false;
     else if (a === '--force') opt.force = true;
+    else if (a === '--repair') opt.repair = true;
+    else if (a === '--strip-nav') opt.stripNav = true;
     else if (a === '--print') opt.print = parseInt(argv[++i], 10);
     else if (a === '--dir') opt.dir = argv[++i];
     else if (a === '--files') opt.files = argv[++i];
@@ -418,6 +421,63 @@ async function translateFile(file, opt, engine) {
   return { file, translated: applied, candidates: prepared.length, restoreFailed, unsafe };
 }
 
+// ── 結構修復（不呼叫任何 API）────────────────────────────────────────
+// 翻譯是逐行替換、行數守恆，所以譯文與備份的行號完全對齊。
+// 早期版本會讓引擎吃掉行首標記（#### Example Configuration → #配置示例），
+// 這裡直接把原文那一行的前綴取回來接上，不必重譯。
+function repairFile(file) {
+  const backup = path.join(path.dirname(file), '.translate-backup', path.basename(file));
+  if (!fs.existsSync(backup)) return { file, repaired: 0, skipped: true };
+
+  const orig = fs.readFileSync(backup, 'utf8').split('\n');
+  const cur = fs.readFileSync(file, 'utf8').split('\n');
+  if (orig.length !== cur.length) return { file, repaired: 0, misaligned: true };
+
+  let repaired = 0;
+  for (let i = 0; i < cur.length; i++) {
+    const wanted = (PREFIX_RE.exec(orig[i]) || [''])[0];
+    if (!wanted) continue;                     // 原文本來就沒有行首標記
+    const got = (PREFIX_RE.exec(cur[i]) || [''])[0];
+    let body = cur[i].slice(got.length);
+    // 引擎會把 #### 壓成 #（井號後沒有空白），PREFIX_RE 認不出來，
+    // 那個殘留的井號會被當成內容，補完前綴就變成 "#### #配置示例"。
+    if (wanted.includes('#')) body = body.replace(/^#+\s*/, '');
+    const fixed = wanted + body;
+    if (fixed === cur[i]) continue;
+    cur[i] = fixed;
+    repaired++;
+  }
+
+  if (repaired > 0) {
+    const out = cur.join('\n');
+    fs.writeFileSync(file, out, 'utf8');
+    const stamp = `${backup}.out`;
+    if (fs.existsSync(stamp)) fs.writeFileSync(stamp, out, 'utf8');
+  }
+  return { file, repaired };
+}
+
+// ── 移除頁內導覽表格（抓取殘渣）──────────────────────────────────────
+// nginx.org 每頁開頭有一個 <table width="100%"> 導覽列，整排連到站台其他頁，
+// 內容與下方的 ## 目錄 完全重複。指令語法表格是 <table cellspacing="0">，
+// 那是文件核心，絕對不能碰 —— 兩者只差屬性，比對必須精確。
+const NAV_TABLE_RE = /^<table\s+width="100%">.*<\/table>$/;
+
+function stripNav(file) {
+  const text = fs.readFileSync(file, 'utf8');
+  const lines = text.split('\n');
+  const kept = lines.filter((l) => !NAV_TABLE_RE.test(l.trim()));
+  if (kept.length === lines.length) return { file, removed: 0 };
+
+  // 刪行後可能留下連續空行，壓成一個
+  const out = kept.join('\n').replace(/\n{3,}/g, '\n\n');
+  fs.writeFileSync(file, out, 'utf8');
+
+  const stamp = path.join(path.dirname(file), '.translate-backup', `${path.basename(file)}.out`);
+  if (fs.existsSync(stamp)) fs.writeFileSync(stamp, out, 'utf8');
+  return { file, removed: lines.length - kept.length };
+}
+
 // ── 主流程 ────────────────────────────────────────────────────────────
 // 遞迴列出所有 markdown。以 . 開頭的目錄一律跳過，備份目錄才不會被回頭再翻一次。
 function listMarkdown(dir, recursive) {
@@ -456,6 +516,31 @@ function selectFiles(opt) {
 
 async function main() {
   const opt = parseArgs(process.argv);
+
+  if (opt.stripNav) {
+    let total = 0;
+    let touched = 0;
+    for (const f of selectFiles(opt).slice(0, opt.limit)) {
+      const r = stripNav(f);
+      if (r.removed > 0) { touched++; total += r.removed; }
+    }
+    console.log(`移除導覽表格：${touched} 檔 / ${total} 行（語法表格未動）`);
+    return;
+  }
+
+  if (opt.repair) {
+    const targets = selectFiles(opt).slice(0, opt.limit);
+    let total = 0;
+    let touched = 0;
+    for (const f of targets) {
+      const r = repairFile(f);
+      if (r.misaligned) { console.log(`  ! ${path.basename(f)} 與備份行數不符，跳過`); continue; }
+      if (r.repaired > 0) { touched++; total += r.repaired; console.log(`  o ${path.basename(f)} 補回 ${r.repaired} 個行首標記`); }
+    }
+    console.log(`\n修復完成：${touched} 檔 / ${total} 行（未呼叫翻譯 API）`);
+    return;
+  }
+
   const engine = Engine[opt.engine];
   if (!engine) throw new Error(`未知引擎：${opt.engine}（可用：${Object.keys(Engine).join(', ')}）`);
 
