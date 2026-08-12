@@ -17,11 +17,26 @@ public class AsnBlockServiceTest {
 	}
 
 	@Test
+	public void reasonTag_acceptsAsPrefix() {
+		assertEquals("nginxwebui:as-ban:AS51167", AsnBlockService.reasonTagForAsn("AS51167"));
+		assertEquals("nginxwebui:as-ban:AS51167", AsnBlockService.reasonTagForAsn("51167"));
+		assertEquals("nginxwebui:as-ban:AS51167", AsnBlockService.reasonTagForAsn("as51167"));
+		assertEquals("nginxwebui:as-ban:AS51167", AsnBlockService.reasonTagForAsn(" AS51167 "));
+	}
+
+	@Test
 	public void reasonTag_rejectsNonDigits() {
-		assertThrows(IllegalArgumentException.class, () -> AsnBlockService.reasonTagForAsn("AS51167"));
-		assertThrows(IllegalArgumentException.class, () -> AsnBlockService.reasonTagForAsn(""));
-		assertThrows(IllegalArgumentException.class, () -> AsnBlockService.reasonTagForAsn(null));
-		assertThrows(IllegalArgumentException.class, () -> AsnBlockService.reasonTagForAsn("51-167"));
+		IllegalArgumentException e1 = assertThrows(IllegalArgumentException.class,
+				() -> AsnBlockService.reasonTagForAsn(""));
+		assertEquals("invalid_asn", e1.getMessage());
+		IllegalArgumentException e2 = assertThrows(IllegalArgumentException.class,
+				() -> AsnBlockService.reasonTagForAsn(null));
+		assertEquals("invalid_asn", e2.getMessage());
+		IllegalArgumentException e3 = assertThrows(IllegalArgumentException.class,
+				() -> AsnBlockService.reasonTagForAsn("51-167"));
+		assertEquals("invalid_asn", e3.getMessage());
+		assertThrows(IllegalArgumentException.class, () -> AsnBlockService.reasonTagForAsn("AS"));
+		assertThrows(IllegalArgumentException.class, () -> AsnBlockService.reasonTagForAsn("ASN51167"));
 	}
 
 	@Test

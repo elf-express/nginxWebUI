@@ -10,6 +10,7 @@ import com.cym.model.AsBlockIntent;
 import com.cym.sqlhelper.utils.ConditionAndWrapper;
 import com.cym.sqlhelper.utils.SqlHelper;
 import com.cym.utils.AsnSourceUrls;
+import com.cym.utils.NetGuard;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.http.HttpRequest;
@@ -73,15 +74,17 @@ public class AsnBlockService {
 
 	/**
 	 * Stable CrowdSec decision reason tag: {@code nginxwebui:as-ban:AS{digits}}.
+	 * Accepts pure digits or {@code AS}-prefixed form via {@link AsnSourceUrls#digits}.
 	 *
-	 * @throws IllegalArgumentException if asn is not pure digits
+	 * @throws IllegalArgumentException {@code invalid_asn} if asn cannot be normalized
 	 */
 	public static String reasonTagForAsn(String asn) {
-		String a = asn == null ? "" : asn.trim();
-		if (!a.matches("\\d+")) {
-			throw new IllegalArgumentException("invalid asn");
+		try {
+			String a = AsnSourceUrls.digits(asn);
+			return WEBUI_ASN_REASON_PREFIX + a;
+		} catch (IllegalArgumentException e) {
+			throw new IllegalArgumentException("invalid_asn");
 		}
-		return WEBUI_ASN_REASON_PREFIX + a;
 	}
 
 	// ── profile settings ───────────────────────────────────────────────
@@ -131,24 +134,30 @@ public class AsnBlockService {
 	 * Create a pending ASN ban intent. Profile must allow create.
 	 *
 	 * @throws IllegalStateException if profile is light
-	 * @throws IllegalArgumentException if asn is not digits
+	 * @throws IllegalArgumentException {@code invalid_asn} or {@code invalid_duration}
 	 */
 	public AsBlockIntent addIntent(String asn, String duration, String note) {
 		String profile = getProfile();
 		if (!canCreateIntentForProfile(profile)) {
 			throw new IllegalStateException("profile_disallows_intent");
 		}
-		if (asn == null) {
+		try {
+			asn = AsnSourceUrls.digits(asn);
+		} catch (IllegalArgumentException e) {
 			throw new IllegalArgumentException("invalid_asn");
 		}
-		asn = asn.trim();
-		if (!asn.matches("\\d+")) {
-			throw new IllegalArgumentException("invalid_asn");
+		String dur;
+		if (StrUtil.isBlank(duration)) {
+			dur = "24h";
+		} else if (!NetGuard.isValidDuration(duration)) {
+			throw new IllegalArgumentException("invalid_duration");
+		} else {
+			dur = duration.trim();
 		}
 		AsBlockIntent i = new AsBlockIntent();
 		i.setAsn(asn);
 		i.setStatus(AsBlockIntent.STATUS_PENDING);
-		i.setDuration(StrUtil.blankToDefault(duration, "24h"));
+		i.setDuration(dur);
 		i.setReasonTag(reasonTagForAsn(asn));
 		i.setCreatedByProfile(profile);
 		i.setNote(note);
@@ -196,7 +205,10 @@ public class AsnBlockService {
 					if (s.isEmpty() || s.startsWith("#")) {
 						continue;
 					}
-					out.add(s);
+					// only real CIDR / IP lines — skip garbage feed rows
+					if (NetGuard.isValidCidr(s)) {
+						out.add(s);
+					}
 				}
 			} catch (Exception e) {
 				// one family fail must not block the other
@@ -230,6 +242,14 @@ public class AsnBlockService {
 		intent.setLastError("");
 		sqlHelper.updateAllColumnById(intent);
 
+		String duration = intent.getDuration();
+		if (!NetGuard.isValidDuration(duration)) {
+			intent.setStatus(AsBlockIntent.STATUS_FAILED);
+			intent.setLastError("invalid_duration");
+			sqlHelper.updateAllColumnById(intent);
+			return;
+		}
+
 		String batchId = String.valueOf(System.currentTimeMillis());
 		List<String> cidrs = fetchAggregatedCidrs(intent.getAsn());
 		if (cidrs.isEmpty()) {
@@ -242,8 +262,12 @@ public class AsnBlockService {
 		int ok = 0;
 		String lastErr = null;
 		for (String cidr : cidrs) {
+			// double-guard: feed already filtered; skip if anything slips through
+			if (!NetGuard.isValidCidr(cidr)) {
+				continue;
+			}
 			try {
-				crowdSecClient.banRange(cidr, intent.getDuration(), reason);
+				crowdSecClient.banRange(cidr, duration, reason);
 				ok++;
 			} catch (Exception e) {
 				lastErr = e.getMessage();

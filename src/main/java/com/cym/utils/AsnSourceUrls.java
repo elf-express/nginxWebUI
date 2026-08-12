@@ -43,7 +43,12 @@ public final class AsnSourceUrls {
 		return AS_IP_BLOCKS_AS_BASE + digits(asn) + "/aggregated.json";
 	}
 
-	private static String digits(String asn) {
+	/**
+	 * Normalize ASN to pure digits. Accepts optional {@code AS}/{@code as} prefix.
+	 *
+	 * @throws IllegalArgumentException if null or not digits after strip
+	 */
+	public static String digits(String asn) {
 		if (asn == null) {
 			throw new IllegalArgumentException("asn null");
 		}
