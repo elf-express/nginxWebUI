@@ -1,0 +1,23 @@
+src/main/java/com/cym/service/AsnBlockService.java
+  s_492e18725e3eaa::t_99759069a7d69b 13,77,79,82-86,137,144-146,149-155,160,208-211,245-252,265-268,270
+src/main/java/com/cym/utils/AsnSourceUrls.java
+  s_492e18725e3eaa::t_d481cf4a449eea 46-51
+src/test/java/com/cym/service/AsnBlockServiceTest.java
+  s_492e18725e3eaa::t_400c8a606d4fcc 19-26,29-39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "4850623bd8ce64421753b29e2ca24ca44f2b3e44",
+  "prompts": {},
+  "sessions": {
+    "s_492e18725e3eaa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0393758c-a272-4bb9-a97c-c1ed6354bc61",
+        "model": "claude-opus-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
