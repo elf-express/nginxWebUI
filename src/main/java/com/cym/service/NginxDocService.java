@@ -171,4 +171,58 @@ public class NginxDocService {
 	public Set<String> knownContexts() {
 		return new LinkedHashSet<>(byContext.keySet());
 	}
+
+	/**
+	 * 候選建議:前綴相符、子字串相符、編輯距離 <= 2,依此優先序取前 8 筆。
+	 *
+	 * 走 byName 的 key 而不是 value:122 個名字同時存在於多個模組,列 value 會讓同一個名字
+	 * 重複出現三次,把 8 筆額度吃光。
+	 *
+	 * 前綴要排在子字串前面,否則 8 筆額度會被別的模組吃光:ssl_certificat 的子字串命中
+	 * 從 grpc_ssl_certificate 開始有十幾個,使用者要的 ssl_certificate_key 反而被擠掉。
+	 */
+	public List<String> suggest(String name) {
+		if (name == null || name.isBlank()) {
+			return List.of();
+		}
+		String q = name.trim().toLowerCase(Locale.ROOT);
+		List<String> prefix = new ArrayList<>();
+		List<String> substring = new ArrayList<>();
+		List<String> near = new ArrayList<>();
+		for (String key : byName.keySet()) {
+			String k = key.toLowerCase(Locale.ROOT);
+			if (k.startsWith(q)) {
+				prefix.add(key);
+			} else if (k.contains(q)) {
+				substring.add(key);
+			} else if (editDistance(k, q) <= 2) {
+				near.add(key);
+			}
+		}
+		// 三個 bucket 互斥(if/else if),接起來不會有重複
+		List<String> out = new ArrayList<>(prefix);
+		out.addAll(substring);
+		out.addAll(near);
+		return List.copyOf(out.size() > 8 ? out.subList(0, 8) : out);
+	}
+
+	/** Levenshtein 距離,只用於候選建議,語料規模(947)下的 O(n*m) 完全足夠。 */
+	private static int editDistance(String a, String b) {
+		int[] prev = new int[b.length() + 1];
+		int[] cur = new int[b.length() + 1];
+		for (int j = 0; j <= b.length(); j++) {
+			prev[j] = j;
+		}
+		for (int i = 1; i <= a.length(); i++) {
+			cur[0] = i;
+			for (int j = 1; j <= b.length(); j++) {
+				int cost = a.charAt(i - 1) == b.charAt(j - 1) ? 0 : 1;
+				cur[j] = Math.min(Math.min(cur[j - 1] + 1, prev[j] + 1), prev[j - 1] + cost);
+			}
+			int[] t = prev;
+			prev = cur;
+			cur = t;
+		}
+		return prev[b.length()];
+	}
 }

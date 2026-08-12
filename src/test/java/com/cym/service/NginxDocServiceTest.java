@@ -89,6 +89,36 @@ public class NginxDocServiceTest {
 	}
 
 	@Test
+	public void suggest_拼錯時給出正確候選() {
+		assertTrue(svc.suggest("proxy_pas").contains("proxy_pass"));
+		assertTrue(svc.suggest("proxy_read_timout").contains("proxy_read_timeout"));
+	}
+
+	@Test
+	public void suggest_前綴相符也算候選() {
+		assertTrue(svc.suggest("proxy_read").contains("proxy_read_timeout"));
+	}
+
+	@Test
+	public void suggest_前綴候選排在子字串候選之前() {
+		// ssl_certificat 的子字串命中(grpc_/proxy_/uwsgi_/zone_sync_ 開頭)有十幾個,沒有前綴優先
+		// 就會把使用者真正要的 ssl_certificate_key 擠出 8 筆之外。
+		List<String> hits = svc.suggest("ssl_certificat");
+		assertTrue(hits.contains("ssl_certificate_key"), "實際回傳:" + hits);
+		assertTrue(hits.get(0).startsWith("ssl_certificat"), "第一筆該是前綴相符,實際:" + hits);
+	}
+
+	@Test
+	public void suggest_最多八筆() {
+		assertTrue(svc.suggest("proxy").size() <= 8);
+	}
+
+	@Test
+	public void suggest_完全不相干時回空() {
+		assertTrue(svc.suggest("zzzzzzzzzz").isEmpty());
+	}
+
+	@Test
 	public void loadFromClasspath_語料真的在classpath裡() {
 		NginxDocService fromCp = new NginxDocService();
 		fromCp.loadFromClasspath();
