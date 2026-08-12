@@ -81,6 +81,19 @@ public class NginxDocMcpServerTest {
 		assertFalse(out.contains("可用 context:\n"), out);
 	}
 
+	/**
+	 * 沒問題時的措辭不能退回「未發現問題。」。
+	 *
+	 * 檢查器刻意「寧可漏不可誤」,有四類已知漏報;講成保證會讓 AI 把「我們查不出問題」
+	 * 讀成「這份設定正確」,而那正是最貴的一種誤導。
+	 */
+	@Test
+	public void 沒問題時的措辭不得講成保證() {
+		String out = server.nginx_check_config("http {\n  server {\n    listen 80;\n  }\n}\n");
+		assertTrue(out.contains("不代表設定完全正確"), out);
+		assertFalse(out.equals("未發現問題。"), out);
+	}
+
 	/** 清單型輸出在 syntax 為空時只印名字,不留懸空的破折號。 */
 	@Test
 	public void 清單列的空語法不留懸空破折號() {
@@ -158,5 +171,18 @@ public class NginxDocMcpServerTest {
 	@Test
 	public void token設定鍵維持mcp_token() {
 		assertEquals("mcp.token", NginxDocMcpServer.TOKEN_KEY);
+	}
+
+	/**
+	 * ENDPOINT 必須全小寫。
+	 *
+	 * AppFilter 比對的是 {@code ctx.path().toLowerCase()};常數若含大寫,startsWith 恆為 false,
+	 * 端點照樣掛得起來但認證閘完全失效 —— 這是 fail-open,比 token key 改錯嚴重得多
+	 * (那個只會 404)。所以這條不是風格檢查,是安全不變式。
+	 */
+	@Test
+	public void 端點路徑必須全小寫否則認證閘失效() {
+		assertEquals(NginxDocMcpServer.ENDPOINT.toLowerCase(), NginxDocMcpServer.ENDPOINT);
+		assertTrue(NginxDocMcpServer.ENDPOINT.startsWith("/"), NginxDocMcpServer.ENDPOINT);
 	}
 }

@@ -48,6 +48,16 @@ import cn.hutool.json.JSONUtil;
 
 @Component
 public class AppFilter implements Filter {
+	/**
+	 * MCP 端點的比對前綴。
+	 *
+	 * 這裡的 path 是 {@code ctx.path().toLowerCase()},所以常數也要小寫才比得中 ——
+	 * {@link NginxDocMcpServer#ENDPOINT} 的 javadoc 已要求全小寫,這裡再 toLowerCase() 一次
+	 * 當作第二道保險:萬一有人把常數改成含大寫,認證閘會失效成 fail-open(端點掛著但沒人守)。
+	 * 只算一次,不要在請求路徑上重複呼叫。
+	 */
+	private static final String MCP_PATH_PREFIX = NginxDocMcpServer.ENDPOINT.toLowerCase();
+
 	Logger logger = LoggerFactory.getLogger(this.getClass());
 	@Inject
 	AdminService adminService;
@@ -102,13 +112,14 @@ public class AppFilter implements Filter {
 		// 讀取方式必須與 NginxDocMcpServer 的 @Condition 一致(同一個常數、同一個 getByExpr)。
 		// Solon 的 cfg().get() 不查環境變數而 getByExpr() 會 —— 兩邊用不同讀法時,
 		// 若有人用環境變數設 token,會變成 bean 有註冊、log 也印了端點,但這裡認為沒設而永遠回 404。
-		if (path.startsWith("/mcp")) {
+		if (path.startsWith(MCP_PATH_PREFIX)) {
 			String expected = Solon.cfg().getByExpr(NginxDocMcpServer.TOKEN_KEY);
 			if (StrUtil.isEmpty(expected)) {
 				ctx.status(404);
-				// 空 body 的 404/401 極難查(brief 自己就吐槽過),明講原因與開啟方式。
-				ctx.output("MCP 端點未啟用:未設定 " + NginxDocMcpServer.TOKEN_KEY
-						+ "。啟動時加上 --mcp.token=<token> 即可開啟 /mcp。\n");
+				// 只說「未啟用」,不吐旗標名:匿名一次 GET 就能問出「這台是什麼、有什麼功能、
+				// 旗標叫什麼」是不必要的資訊揭露。啟用方式屬於文件,不屬於匿名回應。
+				ctx.contentType("text/plain;charset=utf-8");
+				ctx.output("MCP 端點未啟用。\n");
 				ctx.setHandled(true);
 				return;
 			}
@@ -119,7 +130,13 @@ public class AppFilter implements Filter {
 					auth.getBytes(StandardCharsets.UTF_8),
 					("Bearer " + expected).getBytes(StandardCharsets.UTF_8))) {
 				ctx.status(401);
-				ctx.output("MCP 端點需要認證:請帶 header `Authorization: Bearer <mcp.token>`。\n");
+				// 401 保留說明:對方既然走到這裡就已經知道端點存在,告訴他該帶什麼 header
+				// 是標準做法,而空 body 的 401 極難查(brief 自己就吐槽過)。
+				// contentType 必須明寫:ctx.output(String) 只做 getBytes(charset),完全不設
+				// content type,瀏覽器與非 UTF-8 主控台(例如 Windows cmd)會把中文顯示成亂碼,
+				// 正好抵銷掉加 body 的用意。
+				ctx.contentType("text/plain;charset=utf-8");
+				ctx.output("MCP 端點需要認證:請帶 header `Authorization: Bearer <token>`。\n");
 				ctx.setHandled(true);
 				return;
 			}
@@ -127,15 +144,19 @@ public class AppFilter implements Filter {
 
 		// 全局过滤器
 		// 排除 /mcp:通過認證後執行會落到這裡,而 frontInterceptor 準備的是 Freemarker 頁面要的
-		// ctx 屬性(DB 查詢 + O(messageHeaders × messages) 的 i18n 建表),JSON-RPC 回應一個都用不到。
-		// 不排除的話每次成功的 tool call 都白付這筆成本,而且會走到 :330 那個既有的 lang 為
-		// 非預期值時 properties 為 null 的 NPE 路徑上。
+		// ctx 屬性(DB 查詢 + O(messageHeaders × messages) 的 i18n 建表),JSON-RPC 回應一個都用不到
+		// (反編譯 solon-ai-mcp 全部 class 掃過 Context.attr(單鍵),命中 0)。
+		// 也順帶讓 /mcp 不會走到 :330 那個既有陷阱(lang 為非預期值時 properties 為 null → NPE)。
+		//
+		// 註:這裡省不掉 session。SOLONID 是 Solon 對「沒帶有效 session cookie 的請求」一律發的,
+		// 與走不走 frontInterceptor 無關 —— 實測 /css/ 這種本來就跳過 frontInterceptor 的路徑
+		// 同樣會收到 Set-Cookie。要讓 /mcp 真的不發 session cookie 得另外處理,不在本次範圍。
 		if (!path.contains("/lib/") //
 				&& !path.toLowerCase().contains("/js/") //
 				&& !path.toLowerCase().contains("/doc/") //
 				&& !path.toLowerCase().contains("/img/") //
 				&& !path.toLowerCase().contains("/css/") //
-				&& !path.startsWith("/mcp")) {
+				&& !path.startsWith(MCP_PATH_PREFIX)) {
 			frontInterceptor(ctx);
 		}
 

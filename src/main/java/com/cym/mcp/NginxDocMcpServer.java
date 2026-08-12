@@ -35,9 +35,22 @@ import com.cym.utils.NginxConfChecker;
  * (AppFilter 的 404 仍然保留:兩道各自獨立,任一道失效都還擋得住。)
  */
 @Condition(onProperty = NginxDocMcpServer.TOKEN_KEY)
-@McpServerEndpoint(channel = McpChannel.STREAMABLE_STATELESS, mcpEndpoint = "/mcp", name = "nginx-docs")
+@McpServerEndpoint(channel = McpChannel.STREAMABLE_STATELESS, mcpEndpoint = NginxDocMcpServer.ENDPOINT, name = "nginx-docs")
 public class NginxDocMcpServer {
 	private static final Logger logger = LoggerFactory.getLogger(NginxDocMcpServer.class);
+
+	/**
+	 * 端點路徑。router 掛 handler 與 AppFilter 認證都用這一個常數,不可在任一邊寫死字面值。
+	 *
+	 * <p><b>必須全小寫。</b>AppFilter 比對的是 {@code ctx.path().toLowerCase()},常數若含大寫,
+	 * {@code startsWith} 會恆為 false —— 端點照樣掛得起來、但認證閘完全失效,變成未認證即可存取。
+	 * (AppFilter 那邊另外再 toLowerCase() 一次作為第二道保險,但不要依賴它而在這裡寫大寫。)
+	 *
+	 * <p>這個常數比 {@link #TOKEN_KEY} 更不能半套改名:token key 只改一半的後果是端點永遠 404
+	 * (fail-closed,煩但安全);**路徑**只改一半的後果是 router 在新路徑掛上 handler、filter 還守
+	 * 舊路徑 —— fail-open。
+	 */
+	public static final String ENDPOINT = "/mcp";
 
 	/**
 	 * MCP 的開關兼認證金鑰的設定鍵。三個地方共用這一個常數:上面的 @Condition(決定 bean 註冊)、
