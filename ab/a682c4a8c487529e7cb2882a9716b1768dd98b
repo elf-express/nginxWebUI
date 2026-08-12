@@ -1,0 +1,25 @@
+src/test/java/com/cym/utils/NginxConfCheckerTest.java
+  s_492e18725e3eaa::t_9494b71f1441f4 321-343
+  s_492e18725e3eaa::t_61426888b25d48 287-320
+src/main/java/com/cym/utils/NginxConfChecker.java
+  s_492e18725e3eaa::t_f3619d2b4eeb08 149-169,171-173,180-181
+  s_492e18725e3eaa::t_f796c2fbfe29f8 170,174-179
+  s_492e18725e3eaa::t_1d5c8c6b388d47 88
+  s_492e18725e3eaa::t_36384ce977b1f2 148
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "aba682c4a8c487529e7cb2882a9716b1768dd98b",
+  "prompts": {},
+  "sessions": {
+    "s_492e18725e3eaa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0393758c-a272-4bb9-a97c-c1ed6354bc61",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
