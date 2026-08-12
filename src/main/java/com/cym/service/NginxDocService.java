@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -180,6 +181,10 @@ public class NginxDocService {
 	 *
 	 * 前綴要排在子字串前面,否則 8 筆額度會被別的模組吃光:ssl_certificat 的子字串命中
 	 * 從 grpc_ssl_certificate 開始有十幾個,使用者要的 ssl_certificate_key 反而被擠掉。
+	 *
+	 * 前綴 bucket 內要短的排前面。語料順序下 user 排在 9 個 userid_* 之後,直接被 8 筆的
+	 * 額度切掉 —— 而 directive() 大小寫敏感、這裡不敏感,所以查 "User" 落到這裡時,
+	 * 唯一想要的答案 user 反而是回不來的那一個。
 	 */
 	public List<String> suggest(String name) {
 		if (name == null || name.isBlank()) {
@@ -199,6 +204,7 @@ public class NginxDocService {
 				near.add(key);
 			}
 		}
+		prefix.sort(Comparator.comparingInt(String::length).thenComparing(Comparator.naturalOrder()));
 		// 三個 bucket 互斥(if/else if),接起來不會有重複
 		List<String> out = new ArrayList<>(prefix);
 		out.addAll(substring);

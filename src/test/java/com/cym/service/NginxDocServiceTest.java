@@ -106,6 +106,28 @@ public class NginxDocServiceTest {
 		List<String> hits = svc.suggest("ssl_certificat");
 		assertTrue(hits.contains("ssl_certificate_key"), "實際回傳:" + hits);
 		assertTrue(hits.get(0).startsWith("ssl_certificat"), "第一筆該是前綴相符,實際:" + hits);
+		// 光看前兩條擋不住「把兩個 bucket 併回一串」——長度排序會讓 ssl_certificate 照樣排第一。
+		// 真正的性質是:前綴相符的要全部排在非前綴相符之前(ssl_certificate_compression 早於
+		// grpc_ssl_certificate,即使它比較長)。
+		int lastPrefix = -1;
+		int firstOther = hits.size();
+		for (int i = 0; i < hits.size(); i++) {
+			if (hits.get(i).startsWith("ssl_certificat")) {
+				lastPrefix = i;
+			} else {
+				firstOther = Math.min(firstOther, i);
+			}
+		}
+		assertTrue(lastPrefix < firstOther, "前綴相符必須全部排在子字串相符之前,實際:" + hits);
+	}
+
+	@Test
+	public void suggest_前綴bucket內短的優先() {
+		// 語料順序下 user 排在 9 個 userid_* 之後,不排序就會被 8 筆額度切掉。
+		// 這條路徑走得到:directive() 大小寫敏感而 suggest() 不敏感,查 "User" 就會落到這裡。
+		assertEquals("user", svc.suggest("User").get(0));
+		assertEquals("use", svc.suggest("use").get(0));
+		assertEquals("proxy", svc.suggest("Proxy").get(0));
 	}
 
 	@Test
@@ -114,8 +136,22 @@ public class NginxDocServiceTest {
 	}
 
 	@Test
+	public void suggest_編輯距離二收三拒() {
+		// 換位錯字:proxy_redirect 既不是 proxy_reidrect 的前綴也不是子字串,只能靠編輯距離(=2)撈回來。
+		// 用前綴型的錯字(例如 worker_process)測不到這條路 —— 它會在 prefix bucket 就命中。
+		assertTrue(svc.suggest("proxy_reidrect").contains("proxy_redirect"));
+		// sendfile 距 sendfile_on 是 3,超過門檻;差一的實作會讓這條變綠。
+		assertTrue(svc.suggest("sendfile_on").isEmpty());
+	}
+
+	@Test
 	public void suggest_完全不相干時回空() {
 		assertTrue(svc.suggest("zzzzzzzzzz").isEmpty());
+	}
+
+	@Test
+	public void suggest_回傳不可變() {
+		assertThrows(UnsupportedOperationException.class, () -> svc.suggest("proxy").add("x"));
 	}
 
 	@Test
