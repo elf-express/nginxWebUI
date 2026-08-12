@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 import org.noear.solon.ai.annotation.ToolMapping;
 import org.noear.solon.ai.mcp.McpChannel;
 import org.noear.solon.ai.mcp.server.annotation.McpServerEndpoint;
+import org.noear.solon.annotation.Condition;
 import org.noear.solon.annotation.Inject;
 import org.noear.solon.annotation.Param;
 import org.slf4j.Logger;
@@ -27,7 +28,13 @@ import com.cym.utils.NginxConfChecker;
  * 通道選 STREAMABLE_STATELESS:有狀態的 STREAMABLE 要先 initialize 握手、之後每個請求都要
  * 帶 Mcp-Session-Id,回應還包成 SSE。無狀態通道對一個純唯讀查詢服務已經夠用,而且裸 POST
  * 直接回 JSON,測試與除錯都簡單得多。
+ *
+ * {@code @Condition(onProperty = "mcp.token")}:沒設 token 就整個 bean 不註冊,連
+ * 「Mcp-Server started ... mcpEndpoint=/mcp」那行 log 都不會出現。對一個自架管理工具來說,
+ * 使用者明明沒開任何東西卻在升級後看到多一個對外端點的訊息,是會嚇到人的。
+ * (AppFilter 的 404 仍然保留:兩道各自獨立,任一道失效都還擋得住。)
  */
+@Condition(onProperty = "mcp.token")
 @McpServerEndpoint(channel = McpChannel.STREAMABLE_STATELESS, mcpEndpoint = "/mcp", name = "nginx-docs")
 public class NginxDocMcpServer {
 	private static final Logger logger = LoggerFactory.getLogger(NginxDocMcpServer.class);
@@ -90,7 +97,8 @@ public class NginxDocMcpServer {
 	}
 
 	@ToolMapping(description = "反查某個 context(例如 location、server、http)裡能使用哪些指令。寫設定時用這個確認指令放對地方。")
-	public String nginx_context(@Param(description = "context 名稱,例如 location") String context) {
+	public String nginx_context(@Param(description = "context 名稱,例如 location") String context,
+			@Param(description = "最多列出幾條,省略則列出全部(location 有 541 條,約 31 KB)", required = false) Integer limit) {
 		if (indexEmpty()) {
 			return indexEmptyMessage();
 		}
@@ -98,8 +106,14 @@ public class NginxDocMcpServer {
 		if (list.isEmpty()) {
 			return "查無 context「" + context + "」。已知的 context:" + String.join(", ", docService.knownContexts());
 		}
-		return context + " 可用的指令(" + list.size() + " 條):\n"
-				+ list.stream().map(this::brief).collect(Collectors.joining("\n"));
+		int total = list.size();
+		// 預設不截斷:截掉的很可能正好是呼叫端要找的那一條,比回應太長糟得多。
+		List<NginxDirective> shown = (limit == null || limit <= 0 || limit >= total) ? list : list.subList(0, limit);
+		// 有截斷就必須講清楚總數 —— 可以少給,但不能讓呼叫端以為手上這份是全部。
+		String header = shown.size() < total
+				? context + " 可用的指令共 " + total + " 條,以下列出前 " + shown.size() + " 條(省略 limit 參數可取得全部):\n"
+				: context + " 可用的指令(" + total + " 條):\n";
+		return header + shown.stream().map(this::brief).collect(Collectors.joining("\n"));
 	}
 
 	@ToolMapping(description = "拿一段 nginx 設定對照官方文件檢查:指令是否存在、是否用在合法的 context。只回報能確定的問題。")

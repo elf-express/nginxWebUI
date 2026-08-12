@@ -3,6 +3,8 @@ package com.cym.config;
 import java.io.File;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -90,9 +92,12 @@ public class AppFilter implements Filter {
 		// MCP 端點:未設定 --mcp.token 一律 404(opt-in,既有部署升級後行為不變);
 		// 設定了則檢查 Authorization: Bearer <token>。
 		//
-		// 擺在最前面而不是跟在 api 過濾器後面:下面的 frontInterceptor 會讀 DB(setting/geoip)
-		// 並組出整份 i18n 訊息表,那是給 Freemarker 頁面用的,JSON-RPC 請求一個都用不到。
-		// 放在它之前,未通過認證的請求連一次 DB 都不會碰。只攔 /mcp,其他路徑行為完全不變。
+		// === 這一段必須留在 doFilterDo 的最前面,不要為了「過濾器分類整齊」把它往下搬 ===
+		// 理由不是「早點擋比較快」,而是:未通過認證的請求不得觸發任何 DB 讀取與 i18n 建表。
+		// 下面第一件事 frontInterceptor 就會做 4 次 settingService.get()、跑
+		// geoipService.getDbInfos()、再把整份 properties 組成 messages/messageHeaders 表。
+		// 那些全是給 Freemarker 頁面用的,JSON-RPC 請求一個欄位都用不到;搬到它後面等於
+		// 讓任何人未經認證就能靠打 /mcp 逼出 DB 查詢。只攔 /mcp,其他路徑行為完全不變。
 		if (path.startsWith("/mcp")) {
 			String expected = Solon.cfg().get("mcp.token");
 			if (StrUtil.isEmpty(expected)) {
@@ -101,7 +106,11 @@ public class AppFilter implements Filter {
 				return;
 			}
 			String auth = ctx.header("Authorization");
-			if (auth == null || !auth.equals("Bearer " + expected)) {
+			// 常數時間比對:String.equals 一遇到不同的 byte 就回頭,理論上會洩漏「猜對幾個字元」。
+			// 網路環境下這種時序差幾乎不可利用,但這是新增的認證路徑,寫對的成本只有一行。
+			if (auth == null || !MessageDigest.isEqual(
+					auth.getBytes(StandardCharsets.UTF_8),
+					("Bearer " + expected).getBytes(StandardCharsets.UTF_8))) {
 				ctx.status(401);
 				ctx.setHandled(true);
 				return;
