@@ -730,6 +730,36 @@ git commit -m "feat(mcp): suggest candidates when a directive lookup misses"
 
 ---
 
+### Task 3B: 手寫摘要頁的指令抽取（執行中新增）
+
+> 這個任務不在原始計畫裡。Task 3 的實作者追候選建議時發現 `limit_req`、`limit_conn`、
+> `real_ip_header`、`auth_request` **完全不在索引裡**，我逐頁查證後確認：語料裡有 **7 頁官方模組頁
+> 是手寫 zh-TW 摘要**（沒有 nginx.org 的 HTML 表格），現行 parser 對它們一律抽 0 條，共漏掉 22 條指令。
+>
+> design doc 的「947 個指令表格格式零變異」沒有錯，但那是對**有表格的 92 頁**量測的；
+> 前提沒有涵蓋手寫頁。這 7 頁恰好是 nginxWebUI 自己最常產生的設定（Real-IP、rate limit、
+> 連線數限制、allow/deny、map），不修的話 Task 4 會對本專案自己產出的 conf 誤報「指令不存在」。
+>
+> **選擇擴充 parser 而不是回頭改那 7 頁譯文**：使用者已表明後續會繼續以自己的格式新增文件
+> （`151page.md` 之類），只認表格格式的 parser 會忽略所有未來的自建模組頁。
+>
+> 完整需求（三種手寫子格式、22 條指令的逐頁清單、括號是 context 還是版本號的區分規則、
+> `Origin` 欄位的理由）見 `.superpowers/sdd/2026-08-12-nginx-doc-mcp-plan/task-3b-brief.md`。
+
+**Files:**
+- Modify: `src/main/java/com/cym/model/NginxDirective.java`（新增 `Origin` 欄位與 enum）
+- Modify: `src/main/java/com/cym/utils/NginxDocParser.java`（表格流程抽不到時才跑摘要流程）
+- Test: `src/test/java/com/cym/utils/NginxDocParserTest.java`
+
+**Interfaces:**
+- Consumes: Task 1 的 `NginxDirective` / `NginxDocParser.parsePage`
+- Produces: `NginxDirective.origin()` 回 `OFFICIAL_TABLE` 或 `PROJECT_SUMMARY`。
+  `defaultValue == null` 的語意自此依 origin 而定：`OFFICIAL_TABLE` 是「官方寫 —，確實無預設值」，
+  `PROJECT_SUMMARY` 是「摘要頁未列出」，兩者不可混用。Task 5 呈現時措辭必須分開。
+  全語料總數 947 → **969**（其中 `OFFICIAL_TABLE` 仍為 947）。
+
+---
+
 ### Task 4: 設定檢查
 
 **Files:**
