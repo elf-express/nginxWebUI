@@ -155,6 +155,36 @@ public class NginxDocServiceTest {
 	}
 
 	@Test
+	public void directive_本專案自己產生的設定查得到() {
+		// 這 4 條全部只存在於手寫 zh-TW 摘要頁(沒有 nginx.org 表格)。少了摘要流程它們就完全不在索引裡,
+		// 設定檢查會把 nginxWebUI 自己輸出的合法 conf 判成「指令不存在」。
+		for (String name : List.of("limit_req", "limit_conn", "real_ip_header", "auth_request", "allow", "map")) {
+			assertFalse(svc.directive(name).isEmpty(), name + " 不在索引裡");
+		}
+		NginxDirective d = svc.directive("limit_req").get(0);
+		assertEquals(List.of("http", "server", "location"), d.contexts());
+		assertEquals(NginxDirective.Origin.PROJECT_SUMMARY, d.origin());
+	}
+
+	@Test
+	public void directive_limit_conn的http與stream版都要在() {
+		// 兩者的 context 與超限行為完全不同(stream 是關閉連線,沒有狀態碼),
+		// 只回一筆會讓 AI 拿到另一層的 context 而毫無察覺。
+		List<NginxDirective> list = svc.directive("limit_conn");
+		assertEquals(2, list.size(), "實際:" + list);
+		assertTrue(list.stream().anyMatch(d -> d.contexts().equals(List.of("http", "server", "location"))));
+		assertTrue(list.stream().anyMatch(d -> d.contexts().equals(List.of("stream", "server"))));
+	}
+
+	@Test
+	public void byContext_摘要頁的指令沒有汙染context清單() {
+		// 「#### `limit_conn_dry_run`（1.17.6）」的括號裝的是版本號。抽錯就會多出一個叫 1.17.6 的 context,
+		// 而 byContext 是 MCP 反查「這一層能用什麼指令」的入口,多一個假 context 就是多一個假答案。
+		assertTrue(svc.byContext("1.17.6").isEmpty());
+		assertTrue(svc.knownContexts().stream().noneMatch(c -> c.matches("[0-9].*")), svc.knownContexts().toString());
+	}
+
+	@Test
 	public void loadFromClasspath_語料真的在classpath裡() {
 		NginxDocService fromCp = new NginxDocService();
 		fromCp.loadFromClasspath();

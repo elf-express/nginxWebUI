@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -75,13 +76,100 @@ public class NginxDocParserTest {
 	}
 
 	@Test
-	public void parsePage_全語料解析出947條指令() throws Exception {
+	public void parsePage_全語料解析出969條指令其中947條來自官方表格() throws Exception {
 		int total = 0;
+		int official = 0;
+		int summary = 0;
 		try (var paths = Files.list(Path.of("docs/nginxdocumentation"))) {
 			for (Path p : paths.filter(x -> x.getFileName().toString().endsWith("page.md")).toList()) {
-				total += NginxDocParser.parsePage(Files.readString(p)).size();
+				for (NginxDirective d : NginxDocParser.parsePage(Files.readString(p))) {
+					total++;
+					if (d.origin() == NginxDirective.Origin.OFFICIAL_TABLE) {
+						official++;
+					} else {
+						summary++;
+					}
+				}
 			}
 		}
-		assertEquals(947, total, "指令表格數與語料實測值不符,解析器漏了形態");
+		assertEquals(947, official, "表格流程的行為不該被摘要流程動到,947 就是 947");
+		assertEquals(22, summary, "7 頁手寫摘要頁共 22 條指令");
+		assertEquals(969, total, "指令數與語料實測值不符,解析器漏了形態");
+	}
+
+	// ---- 手寫 zh-TW 摘要頁(沒有 nginx.org 表格) ----
+
+	private List<String> names(String file) throws Exception {
+		return NginxDocParser.parsePage(page(file)).stream().map(NginxDirective::name).toList();
+	}
+
+	@Test
+	public void parsePage_七頁手寫摘要頁的指令名稱與語料一致() throws Exception {
+		assertEquals(List.of("allow", "deny"), names("024page.md"));
+		assertEquals(List.of("auth_request", "auth_request_set"), names("030page.md"));
+		assertEquals(List.of("limit_conn_zone", "limit_conn", "limit_conn_dry_run",
+				"limit_conn_log_level", "limit_conn_status"), names("054page.md"));
+		assertEquals(List.of("limit_req_zone", "limit_req", "limit_req_dry_run",
+				"limit_req_log_level", "limit_req_status"), names("055page.md"));
+		// map 的標題是 h3,其餘六頁都是 h4 —— 只認 h4 會漏掉整頁
+		assertEquals(List.of("map"), names("057page.md"));
+		assertEquals(List.of("set_real_ip_from", "real_ip_header", "real_ip_recursive"), names("067page.md"));
+		assertEquals(List.of("limit_conn_zone", "limit_conn", "limit_conn_dry_run",
+				"limit_conn_log_level"), names("125page.md"));
+	}
+
+	@Test
+	public void parsePage_摘要頁的欄位齊全且標記為PROJECT_SUMMARY() throws Exception {
+		List<NginxDirective> list = NginxDocParser.parsePage(page("055page.md"));
+		NginxDirective d = list.stream().filter(x -> "limit_req".equals(x.name())).findFirst().orElseThrow();
+
+		assertEquals(List.of("http", "server", "location"), d.contexts(), "context 取自標題括號裡的 backtick");
+		assertTrue(d.syntax().startsWith("limit_req "), "沒有語法條列時取 fenced block 首行,實際:" + d.syntax());
+		assertEquals("ngx_http_limit_req_module", d.module());
+		assertEquals("https://nginx.org/en/docs/http/ngx_http_limit_req_module.html", d.sourceUrl());
+		assertFalse(d.description().isBlank(), "說明段落不該是空的");
+		// null 的意思在兩種來源下不同:表格頁是「官方寫無預設值」,摘要頁只是「沒列出」。
+		// 沒有 origin,MCP 會對 limit_req_status 回答「無預設值」,但它實際預設 503。
+		assertNull(d.defaultValue());
+		assertEquals(NginxDirective.Origin.PROJECT_SUMMARY, d.origin());
+	}
+
+	@Test
+	public void parsePage_標題括號裡的版本號不可被當成context() throws Exception {
+		List<NginxDirective> list = NginxDocParser.parsePage(page("054page.md"));
+		NginxDirective d = list.stream().filter(x -> "limit_conn_dry_run".equals(x.name())).findFirst().orElseThrow();
+		// 「#### `limit_conn_dry_run`（1.17.6）」的括號裝的是版本號。分辨規則:括號內有 backtick 才是 context。
+		assertFalse(d.contexts().contains("1.17.6"), "版本號被當成 context 了:" + d.contexts());
+		assertTrue(d.contexts().isEmpty(), "這條沒有任何 context 資訊,實際:" + d.contexts());
+	}
+
+	@Test
+	public void parsePage_語境寫同上時沿用前一條指令() throws Exception {
+		List<NginxDirective> list = NginxDocParser.parsePage(page("024page.md"));
+		NginxDirective allow = list.stream().filter(x -> "allow".equals(x.name())).findFirst().orElseThrow();
+		NginxDirective deny = list.stream().filter(x -> "deny".equals(x.name())).findFirst().orElseThrow();
+
+		assertEquals(List.of("http", "server", "location", "limit_except"), allow.contexts());
+		assertEquals(allow.contexts(), deny.contexts(), "deny 的語境寫「同上」,要反向參照 allow");
+		assertEquals("allow address | CIDR | unix: | all;", allow.syntax(), "語法條列要剝掉 backtick");
+	}
+
+	@Test
+	public void parsePage_摘要流程只在表格抽不到東西時才跑() throws Exception {
+		// 觸發條件是「有官方 Source 且表格流程抽出 0 條」,全語料 150 頁裡有 58 頁符合。
+		// 其餘 51 頁沒有 `#### `name`` 形態的標題,必須抽出 0 條 ——
+		// 否則章節標題會被當成指令灌進索引,Task 4 的設定檢查就會放行不存在的指令。
+		List<String> summaryPages = new ArrayList<>();
+		try (var paths = Files.list(Path.of("docs/nginxdocumentation"))) {
+			for (Path p : paths.filter(x -> x.getFileName().toString().endsWith("page.md")).sorted().toList()) {
+				boolean any = NginxDocParser.parsePage(Files.readString(p)).stream()
+						.anyMatch(d -> d.origin() == NginxDirective.Origin.PROJECT_SUMMARY);
+				if (any) {
+					summaryPages.add(p.getFileName().toString());
+				}
+			}
+		}
+		assertEquals(List.of("024page.md", "030page.md", "054page.md", "055page.md",
+				"057page.md", "067page.md", "125page.md"), summaryPages);
 	}
 }
