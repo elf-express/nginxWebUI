@@ -530,4 +530,62 @@ public class NginxConfCheckerTest {
 				""";
 		assertEquals(List.of(), NginxConfChecker.check(conf, svc));
 	}
+
+	@Test
+	public void check_一行收掉多層區塊不誤報() {
+		// 一行只 pop 一次,} } 與 }} 都只收掉一層,後面每一行從此少算一層 —— 合法的
+		// worker_processes 被斬釘截鐵地報成「不能用在 http」。
+		//
+		// 這一則比一般的漏判更糟:回報時附的但書講的是「大括號不平衡」與「} 與新區塊同行」,
+		// 而這兩種情形在這裡都不成立(2 開 2 關、沒有新區塊)。讀者照著但書去數括號、
+		// 發現是平衡的,只會更相信那個誤報。
+		String spaced = """
+				http {
+				    server {
+				        listen 80;
+				    } }
+				worker_processes 4;
+				""";
+		assertEquals(List.of(), NginxConfChecker.check(spaced, svc), "} }");
+
+		String glued = """
+				http {
+				    server {
+				        listen 80;
+				    }}
+				worker_processes 4;
+				""";
+		assertEquals(List.of(), NginxConfChecker.check(glued, svc), "}}");
+
+		// 反面探針:逐個 pop 不能變成「見到 } 就把堆疊清光」。收完兩層之後是 main,
+		// 這裡的 listen 是真的放錯層(它只能在 server),抓不到就代表 pop 過頭了。
+		String probe = """
+				http {
+				    server {
+				        listen 80;
+				    } }
+				listen 80;
+				""";
+		List<String> problems = NginxConfChecker.check(probe, svc);
+		assertEquals(1, problems.size(), "實際:" + problems);
+		assertTrue(problems.get(0).startsWith("第 5 行: listen 不能用在 main"), problems.get(0));
+	}
+
+	@Test
+	public void check_收尾大括號後面接著開新區塊() {
+		// } location /b { 的括號同樣是平衡的。行首的 } pop 完就把整行剩下的部分丟掉,
+		// 新區塊沒被推進堆疊,裡面的 alias 就被報成「不能用在 server」。
+		String conf = """
+				http {
+				    server {
+				        location /a {
+				            proxy_pass http://backend;
+				        } location /b {
+				            alias /var/www/b;
+				        }
+				    }
+				}
+				""";
+		assertEquals(List.of(), NginxConfChecker.check(conf, svc));
+	}
 }

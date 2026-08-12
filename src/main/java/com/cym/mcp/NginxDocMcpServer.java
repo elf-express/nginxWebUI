@@ -92,8 +92,12 @@ public class NginxDocMcpServer {
 				+ defs.stream().map(this::format).collect(Collectors.joining("\n\n"));
 	}
 
-	@ToolMapping(description = "以關鍵字全文搜尋 nginx 官方文件,用於還不知道指令名稱時。回傳命中片段與來源連結。")
-	public String nginx_search(@Param(description = "搜尋關鍵字") String query,
+	// 描述要講清楚這是什麼樣的比對,否則「全文搜尋」會被讀成拆詞檢索。實作是把整串關鍵字
+	// 當一個字面片語做大小寫不敏感的 indexOf,而語料內文多半已譯成 zh-TW —— 兩件事疊起來,
+	// nginx 最經典的英文片語 reverse proxy 是查不到的(它在語料裡寫作「反向代理」)。
+	// 描述寫得比實作大,呼叫端就會拿一次查無當成「官方文件沒講這件事」。
+	@ToolMapping(description = "以關鍵字全文搜尋 nginx 官方文件,用於還不知道指令名稱時。比對方式是把整串關鍵字當一個字面片語(不拆詞、不分大小寫),且語料內文多為 zh-TW 譯文,因此單一短詞、指令名或中文詞命中率最高,英文多詞片語(例如 reverse proxy)經常查無。每頁只回第一個命中片段與來源連結。")
+	public String nginx_search(@Param(description = "搜尋關鍵字,單一短詞或指令名效果最好") String query,
 			@Param(description = "最多回傳幾筆,預設 10", required = false) Integer limit) {
 		if (indexEmpty()) {
 			return indexEmptyMessage();
@@ -103,7 +107,14 @@ public class NginxDocMcpServer {
 		}
 		int n = (limit == null || limit <= 0) ? 10 : Math.min(limit, 30);
 		List<String> hits = docService.search(query, n);
-		return hits.isEmpty() ? "查無「" + query + "」的相關內容。" : String.join("\n\n---\n\n", hits);
+		// 查無不能停在死路 —— 其他工具查無時都給得出下一步,只有這裡是一堵牆。而且這個工具
+		// 查無的最常見原因(整串片語比對 + zh-TW 譯文)恰好是縮短關鍵字就能解掉的。
+		return hits.isEmpty()
+				? "查無「" + query + "」的相關內容。這是整串字面比對:請把關鍵字縮短成單一詞再試一次"
+						+ "(多詞片語只要有一個字不完全相符就會整串落空),或改用中文譯詞。"
+						+ "若已經知道指令名稱,用 nginx_directive 直接查它的定義;"
+						+ "若想知道某個 context(location、server…)能用哪些指令,用 nginx_context。"
+				: String.join("\n\n---\n\n", hits);
 	}
 
 	@ToolMapping(description = "列出某個 nginx 模組的所有指令。簡寫若對應多個模組會回候選清單要求指定。")
@@ -187,14 +198,18 @@ public class NginxDocMcpServer {
 		// 有問題時同樣要附但書,而且理由更硬:context 是逐行追蹤大括號推得的,追蹤一旦偏掉,
 		// 後面每一行都會被算在錯的那一層。
 		//
-		// 但書要把兩種情形都講出來。少一個或多一個大括號會偏是直覺的;不直覺的是括號完全平衡
-		// 也會偏 —— 「} location /b {」寫在同一行時,行首的 } 會讓整行剩下的部分被丟掉
-		// (NginxConfChecker 第 80-83 行),新區塊沒被推進堆疊,裡面的 alias 就被斬釘截鐵地
-		// 報成「不能用在 server」。只講「不平衡」的話,讀者去數括號、發現是平衡的,反而更
-		// 相信那個誤報 —— 但書寫得太窄比沒寫更糟。
+		// 但書講的是**一整類**情形,不是列舉。列舉過的寫法一旦修好、沒列到的寫法又還沒修,
+		// 但書就從「提醒」變成「背書」:讀者逐條核對、發現自己那行都不符合,反而更相信那個
+		// 誤報 —— 而一個被相信的誤報比沒寫但書更糟。
+		//
+		// 這裡的類別是「} 沒有自己獨佔一行」。checker 逐個吃掉行首的 } 之後,} }、}}、
+		// } location /b { 都判得對了,但行尾的 }(listen 80; })仍然沒被看見 —— 所以但書
+		// 不能收斂成剩下那一種寫法,只能講整類,並給一個涵蓋整類的驗證方式:把每個 } 拆成
+		// 獨立一行再跑一次,兩次結果一樣才代表括號追蹤沒有偏掉。
 		return problems.isEmpty()
 				? "未發現可確定的問題(此檢查只回報能確定的錯誤,不代表設定完全正確)。"
-				: "以下判斷以逐行括號追蹤推得;若設定的大括號不平衡,或 } 與新區塊寫在同一行,context 可能判斷錯誤。\n"
+				: "以下判斷以逐行括號追蹤推得;只要有 } 與其他內容寫在同一行,或大括號不平衡,context 就可能判斷錯誤。"
+						+ "把每個 } 單獨成行後再檢查一次,兩次結果一致才代表判斷可信。\n"
 						+ String.join("\n", problems);
 	}
 

@@ -77,9 +77,17 @@ public class NginxConfChecker {
 				continue; // 空行,或整行都是註解
 			}
 			// 收尾的大括號常帶註解(} # end location)。只比對整行等於 } 會漏掉這個 pop。
-			if (line.startsWith("}")) {
+			//
+			// 一行也可能收掉不只一層(} }、}}),或收完之後接著開新區塊(} location /b {)。
+			// 只 pop 一次、再把整行剩下的部分丟掉,後面每一行都會被算在錯的那一層 —— 而且
+			// 這種設定的括號是平衡的,使用者照著但書去數括號只會更相信那個誤報。所以逐個
+			// 吃掉行首的 },再讓剩下的部分走回底下的正常流程。
+			while (line.startsWith("}")) {
 				stack.pollLast();
-				continue;
+				line = line.substring(1).trim();
+			}
+			if (line.isEmpty()) {
+				continue; // 整行只有收尾的大括號
 			}
 
 			String first = line.split("[\\s{;]", 2)[0];
