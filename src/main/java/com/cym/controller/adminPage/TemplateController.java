@@ -44,7 +44,7 @@ public class TemplateController extends BaseController {
 		{ "keyval",       "templateGroup.keyval",       "templateGroup.keyvalDesc" },
 		{ "util",         "templateGroup.util",         "templateGroup.utilDesc" },
 		{ "media",        "templateGroup.media",        "templateGroup.mediaDesc" },
-		{ "upload",       "templateGroup.upload",       "templateGroup.uploadDesc" },
+		// upload 組已移除：upload / upload_progress 模組不在精簡映像內
 		{ "realtime",     "templateGroup.realtime",     "templateGroup.realtimeDesc" },
 		{ "waf",          "templateGroup.waf",          "templateGroup.wafDesc" },
 		{ "upstream_ext", "templateGroup.upstreamExt",  "templateGroup.upstreamExtDesc" },

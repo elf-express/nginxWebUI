@@ -19,9 +19,15 @@ $(function() {
 		syncDefTagClass();
 	});
 
-	// 參數 name 變動 → 重算可選層級
+	// 參數 name 變動 → 後端 allowedDefs 重算（debounced）
+	var _defRefreshTimer = null;
 	$(document).on('input change', "#paramList textarea[name='name']", function() {
-		refreshDefTagAvailability();
+		if (_defRefreshTimer) {
+			clearTimeout(_defRefreshTimer);
+		}
+		_defRefreshTimer = setTimeout(function() {
+			refreshDefTagAvailability();
+		}, 200);
 	});
 
 	// Init collapse
@@ -54,62 +60,13 @@ function resolveGroupName() {
 	return sel;
 }
 
-/** 固定順序的小寫 tag 值（與 TemplateDefUtils.ALL 一致） */
+/** 固定順序（與 TemplateDefUtils.ALL 一致；僅作顯示序） */
 var DEF_TAG_ORDER = ["http", "server", "server1", "server2", "stream", "location", "upstream"];
-var DEF_HTTP_STACK = ["http", "server", "location", "upstream"];
-var DEF_STREAM_STACK = ["stream", "server1", "server2"];
-
-/** 與後端 TemplateDefUtils 對齊（精準子集；存檔以後端 filter 為準） */
-var SERVER_LOCATION_ONLY = { "if": 1, "try_files": 1, "internal": 1, "alias": 1 };
-var HTTP_TOP_ONLY = {
-	"limit_req_zone": 1, "proxy_cache_path": 1, "lua_shared_dict": 1,
-	"types": 1, "charset_map": 1, "vhost_traffic_status_zone": 1, "acme_issuer": 1
-};
-var HTTP_ONLY_NAMES = {
-	"if": 1, "add_header": 1, "more_set_headers": 1, "more_clear_headers": 1,
-	"more_set_input_headers": 1, "auth_request": 1, "auth_request_set": 1,
-	"auth_basic": 1, "auth_basic_user_file": 1, "auth_jwt": 1, "auth_jwt_key_file": 1,
-	"root": 1, "alias": 1, "index": 1, "try_files": 1, "rewrite": 1, "return": 1,
-	"error_page": 1, "proxy_set_header": 1, "proxy_hide_header": 1, "proxy_pass_header": 1,
-	"fastcgi_pass": 1, "fastcgi_param": 1, "uwsgi_pass": 1, "scgi_pass": 1, "grpc_pass": 1,
-	"limit_req": 1, "limit_req_zone": 1, "limit_req_status": 1, "limit_req_dry_run": 1,
-	"limit_req_log_level": 1, "client_max_body_size": 1, "client_body_buffer_size": 1,
-	"expires": 1, "etag": 1, "gzip": 1, "brotli": 1, "ssi": 1, "charset": 1,
-	"types": 1, "default_type": 1, "sendfile": 1, "tcp_nopush": 1, "keepalive_timeout": 1,
-	"lingering_close": 1, "open_file_cache": 1, "stub_status": 1, "sub_filter": 1,
-	"addition_types": 1, "image_filter": 1, "mp4": 1, "flv": 1, "hls": 1,
-	"dav_methods": 1, "create_full_put_path": 1, "min_delete_depth": 1, "internal": 1,
-	"mirror": 1, "slice": 1, "http2": 1, "http3": 1, "quic": 1
-};
-var STREAM_ONLY_NAMES = {
-	"ssl_preread": 1, "proxy_protocol_timeout": 1, "proxy_responses": 1, "proxy_requests": 1,
-	"proxy_socket_keepalive": 1, "js_access": 1, "js_preread": 1, "js_filter": 1,
-	"preread_buffer_size": 1, "preread_timeout": 1, "udp_requests": 1, "udp_responses": 1
-};
-
-function normalizeDirectiveNameJs(raw) {
-	var n = (raw || "").trim().toLowerCase();
-	if (!n) {
-		return "";
-	}
-	if (n === "if" || n.indexOf("if ") === 0 || n.indexOf("if(") === 0 || n.indexOf("if\t") === 0) {
-		return "if";
-	}
-	var sp = n.indexOf(" ");
-	if (sp > 0) {
-		n = n.substring(0, sp);
-	}
-	var paren = n.indexOf("(");
-	if (paren > 0) {
-		n = n.substring(0, paren);
-	}
-	return n;
-}
 
 function collectParamDirectiveNames() {
 	var names = [];
 	$("#paramList textarea[name='name']").each(function() {
-		var n = normalizeDirectiveNameJs($(this).val());
+		var n = ($(this).val() || "").trim();
 		if (n) {
 			names.push(n);
 		}
@@ -118,78 +75,17 @@ function collectParamDirectiveNames() {
 }
 
 /**
- * 依參數推算允許層級（與 TemplateDefUtils.allowedContexts 對齊）
- * @returns {Object} map of context -> true
+ * 套用允許清單到 tag UI
+ * @param {string[]} list 後端回傳的 allowed context 陣列
  */
-function computeAllowedDefMap() {
-	var names = collectParamDirectiveNames();
-	var hasHttpOnly = false;
-	var hasStreamOnly = false;
-	var hasServerLocationOnly = false;
-	var hasHttpTopOnly = false;
-	for (var i = 0; i < names.length; i++) {
-		var n = names[i];
-		if (SERVER_LOCATION_ONLY[n]) {
-			hasServerLocationOnly = true;
-			hasHttpOnly = true;
-		} else if (HTTP_TOP_ONLY[n]) {
-			hasHttpTopOnly = true;
-			hasHttpOnly = true;
-		} else if (HTTP_ONLY_NAMES[n]) {
-			hasHttpOnly = true;
-		}
-		if (STREAM_ONLY_NAMES[n]) {
-			hasStreamOnly = true;
-		}
-	}
-	var list;
-	if (hasHttpOnly && hasStreamOnly) {
-		list = [];
-	} else if (hasStreamOnly) {
-		list = DEF_STREAM_STACK;
-	} else if (hasHttpTopOnly && !hasServerLocationOnly) {
-		var onlyTop = true;
-		for (var t = 0; t < names.length; t++) {
-			var nt = names[t];
-			if (HTTP_TOP_ONLY[nt] || STREAM_ONLY_NAMES[nt]) {
-				continue;
-			}
-			if (HTTP_ONLY_NAMES[nt] || SERVER_LOCATION_ONLY[nt]) {
-				onlyTop = false;
-				break;
-			}
-		}
-		list = onlyTop ? ["http"] : DEF_HTTP_STACK;
-	} else if (hasServerLocationOnly && !hasHttpTopOnly) {
-		var onlySl = true;
-		for (var s = 0; s < names.length; s++) {
-			var ns = names[s];
-			if (SERVER_LOCATION_ONLY[ns]) {
-				continue;
-			}
-			if (HTTP_ONLY_NAMES[ns] || HTTP_TOP_ONLY[ns]) {
-				onlySl = false;
-				break;
-			}
-		}
-		list = onlySl ? ["server", "location"] : DEF_HTTP_STACK;
-	} else if (hasHttpOnly) {
-		list = DEF_HTTP_STACK;
-	} else {
-		list = DEF_TAG_ORDER;
-	}
+function applyAllowedDefList(list) {
 	var allowed = {};
-	for (var j = 0; j < list.length; j++) {
-		allowed[list[j]] = true;
+	if (list && list.length) {
+		for (var i = 0; i < list.length; i++) {
+			allowed[String(list[i]).toLowerCase()] = true;
+		}
 	}
-	return allowed;
-}
-
-/**
- * 禁用非法 tag（唯讀灰掉）、取消已勾但不合法的選項
- */
-function refreshDefTagAvailability() {
-	var allowed = computeAllowedDefMap();
+	// 空陣列 = 全部禁用（衝突或只手動）
 	var disableTip = (templateStr.defDisabledTip || "此參數組合不適用此層級");
 	$("input[name='defTag']").each(function() {
 		var v = ($(this).val() || "").toLowerCase();
@@ -199,7 +95,6 @@ function refreshDefTagAvailability() {
 			this.checked = false;
 			$(this).closest('.def-tag').attr('title', disableTip);
 		} else {
-			// 還原預設 title（若有 data-default-title）
 			var $lab = $(this).closest('.def-tag');
 			var defTitle = $lab.attr('data-default-title');
 			if (defTitle) {
@@ -208,6 +103,44 @@ function refreshDefTagAvailability() {
 		}
 	});
 	syncDefTagClass();
+}
+
+/**
+ * 呼叫後端 /adminPage/template/allowedDefs（唯一真相，避免 JS 複製清單漂移）
+ * 失敗時保守：全部禁用自動套用
+ */
+function refreshDefTagAvailability(done) {
+	var names = collectParamDirectiveNames();
+	$.ajax({
+		type: 'POST',
+		url: ctx + '/adminPage/template/allowedDefs',
+		data: {
+			paramJson: JSON.stringify(names.map(function(n) {
+				return { name: n, value: '' };
+			}))
+		},
+		dataType: 'json',
+		success: function(data) {
+			if (data && data.success && Array.isArray(data.obj)) {
+				applyAllowedDefList(data.obj);
+			} else if (data && data.success && data.obj == null) {
+				// 無參數時後端回全部
+				applyAllowedDefList(DEF_TAG_ORDER);
+			} else {
+				applyAllowedDefList(names.length === 0 ? DEF_TAG_ORDER : []);
+			}
+			if (typeof done === 'function') {
+				done();
+			}
+		},
+		error: function() {
+			// 離線／錯誤：無參數全開，有參數全關（不冒險）
+			applyAllowedDefList(names.length === 0 ? DEF_TAG_ORDER : []);
+			if (typeof done === 'function') {
+				done();
+			}
+		}
+	});
 }
 
 /** 讀取多選 tag → 逗號分隔小寫字串（跳過 disabled） */
@@ -241,7 +174,6 @@ function setDefTags(def) {
 			$("input[name='defTag'][value='" + p + "']").prop("checked", true);
 		}
 	}
-	// 記住預設 title
 	$(".def-tag").each(function() {
 		if (!$(this).attr('data-default-title')) {
 			$(this).attr('data-default-title', $(this).attr('title') || '');
@@ -260,13 +192,11 @@ function add() {
 
 	form.render();
 	showWindow(templateStr.add);
-	// 空參數：全部可選
 	refreshDefTagAvailability();
 }
 
 
 function showWindow(title) {
-	// 記住 title
 	$(".def-tag").each(function() {
 		if (!$(this).attr('data-default-title')) {
 			$(this).attr('data-default-title', $(this).attr('title') || '');
@@ -292,41 +222,38 @@ function addOver() {
 		return;
 	}
 
-	// 存檔前再濾一次
-	refreshDefTagAvailability();
+	// 存檔前再向後端對齊允許層級，再取值
+	refreshDefTagAvailability(function() {
+		var templateParams = [];
+		$("#paramList").children().each(function() {
+			var templateParam = {};
+			templateParam.name = $(this).find("textarea[name='name']").val();
+			templateParam.value = $(this).find("textarea[name='value']").val();
+			templateParams.push(templateParam);
+		});
 
-	var templateParams = [];
-	$("#paramList").children().each(function() {
-
-		var templateParam = {};
-		templateParam.name = $(this).find("textarea[name='name']").val();
-		templateParam.value = $(this).find("textarea[name='value']").val();
-
-		templateParams.push(templateParam);
-	})
-
-
-	$.ajax({
-		type: 'POST',
-		url: ctx + '/adminPage/template/addOver',
-		data: {
-			id: $("#id").val(),
-			name: $("#name").val(),
-			def: getDefValue(),
-			groupName: groupName,
-			paramJson: JSON.stringify(templateParams),
-		},
-		dataType: 'json',
-		success: function(data) {
-			if (data.success) {
-				location.reload();
-			} else {
-				layer.msg(data.msg);
+		$.ajax({
+			type: 'POST',
+			url: ctx + '/adminPage/template/addOver',
+			data: {
+				id: $("#id").val(),
+				name: $("#name").val(),
+				def: getDefValue(),
+				groupName: groupName,
+				paramJson: JSON.stringify(templateParams),
+			},
+			dataType: 'json',
+			success: function(data) {
+				if (data.success) {
+					location.reload();
+				} else {
+					layer.msg(data.msg);
+				}
+			},
+			error: function() {
+				layer.alert(commonStr.errorInfo);
 			}
-		},
-		error: function() {
-			layer.alert(commonStr.errorInfo);
-		}
+		});
 	});
 }
 
@@ -347,7 +274,6 @@ function edit(id) {
 				$("#id").val(ext.template.id);
 				$("#name").val(ext.template.name);
 
-				// 分組：已知 key 選中；否則走自訂
 				var gn = ext.template.groupName || "";
 				var known = false;
 				$("#groupName option").each(function() {
@@ -388,7 +314,6 @@ function edit(id) {
 				}
 				$("#paramList").html(html);
 
-				// 參數渲染後再套 def（會依參數禁用非法層）
 				setDefTags(ext.template.def || "");
 
 				form.render();

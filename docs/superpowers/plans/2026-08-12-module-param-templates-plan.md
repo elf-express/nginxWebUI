@@ -1,35 +1,39 @@
-# Module Param Templates + Full nginx-mod Catalog Implementation Plan
+# Module Param Templates + Slim nginx-mod Catalog Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship a complete parameter-template editor (group dropdown + compact param rows) and a community-oriented template library for all Alpine nginx open-source modules (except legacy GeoIP v1), on top of a full-module Docker image and module-management catalog.
+**Goal:** Ship a complete parameter-template editor (group dropdown + compact param rows + multi-select context tags) and a community-oriented template library, on top of a **slim** Docker nginx-mod image (~31 modules) and `MODULE_CATALOG`-ordered `load_module`.
 
-**Architecture:** Templates remain a pure library (`Template` + `Param` rows, `def=""` = manual only). Top-level collapse groups come from `TemplateController.GROUP_DEFS`. New community packs are seeded once via `InitConfig` migration flags. Dynamic modules ship in the Docker image; `load_module` is driven only by Module-table enable flags in `ConfService.buildConf`, never from Basic `load_module` rows.
+**Architecture:** Templates are a pure library (`Template` + `Param`). `Template.def` = multi-select auto-apply contexts (`http,server,server1,server2,stream,location,upstream`), normalized/filtered by `TemplateDefUtils`. Top-level collapse groups come from `TemplateController.GROUP_DEFS` (**no `upload` group** — modules removed). Dynamic modules ship in the Docker image; `load_module` is driven only by Module-table enable flags + catalog order in `NginxService.getEnabledModulePaths()`, never from Basic `load_module` rows.
 
-**Tech Stack:** Java 17 + Solon 3.x, Freemarker + Layui + jQuery, SQLite/PostgreSQL via SqlHelper, Docker Alpine 3.24 + nginx 1.30.x dynamic modules, Playwright E2E.
+**Tech Stack:** Java 17 + Solon 3.x, Freemarker + Layui + jQuery, SQLite/PostgreSQL via SqlHelper, Docker Alpine 3.24 + nginx 1.30.x dynamic modules (slim set), Playwright E2E.
 
 ## Global Constraints
 
 - **Do not change** the four existing rateLimit param *values* for http/server Connection Limit and Rate Limit (`conn_limit` / `req_limit` zone names stay).
 - **Do not** seed templates for legacy `ngx_http_geoip` / `ngx_stream_geoip`.
+- **Do not** re-add unmaintained modules: fair, legacy geoip, perl, upload*, zip, untar, slowfs, echo, dav_ext, fancyindex, xslt, shibboleth, log_zmq, accounting, redis2.
 - User-facing strings: update **all three** `messages.properties` / `messages_zh_TW.properties` / `messages_en_US.properties` (ISO-8859-1 `\uXXXX` for CJK).
 - Prefer manual `def=""` for new community templates; stream zone names use `s_` prefix to avoid shared-zone conflicts with http.
 - Templates ≠ auto load_module: module must be ON under 基本參數 → 模組管理.
 - Do not commit unrelated files (e.g. `squirrel.toml` dockhand junk).
 
-## Implementation status (session context)
-
-Much of the feature is **already on the working tree** (`dev`, uncommitted relative to `1dc5f1c3`). This plan is the **source of truth for verification + finish work**: each task must still be checked; if code matches the step, tick it and only fill gaps.
+## Implementation status (as of 2026-08-12)
 
 | Area | Status |
 |------|--------|
-| Design spec | Written: `docs/superpowers/specs/2026-08-12-module-param-templates-design.md` |
-| Full Dockerfile nginx-mod set | Done (working tree) |
-| MODULE_CATALOG + migration | Done (working tree) |
-| Template group dropdown UI + 40px textarea | Done (working tree) |
-| Community template seed (~22) | Done (working tree) |
-| Playwright coverage | **Missing** |
-| Git commit of this feature set | **Missing** |
+| Design spec | Done: `docs/superpowers/specs/2026-08-12-module-param-templates-design.md` |
+| **Slim** Dockerfile nginx-mod set (~31 `.so`) | **Done** — not full ~48 community alpine set |
+| MODULE_CATALOG + prune migration `moduleCatalogHardened20260812` | **Done** |
+| load_module order = catalog (not DB seq) | **Done** |
+| Template group dropdown UI + 40px textarea | **Done** |
+| Community template seed | **Done** |
+| Multi-select def tags + human labels | **Done** |
+| Safety lock (UI disabled tags + save filter + stream inject) | **Done** — UI via `/adminPage/template/allowedDefs` |
+| Playwright `34-template-group-editor` | **Done** (asserts `#defTags`, if→stream disabled) |
+| Unit tests `TemplateDefUtilsTest` | **Done** |
+| Structure docs cite nginx.org Context | **Done** (`docs/nginx結構.md`) |
+| Git commits | `130a633c`, `e3997a01`, … |
 
 ---
 
@@ -37,88 +41,54 @@ Much of the feature is **already on the working tree** (`dev`, uncommitted relat
 
 | File | Responsibility |
 |------|----------------|
-| `Dockerfile` | Install all Alpine `nginx-mod-*` runtime packages (no `nginx-mod-dev`) |
-| `src/main/java/com/cym/service/NginxService.java` | `MODULE_CATALOG`, `SAFE_MODULES`, dependency map, enabled paths |
-| `src/main/java/com/cym/config/InitConfig.java` | Module seed/migration; stream conn templates; community template seed |
-| `src/main/java/com/cym/service/ConfService.java` | `load_module` from enabled modules; inject `def=stream` template params into `stream{}` |
-| `src/main/java/com/cym/controller/adminPage/TemplateController.java` | `GROUP_DEFS`, group options for view, list grouping |
-| `src/main/resources/WEB-INF/view/adminPage/template/index.html` | Editor modal (group → name → def → params), 40px textareas |
-| `src/main/resources/static/js/adminPage/template/index.js` | groupName resolve/custom, addOver payload |
-| `src/main/resources/messages*.properties` | templateGroup.*, templateStr.group*, moduleStr.descr* |
-| `src/main/resources/static/css/adminPage/base.css` | Global input border contrast (related polish) |
-| `tests/e2e/34-template-group-editor.spec.js` | **Create** — E2E for group field + compact param UI |
-| `docs/superpowers/specs/2026-08-12-module-param-templates-design.md` | Spec |
-| `docs/superpowers/plans/2026-08-12-module-param-templates-plan.md` | This plan |
+| `Dockerfile` | **Slim** Alpine `nginx-mod-*` (~31 .so); no fair/legacy geoip/perl/upload*… |
+| `NginxService.java` | `MODULE_CATALOG` order = load_module order; `getEnabledModulePaths()` |
+| `TemplateDefUtils.java` | multi-def parse/normalize; `allowedContexts` / `normalizeAndFilter` |
+| `InitConfig.java` | module prune; stream def sanitize; community seed |
+| `ConfService.java` | load_module; inject def containing `http`/`stream`; stream top-level safety |
+| `ParamService.java` | auto-apply by def contains; stream server1/2 filter |
+| `TemplateController.java` | `GROUP_DEFS` (no upload); `allowedDefs` API |
+| `template/index.html` + `index.js` | group editor; multi tags; **allowedDefs** for disable |
+| `tests/e2e/34-template-group-editor.spec.js` | group + defTags + if→stream disable |
+| `src/test/.../TemplateDefUtilsTest.java` | unit tests for safety lock |
+| `docs/nginx結構.md` | structure tree + official Context citations |
 
 ---
 
-### Task 1: Verify Docker full module image
+### Task 1: Verify Docker **slim** module image (supersedes “full module”)
 
 **Files:**
-- Modify (if gap): `Dockerfile`
-- Verify: running container `/usr/lib/nginx/modules/*.so`
+- `Dockerfile`
+- Verify: container `/usr/lib/nginx/modules/*.so`
 
 **Interfaces:**
-- Produces: Image with ≥40 dynamic `.so` files for nginx modules
+- Produces: Image with **~31** dynamic `.so` files (product default)
 
-- [ ] **Step 1: Confirm Dockerfile lists runtime modules**
+- [x] **Step 1: Slim Dockerfile** — curated `nginx-mod-*` only; excludes fair, legacy geoip, perl, upload*, zip, untar, slowfs, echo, dav, fancyindex, xslt, shibboleth, log_zmq, accounting, redis2.
 
-Open `Dockerfile` and ensure `apk add` includes at least: stream/*, http-js, keyval, set-misc, array-var, encrypted-session, auth-jwt, naxsi, nchan, vts, vod, redis2, image-filter, xslt-filter, brotli, zstd, lua, lua-upstream, mail, rtmp, dynamic-upstream, dynamic-healthcheck, and does **not** require `nginx-mod-dev`.
+- [x] **Step 2: Build and start** — `mvn package` + compose `--build nginxwebui` healthy.
 
-- [ ] **Step 2: Build and start**
+- [x] **Step 3: Count modules on disk** — expect **31** (not ≥45).
 
-```bash
-mvn package -DskipTests -q
-cd docker && docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build nginxwebui
-```
-
-Expected: exit 0, container healthy.
-
-- [ ] **Step 3: Count modules on disk**
-
-```bash
-docker exec nginxwebui sh -c "ls /usr/lib/nginx/modules/*.so | wc -l"
-```
-
-Expected: count ≥ 45 (session verified ~48).
-
-- [ ] **Step 4: Note slowfs actual filename**
-
-```bash
-docker exec nginxwebui sh -c "ls /usr/lib/nginx/modules/*slow*"
-```
-
-Expected: `ngx_http_slowfs_module.so` (catalog must use this name, not `ngx_slowfs_cache_module.so`).
+- [x] **Step 4: No slowfs/fair/upload on disk** — verified GONE after harden.
 
 ---
 
-### Task 2: Module catalog in app (SAFE + DB seed)
+### Task 2: Module catalog in app (SAFE + DB seed) — **Done (slim catalog)**
 
 **Files:**
-- Modify: `src/main/java/com/cym/service/NginxService.java`
-- Modify: `src/main/java/com/cym/config/InitConfig.java`
-- Modify: `src/main/resources/messages.properties`
-- Modify: `src/main/resources/messages_zh_TW.properties`
-- Modify: `src/main/resources/messages_en_US.properties`
+- `NginxService.java` — `MODULE_CATALOG` ~31 rows; catalog order for load
+- `InitConfig.java` — `moduleCatalogHardened20260812` prune + resequence
+- i18n moduleStr.descr*
 
 **Interfaces:**
-- Consumes: disk `.so` under `/usr/lib/nginx/modules`
-- Produces: `NginxService.MODULE_CATALOG` (`String[][]` of `{filename, descrKey}`); `InitConfig.seedMissingModulesFromCatalog()`; setting flag `moduleCatalogFullSeeded=1`
+- Produces: `MODULE_CATALOG`; seed/prune migrations
 
-- [ ] **Step 1: Confirm MODULE_CATALOG covers disk modules**
+- [x] **Step 1: MODULE_CATALOG matches slim disk set** (not full alpine community set).
 
-`MODULE_CATALOG` must include every managed `.so` (stream*, ndk, lua*, geoip2, brotli*, zstd*, headers_more, cache_purge, echo, js, keyval, fair, zip, upload*, perl, cookie_flag, dav_ext, fancyindex, image_filter, xslt, auth_jwt, naxsi, nchan, vts, vod, redis2, log_zmq, accounting, acme, shibboleth, slowfs, untar, dynamic_*, mail, rtmp).  
-**Exclude** legacy-only if product requires — do **not** promote geoip v1 templates later; catalog may still list geoip v1 modules for load_module UI.
+- [x] **Step 2: Migrations** — `moduleCatalogFullSeeded` + `moduleCatalogHardened20260812`.
 
-- [ ] **Step 2: Confirm migration path**
-
-On startup, if `moduleCatalogFullSeeded` ≠ `1`, insert missing Module rows with `enable=false`, then set flag. Empty DB uses full catalog seed.
-
-- [ ] **Step 3: Verify DB row count after restart**
-
-```bash
-docker exec nginxwebui-postgres psql -U nginxwebui -d nginxwebui -c "SELECT count(*) FROM module;"
-```
+- [x] **Step 3: DB row count** — ~31 module rows after prune.
 
 Expected: ≈ catalog size (~48).
 

@@ -2,10 +2,8 @@ package com.cym.service;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import org.noear.solon.annotation.Component;
@@ -88,19 +86,7 @@ public class NginxService {
 		SAFE_MODULES = names;
 	}
 
-	/** Dependency map: key depends on value (value must load first) */
-	private static final Map<String, String> DEPENDENCY_MAP = new HashMap<>();
-
-	static {
-		DEPENDENCY_MAP.put("ngx_stream_geoip2_module.so", "ngx_stream_module.so");
-		DEPENDENCY_MAP.put("ngx_stream_js_module.so", "ngx_stream_module.so");
-		DEPENDENCY_MAP.put("ngx_stream_keyval_module.so", "ngx_stream_module.so");
-		DEPENDENCY_MAP.put("ngx_http_lua_module.so", "ndk_http_module.so");
-		DEPENDENCY_MAP.put("ngx_http_lua_upstream_module.so", "ngx_http_lua_module.so");
-		DEPENDENCY_MAP.put("ngx_http_set_misc_module.so", "ndk_http_module.so");
-		DEPENDENCY_MAP.put("ngx_http_array_var_module.so", "ndk_http_module.so");
-		DEPENDENCY_MAP.put("ngx_http_encrypted_session_module.so", "ndk_http_module.so");
-	}
+	// load 依賴序以 MODULE_CATALOG 陣列順序為唯一真相（NDK→Lua→stream…），不再維護 DEPENDENCY_MAP
 
 	@Inject
 	SettingService settingService;

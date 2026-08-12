@@ -109,7 +109,7 @@ docs/               # design docs & plans
   | `location` | every `location { }` — `ParamService` |
   | `upstream` | every HTTP `upstream { }` — `ParamService` |
 - Empty `def` = manual apply only via「選擇參數模板」.
-- **Smart-ish tag lock (read-only disabled):** `TemplateDefUtils.allowedContexts(params)` uses a minimal HTTP-only / stream-only directive name list. Illegal contexts are **greyed + `disabled`** in the UI (hover tip); **save path** runs `normalizeAndFilter` so forged checkboxes cannot persist. Full directive→context matrix can replace `allowedContexts` later without UI redesign.
+- **Smart-ish tag lock (read-only disabled):** `TemplateDefUtils.allowedContexts(params)` is the **single source of truth**. UI calls `POST /adminPage/template/allowedDefs` (debounced) to grey/`disabled` illegal tags; **save path** runs `normalizeAndFilter`. Do not re-duplicate HTTP_ONLY lists in JS.
 - **stream safety:** ConfService skips HTTP-only directives (`if`, `add_header`, …) when auto-injecting into `stream{}`; emits `limit_conn_zone` before `limit_conn`. Migration `streamDefTemplatesSanitized20260812` clears mistaken `def=stream` on GeoIP/`if` templates; only Connection Limit (stream layer) keeps `def=stream`, stream-server limit uses `server1`.
 - **Do not** put HTTP `if` / `$request` log_format into stream templates. See [docs/nginx結構.md](docs/nginx結構.md).
 
