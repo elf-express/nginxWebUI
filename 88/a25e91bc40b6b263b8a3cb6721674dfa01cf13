@@ -1,0 +1,25 @@
+src/main/java/com/cym/utils/NginxDocParser.java
+  s_492e18725e3eaa::t_dc3120cb59204a 65
+  s_492e18725e3eaa::t_a283d18584af8e 18-20
+  s_492e18725e3eaa::t_1a4c3f65cb4a28 13
+  s_492e18725e3eaa::t_df5e3622359374 21
+src/test/java/com/cym/utils/NginxDocParserTest.java
+  s_492e18725e3eaa::t_59e34caf83fec3 64-66,70-74
+  s_492e18725e3eaa::t_b5414a4aabf64c 75-76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "88a25e91bc40b6b263b8a3cb6721674dfa01cf13",
+  "prompts": {},
+  "sessions": {
+    "s_492e18725e3eaa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0393758c-a272-4bb9-a97c-c1ed6354bc61",
+        "model": "claude-opus-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
