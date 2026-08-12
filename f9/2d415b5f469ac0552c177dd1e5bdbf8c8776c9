@@ -1,0 +1,19 @@
+src/main/java/com/cym/utils/AsnSourceUrls.java
+  s_55173c9e199ca9::t_fd6f28fb33c9ec 1-59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "f92d415b5f469ac0552c177dd1e5bdbf8c8776c9",
+  "prompts": {},
+  "sessions": {
+    "s_55173c9e199ca9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-amcp-task1-f59feafc03290089",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
