@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { splitBlocks, isCodeBlock, detectLanguage } = require('../../scripts/fence-code-blocks.js');
+const { splitBlocks, isCodeBlock, detectLanguage, toFence } = require('../../scripts/fence-code-blocks.js');
 
 test('splitBlocks 以空行切開連續引用行', () => {
   const lines = [
@@ -219,4 +219,38 @@ test('detectLanguage 收緊後仍認得真的 var 宣告與真的 C 箭號', () 
   // 守門：收緊不得矯枉過正，這兩種形態必須還在
   assert.strictEqual(detectLanguage(['> var pb = require(\'./static.js\');']), 'javascript');
   assert.strictEqual(detectLanguage(['> log->action = "sending mp4 to client";']), 'c');
+});
+
+test('toFence 產生帶語言標註的 fence 並保留縮排', () => {
+  const out = toFence(['> location /video/ {', '>     aio            on;', '> }'], 'nginx');
+  assert.deepStrictEqual(out, [
+    '```nginx',
+    'location /video/ {',
+    '    aio            on;',
+    '}',
+    '```',
+  ]);
+});
+
+test('toFence 還原 markdown 跳脫', () => {
+  const out = toFence(['> output\\_buffers 1 64k;'], 'nginx');
+  assert.strictEqual(out[1], 'output_buffers 1 64k;');
+});
+
+test('toFence 無語言標註時不留多餘字元', () => {
+  assert.strictEqual(toFence(['> plain text'], '')[0], '```');
+});
+
+test('toFence 保留區塊內的空行', () => {
+  const out = toFence(['> server {', '> ', '>     listen 9000;', '> }'], 'nginx');
+  assert.strictEqual(out.length, 6);
+  assert.strictEqual(out[2], '');
+});
+
+test('toFence 內容不變量：剝除標記後與原文逐字相同', () => {
+  const src = ['> server {', '>     grpc\\_pass 127.0.0.1:9000;', '> }'];
+  const out = toFence(src, 'nginx');
+  const body = out.slice(1, -1).join('\n');
+  const expected = src.map((l) => l.replace(/^\s*>\s?/, '').replace(/\\([_*[\]`])/g, '$1')).join('\n');
+  assert.strictEqual(body, expected);
 });

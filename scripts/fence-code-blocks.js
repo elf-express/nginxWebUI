@@ -44,6 +44,13 @@ function unescapeMd(s) {
   return s.replace(/\\([_*[\]`])/g, '$1');
 }
 
+// 引用行 → 內容行。只剝一層 "> " 是刻意的：巢狀 `> >` 的內層 > 屬於內容本身
+// （curl -v 的輸出前綴、diff 的 ---），剝兩層會吃掉程式碼字元。
+// 三個呼叫端共用這一層；要不要濾掉空行由呼叫端自己決定（toFence 必須留住中間空行）。
+function bodyLines(blockLines) {
+  return blockLines.map((l) => unescapeMd(stripQuote(l)));
+}
+
 // 明確的程式碼訊號。命中任一條，整個區塊就是程式碼。
 const CODE_SIGNALS = [
   /[{}]\s*$/,                       // 大括號結尾：nginx 區塊、C 函式
@@ -59,7 +66,7 @@ const PROSE_END_RE = /[.。！!？?:：]\s*$/;
 
 function isCodeBlock(blockLines) {
   const hasNested = blockLines.some((l) => NESTED_RE.test(l));
-  const bodies = blockLines.map((l) => unescapeMd(stripQuote(l))).filter((s) => s.trim());
+  const bodies = bodyLines(blockLines).filter((s) => s.trim());  // 判斷不看空行
   if (bodies.length === 0) return false;
 
   const hasCodeSignal = bodies.some((b) => CODE_SIGNALS.some((re) => re.test(b.trim())));
@@ -79,7 +86,7 @@ function isCodeBlock(blockLines) {
 const NGINX_DIRECTIVES = /^(location|server|http|events|stream|upstream|mail|types|map|geo|split_clients|limit_req_zone|limit_conn_zone|proxy_pass|listen|root|index|error_log|access_log|include|ssl_certificate|add_header|rewrite|return|aio|sendfile|directio|output_buffers|resolver|acme_issuer|debug_connection)\b/;
 
 function detectLanguage(blockLines) {
-  const bodies = blockLines.map((l) => unescapeMd(stripQuote(l))).filter((s) => s.trim());
+  const bodies = bodyLines(blockLines).filter((s) => s.trim());  // 推斷不看空行
   const joined = bodies.join('\n');
 
   if (bodies.some((b) => /^@@ -\d+/.test(b.trim()))) return 'diff';
@@ -101,4 +108,19 @@ function detectLanguage(blockLines) {
   return '';
 }
 
-module.exports = { splitBlocks, isCodeBlock, detectLanguage, stripQuote, unescapeMd };
+// 內容若本身含有 ``` 就升級成四個反引號，避免 fence 提早結束
+function fenceMarker(bodies) {
+  return bodies.some((b) => b.includes('```')) ? '````' : '```';
+}
+
+// 把一個區塊換成 code fence。這是整個腳本唯一產出檔案內容的地方，
+// 也是內容不變量的落點：除了剝一層引用前綴與還原 markdown 跳脫，不動任何字元。
+function toFence(blockLines, lang) {
+  const bodies = bodyLines(blockLines);  // 不濾空行：區塊中間的空行是內容
+  // 去掉區塊尾端的空行，但保留中間的
+  while (bodies.length && !bodies[bodies.length - 1].trim()) bodies.pop();
+  const marker = fenceMarker(bodies);
+  return [marker + (lang || ''), ...bodies, marker];
+}
+
+module.exports = { splitBlocks, isCodeBlock, detectLanguage, toFence, stripQuote, unescapeMd };
