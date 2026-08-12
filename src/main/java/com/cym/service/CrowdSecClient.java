@@ -6,6 +6,8 @@ import java.util.List;
 import org.noear.solon.annotation.Component;
 import org.noear.solon.annotation.Inject;
 
+import com.cym.utils.NetGuard;
+
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
@@ -18,6 +20,8 @@ import cn.hutool.json.JSONUtil;
  * <p>
  * Uses SettingService keys {@code crowdsecUrl} + {@code crowdsecApiKey}.
  * Decision bodies are built via hutool {@link JSONObject} (no string-concat JSON).
+ * <p>
+ * Hard gates (NetGuard) run before any HTTP: duration/CIDR on post, webui reason on delete-by-reason.
  */
 @Component
 public class CrowdSecClient {
@@ -31,6 +35,30 @@ public class CrowdSecClient {
 	SettingService settingService;
 
 	// ── pure helpers (unit-testable) ───────────────────────────────────
+
+	/** Reject non-CIDR / non-IP values (NetGuard). Package-visible for unit tests. */
+	static void requireCidr(String value) {
+		if (!NetGuard.isValidCidr(value)) {
+			throw new IllegalArgumentException(NetGuard.ERR_INVALID_CIDR);
+		}
+	}
+
+	/** Reject blank or non-duration strings (NetGuard). Package-visible for unit tests. */
+	static void requireDuration(String duration) {
+		if (!NetGuard.isValidDuration(duration)) {
+			throw new IllegalArgumentException(NetGuard.ERR_INVALID_DURATION);
+		}
+	}
+
+	/**
+	 * Reject reasons that are not {@code nginxwebui:*} (NetGuard).
+	 * Used only on delete-by-reason paths — ban reason stays free for manual add.
+	 */
+	static void requireWebuiReason(String reason) {
+		if (!NetGuard.isAllowedWebuiReason(reason)) {
+			throw new IllegalArgumentException(NetGuard.ERR_INVALID_REASON);
+		}
+	}
 
 	/**
 	 * Build a CrowdSec decision POST body as JSON.
@@ -150,7 +178,11 @@ public class CrowdSecClient {
 
 	void postDecision(String duration, String reason, String scope, String value, String type) {
 		ensureConfigured();
-		if (StrUtil.isBlank(value)) {
+		// Hard gates before HTTP — ban reason is free text (manual add OK); duration/CIDR always.
+		requireDuration(duration);
+		if ("range".equals(scope) || "ip".equals(scope)) {
+			requireCidr(value);
+		} else if (StrUtil.isBlank(value)) {
 			throw new IllegalArgumentException("empty value");
 		}
 		String jsonBody = buildDecisionBody(duration, reason, scope, value, type);
@@ -170,25 +202,23 @@ public class CrowdSecClient {
 
 	/**
 	 * Delete all decisions whose reason starts with {@code reasonPrefix}.
+	 * Prefix must be an allowed webui reason ({@code nginxwebui:*}).
 	 *
 	 * @return number of successfully deleted decisions
 	 */
 	public int deleteDecisionsByReasonPrefix(String reasonPrefix) {
-		if (StrUtil.isBlank(reasonPrefix)) {
-			throw new IllegalArgumentException("empty reasonPrefix");
-		}
+		requireWebuiReason(reasonPrefix);
 		return deleteMatching(reasonPrefix, null, false);
 	}
 
 	/**
 	 * Delete all decisions whose reason equals {@code reason} exactly.
+	 * Reason must be an allowed webui reason ({@code nginxwebui:*}).
 	 *
 	 * @return number of successfully deleted decisions
 	 */
 	public int deleteDecisionsByReasonEquals(String reason) {
-		if (StrUtil.isBlank(reason)) {
-			throw new IllegalArgumentException("empty reason");
-		}
+		requireWebuiReason(reason);
 		return deleteMatching(null, reason, true);
 	}
 
