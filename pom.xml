@@ -19,6 +19,24 @@
 		<java.version>17</java.version>
 	</properties>
 
+	<dependencyManagement>
+		<dependencies>
+			<!-- Jackson 全家對齊到同一版。
+			     Jackson 要求 core / databind / annotations 同 minor，而這裡本來是混的：
+			     專案直接宣告 annotations 2.22，solon-ai-mcp 帶進 databind/core 2.19.4 與
+			     dataformat-yaml 2.18.3。fat jar（jar-with-dependencies）會把三個版本打成一包，
+			     正是會生出難查 NoSuchMethodError 的形狀。
+			     用官方 BOM 而不是逐項寫死：日後任何 jackson-* 模組被拉進來都自動跟著對齊。 -->
+			<dependency>
+				<groupId>com.fasterxml.jackson</groupId>
+				<artifactId>jackson-bom</artifactId>
+				<version>2.19.4</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
 	<dependencies>
 		<dependency>
 			<groupId>org.noear</groupId>
@@ -115,10 +133,10 @@
 			<artifactId>easy-captcha</artifactId>
 			<version>1.6.2</version>
 		</dependency>
+		<!-- 版本由下方 jackson-bom 統一管理，勿在此寫死（見 dependencyManagement 的說明）。 -->
 		<dependency>
 			<groupId>com.fasterxml.jackson.core</groupId>
 			<artifactId>jackson-annotations</artifactId>
-			<version>2.22</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.maven</groupId>

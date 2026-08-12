@@ -26,6 +26,7 @@ import org.noear.solon.core.util.MultiMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.cym.mcp.NginxDocMcpServer;
 import com.cym.model.Admin;
 import com.cym.model.Message;
 import com.cym.model.Remote;
@@ -89,19 +90,25 @@ public class AppFilter implements Filter {
 	private void doFilterDo(Context ctx, FilterChain chain) throws Throwable {
 		String path = ctx.path().toLowerCase();
 
-		// MCP 端點:未設定 --mcp.token 一律 404(opt-in,既有部署升級後行為不變);
+		// MCP 端點:未設定 mcp.token 一律 404(opt-in,既有部署升級後行為不變);
 		// 設定了則檢查 Authorization: Bearer <token>。
 		//
 		// === 這一段必須留在 doFilterDo 的最前面,不要為了「過濾器分類整齊」把它往下搬 ===
 		// 理由不是「早點擋比較快」,而是:未通過認證的請求不得觸發任何 DB 讀取與 i18n 建表。
 		// 下面第一件事 frontInterceptor 就會做 4 次 settingService.get()、跑
 		// geoipService.getDbInfos()、再把整份 properties 組成 messages/messageHeaders 表。
-		// 那些全是給 Freemarker 頁面用的,JSON-RPC 請求一個欄位都用不到;搬到它後面等於
-		// 讓任何人未經認證就能靠打 /mcp 逼出 DB 查詢。只攔 /mcp,其他路徑行為完全不變。
+		// 搬到它後面等於讓任何人未經認證就能靠打 /mcp 逼出這些 DB 查詢。
+		//
+		// 讀取方式必須與 NginxDocMcpServer 的 @Condition 一致(同一個常數、同一個 getByExpr)。
+		// Solon 的 cfg().get() 不查環境變數而 getByExpr() 會 —— 兩邊用不同讀法時,
+		// 若有人用環境變數設 token,會變成 bean 有註冊、log 也印了端點,但這裡認為沒設而永遠回 404。
 		if (path.startsWith("/mcp")) {
-			String expected = Solon.cfg().get("mcp.token");
+			String expected = Solon.cfg().getByExpr(NginxDocMcpServer.TOKEN_KEY);
 			if (StrUtil.isEmpty(expected)) {
 				ctx.status(404);
+				// 空 body 的 404/401 極難查(brief 自己就吐槽過),明講原因與開啟方式。
+				ctx.output("MCP 端點未啟用:未設定 " + NginxDocMcpServer.TOKEN_KEY
+						+ "。啟動時加上 --mcp.token=<token> 即可開啟 /mcp。\n");
 				ctx.setHandled(true);
 				return;
 			}
@@ -112,17 +119,23 @@ public class AppFilter implements Filter {
 					auth.getBytes(StandardCharsets.UTF_8),
 					("Bearer " + expected).getBytes(StandardCharsets.UTF_8))) {
 				ctx.status(401);
+				ctx.output("MCP 端點需要認證:請帶 header `Authorization: Bearer <mcp.token>`。\n");
 				ctx.setHandled(true);
 				return;
 			}
 		}
 
 		// 全局过滤器
+		// 排除 /mcp:通過認證後執行會落到這裡,而 frontInterceptor 準備的是 Freemarker 頁面要的
+		// ctx 屬性(DB 查詢 + O(messageHeaders × messages) 的 i18n 建表),JSON-RPC 回應一個都用不到。
+		// 不排除的話每次成功的 tool call 都白付這筆成本,而且會走到 :330 那個既有的 lang 為
+		// 非預期值時 properties 為 null 的 NPE 路徑上。
 		if (!path.contains("/lib/") //
 				&& !path.toLowerCase().contains("/js/") //
 				&& !path.toLowerCase().contains("/doc/") //
 				&& !path.toLowerCase().contains("/img/") //
-				&& !path.toLowerCase().contains("/css/")) {
+				&& !path.toLowerCase().contains("/css/") //
+				&& !path.startsWith("/mcp")) {
 			frontInterceptor(ctx);
 		}
 

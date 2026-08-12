@@ -17,6 +17,7 @@ import org.noear.solon.annotation.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.cym.mcp.NginxDocMcpServer;
 import com.cym.model.Admin;
 import com.cym.model.Basic;
 import com.cym.model.DenyAllow;
@@ -451,8 +452,9 @@ public class InitConfig {
 			});
 		}
 
-		// nginx 文件索引:只在啟用 MCP 時才載入,避免沒用到卻付出解析 150 頁 markdown 的成本
-		if (StrUtil.isNotEmpty(org.noear.solon.Solon.cfg().get("mcp.token"))) {
+		// nginx 文件索引:只在啟用 MCP 時才載入,避免沒用到卻付出解析 150 頁 markdown 的成本。
+		// 常數與讀法都必須跟 NginxDocMcpServer 的 @Condition、AppFilter 的認證一致(見 TOKEN_KEY)。
+		if (StrUtil.isNotEmpty(org.noear.solon.Solon.cfg().getByExpr(NginxDocMcpServer.TOKEN_KEY))) {
 			nginxDocService.loadFromClasspath();
 		}
 
