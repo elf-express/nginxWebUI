@@ -75,4 +75,20 @@ function isCodeBlock(blockLines) {
   return !bodies.some(PROSE_END_RE.test.bind(PROSE_END_RE));
 }
 
-module.exports = { splitBlocks, isCodeBlock, stripQuote, unescapeMd };
+// 順序有意義：diff 與 C 的訊號最明確，先判；nginx 指令範圍最廣，最後判。
+const NGINX_DIRECTIVES = /^(location|server|http|events|stream|upstream|mail|types|map|geo|split_clients|limit_req_zone|limit_conn_zone|proxy_pass|listen|root|index|error_log|access_log|include|ssl_certificate|add_header|rewrite|return|aio|sendfile|directio|output_buffers|resolver|acme_issuer|debug_connection)\b/;
+
+function detectLanguage(blockLines) {
+  const bodies = blockLines.map((l) => unescapeMd(stripQuote(l))).filter((s) => s.trim());
+  const joined = bodies.join('\n');
+
+  if (bodies.some((b) => /^@@ -\d+/.test(b.trim()))) return 'diff';
+  if (bodies.some((b) => /^#include\b/.test(b.trim()))) return 'c';
+  if (/\bngx_[a-z_]+_t\b|\bstatic\s+ngx_|\bu_char\b/.test(joined)) return 'c';
+  if (bodies.some((b) => /^(\.\/configure|nginx\s|kill\s|service\s|systemctl\s|ps\s|curl\s|sudo\s|make\b|kldload\s|apt\s|yum\s)/.test(b.trim()))) return 'bash';
+  if (bodies.some((b) => NGINX_DIRECTIVES.test(b.trim()))) return 'nginx';
+  if (bodies.some((b) => /[{};]\s*$/.test(b.trim()))) return 'nginx';
+  return '';
+}
+
+module.exports = { splitBlocks, isCodeBlock, detectLanguage, stripQuote, unescapeMd };

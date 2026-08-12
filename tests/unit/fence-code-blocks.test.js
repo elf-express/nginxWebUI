@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { splitBlocks, isCodeBlock } = require('../../scripts/fence-code-blocks.js');
+const { splitBlocks, isCodeBlock, detectLanguage } = require('../../scripts/fence-code-blocks.js');
 
 test('splitBlocks 以空行切開連續引用行', () => {
   const lines = [
@@ -152,4 +152,16 @@ test('isCodeBlock 讓真正的 note box 維持散文', () => {
   // 不走「沒有句末標點就當程式碼」的 fallback 推定（068page.md:22 真實形態）
   assert.strictEqual(isCodeBlock(['> >valid\\_referers沒有阻止server\\_names']), false);
   assert.strictEqual(isCodeBlock(['> >當前監聽隊列大小（qlen/incqlen/maxqlen）']), false);
+});
+
+test('detectLanguage 分辨 nginx / c / diff / bash', () => {
+  assert.strictEqual(detectLanguage(['> location /video/ {', '>     aio on;', '> }']), 'nginx');
+  assert.strictEqual(detectLanguage(['> #include <ngx\\_config.h>']), 'c');
+  assert.strictEqual(detectLanguage(['> @@ -2453,6 +2453,8 @@ ngx\\_http\\_subrequest(']), 'diff');
+  assert.strictEqual(detectLanguage(['> ./configure --with-debug ...']), 'bash');
+  assert.strictEqual(detectLanguage(['> nginx -s reload']), 'bash');
+});
+
+test('detectLanguage 無法判斷時回傳空字串', () => {
+  assert.strictEqual(detectLanguage(['> configure arguments: --with-debug ...']), '');
 });
