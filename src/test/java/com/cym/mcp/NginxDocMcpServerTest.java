@@ -31,7 +31,7 @@ public class NginxDocMcpServerTest {
 	@BeforeAll
 	public static void setUp() throws Exception {
 		List<String> pages = new ArrayList<>();
-		// 與 NginxDocServiceTest 相同:依檔名排序對齊 loadFromClasspath 的 001→200 順序,
+		// 與 NginxDocServiceTest 相同:依檔名排序對齊 loadFromClasspath 的 001→N 編號順序,
 		// 否則同名跨模組指令(proxy_pass)的先到先贏順序在不同平台上會不一樣。
 		try (var paths = Files.list(Path.of("docs/nginxdocumentation"))) {
 			for (Path p : paths.filter(x -> x.getFileName().toString().endsWith("page.md")).sorted().toList()) {
@@ -98,9 +98,12 @@ public class NginxDocMcpServerTest {
 	 * 有問題時也要附上「context 由括號追蹤推得」的但書。
 	 *
 	 * 乾淨路徑講了「不代表設定完全正確」,回報路徑卻一句但書都沒有 —— 等於只在沒人會被
-	 * 誤導的時候才誠實。下面這份設定只是多了一個 },http 因此提早收掉,三行合法的 http
-	 * 指令就被斬釘截鐵地報成「不能用在 main」。這三條誤報是已知且刻意不修的(修它要動
-	 * 括號追蹤),所以能做的是不要讓它們聽起來像定論。
+	 * 誤導的時候才誠實。
+	 *
+	 * 下面這份設定的大括號是平衡的(2 開 2 關),三則回報也都是**對的**:那三行 http 指令
+	 * 確實落在 main,而 gzip / keepalive_timeout / server_tokens 的官方 context 都不含 main,
+	 * nginx 會拒絕啟動。這條釘的是「有回報時一定要帶但書」與回報的則數,不是在示範誤報 ——
+	 * 誤報要追蹤真的偏掉才會出現,而但書存在的理由正是呼叫端無從分辨這兩者。
 	 */
 	@Test
 	public void 有問題時也要附上括號追蹤的但書() {

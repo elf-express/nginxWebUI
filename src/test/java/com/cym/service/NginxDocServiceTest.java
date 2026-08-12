@@ -22,7 +22,7 @@ public class NginxDocServiceTest {
 
 	@BeforeAll
 	public static void setUp() throws Exception {
-		// 依檔名排序,對齊 loadFromClasspath 的 001→200 順序:122 個指令名同時存在於多個模組
+		// 依檔名排序,對齊 loadFromClasspath 的 001→N 編號順序:122 個指令名同時存在於多個模組
 		// (proxy_pass 在 http 與 stream 都有),索引是先到先贏,而 Files.list 的順序在 Linux 上不保證。
 		try (var paths = Files.list(Path.of("docs/nginxdocumentation"))) {
 			for (Path p : paths.filter(x -> x.getFileName().toString().endsWith("page.md")).sorted().toList()) {

@@ -191,10 +191,12 @@ know which block each line sits in, and then checks the **directive lines** — 
 is this context one the documentation allows it in. The lines that *open* a block are only used to track
 nesting; their own legality is never judged. So a block opened in the wrong place — `if { }` written
 directly under `http`, or `server { }` at the top level — is not reported, even though nginx refuses to
-start on it. The brace tracking is also the reason a config with unbalanced braces can produce confident
-but wrong findings: every line after the mismatch is attributed to the wrong block. Findings therefore come
-with that caveat attached, and nothing reported never means the config is correct — the tool reports only
-what it is certain of, and deliberately stays silent everywhere else.
+start on it. The brace tracking is also the reason a finding can be confident and still be wrong.
+Unbalanced braces misattribute every line after the mismatch — and so does a closing brace that opens a new
+block on the same line (`} location /b {`), where the rest of that line is discarded and the new block is
+never entered, even though the braces balance. Findings therefore carry a caveat naming both cases, and
+nothing reported never means the config is correct — the tool reports only what it is certain of, and
+deliberately stays silent everywhere else.
 
 ### Turning it on
 
