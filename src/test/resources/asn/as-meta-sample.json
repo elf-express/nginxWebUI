@@ -1,0 +1,50 @@
+[
+  {
+    "asn": 51167,
+    "metadata": {
+      "handle": "CONTABO",
+      "description": "Contabo GmbH",
+      "countryCode": "DE",
+      "category": "hosting",
+      "networkRole": "stub",
+      "origin": "authoritative"
+    },
+    "lastAnnounced": "2026-08-11"
+  },
+  {
+    "asn": 3462,
+    "metadata": {
+      "handle": "HINET",
+      "description": "Chunghwa Telecom",
+      "countryCode": "TW",
+      "category": "isp",
+      "networkRole": "access_provider",
+      "origin": "authoritative"
+    },
+    "lastAnnounced": "2026-08-11"
+  },
+  {
+    "asn": 13335,
+    "metadata": {
+      "handle": "CLOUDFLARENET",
+      "description": "Cloudflare, Inc.",
+      "countryCode": "US",
+      "category": "business",
+      "networkRole": "content",
+      "origin": "authoritative"
+    },
+    "lastAnnounced": "2026-08-10"
+  },
+  {
+    "asn": 0,
+    "metadata": {
+      "handle": "",
+      "description": null,
+      "countryCode": null,
+      "category": null,
+      "networkRole": null,
+      "origin": null
+    },
+    "lastAnnounced": null
+  }
+]
