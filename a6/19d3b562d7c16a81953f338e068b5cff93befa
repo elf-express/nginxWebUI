@@ -1,0 +1,21 @@
+docs/superpowers/plans/2026-08-12-ipverse-asn-crowdsec-plan.md
+  s_492e18725e3eaa::t_e03d22aff35f48 1-1036
+docs/superpowers/specs/2026-08-12-ipverse-asn-crowdsec-design.md
+  s_492e18725e3eaa::t_47c47e4920a755 1-237
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "a619d3b562d7c16a81953f338e068b5cff93befa",
+  "prompts": {},
+  "sessions": {
+    "s_492e18725e3eaa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0393758c-a272-4bb9-a97c-c1ed6354bc61",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
