@@ -18,61 +18,75 @@
 
 那些在共享主機的生活中使用 * 僅 * Apache的.htaccess文件來配置 * 所有內容 * 的人，通常會翻譯以下規則：
 
-> RewriteCond  %{HTTP\_HOST}  example.org
-> RewriteRule  (.\*)          http://www.example.org$1
+```
+RewriteCond  %{HTTP_HOST}  example.org
+RewriteRule  (.*)          http://www.example.org$1
+```
 
 變成了這樣
 
-> server {
->     listen       80;
->     server\_name  www.example.org  example.org;
->     if ($http\_host = example.org) {
->         rewrite  (.\*)  http://www.example.org$1;
->     }
->     ...
-> }
+```nginx
+server {
+    listen       80;
+    server_name  www.example.org  example.org;
+    if ($http_host = example.org) {
+        rewrite  (.*)  http://www.example.org$1;
+    }
+    ...
+}
+```
 
 這是一種錯誤的、繁瑣的、無效的方法。正確的方法是為`example.org`定義一個單獨的伺服器：
 
-> server {
->     listen       80;
->     server\_name  example.org;
->     return       301 http://www.example.org$request\_uri;
-> }
-> 
-> server {
->     listen       80;
->     server\_name  www.example.org;
->     ...
-> }
+```nginx
+server {
+    listen       80;
+    server_name  example.org;
+    return       301 http://www.example.org$request_uri;
+}
 
-> >在0.9.1之前的版本中，重定向可以通過以下方式進行：
-> 
-> >     rewrite      ^ http://www.example.org$request\_uri?;
+server {
+    listen       80;
+    server_name  www.example.org;
+    ...
+}
+```
+
+```nginx
+>在0.9.1之前的版本中，重定向可以通過以下方式進行：
+
+>     rewrite      ^ http://www.example.org$request_uri?;
+```
 
 另一個例子。代替「顛倒」邏輯「所有不是`example.com`和不是`www.example.com`的"：
 
-> RewriteCond  %{HTTP\_HOST}  !example.com
-> RewriteCond  %{HTTP\_HOST}  !www.example.com
-> RewriteRule  (.\*)          http://www.example.com$1
+```
+RewriteCond  %{HTTP_HOST}  !example.com
+RewriteCond  %{HTTP_HOST}  !www.example.com
+RewriteRule  (.*)          http://www.example.com$1
+```
 
 應該簡單地定義`example.com`、`www.example.com`和「其他所有內容」：
 
-> server {
->     listen       80;
->     server\_name  example.com www.example.com;
->     ...
-> }
-> 
-> server {
->     listen       80 default\_server;
->     server\_name  \_;
->     return       301 http://example.com$request\_uri;
-> }
+```nginx
+server {
+    listen       80;
+    server_name  example.com www.example.com;
+    ...
+}
 
-> >在0.9.1之前的版本中，重定向可以通過以下方式進行：
-> 
-> >     rewrite      ^ http://example.com$request\_uri?;
+server {
+    listen       80 default_server;
+    server_name  _;
+    return       301 http://example.com$request_uri;
+}
+```
+
+```nginx
+>在0.9.1之前的版本中，重定向可以通過以下方式進行：
+
+>     rewrite      ^ http://example.com$request_uri?;
+```
 
 #### 轉換Mongrel規則
 
@@ -97,14 +111,16 @@
 
 應換算成
 
-> location / {
->     root       /var/www/myapp.com/current/public;
-> 
->     try\_files/system/maintenance. html
->                $uri $uri/index.html $uri.html
->                @mongrel;
-> }
-> 
-> location @mongrel {
->     proxy\_pass  http://mongrel;
-> }
+```nginx
+location / {
+    root       /var/www/myapp.com/current/public;
+
+    try_files/system/maintenance. html
+               $uri $uri/index.html $uri.html
+               @mongrel;
+}
+
+location @mongrel {
+    proxy_pass  http://mongrel;
+}
+```

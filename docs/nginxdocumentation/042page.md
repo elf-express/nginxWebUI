@@ -24,13 +24,15 @@
 
 #### 配置示例
 
-> http {
->     geoip\_country         GeoIP.dat;
->     geoip\_city            GeoLiteCity.dat;
->     geoip\_proxy           192.168.100.0/24;
->     geoip\_proxy           2001:0db8::/32;
->     geoip\_proxy\_recursive on;
->     ...
+```nginx
+http {
+    geoip_country         GeoIP.dat;
+    geoip_city            GeoLiteCity.dat;
+    geoip_proxy           192.168.100.0/24;
+    geoip_proxy           2001:0db8::/32;
+    geoip_proxy_recursive on;
+    ...
+```
 
 #### Directives
 

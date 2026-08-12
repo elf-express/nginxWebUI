@@ -18,45 +18,47 @@
 
 #### 配置示例
 
-> worker\_processes auto;
-> 
-> error\_log /var/log/nginx/error.log info;
-> 
-> events {
->     worker\_connections  1024;
-> }
-> 
-> mail {
->     server\_name       mail.example.com;
->     auth\_http         localhost:9000/cgi-bin/nginxauth.cgi;
-> 
->     imap\_capabilities IMAP4rev1 UIDPLUS IDLE LITERAL+ QUOTA;
-> 
->     pop3\_auth         plain apop cram-md5;
->     pop3\_capabilities LAST TOP USER PIPELINING UIDL;
-> 
->     smtp\_auth         login plain cram-md5;
->     smtp\_capabilities "SIZE 10485760" ENHANCEDSTATUSCODES 8BITMIME DSN;
->     xclient           off;
-> 
->     server {
->         listen   25;
->         protocol smtp;
->     }
->     server {
->         listen   110;
->         protocol pop3;
->         proxy\_pass\_error\_message on;
->     }
->     server {
->         listen   143;
->         protocol imap;
->     }
->     server {
->         listen   587;
->         protocol smtp;
->     }
-> }
+```nginx
+worker_processes auto;
+
+error_log /var/log/nginx/error.log info;
+
+events {
+    worker_connections  1024;
+}
+
+mail {
+    server_name       mail.example.com;
+    auth_http         localhost:9000/cgi-bin/nginxauth.cgi;
+
+    imap_capabilities IMAP4rev1 UIDPLUS IDLE LITERAL+ QUOTA;
+
+    pop3_auth         plain apop cram-md5;
+    pop3_capabilities LAST TOP USER PIPELINING UIDL;
+
+    smtp_auth         login plain cram-md5;
+    smtp_capabilities "SIZE 10485760" ENHANCEDSTATUSCODES 8BITMIME DSN;
+    xclient           off;
+
+    server {
+        listen   25;
+        protocol smtp;
+    }
+    server {
+        listen   110;
+        protocol pop3;
+        proxy_pass_error_message on;
+    }
+    server {
+        listen   143;
+        protocol imap;
+    }
+    server {
+        listen   587;
+        protocol smtp;
+    }
+}
+```
 
 #### Directives
 
@@ -64,19 +66,25 @@
 
 為伺服器將接受請求的套接字設置`*address*`和`*port*`。可以只指定埠。地址也可以是主機名，例如：
 
-> listen 127.0.0.1:110;
-> listen \*:110;
-> listen 110;     # same as \*:110
-> listen localhost:110;
+```nginx
+listen 127.0.0.1:110;
+listen *:110;
+listen 110;     # same as *:110
+listen localhost:110;
+```
 
 IPv6地址（0.7.58）在方括號中指定：
 
-> listen \[::1\]:110;
-> listen \[::\]:110;
+```nginx
+listen [::1]:110;
+listen [::]:110;
+```
 
 UNIX域套接字（1.3.5）使用「`unix:`」前綴指定：
 
-> listen unix:/var/run/nginx.sock;
+```nginx
+listen unix:/var/run/nginx.sock;
+```
 
 不同的伺服器必須偵聽不同的`*address*`：`*port*`對。
 
@@ -116,7 +124,9 @@ UNIX域套接字（1.3.5）使用「`unix:`」前綴指定：
 
 此參數為偵聽套接字配置「TCP keepalive」行為。如果省略此參數，則作業系統的設置將對套接字生效。如果將其設置為值「`on`"，則為套接字打開`SO_KEEPALIVE`選項。如果將其設置為值「`off`"，套接字的`SO_KEEPALIVE`選項已關閉。某些作業系統支持使用`TCP_KEEPIDLE`、`TCP_KEEPINTVL`和`TCP_KEEPCNT`套接字選項在每個套接字的基礎上設置TCP keepalive參數。在此類系統上（目前為Linux、NetBSD、Dragonfly、FreeBSD、macOS），可以使用`*keepidle*`、`*keepintvl*`、`*keepcnt*`參數進行配置。可以省略一個或兩個參數，此時對應套接字選項的系統默認設置將生效。例如，
 
-> so\_keepalive=30m::10
+```
+so_keepalive=30m::10
+```
 
 將設置空閒超時（`TCP_KEEPIDLE`）為30分鐘，保留探測間隔（`TCP_KEEPINTVL`）為系統默認值，並將探測計數（`TCP_KEEPCNT`）設置為10個探測。
 
@@ -146,7 +156,9 @@ UNIX域套接字（1.3.5）使用「`unix:`」前綴指定：
 
 配置用於查找客戶端主機名的名稱伺服器，以便在禁用SMTP時將其傳遞給[authentication server](https://nginx.org/en/docs/mail/ngx_mail_auth_http_module.html)和[XCLIENT](https://nginx.org/en/docs/mail/ngx_mail_proxy_module.html#xclient)命令。例如：
 
-> resolver 127.0.0.1 \[::1\]:5353;
+```nginx
+resolver 127.0.0.1 [::1]:5353;
+```
 
 地址可以指定為域名或IP位址，並帶有可選埠（1.3.1，1.2.2）。如果未指定埠，則使用埠53。名稱伺服器以循環方式查詢。
 
@@ -158,7 +170,9 @@ UNIX域套接字（1.3.5）使用「`unix:`」前綴指定：
 
 默認情況下，nginx會使用響應的TTL值來緩存答案。可選的`valid`參數允許覆蓋它：
 
-> resolver 127.0.0.1 \[::1\]:5353 valid=30s;
+```nginx
+resolver 127.0.0.1 [::1]:5353 valid=30s;
+```
 
 > >在1.1.9版本之前，無法調整緩存時間，nginx總是將答案緩存5分鐘。
 
@@ -172,7 +186,9 @@ UNIX域套接字（1.3.5）使用「`unix:`」前綴指定：
 
 設置DNS操作的超時，例如：
 
-> resolver\_timeout 5s;
+```nginx
+resolver_timeout 5s;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>server</strong> { ... }</code><br></td></tr><tr><th>Default:</th><td>—</td></tr><tr><th>Context:</th><td><code>mail</code><br></td></tr></tbody></table>
 

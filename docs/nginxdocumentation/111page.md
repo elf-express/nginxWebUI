@@ -54,32 +54,36 @@ To use njs in nginx:
     
 -   create an njs script file, for example, `http.js`. See [Reference](https://nginx.org/en/docs/njs/reference.html) for the list of njs properties and methods.
     
-    > function hello(r) {
-    >     r.return(200, "Hello world!");
-    > }
-    > 
-    > export default {hello};
+    ```javascript
+    function hello(r) {
+        r.return(200, "Hello world!");
+    }
+
+    export default {hello};
+    ```
     
 -   in the `nginx.conf` file, enable [ngx\_http\_js\_module](https://nginx.org/en/docs/http/ngx_http_js_module.html) module and specify the [js\_import](https://nginx.org/en/docs/http/ngx_http_js_module.html#js_import) directive with the `http.js` script file:
     
-    > load\_module modules/ngx\_http\_js\_module.so;
-    > 
-    > events {}
-    > 
-    > http {
-    >     # since 0.9.1
-    >     js\_engine qjs;
-    > 
-    >     js\_import http.js;
-    > 
-    >     server {
-    >         listen 8000;
-    > 
-    >         location / {
-    >             js\_content http.hello;
-    >         }
-    >     }
-    > }
+    ```nginx
+    load_module modules/ngx_http_js_module.so;
+
+    events {}
+
+    http {
+        # since 0.9.1
+        js_engine qjs;
+
+        js_import http.js;
+
+        server {
+            listen 8000;
+
+            location / {
+                js_content http.hello;
+            }
+        }
+    }
+    ```
     
 
 There is also a standalone [command line](https://nginx.org/en/docs/njs/cli.html) utility that can be used independently of nginx for njs development and debugging.

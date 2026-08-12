@@ -29,20 +29,24 @@
 
 #### 配置示例
 
-> location / {
->     hls;
->     hls\_fragment            5s;
->     hls\_buffers             10 10m;
->     hls\_mp4\_buffer\_size     1m;
->     hls\_mp4\_max\_buffer\_size 5m;
->     root /var/video/;
-> }
+```nginx
+location / {
+    hls;
+    hls_fragment            5s;
+    hls_buffers             10 10m;
+    hls_mp4_buffer_size     1m;
+    hls_mp4_max_buffer_size 5m;
+    root /var/video/;
+}
+```
 
 通過此配置，「`/var/video/test.mp4`」文件支持以下URI：
 
-> http://hls.example.com/test.mp4.m3u8?offset=1.000&start=1.000&end=2.200
-> http://hls.example.com/test.mp4.m3u8?len=8.000
-> http://hls.example.com/test.mp4.ts?start=1.000&end=2.200
+```nginx
+http://hls.example.com/test.mp4.m3u8?offset=1.000&start=1.000&end=2.200
+http://hls.example.com/test.mp4.m3u8?len=8.000
+http://hls.example.com/test.mp4.ts?start=1.000&end=2.200
+```
 
 #### Directives
 
@@ -84,37 +88,39 @@
 
 如果HLS流受[ngx\_http\_secure\_link\_module](https://nginx.org/en/docs/http/ngx_http_secure_link_module.html)模塊保護，則不應在[secure\_link\_md5](https://nginx.org/en/docs/http/ngx_http_secure_link_module.html#secure_link_md5)表達式中使用`$uri`，因為這會在請求片段時導致錯誤。應使用[Base URI](https://nginx.org/en/docs/http/ngx_http_map_module.html#map)而不是`$uri`（示例中為`$hls_uri`）：
 
-> http {
->     ...
-> 
->     map $uri $hls\_uri {
->         ~^(?<base\_uri>.\*).m3u8$ $base\_uri;
->         ~^(?<base\_uri>.\*).ts$   $base\_uri;
->         default                 $uri;
->     }
-> 
->     server {
->         ...
-> 
->         location /hls/ {
->             hls;
->             hls\_forward\_args on;
-> 
->             alias /var/videos/;
-> 
->             secure\_link $arg\_md5,$arg\_expires;
->             secure\_link\_md5 "$secure\_link\_expires$hls\_uri$remote\_addr secret";
-> 
->             if ($secure\_link = "") {
->                 return 403;
->             }
-> 
->             if ($secure\_link = "0") {
->                 return 410;
->             }
->         }
->     }
-> }
+```nginx
+http {
+    ...
+
+    map $uri $hls_uri {
+        ~^(?<base_uri>.*).m3u8$ $base_uri;
+        ~^(?<base_uri>.*).ts$   $base_uri;
+        default                 $uri;
+    }
+
+    server {
+        ...
+
+        location /hls/ {
+            hls;
+            hls_forward_args on;
+
+            alias /var/videos/;
+
+            secure_link $arg_md5,$arg_expires;
+            secure_link_md5 "$secure_link_expires$hls_uri$remote_addr secret";
+
+            if ($secure_link = "") {
+                return 403;
+            }
+
+            if ($secure_link = "0") {
+                return 410;
+            }
+        }
+    }
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>hls_fragment</strong> <code><i>time</i></code>;</code><br></td></tr><tr><th>Default:</th><td><pre>hls_fragment 5s;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 

@@ -20,13 +20,15 @@
 
 #### 配置示例
 
-> listen            127.0.0.1:18883;
-> proxy\_pass        backend;
-> proxy\_buffer\_size 16k;
-> 
-> mqtt             on;
-> mqtt\_set\_connect clientid "$client";
-> mqtt\_set\_connect username "$name";
+```nginx
+listen            127.0.0.1:18883;
+proxy_pass        backend;
+proxy_buffer_size 16k;
+
+mqtt             on;
+mqtt_set_connect clientid "$client";
+mqtt_set_connect username "$name";
+```
 
 #### Directives
 
@@ -52,5 +54,7 @@
 
 可以在同一級別上指定多個`mqtt_set_connect`指令：
 
-> mqtt\_set\_connect clientid "$client";
-> mqtt\_set\_connect username "$name";
+```nginx
+mqtt_set_connect clientid "$client";
+mqtt_set_connect username "$name";
+```

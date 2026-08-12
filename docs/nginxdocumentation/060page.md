@@ -18,7 +18,9 @@
 
 偽流與兼容的媒體播放器協同工作。播放器向伺服器發送HTTP請求，並在查詢字符串參數（僅命名為`start`，以秒為單位）中指定開始時間，伺服器以流響應，使其開始位置與請求的時間相對應，例如：
 
-> http://example.com/elephants\_dream.mp4?start=238.88
+```nginx
+http://example.com/elephants_dream.mp4?start=238.88
+```
 
 這允許在任何時間執行隨機搜索，或在時間軸的中間開始回放。
 
@@ -28,7 +30,9 @@
 
 該模塊還支持HTTP請求（1.5.13）的`end`參數，該參數設置播放的結束點。`end`參數可以與`start`參數一起指定，也可以單獨指定：
 
-> http://example.com/elephants\_dream.mp4?start=238.88&end=555.55
+```nginx
+http://example.com/elephants_dream.mp4?start=238.88&end=555.55
+```
 
 對於帶有非零`start`或`end`參數的匹配請求，nginx將從文件中讀取元數據，準備帶有所請求時間範圍的流，並將其發送到客戶端。這與上述開銷相同。
 
@@ -44,13 +48,15 @@
 
 #### 配置示例
 
-> location /video/ {
->     mp4;
->     mp4\_buffer\_size       1m;
->     mp4\_max\_buffer\_size   5m;
->     mp4\_limit\_rate        on;
->     mp4\_limit\_rate\_after  30s;
-> }
+```nginx
+location /video/ {
+    mp4;
+    mp4_buffer_size       1m;
+    mp4_max_buffer_size   5m;
+    mp4_limit_rate        on;
+    mp4_limit_rate_after  30s;
+}
+```
 
 #### Directives
 

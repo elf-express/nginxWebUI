@@ -22,41 +22,45 @@
 
 #### 配置示例
 
-> upstream tcp {
->     zone upstream\_tcp 64k;
-> 
->     server backend1.example.com:12345 weight=5;
->     server backend2.example.com:12345 fail\_timeout=5s slow\_start=30s;
->     server 192.0.2.1:12345            max\_fails=3;
-> 
->     server backup1.example.com:12345  backup;
->     server backup2.example.com:12345  backup;
-> }
-> 
-> server {
->     listen     12346;
->     proxy\_pass tcp;
->     health\_check;
-> }
+```nginx
+upstream tcp {
+    zone upstream_tcp 64k;
+
+    server backend1.example.com:12345 weight=5;
+    server backend2.example.com:12345 fail_timeout=5s slow_start=30s;
+    server 192.0.2.1:12345            max_fails=3;
+
+    server backup1.example.com:12345  backup;
+    server backup2.example.com:12345  backup;
+}
+
+server {
+    listen     12346;
+    proxy_pass tcp;
+    health_check;
+}
+```
 
 在此配置下，nginx會每隔5秒檢查一次與`tcp`組中每台伺服器建立TCP連接的能力。當無法與伺服器建立連接時，健康檢查將失敗，伺服器將被視為不健康。
 
 可以為UDP協議配置運行狀況檢查：
 
-> upstream dns\_upstream {
-> 
->     zone   dns\_zone 64k;
-> 
->     server dns1.example.com:53;
->     server dns2.example.com:53;
->     server dns3.example.com:53;
-> }
-> 
-> server {
->     listen       53 udp;
->     proxy\_pass   dns\_upstream;
->     health\_check udp;
-> }
+```nginx
+upstream dns_upstream {
+
+    zone   dns_zone 64k;
+
+    server dns1.example.com:53;
+    server dns2.example.com:53;
+    server dns3.example.com:53;
+}
+
+server {
+    listen       53 udp;
+    proxy_pass   dns_upstream;
+    health_check udp;
+}
+```
 
 在這種情況下，在對發送的字符串「`nginx health check`"的回覆中，預期不存在「`Destination Unreachable`」消息。
 
@@ -135,20 +139,22 @@
 
 Example:
 
-> upstream backend {
->     zone     upstream\_backend 10m;
->     server   127.0.0.1:12345;
-> }
-> 
-> match http {
->     send     "GET / HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n";
->     expect ~ "200 OK";
-> }
-> 
-> server {
->     listen       12346;
->     proxy\_pass   backend;
->     health\_check match=http;
-> }
+```nginx
+upstream backend {
+    zone     upstream_backend 10m;
+    server   127.0.0.1:12345;
+}
+
+match http {
+    send     "GET / HTTP/1.0\r\nHost: localhost\r\n\r\n";
+    expect ~ "200 OK";
+}
+
+server {
+    listen       12346;
+    proxy_pass   backend;
+    health_check match=http;
+}
+```
 
 > >只檢查從伺服器獲取的前[proxy\_buffer\_size](https://nginx.org/en/docs/stream/ngx_stream_proxy_module.html#proxy_buffer_size)字節數據。

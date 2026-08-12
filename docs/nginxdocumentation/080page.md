@@ -18,35 +18,37 @@
 
 #### 配置示例
 
-> http {
-> 
->     map $request\_port $allow\_port {
->         443            1;
->     }
-> 
->     map $host $allow\_host {
->         hostnames;
-> 
->         example.org    1;
->         \*.example.org  1;
->     }
-> 
->     server {
->         listen 8000;
-> 
->         resolver dns.example.com;
-> 
->         if ($allow\_port != 1) {
->             return 502;
->         }
-> 
->         if ($allow\_host != 1) {
->             return 502;
->         }
-> 
->         tunnel\_pass;
->     }
-> }
+```nginx
+http {
+
+    map $request_port $allow_port {
+        443            1;
+    }
+
+    map $host $allow_host {
+        hostnames;
+
+        example.org    1;
+        *.example.org  1;
+    }
+
+    server {
+        listen 8000;
+
+        resolver dns.example.com;
+
+        if ($allow_port != 1) {
+            return 502;
+        }
+
+        if ($allow_host != 1) {
+            return 502;
+        }
+
+        tunnel_pass;
+    }
+}
+```
 
 #### Directives
 
@@ -54,17 +56,19 @@
 
 定義允許訪問後端伺服器的條件或[denied](https://nginx.org/en/docs/http/ngx_http_tunnel_module.html#denied)。如果所有字符串參數都不為空且不等於「0」，則允許訪問。每次在建立到後端伺服器的連接之前，都會評估這些條件。參數值可以包含變量：
 
-> geo $upstream\_last\_addr $allow {
->     volatile;
->     10.10.0.0/24        1;
-> }
-> 
-> server {
->     listen 127.0.0.1:8080;
-> 
->     tunnel\_pass;
->     tunnel\_allow\_upstream $allow;
-> }
+```nginx
+geo $upstream_last_addr $allow {
+    volatile;
+    10.10.0.0/24        1;
+}
+
+server {
+    listen 127.0.0.1:8080;
+
+    tunnel_pass;
+    tunnel_allow_upstream $allow;
+}
+```
 
 > >此指令可作為[commercial subscription](https://www.f5.com/products/nginx)的一部分提供。
 
@@ -76,14 +80,16 @@
 
 啟用後，在每次連接嘗試時執行[tunnel\_bind](https://nginx.org/en/docs/http/ngx_http_tunnel_module.html#tunnel_bind)操作：
 
-> geo $upstream\_last\_addr $bind\_addr {
->     volatile;
->     10.0.0.0/24    10.0.0.1;
->     192.168.0.0/24  192.168.0.1;
-> }
-> 
-> tunnel\_bind         $bind\_addr;
-> tunnel\_bind\_dynamic on;
+```nginx
+geo $upstream_last_addr $bind_addr {
+    volatile;
+    10.0.0.0/24    10.0.0.1;
+    192.168.0.0/24  192.168.0.1;
+}
+
+tunnel_bind         $bind_addr;
+tunnel_bind_dynamic on;
+```
 
 > >此指令可作為[commercial subscription](https://www.f5.com/products/nginx)的一部分提供。
 
@@ -137,11 +143,15 @@
 
 地址可以指定為域名或IP位址以及埠：
 
-> tunnel\_pass localhost:9000;
+```nginx
+tunnel_pass localhost:9000;
+```
 
 或者作為UNIX域套接字路徑：
 
-> tunnel\_pass unix:/tmp/backend.socket;
+```nginx
+tunnel_pass unix:/tmp/backend.socket;
+```
 
 如果一個域名解析為多個地址，所有的地址都將以循環方式使用。此外，地址可以指定為[server group](https://nginx.org/en/docs/http/ngx_http_upstream_module.html)。
 

@@ -20,10 +20,12 @@
 
 #### 配置示例
 
-> location / {
->     ssi on;
->     ...
-> }
+```nginx
+location / {
+    ssi on;
+    ...
+}
+```
 
 #### Directives
 
@@ -59,7 +61,9 @@
 
 SSI命令具有以下通用格式：
 
-> <!--# command parameter1=value1 parameter2=value2 ... -->
+```
+<!--# command parameter1=value1 parameter2=value2 ... -->
+```
 
 支持以下命令：
 
@@ -73,9 +77,11 @@ SSI命令具有以下通用格式：
 
 Example:
 
-> <!--# block name="one" -->
-> stub
-> <!--# endblock -->
+```
+<!--# block name="one" -->
+stub
+<!--# endblock -->
+```
 
 `config`
 
@@ -85,13 +91,17 @@ Example:
 
 返回在SSI處理過程中發生錯誤時輸出的字符串。默認情況下，輸出以下字符串：
 
-> \[處理指令時出錯\]
+```
+[處理指令時出錯]
+```
 
 `timefmt`
 
 傳遞給`strftime()`函數的格式字符串，用於輸出日期和時間。默認情況下，使用以下格式：
 
-> "%A, %d-%b-%Y %H:%M:%S %Z"
+```
+"%A, %d-%b-%Y %H:%M:%S %Z"
+```
 
 「`%s`」格式適合以秒為單位輸出時間。
 
@@ -111,12 +121,16 @@ Example:
 
 一個非標準參數，如果變量未定義，則設置輸出字符串。默認情況下，輸出「`(none)`」。命令
 
-> <!--# echo var="name" default="**no**" -->
+```
+<!--# echo var="name" default="**no**" -->
+```
 
 替換以下命令序列：
 
-> <!--# if expr="$name" --><!--# echo var="name" --><!--#
->        else -->** 否 **<!--# endif -->
+```
+<!--# if expr="$name" --><!--# echo var="name" --><!--#
+       else -->** 否 **<!--# endif -->
+```
 
 `if`
 
@@ -138,25 +152,33 @@ Example:
 
 -   變量存在檢查：
     
-    > <!--# if expr="$name" -->
+    ```
+    <!--# if expr="$name" -->
+    ```
     
 -   變量與文本的比較：
     
-    > <!--# if expr="$name = `*text*`" -->
-    > <!--# if expr="$name != `*text*`" -->
+    ```
+    <!--# if expr="$name = `*text*`" -->
+    <!--# if expr="$name != `*text*`" -->
+    ```
     
 -   一個正則表達式中的一個變量
     
-    > <!--# if expr="$name = /`*text*`/" -->
-    > <!--# if expr="$name != /`*text*`/" -->
+    ```
+    <!--# if expr="$name = /`*text*`/" -->
+    <!--# if expr="$name != /`*text*`/" -->
+    ```
     
 
 如果`*text*`包含變量，則它們的值將被替換。正則表達式可以包含稍後可通過變量使用的位置捕獲和命名捕獲，例如：
 
-> <!--# if expr="$name = /(.+)@(?P<domain>.+)/" -->
->     <!--# echo var="1" -->
->     <!--# echo var="domain" -->
-> <!--# endif -->
+```
+<!--# if expr="$name = /(.+)@(?P<domain>.+)/" -->
+    <!--# echo var="1" -->
+    <!--# echo var="domain" -->
+<!--# endif -->
+```
 
 `include`
 
@@ -166,13 +188,17 @@ Example:
 
 指定包含的文件，例如：
 
-> <!--# include file="footer.html" -->
+```
+<!--# include file="footer.html" -->
+```
 
 `virtual`
 
 指定包含的請求，例如：
 
-> <!--# include virtual="/remote/body.php?argument=value" -->
+```
+<!--# include virtual="/remote/body.php?argument=value" -->
+```
 
 在一個頁面上指定並由代理或FastCGI/uwsgi/SCGI/gRPC伺服器處理的多個請求並行運行。如果需要順序處理，則應使用`wait`參數。
 
@@ -180,8 +206,10 @@ Example:
 
 一個非標準參數，用於命名塊，如果包含的請求導致空正文或在請求處理過程中發生錯誤，則將輸出其內容，例如：
 
-> <!--# block name="one" -->&nbsp;<!--# endblock -->
-> <!--# include virtual="/remote/body.php?argument=value" stub="one" -->
+```
+<!--# block name="one" -->&nbsp;<!--# endblock -->
+<!--# include virtual="/remote/body.php?argument=value" stub="one" -->
+```
 
 替換塊內容在包含的請求上下文中處理。
 
@@ -189,20 +217,26 @@ Example:
 
 指示在繼續SSI處理之前等待請求完全完成的非標準參數，例如：
 
-> <!--# include virtual="/remote/body.php?argument=value" wait="yes" -->
+```
+<!--# include virtual="/remote/body.php?argument=value" wait="yes" -->
+```
 
 `set`
 
 一個非標準參數，指示將請求處理的成功結果寫入指定變量，例如：
 
-> <!--# include virtual="/remote/body.php?argument=value" set="one" -->
+```
+<!--# include virtual="/remote/body.php?argument=value" set="one" -->
+```
 
 響應的最大大小由[subrequest\_output\_buffer\_size](https://nginx.org/en/docs/http/ngx_http_core_module.html#subrequest_output_buffer_size)指令（1.13.10）設置：
 
-> location /remote/ {
->     subrequest\_output\_buffer\_size 64k;
->     ...
-> }
+```nginx
+location /remote/ {
+    subrequest_output_buffer_size 64k;
+    ...
+}
+```
 
 在版本1.13.10之前，只有使用[ngx\_http\_proxy\_module](https://nginx.org/en/docs/http/ngx_http_proxy_module.html)、[ngx\_http\_memcached\_module](https://nginx.org/en/docs/http/ngx_http_memcached_module.html)、[ngx\_http\_fastcgi\_module](https://nginx.org/en/docs/http/ngx_http_fastcgi_module.html)（1.5.6）、[ngx\_http\_uwsgi\_module](https://nginx.org/en/docs/http/ngx_http_uwsgi_module.html)（1.5.6）和[ngx\_http\_scgi\_module](https://nginx.org/en/docs/http/ngx_http_scgi_module.html)（1.5.6）模塊獲得的響應結果才能寫入變量。響應的最大大小由[proxy\_buffer\_size](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_buffer_size)、[memcached\_buffer\_size](https://nginx.org/en/docs/http/ngx_http_memcached_module.html#memcached_buffer_size)、[fastcgi\_buffer\_size](https://nginx.org/en/docs/http/ngx_http_fastcgi_module.html#fastcgi_buffer_size)、[uwsgi\_buffer\_size](https://nginx.org/en/docs/http/ngx_http_uwsgi_module.html#uwsgi_buffer_size)和[scgi\_buffer\_size](https://nginx.org/en/docs/http/ngx_http_scgi_module.html#scgi_buffer_size)指令設置。
 

@@ -34,10 +34,12 @@
 
 Example:
 
-> if ($slow) {
->     limit\_rate 10k;
->     break;
-> }
+```nginx
+if ($slow) {
+    limit_rate 10k;
+    break;
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>if</strong> (<code><i>condition</i></code>) { ... }</code><br></td></tr><tr><th>Default:</th><td>—</td></tr><tr><th>Context:</th><td><code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -58,25 +60,27 @@ Example:
 
 Examples:
 
-> if ($http\_user\_agent ~ MSIE) {
->     rewrite ^(.\*)$ /msie/$1 break;
-> }
-> 
-> if ($http\_cookie ~\* "id=(\[^;\]+)(?:;|$)") {
->     set $id $1;
-> }
-> 
-> if ($request\_method = POST) {
->     return 405;
-> }
-> 
-> if ($slow) {
->     limit\_rate 10k;
-> }
-> 
-> if ($invalid\_referer) {
->     return 403;
-> }
+```nginx
+if ($http_user_agent ~ MSIE) {
+    rewrite ^(.*)$ /msie/$1 break;
+}
+
+if ($http_cookie ~* "id=([^;]+)(?:;|$)") {
+    set $id $1;
+}
+
+if ($request_method = POST) {
+    return 405;
+}
+
+if ($slow) {
+    limit_rate 10k;
+}
+
+if ($invalid_referer) {
+    return 403;
+}
+```
 
 > >`$invalid_referer`嵌入變量的值由[valid\_referers](https://nginx.org/en/docs/http/ngx_http_referer_module.html#valid_referers)指令設置。
 
@@ -122,25 +126,31 @@ Examples:
 
 Example:
 
-> server {
->     ...
->     rewrite ^(/download/.\*)/media/(.\*)\\..\*$ $1/mp3/$2.mp3 last;
->     rewrite ^(/download/.\*)/audio/(.\*)\\..\*$ $1/mp3/$2.ra  last;
->     return  403;
->     ...
-> }
+```nginx
+server {
+    ...
+    rewrite ^(/download/.*)/media/(.*)\..*$ $1/mp3/$2.mp3 last;
+    rewrite ^(/download/.*)/audio/(.*)\..*$ $1/mp3/$2.ra  last;
+    return  403;
+    ...
+}
+```
 
 但是如果這些指令放在「`/download/`」位置，`last`標誌應該替換為`break`，否則nginx將進行10個周期並返回500錯誤：
 
-> location /download/ {
->     rewrite ^(/download/.\*)/media/(.\*)\\..\*$ $1/mp3/$2.mp3 break;
->     rewrite ^(/download/.\*)/audio/(.\*)\\..\*$ $1/mp3/$2.ra  break;
->     return  403;
-> }
+```nginx
+location /download/ {
+    rewrite ^(/download/.*)/media/(.*)\..*$ $1/mp3/$2.mp3 break;
+    rewrite ^(/download/.*)/audio/(.*)\..*$ $1/mp3/$2.ra  break;
+    return  403;
+}
+```
 
 如果`*replacement*`字符串包含新的請求參數，則會將先前的請求參數追加在它們之後。如果不希望這樣，可以在替換字符串的末尾加上問號，以避免追加它們，例如：
 
-> rewrite ^/users/(.\*)$ /show?user=$1? last;
+```nginx
+rewrite ^/users/(.*)$ /show?user=$1? last;
+```
 
 如果正則表達式中包含「`}`」或「`;`」字符，則整個表達式都應該用單引號或雙引號引起來。
 
@@ -162,51 +172,61 @@ Example:
 
 例如，指令
 
-> location /download/ {
->     if ($forbidden) {
->         return 403;
->     }
-> 
->     if ($slow) {
->         limit\_rate 10k;
->     }
-> 
->     rewrite ^/(download/.\*)/media/(.\*)\\..\*$ /$1/mp3/$2.mp3 break;
-> }
+```nginx
+location /download/ {
+    if ($forbidden) {
+        return 403;
+    }
+
+    if ($slow) {
+        limit_rate 10k;
+    }
+
+    rewrite ^/(download/.*)/media/(.*)\..*$ /$1/mp3/$2.mp3 break;
+}
+```
 
 將被翻譯成這些指令：
 
-> >變量$禁止
-> >檢查零
->     return 403
->     代碼結束
-> >變量$slow
-> >檢查零
-> >正則表達式匹配
-> copy "/"
-> copy $1
-> copy「/mp3/」
-> copy $2
-> >複製「.mp3」
-> >正則表達式的結尾
-> >代碼結束
+```nginx
+>變量$禁止
+>檢查零
+    return 403
+    代碼結束
+>變量$slow
+>檢查零
+>正則表達式匹配
+copy "/"
+copy $1
+copy「/mp3/」
+copy $2
+>複製「.mp3」
+>正則表達式的結尾
+>代碼結束
+```
 
 請注意，上面的[limit\_rate](https://nginx.org/en/docs/http/ngx_http_core_module.html#limit_rate)指令沒有說明，因為它與`ngx_http_rewrite_module`模塊無關。為[if](https://nginx.org/en/docs/http/ngx_http_rewrite_module.html#if)塊創建單獨的配置。如果條件為真，則將此配置分配給請求，其中`limit_rate`等於10 k。
 
 該指令
 
-> rewrite ^/(download/.\*)/media/(.\*)\\..\*$ /$1/mp3/$2.mp3 break;
+```nginx
+rewrite ^/(download/.*)/media/(.*)\..*$ /$1/mp3/$2.mp3 break;
+```
 
 如果正則表達式中的第一個斜槓放在括號內，則可以通過一條指令使其變小：
 
-> rewrite ^(**/**download/.\*)/media/(.\*)\\..\*$ $1/mp3/$2.mp3 break;
+```nginx
+rewrite ^(**/**download/.*)/media/(.*)\..*$ $1/mp3/$2.mp3 break;
+```
 
 相應的指令將如下所示：
 
-> >正則表達式匹配
-> copy $1
-> copy「/mp3/」
-> copy $2
-> >複製「.mp3」
-> >正則表達式的結尾
-> >代碼結束
+```
+>正則表達式匹配
+copy $1
+copy「/mp3/」
+copy $2
+>複製「.mp3」
+>正則表達式的結尾
+>代碼結束
+```

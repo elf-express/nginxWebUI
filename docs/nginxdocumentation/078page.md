@@ -22,9 +22,11 @@
 
 #### 配置示例
 
-> location = /basic\_status {
->     stub\_status;
-> }
+```nginx
+location = /basic_status {
+    stub_status;
+}
+```
 
 此配置創建一個簡單的網頁，其中包含基本狀態數據，可能如下所示：
 

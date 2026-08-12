@@ -20,8 +20,10 @@
 
 #### 配置示例
 
-> gzip\_static  on;
-> gzip\_proxied expired no-cache no-store private auth;
+```nginx
+gzip_static  on;
+gzip_proxied expired no-cache no-store private auth;
+```
 
 #### Directives
 

@@ -22,9 +22,11 @@
 
 #### 配置示例
 
-> location ~ \\.flv$ {
->     flv;
-> }
+```nginx
+location ~ \.flv$ {
+    flv;
+}
+```
 
 #### Directives
 

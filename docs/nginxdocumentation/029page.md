@@ -50,10 +50,12 @@ JWE密鑰管理算法（1.19.9）：
 
 #### 配置示例
 
-> location / {
->     auth\_jwt          "closed site";
->     auth\_jwt\_key\_file conf/keys.json;
-> }
+```nginx
+location / {
+    auth_jwt          "closed site";
+    auth_jwt_key_file conf/keys.json;
+}
+```
 
 #### Directives
 
@@ -63,7 +65,9 @@ JWE密鑰管理算法（1.19.9）：
 
 可選的`token`參數指定一個包含JSON Web Token的變量。默認情況下，JWT在「Authorization」頭中作為[Bearer Token](https://datatracker.ietf.org/doc/html/rfc6750)傳遞。JWT也可以作為cookie或查詢字符串的一部分傳遞：
 
-> auth\_jwt "closed site" token=$cookie\_auth\_token;
+```nginx
+auth_jwt "closed site" token=$cookie_auth_token;
+```
 
 特殊值`off`取消了從上一配置級別繼承的`auth_jwt`指令的效果。
 
@@ -73,8 +77,10 @@ JWE密鑰管理算法（1.19.9）：
 
 將`*variable*`設置為由鍵名標識的JWT聲明參數。名稱匹配從JSON樹的頂層開始。對於數組，該變量保留由逗號分隔的數組元素列表。
 
-> auth\_jwt\_claim\_set $email info e-mail;
-> auth\_jwt\_claim\_set $job info "job title";
+```nginx
+auth_jwt_claim_set $email info e-mail;
+auth_jwt_claim_set $job info "job title";
+```
 
 > >在1.13.7版本之前，只能指定一個鍵名，並且數組的結果是未定義的。
 
@@ -100,8 +106,10 @@ JWE密鑰管理算法（1.19.9）：
 
 可以在同一級別上指定多個`auth_jwt_key_file`指令（1.21.1）：
 
-> auth\_jwt\_key\_file conf/keys.json;
-> auth\_jwt\_key\_file conf/key.jwk;
+```nginx
+auth_jwt_key_file conf/keys.json;
+auth_jwt_key_file conf/key.jwk;
+```
 
 如果至少有一個指定的鍵無法加載或處理，nginx將返回500（內部伺服器錯誤）錯誤。
 
@@ -111,27 +119,31 @@ JWE密鑰管理算法（1.19.9）：
 
 允許從子請求中檢索[JSON Web Key Set](https://datatracker.ietf.org/doc/html/rfc7517#section-5)文件，用於驗證JWT簽名，並設置子請求將發送到的URI。參數值可以包含變量。為了避免驗證開銷，建議緩存密鑰文件：
 
-> proxy\_cache\_path /data/nginx/cache levels=1 keys\_zone=foo:10m;
-> 
-> server {
->     ...
-> 
->     location / {
->         auth\_jwt             "closed site";
->         auth\_jwt\_key\_request /jwks\_uri;
->     }
-> 
->     location = /jwks\_uri {
->         internal;
->         proxy\_cache foo;
->         proxy\_pass  http://idp.example.com/keys;
->     }
-> }
+```nginx
+proxy_cache_path /data/nginx/cache levels=1 keys_zone=foo:10m;
+
+server {
+    ...
+
+    location / {
+        auth_jwt             "closed site";
+        auth_jwt_key_request /jwks_uri;
+    }
+
+    location = /jwks_uri {
+        internal;
+        proxy_cache foo;
+        proxy_pass  http://idp.example.com/keys;
+    }
+}
+```
 
 可以在同一級別上指定多個`auth_jwt_key_request`指令（1.21.1）：
 
-> auth\_jwt\_key\_request /jwks\_uri;
-> auth\_jwt\_key\_request /jwks2\_uri;
+```nginx
+auth_jwt_key_request /jwks_uri;
+auth_jwt_key_request /jwks2_uri;
+```
 
 如果至少有一個指定的鍵無法加載或處理，nginx將返回500（內部伺服器錯誤）錯誤。
 
@@ -153,12 +165,14 @@ JWE密鑰管理算法（1.19.9）：
 
 指定JWT驗證的附加檢查。值可以包含文本、變量及其組合，並且必須以變量（1.21.7）開頭。僅當所有值不為空且不等於「0」時，身份驗證才會成功。
 
-> map $jwt\_claim\_iss $valid\_jwt\_iss {
->     "good" 1;
-> }
-> ...
-> 
-> auth\_jwt\_require $valid\_jwt\_iss;
+```nginx
+map $jwt_claim_iss $valid_jwt_iss {
+    "good" 1;
+}
+...
+
+auth_jwt_require $valid_jwt_iss;
+```
 
 如果任何檢查失敗，則返回`401`錯誤代碼。可選的`error`參數（1.21.7）允許將錯誤代碼重新定義為`403`。
 

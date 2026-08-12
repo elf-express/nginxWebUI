@@ -25,24 +25,26 @@ The module can be combined with other access modules via the [satisfy](https://n
 
 #### Example Configuration
 
-> http {
->     resolver 10.0.0.1;
-> 
->     oidc\_provider my\_idp {
->         issuer        "https://provider.domain";
->         client\_id     "unique\_id";
->         client\_secret "unique\_secret";
->     }
-> 
->     server {
->         location / {
->             auth\_oidc my\_idp;
-> 
->             proxy\_set\_header username $oidc\_claim\_sub;
->             proxy\_pass       http://backend;
->         }
->     }
-> }
+```nginx
+http {
+    resolver 10.0.0.1;
+
+    oidc_provider my_idp {
+        issuer        "https://provider.domain";
+        client_id     "unique_id";
+        client_secret "unique_secret";
+    }
+
+    server {
+        location / {
+            auth_oidc my_idp;
+
+            proxy_set_header username $oidc_claim_sub;
+            proxy_pass       http://backend;
+        }
+    }
+}
+```
 
 The example assumes that the “`https://<nginx-host>/oidc_callback`” Redirection URI is configured on the OpenID Provider's side. The path can be customized with the [redirect\_uri](https://nginx.org/en/docs/http/ngx_http_oidc_module.html#redirect_uri) directive.
 
@@ -84,7 +86,9 @@ Sets the name of a session cookie.
 
 Sets additional query arguments for the [authentication request](https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest) URL.
 
-> extra\_auth\_args "display=page&prompt=login";
+```nginx
+extra_auth_args "display=page&prompt=login";
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>frontchannel_logout_uri</strong> <code><i>uri</i></code>;</code><br></td></tr><tr><th>Default:</th><td>—</td></tr><tr><th>Context:</th><td><code>oidc_provider</code><br></td></tr></tbody></table>
 
@@ -116,22 +120,24 @@ This directive appeared in version 1.29.0.
 
 Defines the path or absolute URI to redirect the user to after the logout. The `*uri*` must match the configuration on the Provider's side. If the post logout page is served by NGINX, the OIDC module shouldn't be enabled for this location:
 
-> http {
->     oidc\_provider my\_idp {
->         ...
-> 
->         logout\_uri      /logout;
->         post\_logout\_uri /logged\_out\_page.html;
->     }
-> 
->     server {
->         auth\_oidc my\_idp;
-> 
->         location /logged\_out\_page.html {
->             auth\_oidc off;
->         }
->     }
-> }
+```nginx
+http {
+    oidc_provider my_idp {
+        ...
+
+        logout_uri      /logout;
+        post_logout_uri /logged_out_page.html;
+    }
+
+    server {
+        auth_oidc my_idp;
+
+        location /logged_out_page.html {
+            auth_oidc off;
+        }
+    }
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>logout_token_hint</strong> <code>on</code> | <code>off</code>;</code><br></td></tr><tr><th>Default:</th><td><pre>logout_token_hint off;</pre></td></tr><tr><th>Context:</th><td><code>oidc_provider</code><br></td></tr></tbody></table>
 
@@ -185,19 +191,21 @@ top-level ID token or UserInfo claim
 
 Nested claims can be fetched with the [auth\_jwt](https://nginx.org/en/docs/http/ngx_http_auth_jwt_module.html) module:
 
-> http {
->     auth\_jwt\_claim\_set $postal\_code address postal\_code;
-> 
->     server {
->         location / {
->             auth\_oidc my\_idp;
->             auth\_jwt  off token=$oidc\_id\_token;
-> 
->             proxy\_set\_header x-postal\_code $postal\_code;
->             proxy\_pass       http://backend;
->         }
->     }
-> }
+```nginx
+http {
+    auth_jwt_claim_set $postal_code address postal_code;
+
+    server {
+        location / {
+            auth_oidc my_idp;
+            auth_jwt  off token=$oidc_id_token;
+
+            proxy_set_header x-postal_code $postal_code;
+            proxy_pass       http://backend;
+        }
+    }
+}
+```
 
 `$oidc_userinfo`
 

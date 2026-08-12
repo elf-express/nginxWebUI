@@ -20,11 +20,13 @@
 
 #### 配置示例
 
-> log\_format compression '$remote\_addr - $remote\_user \[$time\_local\] '
->                        '"$request」$status $bytes\_sent '
->                        '"$http\_referer" "$http\_user\_agent" "$gzip\_ratio"';
-> 
-> access\_log /spool/logs/nginx-access.log compression buffer=32k;
+```nginx
+log_format compression '$remote_addr - $remote_user [$time_local] '
+                       '"$request」$status $bytes_sent '
+                       '"$http_referer" "$http_user_agent" "$gzip_ratio"';
+
+access_log /spool/logs/nginx-access.log compression buffer=32k;
+```
 
 #### Directives
 
@@ -46,7 +48,9 @@
 
 Example:
 
-> access\_log /path/to/log.gz combined gzip flush=5m;
+```nginx
+access_log /path/to/log.gz combined gzip flush=5m;
+```
 
 > >要使用gzip壓縮，nginx必須使用zlib庫構建。
 
@@ -57,20 +61,24 @@ Example:
 -   對於每次日誌寫入，都會打開和關閉該文件。但是，由於經常使用的文件的描述符可以存儲在[cache](https://nginx.org/en/docs/http/ngx_http_log_module.html#open_log_file_cache)中，因此在[open\_log\_file\_cache](https://nginx.org/en/docs/http/ngx_http_log_module.html#open_log_file_cache)指令的`valid`參數指定的時間內，可以繼續寫入舊文件
 -   在每次日誌寫入期間，都會檢查請求的[root directory](https://nginx.org/en/docs/http/ngx_http_core_module.html#root)是否存在，如果不存在，則不會創建日誌。因此，在同一配置級別上指定[root](https://nginx.org/en/docs/http/ngx_http_core_module.html#root)和`access_log`是一個好主意：
     
-    > server {
-    >     root       /spool/vhost/data/$host;
-    >     access\_log /spool/vhost/logs/$host;
-    >     ...
+    ```nginx
+    server {
+        root       /spool/vhost/data/$host;
+        access_log /spool/vhost/logs/$host;
+        ...
+    ```
     
 
 `if`參數（1.7.0）啟用條件日誌記錄。如果`*condition*`的計算結果為「0」或空字符串，則不會記錄請求。在以下示例中，響應代碼為2xx和3xx的請求將不會被記錄：
 
-> map $status $loggable {
->     ~^\[23\]  0;
->     default 1;
-> }
-> 
-> access\_log /path/to/access.log combined if=$loggable;
+```nginx
+map $status $loggable {
+    ~^[23]  0;
+    default 1;
+}
+
+access_log /path/to/access.log combined if=$loggable;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>log_format</strong> <code><i>name</i></code> [<code>escape</code>=<code>default</code>|<code>json</code>|<code>none</code>] <code><i>string</i></code> ...;</code><br></td></tr><tr><th>Default:</th><td><pre>log_format combined "...";</pre></td></tr><tr><th>Context:</th><td><code>http</code><br></td></tr></tbody></table>
 
@@ -130,9 +138,11 @@ ISO 8601標準格式的本地時間
 
 配置始終包含預定義的「`combined`」格式：
 
-> log\_format combined '$remote\_addr - $remote\_user \[$time\_local\] '
->                     '"$request」$status $body\_bytes\_sent '
->                     '"$http\_referer" "$http\_user\_agent"';
+```nginx
+log_format combined '$remote_addr - $remote_user [$time_local] '
+                    '"$request」$status $body_bytes_sent '
+                    '"$http_referer" "$http_user_agent"';
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>open_log_file_cache</strong> <code>max</code>=<code><i>N</i></code> [<code>inactive</code>=<code><i>time</i></code>] [<code>min_uses</code>=<code><i>N</i></code>] [<code>valid</code>=<code><i>time</i></code>];</code><br><code><strong>open_log_file_cache</strong> <code>off</code>;</code><br></td></tr><tr><th>Default:</th><td><pre>open_log_file_cache off;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -160,4 +170,6 @@ ISO 8601標準格式的本地時間
 
 使用示例：
 
-> open\_log\_file\_cache max=1000 inactive=20s valid=1m min\_uses=2;
+```nginx
+open_log_file_cache max=1000 inactive=20s valid=1m min_uses=2;
+```

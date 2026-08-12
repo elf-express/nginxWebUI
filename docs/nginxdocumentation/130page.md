@@ -20,14 +20,16 @@
 
 #### 配置示例
 
-> num\_map $remote\_port $port\_allow {
->     default    0;
-> 
->     80         1;
->     443        1;
->     <=1023     0;
->     8080-8090  1;
-> }
+```nginx
+num_map $remote_port $port_allow {
+    default    0;
+
+    80         1;
+    443        1;
+    <=1023     0;
+    8080-8090  1;
+}
+```
 
 #### Directives
 

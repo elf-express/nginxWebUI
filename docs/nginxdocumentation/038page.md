@@ -24,10 +24,12 @@
 
 #### 配置示例
 
-> location /video/ {
->     f4f;
->     ...
-> }
+```nginx
+location /video/ {
+    f4f;
+    ...
+}
+```
 
 #### Directives
 

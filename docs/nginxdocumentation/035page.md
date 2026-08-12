@@ -30,47 +30,61 @@ This directive appeared in version 0.8.11.
 
 Enables or disables the use of asynchronous file I/O (AIO) on FreeBSD and Linux:
 
-> location /video/ {
->     aio            on;
->     output\_buffers 1 64k;
-> }
+```nginx
+location /video/ {
+    aio            on;
+    output_buffers 1 64k;
+}
+```
 
 On FreeBSD, AIO can be used starting from FreeBSD 4.3. Prior to FreeBSD 11.0, AIO can either be linked statically into a kernel:
 
-> options VFS\_AIO
+```
+options VFS_AIO
+```
 
 or loaded dynamically as a kernel loadable module:
 
-> kldload aio
+```bash
+kldload aio
+```
 
 On Linux, AIO can be used starting from kernel version 2.6.22. Also, it is necessary to enable [directio](https://nginx.org/en/docs/http/ngx_http_core_module.html#directio), or otherwise reading will be blocking:
 
-> location /video/ {
->     aio            on;
->     directio       512;
->     output\_buffers 1 128k;
-> }
+```nginx
+location /video/ {
+    aio            on;
+    directio       512;
+    output_buffers 1 128k;
+}
+```
 
 On Linux, [directio](https://nginx.org/en/docs/http/ngx_http_core_module.html#directio) can only be used for reading blocks that are aligned on 512-byte boundaries (or 4K for XFS). File’s unaligned end is read in blocking mode. The same holds true for byte range requests and for FLV requests not from the beginning of a file: reading of unaligned data at the beginning and end of a file will be blocking.
 
 When both AIO and [sendfile](https://nginx.org/en/docs/http/ngx_http_core_module.html#sendfile) are enabled on Linux, AIO is used for files that are larger than or equal to the size specified in the [directio](https://nginx.org/en/docs/http/ngx_http_core_module.html#directio) directive, while [sendfile](https://nginx.org/en/docs/http/ngx_http_core_module.html#sendfile) is used for files of smaller sizes or when [directio](https://nginx.org/en/docs/http/ngx_http_core_module.html#directio) is disabled.
 
-> location /video/ {
->     sendfile       on;
->     aio            on;
->     directio       8m;
-> }
+```nginx
+location /video/ {
+    sendfile       on;
+    aio            on;
+    directio       8m;
+}
+```
 
 Finally, files can be read and [sent](https://nginx.org/en/docs/http/ngx_http_core_module.html#sendfile) using multi-threading (1.7.11), without blocking a worker process:
 
-> location /video/ {
->     sendfile       on;
->     aio            threads;
-> }
+```nginx
+location /video/ {
+    sendfile       on;
+    aio            threads;
+}
+```
 
 Read and send file operations are offloaded to threads of the specified [pool](https://nginx.org/en/docs/ngx_core_module.html#thread_pool). If the pool name is omitted, the pool with the name “`default`” is used. The pool name can also be set with variables:
 
-> aio threads=pool$disk;
+```nginx
+aio threads=pool$disk;
+```
 
 By default, multi-threading is disabled, it should be enabled with the `--with-threads` configuration parameter. Currently, multi-threading is compatible only with the [epoll](https://nginx.org/en/docs/events.html#epoll), [kqueue](https://nginx.org/en/docs/events.html#kqueue), and [eventport](https://nginx.org/en/docs/events.html#eventport) methods. Multi-threaded sending of files is only supported on Linux.
 
@@ -86,9 +100,11 @@ If [aio](https://nginx.org/en/docs/http/ngx_http_core_module.html#aio) is enable
 
 Defines a replacement for the specified location. For example, with the following configuration
 
-> location /i/ {
->     alias /data/w3/images/;
-> }
+```nginx
+location /i/ {
+    alias /data/w3/images/;
+}
+```
 
 on request of “`/i/top.gif`”, the file `/data/w3/images/top.gif` will be sent.
 
@@ -96,21 +112,27 @@ The `*path*` value can contain variables, except `$document_root` and `$realpath
 
 If `alias` is used inside a location defined with a regular expression then such regular expression should contain captures and `alias` should refer to these captures (0.7.40), for example:
 
-> location ~ ^/users/(.+\\.(?:gif|jpe?g|png))$ {
->     alias /data/w3/images/$1;
-> }
+```nginx
+location ~ ^/users/(.+\.(?:gif|jpe?g|png))$ {
+    alias /data/w3/images/$1;
+}
+```
 
 When location matches the last part of the directive’s value:
 
-> location /images/ {
->     alias /data/w3/images/;
-> }
+```nginx
+location /images/ {
+    alias /data/w3/images/;
+}
+```
 
 it is better to use the [root](https://nginx.org/en/docs/http/ngx_http_core_module.html#root) directive instead:
 
-> location /images/ {
->     root /data/w3;
-> }
+```nginx
+location /images/ {
+    root /data/w3;
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>auth_delay</strong> <code><i>time</i></code>;</code><br></td></tr><tr><th>Default:</th><td><pre>auth_delay 0s;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -142,11 +164,15 @@ Determines whether nginx should save the entire client request body in a single 
 
 Defines a directory for storing temporary files holding client request bodies. Up to three-level subdirectory hierarchy can be used under the specified directory. For example, in the following configuration
 
-> client\_body\_temp\_path /spool/nginx/client\_temp 1 2;
+```nginx
+client_body_temp_path /spool/nginx/client_temp 1 2;
+```
 
 a path to a temporary file might look like this:
 
-> /spool/nginx/client\_temp/7/45/00000123457
+```
+/spool/nginx/client_temp/7/45/00000123457
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>client_body_timeout</strong> <code><i>time</i></code>;</code><br></td></tr><tr><th>Default:</th><td><pre>client_body_timeout 60s;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -182,7 +208,9 @@ This directive appeared in version 0.7.7.
 
 Enables the use of the `O_DIRECT` flag (FreeBSD, Linux), the `F_NOCACHE` flag (macOS), or the `directio()` function (Solaris), when reading files that are larger than or equal to the specified `*size*`. The directive automatically disables (0.7.15) the use of [sendfile](https://nginx.org/en/docs/http/ngx_http_core_module.html#sendfile) for a given request. It can be useful for serving large files:
 
-> directio 4m;
+```nginx
+directio 4m;
+```
 
 or when using [aio](https://nginx.org/en/docs/http/ngx_http_core_module.html#aio) on Linux.
 
@@ -216,7 +244,9 @@ When checking symbolic links (parameters `on` and `if_not_owner`), all component
 
 Example:
 
-> disable\_symlinks on from=$document\_root;
+```nginx
+disable_symlinks on from=$document_root;
+```
 
 This directive is only available on systems that have the `openat()` and `fstatat()` interfaces. Such systems include modern versions of FreeBSD, Linux, and Solaris.
 
@@ -232,17 +262,19 @@ This directive appeared in version 1.29.0.
 
 Defines conditions under which the 103 (Early Hints) response will be passed to a client. If at least one value of the string parameters is not empty and is not equal to “0” then the response will be passed:
 
-> map $http\_sec\_fetch\_mode $early\_hints {
->     navigate $http2$http3;
-> }
-> 
-> server {
->     ...
->     location / {
->         early\_hints $early\_hints;
->         proxy\_pass http://example.com;
->     }
-> }
+```nginx
+map $http_sec_fetch_mode $early_hints {
+    navigate $http2$http3;
+}
+
+server {
+    ...
+    location / {
+        early_hints $early_hints;
+        proxy_pass http://example.com;
+    }
+}
+```
 
 > 103 (Early Hints) responses received from an upstream server are passed to a client as is, without interpretation.
 
@@ -252,7 +284,9 @@ This directive appeared in version 1.29.8.
 
 Defines an additional context tag for HTTP [error log](https://nginx.org/en/docs/ngx_core_module.html#error_log) messages in text or [JSON](https://nginx.org/en/docs/ngx_core_module.html#error_log_json) format, in addition to default tags. The `value` can contain text, variables, and their combination:
 
-> error\_log\_tag  request\_id  $request\_id;
+```nginx
+error_log_tag  request_id  $request_id;
+```
 
 Several `error_log_tag` directives can be specified on the same level. These directives are inherited from the previous configuration level if and only if there are no `error_log_tag` directives defined on the current level.
 
@@ -264,35 +298,45 @@ Defines the URI that will be shown for the specified errors. A `*uri*` value can
 
 Example:
 
-> error\_page 404             /404.html;
-> error\_page 500 502 503 504 /50x.html;
+```nginx
+error_page 404             /404.html;
+error_page 500 502 503 504 /50x.html;
+```
 
 This causes an internal redirect to the specified `*uri*` with the client request method changed to “`GET`” (for all methods other than “`GET`” and “`HEAD`”).
 
 Furthermore, it is possible to change the response code to another using the “`=``*response*`” syntax, for example:
 
-> error\_page 404 =200 /empty.gif;
+```nginx
+error_page 404 =200 /empty.gif;
+```
 
 If an error response is processed by a proxied server or a FastCGI/uwsgi/SCGI/gRPC server, and the server may return different response codes (e.g., 200, 302, 401 or 404), it is possible to respond with the code it returns:
 
-> error\_page 404 = /404.php;
+```nginx
+error_page 404 = /404.php;
+```
 
 If there is no need to change URI and method during internal redirection it is possible to pass error processing into a named location:
 
-> location / {
->     error\_page 404 = @fallback;
-> }
-> 
-> location @fallback {
->     proxy\_pass http://backend;
-> }
+```nginx
+location / {
+    error_page 404 = @fallback;
+}
+
+location @fallback {
+    proxy_pass http://backend;
+}
+```
 
 > If `*uri*` processing leads to an error, the status code of the last occurred error is returned to the client.
 
 It is also possible to use URL redirects for error processing:
 
-> error\_page 403      http://example.com/forbidden.html;
-> error\_page 404 =301 http://example.com/notfound.html;
+```nginx
+error_page 403      http://example.com/forbidden.html;
+error_page 404 =301 http://example.com/notfound.html;
+```
 
 In this case, by default, the response code 302 is returned to the client. It can only be changed to one of the redirect status codes (301, 302, 303, 307, and 308).
 
@@ -347,11 +391,13 @@ Specifies that a given location can only be used for internal requests. For exte
 
 Example:
 
-> error\_page 404 /404.html;
-> 
-> location = /404.html {
->     internal;
-> }
+```nginx
+error_page 404 /404.html;
+
+location = /404.html {
+    internal;
+}
+```
 
 > There is a limit of 10 internal redirects per request to prevent request processing cycles that can occur in incorrect configurations. If this limit is reached, the error 500 (Internal Server Error) is returned. In such cases, the “rewrite or internal redirection cycle” message can be seen in the error log.
 
@@ -401,10 +447,12 @@ If the directive is specified on the [server](https://nginx.org/en/docs/http/ngx
 
 Limits allowed HTTP methods inside a location. The `*method*` parameter can be one of the following: `GET`, `HEAD`, `POST`, `PUT`, `DELETE`, `MKCOL`, `COPY`, `MOVE`, `OPTIONS`, `PROPFIND`, `PROPPATCH`, `LOCK`, `UNLOCK`, or `PATCH`. Allowing the `GET` method makes the `HEAD` method also allowed. Access to other methods can be limited using the [ngx\_http\_access\_module](https://nginx.org/en/docs/http/ngx_http_access_module.html), [ngx\_http\_auth\_basic\_module](https://nginx.org/en/docs/http/ngx_http_auth_basic_module.html), and [ngx\_http\_auth\_jwt\_module](https://nginx.org/en/docs/http/ngx_http_auth_jwt_module.html) (1.13.10) modules directives:
 
-> limit\_except GET {
->     allow 192.168.1.0/32;
->     deny  all;
-> }
+```nginx
+limit_except GET {
+    allow 192.168.1.0/32;
+    deny  all;
+}
+```
 
 Please note that this will limit access to all methods **except** GET and HEAD.
 
@@ -414,23 +462,27 @@ Limits the rate of response transmission to a client. The `*rate*` is specified 
 
 Parameter value can contain variables (1.17.0). It may be useful in cases where rate should be limited depending on a certain condition:
 
-> map $slow $rate {
->     1     4k;
->     2     8k;
-> }
-> 
-> limit\_rate $rate;
+```nginx
+map $slow $rate {
+    1     4k;
+    2     8k;
+}
+
+limit_rate $rate;
+```
 
 Rate limit can also be set in the [`$limit_rate`](https://nginx.org/en/docs/http/ngx_http_core_module.html#var_limit_rate) variable, however, since version 1.17.0, this method is not recommended:
 
-> server {
-> 
->     if ($slow) {
->         set $limit\_rate 4k;
->     }
-> 
->     ...
-> }
+```nginx
+server {
+
+    if ($slow) {
+        set $limit_rate 4k;
+    }
+
+    ...
+}
+```
 
 Rate limit can also be set in the “X-Accel-Limit-Rate” header field of a proxied server response. This capability can be disabled using the [proxy\_ignore\_headers](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_ignore_headers), [fastcgi\_ignore\_headers](https://nginx.org/en/docs/http/ngx_http_fastcgi_module.html#fastcgi_ignore_headers), [uwsgi\_ignore\_headers](https://nginx.org/en/docs/http/ngx_http_uwsgi_module.html#uwsgi_ignore_headers), and [scgi\_ignore\_headers](https://nginx.org/en/docs/http/ngx_http_scgi_module.html#scgi_ignore_headers) directives.
 
@@ -442,11 +494,13 @@ Sets the initial amount after which the further transmission of a response to a 
 
 Example:
 
-> location /flv/ {
->     flv;
->     limit\_rate\_after 500k;
->     limit\_rate       50k;
-> }
+```nginx
+location /flv/ {
+    flv;
+    limit_rate_after 500k;
+    limit_rate       50k;
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>lingering_close</strong> <code>off</code> | <code>on</code> | <code>always</code>;</code><br></td></tr><tr><th>Default:</th><td><pre>lingering_close on;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -474,20 +528,26 @@ When [lingering\_close](https://nginx.org/en/docs/http/ngx_http_core_module.html
 
 Sets the `*address*` and `*port*` for IP, or the `*path*` for a UNIX-domain socket on which the server will accept requests. Both `*address*` and `*port*`, or only `*address*` or only `*port*` can be specified. An `*address*` may also be a hostname, for example:
 
-> listen 127.0.0.1:8000;
-> listen 127.0.0.1;
-> listen 8000;
-> listen \*:8000;
-> listen localhost:8000;
+```nginx
+listen 127.0.0.1:8000;
+listen 127.0.0.1;
+listen 8000;
+listen *:8000;
+listen localhost:8000;
+```
 
 IPv6 addresses (0.7.36) are specified in square brackets:
 
-> listen \[::\]:8000;
-> listen \[::1\];
+```nginx
+listen [::]:8000;
+listen [::1];
+```
 
 UNIX-domain sockets (0.8.21) are specified with the “`unix:`” prefix:
 
-> listen unix:/var/run/nginx.sock;
+```nginx
+listen unix:/var/run/nginx.sock;
+```
 
 If only `*address*` is given, the port 80 is used.
 
@@ -569,13 +629,17 @@ this parameter (1.29.7) configures the [Multipath TCP](https://datatracker.ietf.
 
 this parameter (1.1.11) configures the “TCP keepalive” behavior for the listening socket. If this parameter is omitted then the operating system’s settings will be in effect for the socket. If it is set to the value “`on`”, the `SO_KEEPALIVE` option is turned on for the socket. If it is set to the value “`off`”, the `SO_KEEPALIVE` option is turned off for the socket. Some operating systems support setting of TCP keepalive parameters on a per-socket basis using the `TCP_KEEPIDLE`, `TCP_KEEPINTVL`, and `TCP_KEEPCNT` socket options. On such systems (currently, Linux, NetBSD, Dragonfly, FreeBSD, and macOS), they can be configured using the `*keepidle*`, `*keepintvl*`, and `*keepcnt*` parameters. One or two parameters may be omitted, in which case the system default setting for the corresponding socket option will be in effect. For example,
 
-> so\_keepalive=30m::10
+```
+so_keepalive=30m::10
+```
 
 will set the idle timeout (`TCP_KEEPIDLE`) to 30 minutes, leave the probe interval (`TCP_KEEPINTVL`) at its system default, and set the probes count (`TCP_KEEPCNT`) to 10 probes.
 
 Example:
 
-> listen 127.0.0.1 default\_server accept\_filter=dataready backlog=1024;
+```nginx
+listen 127.0.0.1 default_server accept_filter=dataready backlog=1024;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>location</strong> [ <code>=</code> | <code>~</code> | <code>~*</code> | <code>^~</code> ] <code><i>uri</i></code> { ... }</code><br><code><strong>location</strong> <code>@</code><code><i>name</i></code> { ... }</code><br></td></tr><tr><th>Default:</th><td>—</td></tr><tr><th>Context:</th><td><code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -599,25 +663,27 @@ Also, using the “`=`” modifier it is possible to define an exact match of UR
 
 Let’s illustrate the above by an example:
 
-> location = / {
->     \[ configuration A \]
-> }
-> 
-> location / {
->     \[ configuration B \]
-> }
-> 
-> location /documents/ {
->     \[ configuration C \]
-> }
-> 
-> location ^~ /images/ {
->     \[ configuration D \]
-> }
-> 
-> location ~\* \\.(gif|jpg|jpeg)$ {
->     \[ configuration E \]
-> }
+```nginx
+location = / {
+    [ configuration A ]
+}
+
+location / {
+    [ configuration B ]
+}
+
+location /documents/ {
+    [ configuration C ]
+}
+
+location ^~ /images/ {
+    [ configuration D ]
+}
+
+location ~* \.(gif|jpg|jpeg)$ {
+    [ configuration E ]
+}
+```
 
 The “`/`” request will match configuration A, the “`/index.html`” request will match configuration B, the “`/documents/document.html`” request will match configuration C, the “`/images/1.gif`” request will match configuration D, and the “`/documents/1.jpg`” request will match configuration E.
 
@@ -625,13 +691,15 @@ The “`@`” prefix defines a named location. Such a location is not used for a
 
 If a location is defined by a prefix string that ends with the slash character, and requests are processed by one of [proxy\_pass](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_pass), [fastcgi\_pass](https://nginx.org/en/docs/http/ngx_http_fastcgi_module.html#fastcgi_pass), [uwsgi\_pass](https://nginx.org/en/docs/http/ngx_http_uwsgi_module.html#uwsgi_pass), [scgi\_pass](https://nginx.org/en/docs/http/ngx_http_scgi_module.html#scgi_pass), [memcached\_pass](https://nginx.org/en/docs/http/ngx_http_memcached_module.html#memcached_pass), or [grpc\_pass](https://nginx.org/en/docs/http/ngx_http_grpc_module.html#grpc_pass), then the special processing is performed. In response to a request with URI equal to this string, but without the trailing slash, a permanent redirect with the code 301 will be returned to the requested URI with the slash appended. If this is not desired, an exact match of the URI and location could be defined like this:
 
-> location /user/ {
->     proxy\_pass http://user.example.com;
-> }
-> 
-> location = /user {
->     proxy\_pass http://login.example.com;
-> }
+```nginx
+location /user/ {
+    proxy_pass http://user.example.com;
+}
+
+location = /user {
+    proxy_pass http://login.example.com;
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>log_not_found</strong> <code>on</code> | <code>off</code>;</code><br></td></tr><tr><th>Default:</th><td><pre>log_not_found on;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -659,9 +727,11 @@ Enables or disables compression of two or more adjacent slashes in a URI into a 
 
 Note that compression is essential for the correct matching of prefix string and regular expression locations. Without it, the “`//scripts/one.php`” request would not match
 
-> location /scripts/ {
->     ...
-> }
+```nginx
+location /scripts/ {
+    ...
+}
+```
 
 and might be processed as a static file. So it gets converted to “`/scripts/one.php`”.
 
@@ -704,10 +774,12 @@ disables the cache.
 
 Example:
 
-> open\_file\_cache          max=1000 inactive=20s;
-> open\_file\_cache\_valid    30s;
-> open\_file\_cache\_min\_uses 2;
-> open\_file\_cache\_errors   on;
+```nginx
+open_file_cache          max=1000 inactive=20s;
+open_file_cache_valid    30s;
+open_file_cache_min_uses 2;
+open_file_cache_errors   on;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>open_file_cache_errors</strong> <code>on</code> | <code>off</code>;</code><br></td></tr><tr><th>Default:</th><td><pre>open_file_cache_errors off;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -763,7 +835,9 @@ It should be noted that timed out keep-alive connections are closed normally.
 
 Configures name servers used to resolve names of upstream servers into addresses, for example:
 
-> resolver 127.0.0.1 \[::1\]:5353;
+```nginx
+resolver 127.0.0.1 [::1]:5353;
+```
 
 The address can be specified as a domain name or IP address, with an optional port (1.3.1, 1.2.2). If port is not specified, the port 53 is used. Name servers are queried in a round-robin fashion.
 
@@ -775,7 +849,9 @@ By default, nginx will look up both IPv4 and IPv6 addresses while resolving. If 
 
 By default, nginx caches answers using the TTL value of a response. An optional `valid` parameter allows overriding it:
 
-> resolver 127.0.0.1 \[::1\]:5353 valid=30s;
+```nginx
+resolver 127.0.0.1 [::1]:5353 valid=30s;
+```
 
 > Before version 1.1.9, tuning of caching time was not possible, and nginx always cached answers for the duration of 5 minutes.
 
@@ -787,15 +863,19 @@ The optional `status_zone` parameter (1.17.1) enables [collection](https://nginx
 
 Sets a timeout for name resolution, for example:
 
-> resolver\_timeout 5s;
+```nginx
+resolver_timeout 5s;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>root</strong> <code><i>path</i></code>;</code><br></td></tr><tr><th>Default:</th><td><pre>root html;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code>, <code>if in location</code><br></td></tr></tbody></table>
 
 Sets the root directory for requests. For example, with the following configuration
 
-> location /i/ {
->     root /data/w3;
-> }
+```nginx
+location /i/ {
+    root /data/w3;
+}
+```
 
 The `/data/w3/i/top.gif` file will be sent in response to the “`/i/top.gif`” request.
 
@@ -809,15 +889,17 @@ Allows access if all (`all`) or at least one (`any`) of the [ngx\_http\_access\_
 
 Example:
 
-> location / {
->     satisfy any;
-> 
->     allow 192.168.1.0/32;
->     deny  all;
-> 
->     auth\_basic           "closed site";
->     auth\_basic\_user\_file conf/htpasswd;
-> }
+```nginx
+location / {
+    satisfy any;
+
+    allow 192.168.1.0/32;
+    deny  all;
+
+    auth_basic           "closed site";
+    auth_basic_user_file conf/htpasswd;
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>send_lowat</strong> <code><i>size</i></code>;</code><br></td></tr><tr><th>Default:</th><td><pre>send_lowat 0;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -835,11 +917,13 @@ Enables or disables the use of `sendfile()`.
 
 Starting from nginx 0.8.12 and FreeBSD 5.2.1, [aio](https://nginx.org/en/docs/http/ngx_http_core_module.html#aio) can be used to pre-load data for `sendfile()`:
 
-> location /video/ {
->     sendfile       on;
->     tcp\_nopush     on;
->     aio            on;
-> }
+```nginx
+location /video/ {
+    sendfile       on;
+    tcp_nopush     on;
+    aio            on;
+}
+```
 
 In this configuration, `sendfile()` is called with the `SF_NODISKIO` flag which causes it not to block on disk I/O, but, instead, report back that the data are not in memory. nginx then initiates an asynchronous data load by reading one byte. On the first read, the FreeBSD kernel loads the first 128K bytes of a file into memory, although next reads will only load data in 16K chunks. This can be changed using the [read\_ahead](https://nginx.org/en/docs/http/ngx_http_core_module.html#read_ahead) directive.
 
@@ -859,75 +943,89 @@ Sets configuration for a virtual server. There is no clear separation between IP
 
 Sets names of a virtual server, for example:
 
-> server {
->     server\_name example.com www.example.com;
-> }
+```nginx
+server {
+    server_name example.com www.example.com;
+}
+```
 
 The first name becomes the primary server name.
 
 Server names can include an asterisk (“`*`”) replacing the first or last part of a name:
 
-> server {
->     server\_name example.com \*.example.com www.example.\*;
-> }
+```nginx
+server {
+    server_name example.com *.example.com www.example.*;
+}
+```
 
 Such names are called wildcard names.
 
 The first two of the names mentioned above can be combined in one:
 
-> server {
->     server\_name .example.com;
-> }
+```nginx
+server {
+    server_name .example.com;
+}
+```
 
 It is also possible to use regular expressions in server names, preceding the name with a tilde (“`~`”):
 
-> server {
->     server\_name www.example.com ~^www\\d+\\.example\\.com$;
-> }
+```nginx
+server {
+    server_name www.example.com ~^www\d+\.example\.com$;
+}
+```
 
 Regular expressions can contain captures (0.7.40) that can later be used in other directives:
 
-> server {
->     server\_name ~^(www\\.)?(.+)$;
-> 
->     location / {
->         root /sites/$2;
->     }
-> }
-> 
-> server {
->     server\_name \_;
-> 
->     location / {
->         root /sites/default;
->     }
-> }
+```nginx
+server {
+    server_name ~^(www\.)?(.+)$;
+
+    location / {
+        root /sites/$2;
+    }
+}
+
+server {
+    server_name _;
+
+    location / {
+        root /sites/default;
+    }
+}
+```
 
 Named captures in regular expressions create variables (0.8.25) that can later be used in other directives:
 
-> server {
->     server\_name ~^(www\\.)?(?<domain>.+)$;
-> 
->     location / {
->         root /sites/$domain;
->     }
-> }
-> 
-> server {
->     server\_name \_;
-> 
->     location / {
->         root /sites/default;
->     }
-> }
+```nginx
+server {
+    server_name ~^(www\.)?(?<domain>.+)$;
+
+    location / {
+        root /sites/$domain;
+    }
+}
+
+server {
+    server_name _;
+
+    location / {
+        root /sites/default;
+    }
+}
+```
 
 If the directive’s parameter is set to “`$hostname`” (0.9.4), the machine’s hostname is inserted.
 
 It is also possible to specify an empty server name (0.7.11):
 
-> server {
->     server\_name www.example.com "";
-> }
+```nginx
+server {
+    server_name www.example.com "";
+}
+```
 
 It allows this server to process requests without the “Host” header field — instead of the default server — for the given address:port pair. This is the default setting.
 
@@ -987,108 +1085,124 @@ Enables or disables the use of the `TCP_NOPUSH` socket option on FreeBSD or the 
 
 Checks the existence of files in the specified order and uses the first found file for request processing; the processing is performed in the current context. The path to a file is constructed from the `*file*` parameter according to the [root](https://nginx.org/en/docs/http/ngx_http_core_module.html#root) and [alias](https://nginx.org/en/docs/http/ngx_http_core_module.html#alias) directives. It is possible to check directory’s existence by specifying a slash at the end of a name, e.g. “`$uri/`”. If none of the files were found, an internal redirect to the `*uri*` specified in the last parameter is made. For example:
 
-> location /images/ {
->     try\_files $uri /images/default.gif;
-> }
-> 
-> location = /images/default.gif {
->     expires 30s;
-> }
+```nginx
+location /images/ {
+    try_files $uri /images/default.gif;
+}
+
+location = /images/default.gif {
+    expires 30s;
+}
+```
 
 The last parameter can also point to a named location, as shown in examples below. Starting from version 0.7.51, the last parameter can also be a `*code*`:
 
-> location / {
->     try\_files $uri $uri/index.html $uri.html =404;
-> }
+```nginx
+location / {
+    try_files $uri $uri/index.html $uri.html =404;
+}
+```
 
 Example in proxying Mongrel:
 
-> location / {
->     try\_files /system/maintenance.html
->               $uri $uri/index.html $uri.html
->               @mongrel;
-> }
-> 
-> location @mongrel {
->     proxy\_pass http://mongrel;
-> }
+```nginx
+location / {
+    try_files /system/maintenance.html
+              $uri $uri/index.html $uri.html
+              @mongrel;
+}
+
+location @mongrel {
+    proxy_pass http://mongrel;
+}
+```
 
 Example for Drupal/FastCGI:
 
-> location / {
->     try\_files $uri $uri/ @drupal;
-> }
-> 
-> location ~ \\.php$ {
->     try\_files $uri @drupal;
-> 
->     fastcgi\_pass ...;
-> 
->     fastcgi\_param SCRIPT\_FILENAME /path/to$fastcgi\_script\_name;
->     fastcgi\_param SCRIPT\_NAME     $fastcgi\_script\_name;
->     fastcgi\_param QUERY\_STRING    $args;
-> 
->     ... other fastcgi\_param's
-> }
-> 
-> location @drupal {
->     fastcgi\_pass ...;
-> 
->     fastcgi\_param SCRIPT\_FILENAME /path/to/index.php;
->     fastcgi\_param SCRIPT\_NAME     /index.php;
->     fastcgi\_param QUERY\_STRING    q=$uri&$args;
-> 
->     ... other fastcgi\_param's
-> }
+```nginx
+location / {
+    try_files $uri $uri/ @drupal;
+}
+
+location ~ \.php$ {
+    try_files $uri @drupal;
+
+    fastcgi_pass ...;
+
+    fastcgi_param SCRIPT_FILENAME /path/to$fastcgi_script_name;
+    fastcgi_param SCRIPT_NAME     $fastcgi_script_name;
+    fastcgi_param QUERY_STRING    $args;
+
+    ... other fastcgi_param's
+}
+
+location @drupal {
+    fastcgi_pass ...;
+
+    fastcgi_param SCRIPT_FILENAME /path/to/index.php;
+    fastcgi_param SCRIPT_NAME     /index.php;
+    fastcgi_param QUERY_STRING    q=$uri&$args;
+
+    ... other fastcgi_param's
+}
+```
 
 In the following example,
 
-> location / {
->     try\_files $uri $uri/ @drupal;
-> }
+```nginx
+location / {
+    try_files $uri $uri/ @drupal;
+}
+```
 
 the `try_files` directive is equivalent to
 
-> location / {
->     error\_page 404 = @drupal;
->     log\_not\_found off;
-> }
+```nginx
+location / {
+    error_page 404 = @drupal;
+    log_not_found off;
+}
+```
 
 And here,
 
-> location ~ \\.php$ {
->     try\_files $uri @drupal;
-> 
->     fastcgi\_pass ...;
-> 
->     fastcgi\_param SCRIPT\_FILENAME /path/to$fastcgi\_script\_name;
-> 
->     ...
-> }
+```nginx
+location ~ \.php$ {
+    try_files $uri @drupal;
+
+    fastcgi_pass ...;
+
+    fastcgi_param SCRIPT_FILENAME /path/to$fastcgi_script_name;
+
+    ...
+}
+```
 
 `try_files` checks the existence of the PHP file before passing the request to the FastCGI server.
 
 Example for Wordpress and Joomla:
 
-> location / {
->     try\_files $uri $uri/ @wordpress;
-> }
-> 
-> location ~ \\.php$ {
->     try\_files $uri @wordpress;
-> 
->     fastcgi\_pass ...;
-> 
->     fastcgi\_param SCRIPT\_FILENAME /path/to$fastcgi\_script\_name;
->     ... other fastcgi\_param's
-> }
-> 
-> location @wordpress {
->     fastcgi\_pass ...;
-> 
->     fastcgi\_param SCRIPT\_FILENAME /path/to/index.php;
->     ... other fastcgi\_param's
-> }
+```nginx
+location / {
+    try_files $uri $uri/ @wordpress;
+}
+
+location ~ \.php$ {
+    try_files $uri @wordpress;
+
+    fastcgi_pass ...;
+
+    fastcgi_param SCRIPT_FILENAME /path/to$fastcgi_script_name;
+    ... other fastcgi_param's
+}
+
+location @wordpress {
+    fastcgi_pass ...;
+
+    fastcgi_param SCRIPT_FILENAME /path/to/index.php;
+    ... other fastcgi_param's
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>types</strong> { ... }</code><br></td></tr><tr><th>Default:</th><td><pre>types {
     text/html  html;
@@ -1098,20 +1212,24 @@ Example for Wordpress and Joomla:
 
 Maps file name extensions to MIME types of responses. Extensions are case-insensitive. Several extensions can be mapped to one type, for example:
 
-> types {
->     application/octet-stream bin exe dll;
->     application/octet-stream deb;
->     application/octet-stream dmg;
-> }
+```nginx
+types {
+    application/octet-stream bin exe dll;
+    application/octet-stream deb;
+    application/octet-stream dmg;
+}
+```
 
 A sufficiently full mapping table is distributed with nginx in the `conf/mime.types` file.
 
 To make a particular location emit the “`application/octet-stream`” MIME type for all requests, the following configuration can be used:
 
-> location /download/ {
->     types        { }
->     default\_type application/octet-stream;
-> }
+```nginx
+location /download/ {
+    types        { }
+    default_type application/octet-stream;
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>types_hash_bucket_size</strong> <code><i>size</i></code>;</code><br></td></tr><tr><th>Default:</th><td><pre>types_hash_bucket_size 64;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -1267,13 +1385,17 @@ The PROXY protocol must be previously enabled by setting the `proxy_protocol` pa
 
 TLV from the PROXY Protocol header (1.23.2). The `name` can be a TLV type name or its numeric value. In the latter case, the value is hexadecimal and should be prefixed with `0x`:
 
-> $proxy\_protocol\_tlv\_alpn
-> $proxy\_protocol\_tlv\_0x01
+```
+$proxy_protocol_tlv_alpn
+$proxy_protocol_tlv_0x01
+```
 
 SSL TLVs can also be accessed by TLV type name or its numeric value, both prefixed by `ssl_`:
 
-> $proxy\_protocol\_tlv\_ssl\_version
-> $proxy\_protocol\_tlv\_ssl\_0x21
+```
+$proxy_protocol_tlv_ssl_version
+$proxy_protocol_tlv_ssl_0x21
+```
 
 The following TLV type names are supported:
 

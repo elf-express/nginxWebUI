@@ -18,9 +18,11 @@
 
 #### 配置示例
 
-> location / {
->     index index.$geo.html index.html;
-> }
+```nginx
+location / {
+    index index.$geo.html index.html;
+}
+```
 
 #### Directives
 
@@ -28,16 +30,20 @@
 
 定義將用作索引的文件。`*file*`名稱可以包含變量。按指定順序檢查文件。列表的最後一個元素可以是具有絕對路徑的文件。示例：
 
-> index index.$geo.html index.0.html /index.html;
+```nginx
+index index.$geo.html index.0.html /index.html;
+```
 
 需要注意的是，使用索引文件會導致內部重定向，請求可以在不同的位置處理。例如，使用以下配置：
 
-> location = / {
->     index index.html;
-> }
-> 
-> location / {
->     ...
-> }
+```nginx
+location = / {
+    index index.html;
+}
+
+location / {
+    ...
+}
+```
 
 「`/`」請求將在第二個位置實際上作為「`/index.html`"處理。

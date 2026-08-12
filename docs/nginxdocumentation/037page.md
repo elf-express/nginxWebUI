@@ -18,9 +18,11 @@
 
 #### 配置示例
 
-> location = /\_.gif {
->     empty\_gif;
-> }
+```nginx
+location = /_.gif {
+    empty_gif;
+}
+```
 
 #### Directives
 

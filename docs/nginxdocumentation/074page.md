@@ -18,16 +18,18 @@
 
 #### 配置示例
 
-> http {
->     split\_clients "${remote\_addr}AAA" $variant {
->                    0.5%               .one;
->                    2.0%               .two;
->                    \*                  "";
->     }
-> 
->     server {
->         location / {
->             index index${variant}.html;
+```nginx
+http {
+    split_clients "${remote_addr}AAA" $variant {
+                   0.5%               .one;
+                   2.0%               .two;
+                   *                  "";
+    }
+
+    server {
+        location / {
+            index index${variant}.html;
+```
 
 #### Directives
 
@@ -35,10 +37,12 @@
 
 為A/B測試創建變量，例如：
 
-> split\_clients "${remote\_addr}AAA" $variant {
->                0.5%               .one;
->                2.0%               .two;
->                \*                  "";
-> }
+```nginx
+split_clients "${remote_addr}AAA" $variant {
+               0.5%               .one;
+               2.0%               .two;
+               *                  "";
+}
+```
 
 原始字符串的值使用MurmurHash 2進行散列。（0.5%）對應於`$variant`變量的值`".one"`，從21474836到107374180（2%）的哈希值對應於值`".two"`，並且從107374181到4294967295的散列值對應於值`""`（空字符串）。

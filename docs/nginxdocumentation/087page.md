@@ -34,28 +34,30 @@
 
 #### 配置示例
 
-> http {
->     log\_format quic '$remote\_addr - $remote\_user \[$time\_local\] '
->                     '"$request」$status $body\_bytes\_sent '
->                     '"$http\_referer" "$http\_user\_agent" "$http3"';
-> 
->     access\_log logs/access.log quic;
-> 
->     server {
->         # 為了更好的兼容性，建議
->         # 使用相同的埠為http/3和https
->         listen 8443 quic reuseport;
->         listen 8443 ssl;
-> 
->         ssl\_certificate     certs/example.com.crt;
->         ssl\_certificate\_key certs/example.com.key;
-> 
->         location / {
->             # 用於通告HTTP/3的可用性
->             add\_header Alt-Svc 'h3=":8443"; ma=86400';
->         }
->     }
-> }
+```nginx
+http {
+    log_format quic '$remote_addr - $remote_user [$time_local] '
+                    '"$request」$status $body_bytes_sent '
+                    '"$http_referer" "$http_user_agent" "$http3"';
+
+    access_log logs/access.log quic;
+
+    server {
+        # 為了更好的兼容性，建議
+        # 使用相同的埠為http/3和https
+        listen 8443 quic reuseport;
+        listen 8443 ssl;
+
+        ssl_certificate     certs/example.com.crt;
+        ssl_certificate_key certs/example.com.key;
+
+        location / {
+            # 用於通告HTTP/3的可用性
+            add_header Alt-Svc 'h3=":8443"; ma=86400';
+        }
+    }
+}
+```
 
 #### Directives
 

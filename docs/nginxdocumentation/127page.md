@@ -18,13 +18,15 @@
 
 #### 配置示例
 
-> map $remote\_addr $limit {
->     127.0.0.1    "";
->     default      $binary\_remote\_addr;
-> }
-> 
-> limit\_conn\_zone $limit zone=addr:10m;
-> limit\_conn addr 1;
+```nginx
+map $remote_addr $limit {
+    127.0.0.1    "";
+    default      $binary_remote_addr;
+}
+
+limit_conn_zone $limit zone=addr:10m;
+limit_conn addr 1;
+```
 
 #### Directives
 
@@ -56,17 +58,23 @@
 
 指示源值可以是帶有前綴或後綴掩碼的主機名：
 
-> \*.example.com 1;
-> example.\*     1;
+```nginx
+*.example.com 1;
+example.*     1;
+```
 
 以下兩個記錄
 
-> example.com   1;
-> \*.example.com 1;
+```nginx
+example.com   1;
+*.example.com 1;
+```
 
 可以結合：
 
-> .example.com  1;
+```nginx
+.example.com  1;
+```
 
 此參數應在值列表之前指定。
 

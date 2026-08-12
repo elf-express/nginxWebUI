@@ -18,10 +18,12 @@
 
 #### 配置示例
 
-> location / {
->     add\_before\_body /before\_action;
->     add\_after\_body  /after\_action;
-> }
+```nginx
+location / {
+    add_before_body /before_action;
+    add_after_body  /after_action;
+}
+```
 
 #### Directives
 

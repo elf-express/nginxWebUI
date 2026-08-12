@@ -29,24 +29,26 @@ To reduce the processor load, it is recommended to
 -   disable the [built-in](https://nginx.org/en/docs/mail/ngx_mail_ssl_module.html#ssl_session_cache_builtin) session cache,
 -   and possibly increase the session [lifetime](https://nginx.org/en/docs/mail/ngx_mail_ssl_module.html#ssl_session_timeout) (by default, 5 minutes):
 
-> **worker\_processes auto;**
-> 
-> mail {
-> 
->     ...
-> 
->     server {
->         listen              993 ssl;
-> 
->         ssl\_protocols       TLSv1.2 TLSv1.3;
->         ssl\_ciphers         AES128-SHA:AES256-SHA:RC4-SHA:DES-CBC3-SHA:RC4-MD5;
->         ssl\_certificate     /usr/local/nginx/conf/cert.pem;
->         ssl\_certificate\_key /usr/local/nginx/conf/cert.key;
->         **ssl\_session\_cache   shared:SSL:10m;**
->         **ssl\_session\_timeout 10m;**
-> 
->         ...
->     }
+```nginx
+**worker_processes auto;**
+
+mail {
+
+    ...
+
+    server {
+        listen              993 ssl;
+
+        ssl_protocols       TLSv1.2 TLSv1.3;
+        ssl_ciphers         AES128-SHA:AES256-SHA:RC4-SHA:DES-CBC3-SHA:RC4-MD5;
+        ssl_certificate     /usr/local/nginx/conf/cert.pem;
+        ssl_certificate_key /usr/local/nginx/conf/cert.key;
+        **ssl_session_cache   shared:SSL:10m;**
+        **ssl_session_timeout 10m;**
+
+        ...
+    }
+```
 
 #### Directives
 
@@ -60,17 +62,19 @@ Specifies a `*file*` with the certificate in the PEM format for the given server
 
 Since version 1.11.0, this directive can be specified multiple times to load certificates of different types, for example, RSA and ECDSA:
 
-> server {
->     listen              993 ssl;
-> 
->     ssl\_certificate     example.com.rsa.crt;
->     ssl\_certificate\_key example.com.rsa.key;
-> 
->     ssl\_certificate     example.com.ecdsa.crt;
->     ssl\_certificate\_key example.com.ecdsa.key;
-> 
->     ...
-> }
+```nginx
+server {
+    listen              993 ssl;
+
+    ssl_certificate     example.com.rsa.crt;
+    ssl_certificate_key example.com.rsa.key;
+
+    ssl_certificate     example.com.ecdsa.crt;
+    ssl_certificate_key example.com.ecdsa.key;
+
+    ...
+}
+```
 
 > Only OpenSSL 1.0.2 or higher supports separate [certificate chains](https://nginx.org/en/docs/http/configuring_https_servers.html#chains) for different certificates. With older versions, only one certificate chain can be used.
 
@@ -100,7 +104,9 @@ The value `data`:`*key*` can be specified instead of the `*file*` (1.15.10), whi
 
 Specifies the enabled ciphers. The ciphers are specified in the format understood by the OpenSSL library, for example:
 
-> ssl\_ciphers ALL:!aNULL:!EXPORT56:RC4+RSA:+HIGH:+MEDIUM:+LOW:+SSLv2:+EXP;
+```nginx
+ssl_ciphers ALL:!aNULL:!EXPORT56:RC4+RSA:+HIGH:+MEDIUM:+LOW:+SSLv2:+EXP;
+```
 
 The full list can be viewed using the “`openssl ciphers`” command.
 
@@ -124,8 +130,10 @@ Sets arbitrary OpenSSL configuration [commands](https://www.openssl.org/docs/man
 
 Several `ssl_conf_command` directives can be specified on the same level:
 
-> ssl\_conf\_command Options PrioritizeChaCha;
-> ssl\_conf\_command Ciphersuites TLS\_CHACHA20\_POLY1305\_SHA256;
+```nginx
+ssl_conf_command Options PrioritizeChaCha;
+ssl_conf_command Ciphersuites TLS_CHACHA20_POLY1305_SHA256;
+```
 
 These directives are inherited from the previous configuration level if and only if there are no `ssl_conf_command` directives defined on the current level.
 
@@ -155,7 +163,9 @@ Specifies a `*curve*` for ECDHE ciphers.
 
 When using OpenSSL 1.0.2 or higher, it is possible to specify multiple curves (1.11.0), for example:
 
-> ssl\_ecdh\_curve prime256v1:secp384r1;
+```nginx
+ssl_ecdh_curve prime256v1:secp384r1;
+```
 
 The special value `auto` (1.11.0) instructs nginx to use a list built into the OpenSSL library when using OpenSSL 1.0.2 or higher, or `prime256v1` with older versions.
 
@@ -171,23 +181,25 @@ Specifies a `*file*` with passphrases for [secret keys](https://nginx.org/en/doc
 
 Example:
 
-> mail {
->     ssl\_password\_file /etc/keys/global.pass;
->     ...
-> 
->     server {
->         server\_name mail1.example.com;
->         ssl\_certificate\_key /etc/keys/first.key;
->     }
-> 
->     server {
->         server\_name mail2.example.com;
-> 
->         # named pipe can also be used instead of a file
->         ssl\_password\_file /etc/keys/fifo;
->         ssl\_certificate\_key /etc/keys/second.key;
->     }
-> }
+```nginx
+mail {
+    ssl_password_file /etc/keys/global.pass;
+    ...
+
+    server {
+        server_name mail1.example.com;
+        ssl_certificate_key /etc/keys/first.key;
+    }
+
+    server {
+        server_name mail2.example.com;
+
+        # named pipe can also be used instead of a file
+        ssl_password_file /etc/keys/fifo;
+        ssl_certificate_key /etc/keys/second.key;
+    }
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>ssl_prefer_server_ciphers</strong> <code>on</code> | <code>off</code>;</code><br></td></tr><tr><th>Default:</th><td><pre>ssl_prefer_server_ciphers off;</pre></td></tr><tr><th>Context:</th><td><code>mail</code>, <code>server</code><br></td></tr></tbody></table>
 
@@ -225,7 +237,9 @@ a cache shared between all worker processes. The cache size is specified in byte
 
 Both cache types can be used simultaneously, for example:
 
-> ssl\_session\_cache builtin:1000 shared:SSL:10m;
+```nginx
+ssl_session_cache builtin:1000 shared:SSL:10m;
+```
 
 but using only shared cache without the built-in cache should be more efficient.
 
@@ -237,12 +251,16 @@ Sets a `*file*` with the secret key used to encrypt and decrypt TLS session tick
 
 If several keys are specified, only the first key is used to encrypt TLS session tickets. This allows configuring key rotation, for example:
 
-> ssl\_session\_ticket\_key current.key;
-> ssl\_session\_ticket\_key previous.key;
+```nginx
+ssl_session_ticket_key current.key;
+ssl_session_ticket_key previous.key;
+```
 
 The `*file*` must contain 80 or 48 bytes of random data and can be created using the following command:
 
-> openssl rand 80 > ticket.key
+```
+openssl rand 80 > ticket.key
+```
 
 Depending on the file size either AES256 (for 80-byte keys, 1.11.8) or AES128 (for 48-byte keys) is used for encryption.
 

@@ -19,46 +19,48 @@ The `ngx_stream_core_module` module is available since version 1.9.0. This modul
 
 #### Example Configuration
 
-> worker\_processes auto;
-> 
-> error\_log /var/log/nginx/error.log info;
-> 
-> events {
->     worker\_connections  1024;
-> }
-> 
-> stream {
->     upstream backend {
->         hash $remote\_addr consistent;
-> 
->         server backend1.example.com:12345 weight=5;
->         server 127.0.0.1:12345            max\_fails=3 fail\_timeout=30s;
->         server unix:/tmp/backend3;
->     }
-> 
->     upstream dns {
->        server 192.168.0.1:53535;
->        server dns.example.com:53;
->     }
-> 
->     server {
->         listen 12345;
->         proxy\_connect\_timeout 1s;
->         proxy\_timeout 3s;
->         proxy\_pass backend;
->     }
-> 
->     server {
->         listen 127.0.0.1:53 udp reuseport;
->         proxy\_timeout 20s;
->         proxy\_pass dns;
->     }
-> 
->     server {
->         listen \[::1\]:12345;
->         proxy\_pass unix:/tmp/stream.socket;
->     }
-> }
+```nginx
+worker_processes auto;
+
+error_log /var/log/nginx/error.log info;
+
+events {
+    worker_connections  1024;
+}
+
+stream {
+    upstream backend {
+        hash $remote_addr consistent;
+
+        server backend1.example.com:12345 weight=5;
+        server 127.0.0.1:12345            max_fails=3 fail_timeout=30s;
+        server unix:/tmp/backend3;
+    }
+
+    upstream dns {
+       server 192.168.0.1:53535;
+       server dns.example.com:53;
+    }
+
+    server {
+        listen 12345;
+        proxy_connect_timeout 1s;
+        proxy_timeout 3s;
+        proxy_pass backend;
+    }
+
+    server {
+        listen 127.0.0.1:53 udp reuseport;
+        proxy_timeout 20s;
+        proxy_pass dns;
+    }
+
+    server {
+        listen [::1]:12345;
+        proxy_pass unix:/tmp/stream.socket;
+    }
+}
+```
 
 #### Directives
 
@@ -66,24 +68,32 @@ The `ngx_stream_core_module` module is available since version 1.9.0. This modul
 
 Sets the `*address*` and `*port*` for the socket on which the server will accept connections. It is possible to specify just the port. The address can also be a hostname, for example:
 
-> listen 127.0.0.1:12345;
-> listen \*:12345;
-> listen 12345;     # same as \*:12345
-> listen localhost:12345;
+```nginx
+listen 127.0.0.1:12345;
+listen *:12345;
+listen 12345;     # same as *:12345
+listen localhost:12345;
+```
 
 IPv6 addresses are specified in square brackets:
 
-> listen \[::1\]:12345;
-> listen \[::\]:12345;
+```nginx
+listen [::1]:12345;
+listen [::]:12345;
+```
 
 UNIX-domain sockets are specified with the “`unix:`” prefix:
 
-> listen unix:/var/run/nginx.sock;
+```nginx
+listen unix:/var/run/nginx.sock;
+```
 
 Port ranges (1.15.10) are specified with the first and last port separated by a hyphen:
 
-> listen 127.0.0.1:12345-12399;
-> listen 12345-12399;
+```nginx
+listen 127.0.0.1:12345-12399;
+listen 12345-12399;
+```
 
 The `default_server` parameter, if present, will cause the server to become the default server for the specified `*address*`:`*port*` pair (1.25.5). If none of the directives have the `default_server` parameter then the first server with the `*address*`:`*port*` pair will be the default server for this pair.
 
@@ -151,7 +161,9 @@ this parameter (1.29.7) configures the [Multipath TCP](https://datatracker.ietf.
 
 this parameter configures the “TCP keepalive” behavior for the listening socket. If this parameter is omitted then the operating system’s settings will be in effect for the socket. If it is set to the value “`on`”, the `SO_KEEPALIVE` option is turned on for the socket. If it is set to the value “`off`”, the `SO_KEEPALIVE` option is turned off for the socket. Some operating systems support setting of TCP keepalive parameters on a per-socket basis using the `TCP_KEEPIDLE`, `TCP_KEEPINTVL`, and `TCP_KEEPCNT` socket options. On such systems (currently, Linux, NetBSD, Dragonfly, FreeBSD, and macOS), they can be configured using the `*keepidle*`, `*keepintvl*`, and `*keepcnt*` parameters. One or two parameters may be omitted, in which case the system default setting for the corresponding socket option will be in effect. For example,
 
-> so\_keepalive=30m::10
+```
+so_keepalive=30m::10
+```
 
 will set the idle timeout (`TCP_KEEPIDLE`) to 30 minutes, leave the probe interval (`TCP_KEEPINTVL`) at its system default, and set the probes count (`TCP_KEEPCNT`) to 10 probes.
 
@@ -181,7 +193,9 @@ This directive appeared in version 1.11.3.
 
 Configures name servers used to resolve names of upstream servers into addresses, for example:
 
-> resolver 127.0.0.1 \[::1\]:5353;
+```nginx
+resolver 127.0.0.1 [::1]:5353;
+```
 
 The address can be specified as a domain name or IP address, with an optional port. If port is not specified, the port 53 is used. Name servers are queried in a round-robin fashion.
 
@@ -189,7 +203,9 @@ By default, nginx will look up both IPv4 and IPv6 addresses while resolving. If 
 
 By default, nginx caches answers using the TTL value of a response. The optional `valid` parameter allows overriding it:
 
-> resolver 127.0.0.1 \[::1\]:5353 valid=30s;
+```nginx
+resolver 127.0.0.1 [::1]:5353 valid=30s;
+```
 
 > To prevent DNS spoofing, it is recommended configuring DNS servers in a properly secured trusted local network.
 
@@ -203,7 +219,9 @@ This directive appeared in version 1.11.3.
 
 Sets a timeout for name resolution, for example:
 
-> resolver\_timeout 5s;
+```nginx
+resolver_timeout 5s;
+```
 
 > Before version 1.11.3, this directive was available as part of our [commercial subscription](https://www.f5.com/products/nginx).
 
@@ -217,47 +235,59 @@ This directive appeared in version 1.25.5.
 
 Sets names of a virtual server, for example:
 
-> server {
->     server\_name example.com www.example.com;
-> }
+```nginx
+server {
+    server_name example.com www.example.com;
+}
+```
 
 The first name becomes the primary server name.
 
 Server names can include an asterisk (“`*`”) replacing the first or last part of a name:
 
-> server {
->     server\_name example.com \*.example.com www.example.\*;
-> }
+```nginx
+server {
+    server_name example.com *.example.com www.example.*;
+}
+```
 
 Such names are called wildcard names.
 
 The first two of the names mentioned above can be combined in one:
 
-> server {
->     server\_name .example.com;
-> }
+```nginx
+server {
+    server_name .example.com;
+}
+```
 
 It is also possible to use regular expressions in server names, preceding the name with a tilde (“`~`”):
 
-> server {
->     server\_name www.example.com ~^www\\d+\\.example\\.com$;
-> }
+```nginx
+server {
+    server_name www.example.com ~^www\d+\.example\.com$;
+}
+```
 
 Regular expressions can contain captures that can later be used in other directives:
 
-> server {
->     server\_name ~^(www\\.)?(.+)$;
-> 
->     proxy\_pass www.$2:12345;
-> }
+```nginx
+server {
+    server_name ~^(www\.)?(.+)$;
+
+    proxy_pass www.$2:12345;
+}
+```
 
 Named captures in regular expressions create variables that can later be used in other directives:
 
-> server {
->     server\_name ~^(www\\.)?(?<domain>.+)$;
-> 
->     proxy\_pass www.$domain:12345;
-> }
+```nginx
+server {
+    server_name ~^(www\.)?(?<domain>.+)$;
+
+    proxy_pass www.$domain:12345;
+}
+```
 
 If the directive’s parameter is set to “`$hostname`”, the machine’s hostname is inserted.
 
@@ -370,13 +400,17 @@ The PROXY protocol must be previously enabled by setting the `proxy_protocol` pa
 
 TLV from the PROXY Protocol header (1.23.2). The `name` can be a TLV type name or its numeric value. In the latter case, the value is hexadecimal and should be prefixed with `0x`:
 
-> $proxy\_protocol\_tlv\_alpn
-> $proxy\_protocol\_tlv\_0x01
+```
+$proxy_protocol_tlv_alpn
+$proxy_protocol_tlv_0x01
+```
 
 SSL TLVs can also be accessed by TLV type name or its numeric value, both prefixed by `ssl_`:
 
-> $proxy\_protocol\_tlv\_ssl\_version
-> $proxy\_protocol\_tlv\_ssl\_0x21
+```
+$proxy_protocol_tlv_ssl_version
+$proxy_protocol_tlv_ssl_0x21
+```
 
 The following TLV type names are supported:
 

@@ -18,15 +18,17 @@
 
 #### 配置示例
 
-> location / {
->     mirror /mirror;
->     proxy\_pass http://backend;
-> }
-> 
-> location = /mirror {
->     internal;
->     proxy\_pass http://test\_backend$request\_uri;
-> }
+```nginx
+location / {
+    mirror /mirror;
+    proxy_pass http://backend;
+}
+
+location = /mirror {
+    internal;
+    proxy_pass http://test_backend$request_uri;
+}
+```
 
 #### Directives
 
@@ -38,16 +40,18 @@
 
 指示是否鏡像客戶端請求正文。如果啟用，將在創建鏡像子請求之前讀取客戶端請求正文。在這種情況下，將禁用由[proxy\_request\_buffering](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_request_buffering)、[fastcgi\_request\_buffering](https://nginx.org/en/docs/http/ngx_http_fastcgi_module.html#fastcgi_request_buffering)、[scgi\_request\_buffering](https://nginx.org/en/docs/http/ngx_http_scgi_module.html#scgi_request_buffering)和[uwsgi\_request\_buffering](https://nginx.org/en/docs/http/ngx_http_uwsgi_module.html#uwsgi_request_buffering)指令設置的未緩衝客戶端請求正文的鏡像。
 
-> location / {
->     mirror /mirror;
->     mirror\_request\_body off;
->     proxy\_pass http://backend;
-> }
-> 
-> location = /mirror {
->     internal;
->     proxy\_pass http://log\_backend;
->     proxy\_pass\_request\_body off;
->     proxy\_set\_header Content-Length "";
->     proxy\_set\_header X-Original-URI $request\_uri;
-> }
+```nginx
+location / {
+    mirror /mirror;
+    mirror_request_body off;
+    proxy_pass http://backend;
+}
+
+location = /mirror {
+    internal;
+    proxy_pass http://log_backend;
+    proxy_pass_request_body off;
+    proxy_set_header Content-Length "";
+    proxy_set_header X-Original-URI $request_uri;
+}
+```

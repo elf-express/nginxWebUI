@@ -22,7 +22,9 @@
 
 #### 配置示例
 
-> google\_perftools\_profiles /path/to/profile;
+```nginx
+google_perftools_profiles /path/to/profile;
+```
 
 配置文件將存儲為`/path/to/profile.<worker_pid>`。
 

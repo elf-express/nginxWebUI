@@ -24,43 +24,47 @@ If a health check fails, the server will be considered unhealthy. If several hea
 
 #### Example Configuration
 
-> upstream dynamic {
->     zone upstream\_dynamic 64k;
-> 
->     server backend1.example.com      weight=5;
->     server backend2.example.com:8080 fail\_timeout=5s slow\_start=30s;
->     server 192.0.2.1                 max\_fails=3;
-> 
->     server backup1.example.com:8080  backup;
->     server backup2.example.com:8080  backup;
-> }
-> 
-> server {
->     location / {
->         proxy\_pass http://dynamic;
->         health\_check;
->     }
-> }
+```nginx
+upstream dynamic {
+    zone upstream_dynamic 64k;
+
+    server backend1.example.com      weight=5;
+    server backend2.example.com:8080 fail_timeout=5s slow_start=30s;
+    server 192.0.2.1                 max_fails=3;
+
+    server backup1.example.com:8080  backup;
+    server backup2.example.com:8080  backup;
+}
+
+server {
+    location / {
+        proxy_pass http://dynamic;
+        health_check;
+    }
+}
+```
 
 With this configuration, nginx will send “`/`” requests to each server in the `backend` group every five seconds. If any communication error or timeout occurs, or a proxied server responds with the status code other than 2xx or 3xx, the health check will fail, and the server will be considered unhealthy.
 
 Health checks can be configured to test the status code of a response, presence of certain header fields and their values, and the body contents. Tests are configured separately using the [match](https://nginx.org/en/docs/http/ngx_http_upstream_hc_module.html#match) directive and referenced in the `match` parameter of the [health\_check](https://nginx.org/en/docs/http/ngx_http_upstream_hc_module.html#health_check) directive:
 
-> http {
->     server {
->     ...
->         location / {
->             proxy\_pass http://backend;
->             health\_check match=welcome;
->         }
->     }
-> 
->     match welcome {
->         status 200;
->         header Content-Type = text/html;
->         body ~ "Welcome to nginx!";
->     }
-> }
+```nginx
+http {
+    server {
+    ...
+        location / {
+            proxy_pass http://backend;
+            health_check match=welcome;
+        }
+    }
+
+    match welcome {
+        status 200;
+        header Content-Type = text/html;
+        body ~ "Welcome to nginx!";
+    }
+}
+```
 
 This configuration shows that in order for a health check to pass, the response to a health check request should succeed, have status 200, and contain “`Welcome to nginx!`” in the body.
 
@@ -110,7 +114,9 @@ defines the port used when connecting to a server to perform a health check (1.9
 
 enables periodic [health checks](https://github.com/grpc/grpc/blob/master/doc/health-checking.md#grpc-health-checking-protocol) of a gRPC server or a particular gRPC service specified with the optional `grpc_service` parameter (1.19.5). If the server does not support the gRPC Health Checking Protocol, the optional `grpc_status` parameter can be used to specify non-zero gRPC [status](https://github.com/grpc/grpc/blob/master/doc/statuscodes.md#status-codes-and-their-use-in-grpc) (for example, status code “`12`” / “`UNIMPLEMENTED`”) that will be treated as healthy:
 
-> health\_check mandatory type=grpc grpc\_status=12;
+```nginx
+health_check mandatory type=grpc grpc_status=12;
+```
 
 The `type`\=`grpc` parameter must be specified after all other directive parameters, `grpc_service` and `grpc_status` must follow `type`\=`grpc`. The parameter is not compatible with [`uri`](https://nginx.org/en/docs/http/ngx_http_upstream_hc_module.html#health_check_uri) or [`match`](https://nginx.org/en/docs/http/ngx_http_upstream_hc_module.html#health_check_match) parameters.
 
@@ -194,32 +200,40 @@ If several tests are specified, the response matches only if it matches all test
 
 Examples:
 
-> \# status is 200, content type is "text/html",
-> # and body contains "Welcome to nginx!"
-> match welcome {
->     status 200;
->     header Content-Type = text/html;
->     body ~ "Welcome to nginx!";
-> }
+```nginx
+# status is 200, content type is "text/html",
+# and body contains "Welcome to nginx!"
+match welcome {
+    status 200;
+    header Content-Type = text/html;
+    body ~ "Welcome to nginx!";
+}
+```
 
-> \# status is not one of 301, 302, 303, or 307, and header does not have "Refresh:"
-> match not\_redirect {
->     status ! 301-303 307;
->     header ! Refresh;
-> }
+```nginx
+# status is not one of 301, 302, 303, or 307, and header does not have "Refresh:"
+match not_redirect {
+    status ! 301-303 307;
+    header ! Refresh;
+}
+```
 
-> \# status ok and not in maintenance mode
-> match server\_ok {
->     status 200-399;
->     body !~ "maintenance mode";
-> }
+```nginx
+# status ok and not in maintenance mode
+match server_ok {
+    status 200-399;
+    body !~ "maintenance mode";
+}
+```
 
-> \# status is 200 or 204
-> map $upstream\_status $good\_status {
->     200 1;
->     204 1;
-> }
-> 
-> match server\_ok {
->     require $good\_status;
-> }
+```nginx
+# status is 200 or 204
+map $upstream_status $good_status {
+    200 1;
+    204 1;
+}
+
+match server_ok {
+    require $good_status;
+}
+```

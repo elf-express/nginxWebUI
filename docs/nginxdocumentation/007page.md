@@ -124,20 +124,28 @@ Accessing nginx private data defined in C source files and not exported through 
 
 The following two `#include` statements must appear at the beginning of every nginx file:
 
-> #include <ngx\_config.h>
-> #include <ngx\_core.h>
+```c
+#include <ngx_config.h>
+#include <ngx_core.h>
+```
 
 In addition to that, HTTP code should include
 
-> #include <ngx\_http.h>
+```c
+#include <ngx_http.h>
+```
 
 Mail code should include
 
-> #include <ngx\_mail.h>
+```c
+#include <ngx_mail.h>
+```
 
 Stream code should include
 
-> #include <ngx\_stream.h>
+```c
+#include <ngx_stream.h>
+```
 
 #### Integers
 
@@ -163,25 +171,27 @@ The values of `ngx_errno` and `ngx_socket_errno` can be passed to the logging fu
 
 Example using `ngx_errno`:
 
-> ngx\_int\_t
-> ngx\_my\_kill(ngx\_pid\_t pid, ngx\_log\_t \*log, int signo)
-> {
->     ngx\_err\_t  err;
-> 
->     if (kill(pid, signo) == -1) {
->         err = ngx\_errno;
-> 
->         ngx\_log\_error(NGX\_LOG\_ALERT, log, err, "kill(%P, %d) failed", pid, signo);
-> 
->         if (err == NGX\_ESRCH) {
->             return 2;
->         }
-> 
->         return 1;
->     }
-> 
->     return 0;
-> }
+```c
+ngx_int_t
+ngx_my_kill(ngx_pid_t pid, ngx_log_t *log, int signo)
+{
+    ngx_err_t  err;
+
+    if (kill(pid, signo) == -1) {
+        err = ngx_errno;
+
+        ngx_log_error(NGX_LOG_ALERT, log, err, "kill(%P, %d) failed", pid, signo);
+
+        if (err == NGX_ESRCH) {
+            return 2;
+        }
+
+        return 1;
+    }
+
+    return 0;
+}
+```
 
 #### Strings
 
@@ -191,10 +201,12 @@ For C strings, nginx uses the unsigned character type pointer `u_char *`.
 
 The nginx string type `ngx_str_t` is defined as follows:
 
-> typedef struct {
->     size\_t      len;
->     u\_char     \*data;
-> } ngx\_str\_t;
+```c
+typedef struct {
+    size_t      len;
+    u_char     *data;
+} ngx_str_t;
+```
 
 The `len` field holds the string length and `data` holds the string data. The string, held in `ngx_str_t`, may or may not be null-terminated after the `len` bytes. In most cases it’s not. However, in certain parts of the code (for example, when parsing configuration), `ngx_str_t` objects are known to be null-terminated, which simplifies string comparison and makes it easier to pass the strings to syscalls.
 
@@ -258,13 +270,15 @@ You can prepend `u` on most types to make them unsigned. To convert output to he
 
 For example:
 
-> u\_char      buf\[NGX\_INT\_T\_LEN\];
-> size\_t      len;
-> ngx\_uint\_t  n;
-> 
-> /\* set n here \*/
-> 
-> len = ngx\_sprintf(buf, "%ui", n) — buf;
+```c
+u_char      buf[NGX_INT_T_LEN];
+size_t      len;
+ngx_uint_t  n;
+
+/* set n here */
+
+len = ngx_sprintf(buf, "%ui", n) — buf;
+```
 
 #### Numeric conversion
 
@@ -286,82 +300,88 @@ The regular expressions interface in nginx is a wrapper around the [PCRE](http:/
 
 To use a regular expression for string matching, it first needs to be compiled, which is usually done at the configuration phase. Note that since PCRE support is optional, all code using the interface must be protected by the surrounding `NGX_PCRE` macro:
 
-> #if (NGX\_PCRE)
-> ngx\_regex\_t          \*re;
-> ngx\_regex\_compile\_t   rc;
-> 
-> u\_char                errstr\[NGX\_MAX\_CONF\_ERRSTR\];
-> 
-> ngx\_str\_t  value = ngx\_string("message (\\\\d\\\\d\\\\d).\*Codeword is '(?<cw>\\\\w+)'");
-> 
-> ngx\_memzero(&rc, sizeof(ngx\_regex\_compile\_t));
-> 
-> rc.pattern = value;
-> rc.pool = cf->pool;
-> rc.err.len = NGX\_MAX\_CONF\_ERRSTR;
-> rc.err.data = errstr;
-> /\* rc.options can be set to NGX\_REGEX\_CASELESS \*/
-> 
-> if (ngx\_regex\_compile(&rc) != NGX\_OK) {
->     ngx\_conf\_log\_error(NGX\_LOG\_EMERG, cf, 0, "%V", &rc.err);
->     return NGX\_CONF\_ERROR;
-> }
-> 
-> re = rc.regex;
-> #endif
+```c
+#if (NGX_PCRE)
+ngx_regex_t          *re;
+ngx_regex_compile_t   rc;
+
+u_char                errstr[NGX_MAX_CONF_ERRSTR];
+
+ngx_str_t  value = ngx_string("message (\\d\\d\\d).*Codeword is '(?<cw>\\w+)'");
+
+ngx_memzero(&rc, sizeof(ngx_regex_compile_t));
+
+rc.pattern = value;
+rc.pool = cf->pool;
+rc.err.len = NGX_MAX_CONF_ERRSTR;
+rc.err.data = errstr;
+/* rc.options can be set to NGX_REGEX_CASELESS */
+
+if (ngx_regex_compile(&rc) != NGX_OK) {
+    ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "%V", &rc.err);
+    return NGX_CONF_ERROR;
+}
+
+re = rc.regex;
+#endif
+```
 
 After successful compilation, the `captures` and `named_captures` fields in the `ngx_regex_compile_t` structure contain the count of all captures and named captures, respectively, found in the regular expression.
 
 The compiled regular expression can then be used for matching against strings:
 
-> ngx\_int\_t  n;
-> int        captures\[(1 + rc.captures) \* 3\];
-> 
-> ngx\_str\_t input = ngx\_string("This is message 123. Codeword is 'foobar'.");
-> 
-> n = ngx\_regex\_exec(re, &input, captures, (1 + rc.captures) \* 3);
-> if (n >= 0) {
->     /\* string matches expression \*/
-> 
-> } else if (n == NGX\_REGEX\_NO\_MATCHED) {
->     /\* no match was found \*/
-> 
-> } else {
->     /\* some error \*/
->     ngx\_log\_error(NGX\_LOG\_ALERT, log, 0, ngx\_regex\_exec\_n " failed: %i", n);
-> }
+```c
+ngx_int_t  n;
+int        captures[(1 + rc.captures) * 3];
+
+ngx_str_t input = ngx_string("This is message 123. Codeword is 'foobar'.");
+
+n = ngx_regex_exec(re, &input, captures, (1 + rc.captures) * 3);
+if (n >= 0) {
+    /* string matches expression */
+
+} else if (n == NGX_REGEX_NO_MATCHED) {
+    /* no match was found */
+
+} else {
+    /* some error */
+    ngx_log_error(NGX_LOG_ALERT, log, 0, ngx_regex_exec_n " failed: %i", n);
+}
+```
 
 The arguments to `ngx_regex_exec()` are the compiled regular expression `re`, the string to match `input`, an optional array of integers to hold any `captures` that are found, and the array's `size`. The size of the `captures` array must be a multiple of three, as required by the [PCRE API](http://www.pcre.org/original/doc/html/pcreapi.html). In the example, the size is calculated from the total number of captures plus one for the matched string itself.
 
 If there are matches, captures can be accessed as follows:
 
-> u\_char     \*p;
-> size\_t      size;
-> ngx\_str\_t   name, value;
-> 
-> /\* all captures \*/
-> for (i = 0; i < n \* 2; i += 2) {
->     value.data = input.data + captures\[i\];
->     value.len = captures\[i + 1\] — captures\[i\];
-> }
-> 
-> /\* accessing named captures \*/
-> 
-> size = rc.name\_size;
-> p = rc.names;
-> 
-> for (i = 0; i < rc.named\_captures; i++, p += size) {
-> 
->     /\* capture name \*/
->     name.data = &p\[2\];
->     name.len = ngx\_strlen(name.data);
-> 
->     n = 2 \* ((p\[0\] << 8) + p\[1\]);
-> 
->     /\* captured value \*/
->     value.data = &input.data\[captures\[n\]\];
->     value.len = captures\[n + 1\] — captures\[n\];
-> }
+```c
+u_char     *p;
+size_t      size;
+ngx_str_t   name, value;
+
+/* all captures */
+for (i = 0; i < n * 2; i += 2) {
+    value.data = input.data + captures[i];
+    value.len = captures[i + 1] — captures[i];
+}
+
+/* accessing named captures */
+
+size = rc.name_size;
+p = rc.names;
+
+for (i = 0; i < rc.named_captures; i++, p += size) {
+
+    /* capture name */
+    name.data = &p[2];
+    name.len = ngx_strlen(name.data);
+
+    n = 2 * ((p[0] << 8) + p[1]);
+
+    /* captured value */
+    value.data = &input.data[captures[n]];
+    value.len = captures[n + 1] — captures[n];
+}
+```
 
 The `ngx_regex_exec_array()` function accepts the array of `ngx_regex_elt_t` elements (which are just compiled regular expressions with associated names), a string to match, and a log. The function applies expressions from the array to the string until either a match is found or no more expressions are left. The return value is `NGX_OK` when there is a match and `NGX_DECLINED` otherwise, or `NGX_ERROR` in case of error.
 
@@ -369,11 +389,13 @@ The `ngx_regex_exec_array()` function accepts the array of `ngx_regex_elt_t` ele
 
 The `ngx_time_t` structure represents time with three separate types for seconds, milliseconds, and the GMT offset:
 
-> typedef struct {
->     time\_t      sec;
->     ngx\_uint\_t  msec;
->     ngx\_int\_t   gmtoff;
-> } ngx\_time\_t;
+```c
+typedef struct {
+    time_t      sec;
+    ngx_uint_t  msec;
+    ngx_int_t   gmtoff;
+} ngx_time_t;
+```
 
 The `ngx_tm_t` structure is an alias for `struct tm` on UNIX platforms and `SYSTEMTIME` on Windows.
 
@@ -404,25 +426,29 @@ The `ngx_http_time(buf, time)` function returns a string representation suitable
 
 The nginx array type `ngx_array_t` is defined as follows
 
-> typedef struct {
->     void        \*elts;
->     ngx\_uint\_t   nelts;
->     size\_t       size;
->     ngx\_uint\_t   nalloc;
->     ngx\_pool\_t  \*pool;
-> } ngx\_array\_t;
+```c
+typedef struct {
+    void        *elts;
+    ngx_uint_t   nelts;
+    size_t       size;
+    ngx_uint_t   nalloc;
+    ngx_pool_t  *pool;
+} ngx_array_t;
+```
 
 The elements of the array are available in the `elts` field. The `nelts` field holds the number of elements. The `size` field holds the size of a single element and is set when the array is initialized.
 
 Use the `ngx_array_create(pool, n, size)` call to create an array in a pool, and the `ngx_array_init(array, pool, n, size)` call to initialize an array object that has already been allocated.
 
-> ngx\_array\_t  \*a, b;
-> 
-> /\* create an array of strings with preallocated memory for 10 elements \*/
-> a = ngx\_array\_create(pool, 10, sizeof(ngx\_str\_t));
-> 
-> /\* initialize string array for 10 elements \*/
-> ngx\_array\_init(&b, pool, 10, sizeof(ngx\_str\_t));
+```c
+ngx_array_t  *a, b;
+
+/* create an array of strings with preallocated memory for 10 elements */
+a = ngx_array_create(pool, 10, sizeof(ngx_str_t));
+
+/* initialize string array for 10 elements */
+ngx_array_init(&b, pool, 10, sizeof(ngx_str_t));
+```
 
 Use the following functions to add elements to an array:
 
@@ -431,70 +457,78 @@ Use the following functions to add elements to an array:
 
 If the currently allocated amount of memory is not large enough to accommodate the new elements, a new block of memory is allocated and the existing elements are copied to it. The new memory block is normally twice as large as the existing one.
 
-> s = ngx\_array\_push(a);
-> ss = ngx\_array\_push\_n(&b, 3);
+```c
+s = ngx_array_push(a);
+ss = ngx_array_push_n(&b, 3);
+```
 
 #### List
 
 In nginx a list is a sequence of arrays, optimized for inserting a potentially large number of items. The `ngx_list_t` list type is defined as follows:
 
-> typedef struct {
->     ngx\_list\_part\_t  \*last;
->     ngx\_list\_part\_t   part;
->     size\_t            size;
->     ngx\_uint\_t        nalloc;
->     ngx\_pool\_t       \*pool;
-> } ngx\_list\_t;
+```c
+typedef struct {
+    ngx_list_part_t  *last;
+    ngx_list_part_t   part;
+    size_t            size;
+    ngx_uint_t        nalloc;
+    ngx_pool_t       *pool;
+} ngx_list_t;
+```
 
 The actual items are stored in list parts, which are defined as follows:
 
-> typedef struct ngx\_list\_part\_s  ngx\_list\_part\_t;
-> 
-> struct ngx\_list\_part\_s {
->     void             \*elts;
->     ngx\_uint\_t        nelts;
->     ngx\_list\_part\_t  \*next;
-> };
+```c
+typedef struct ngx_list_part_s  ngx_list_part_t;
+
+struct ngx_list_part_s {
+    void             *elts;
+    ngx_uint_t        nelts;
+    ngx_list_part_t  *next;
+};
+```
 
 Before use, a list must be initialized by calling `ngx_list_init(list, pool, n, size)` or created by calling `ngx_list_create(pool, n, size)`. Both functions take as arguments the size of a single item and a number of items per list part. To add an item to a list, use the `ngx_list_push(list)` function. To iterate over the items, directly access the list fields as shown in the example:
 
-> ngx\_str\_t        \*v;
-> ngx\_uint\_t        i;
-> ngx\_list\_t       \*list;
-> ngx\_list\_part\_t  \*part;
-> 
-> list = ngx\_list\_create(pool, 100, sizeof(ngx\_str\_t));
-> if (list == NULL) { /\* error \*/ }
-> 
-> /\* add items to the list \*/
-> 
-> v = ngx\_list\_push(list);
-> if (v == NULL) { /\* error \*/ }
-> ngx\_str\_set(v, "foo");
-> 
-> v = ngx\_list\_push(list);
-> if (v == NULL) { /\* error \*/ }
-> ngx\_str\_set(v, "bar");
-> 
-> /\* iterate over the list \*/
-> 
-> part = &list->part;
-> v = part->elts;
-> 
-> for (i = 0; /\* void \*/; i++) {
-> 
->     if (i >= part->nelts) {
->         if (part->next == NULL) {
->             break;
->         }
-> 
->         part = part->next;
->         v = part->elts;
->         i = 0;
->     }
-> 
->     ngx\_do\_smth(&v\[i\]);
-> }
+```c
+ngx_str_t        *v;
+ngx_uint_t        i;
+ngx_list_t       *list;
+ngx_list_part_t  *part;
+
+list = ngx_list_create(pool, 100, sizeof(ngx_str_t));
+if (list == NULL) { /* error */ }
+
+/* add items to the list */
+
+v = ngx_list_push(list);
+if (v == NULL) { /* error */ }
+ngx_str_set(v, "foo");
+
+v = ngx_list_push(list);
+if (v == NULL) { /* error */ }
+ngx_str_set(v, "bar");
+
+/* iterate over the list */
+
+part = &list->part;
+v = part->elts;
+
+for (i = 0; /* void */; i++) {
+
+    if (i >= part->nelts) {
+        if (part->next == NULL) {
+            break;
+        }
+
+        part = part->next;
+        v = part->elts;
+        i = 0;
+    }
+
+    ngx_do_smth(&v[i]);
+}
+```
 
 Lists are primarily used for HTTP input and output headers.
 
@@ -504,12 +538,14 @@ Lists do not support item removal. However, when needed, items can internally be
 
 In nginx a queue is an intrusive doubly linked list, with each node defined as follows:
 
-> typedef struct ngx\_queue\_s  ngx\_queue\_t;
-> 
-> struct ngx\_queue\_s {
->     ngx\_queue\_t  \*prev;
->     ngx\_queue\_t  \*next;
-> };
+```c
+typedef struct ngx_queue_s  ngx_queue_t;
+
+struct ngx_queue_s {
+    ngx_queue_t  *prev;
+    ngx_queue_t  *next;
+};
+```
 
 The head queue node is not linked with any data. Use the `ngx_queue_init(q)` call to initialize the list head before use. Queues support the following operations:
 
@@ -523,122 +559,136 @@ The head queue node is not linked with any data. Use the `ngx_queue_init(q)` cal
 
 An example:
 
-> typedef struct {
->     ngx\_str\_t    value;
->     ngx\_queue\_t  queue;
-> } ngx\_foo\_t;
-> 
-> ngx\_foo\_t    \*f;
-> ngx\_queue\_t   values, \*q;
-> 
-> ngx\_queue\_init(&values);
-> 
-> f = ngx\_palloc(pool, sizeof(ngx\_foo\_t));
-> if (f == NULL) { /\* error \*/ }
-> ngx\_str\_set(&f->value, "foo");
-> 
-> ngx\_queue\_insert\_tail(&values, &f->queue);
-> 
-> /\* insert more nodes here \*/
-> 
-> for (q = ngx\_queue\_head(&values);
->      q != ngx\_queue\_sentinel(&values);
->      q = ngx\_queue\_next(q))
-> {
->     f = ngx\_queue\_data(q, ngx\_foo\_t, queue);
-> 
->     ngx\_do\_smth(&f->value);
-> }
+```c
+typedef struct {
+    ngx_str_t    value;
+    ngx_queue_t  queue;
+} ngx_foo_t;
+
+ngx_foo_t    *f;
+ngx_queue_t   values, *q;
+
+ngx_queue_init(&values);
+
+f = ngx_palloc(pool, sizeof(ngx_foo_t));
+if (f == NULL) { /* error */ }
+ngx_str_set(&f->value, "foo");
+
+ngx_queue_insert_tail(&values, &f->queue);
+
+/* insert more nodes here */
+
+for (q = ngx_queue_head(&values);
+     q != ngx_queue_sentinel(&values);
+     q = ngx_queue_next(q))
+{
+    f = ngx_queue_data(q, ngx_foo_t, queue);
+
+    ngx_do_smth(&f->value);
+}
+```
 
 #### Red-Black tree
 
 The `src/core/ngx_rbtree.h` header file provides access to the effective implementation of red-black trees.
 
-> typedef struct {
->     ngx\_rbtree\_t       rbtree;
->     ngx\_rbtree\_node\_t  sentinel;
-> 
->     /\* custom per-tree data here \*/
-> } my\_tree\_t;
-> 
-> typedef struct {
->     ngx\_rbtree\_node\_t  rbnode;
-> 
->     /\* custom per-node data \*/
->     foo\_t              val;
-> } my\_node\_t;
+```c
+typedef struct {
+    ngx_rbtree_t       rbtree;
+    ngx_rbtree_node_t  sentinel;
+
+    /* custom per-tree data here */
+} my_tree_t;
+
+typedef struct {
+    ngx_rbtree_node_t  rbnode;
+
+    /* custom per-node data */
+    foo_t              val;
+} my_node_t;
+```
 
 To deal with a tree as a whole, you need two nodes: root and sentinel. Typically, they are added to a custom structure, allowing you to organize your data into a tree in which the leaves contain a link to or embed your data.
 
 To initialize a tree:
 
-> my\_tree\_t  root;
-> 
-> ngx\_rbtree\_init(&root.rbtree, &root.sentinel, insert\_value\_function);
+```c
+my_tree_t  root;
+
+ngx_rbtree_init(&root.rbtree, &root.sentinel, insert_value_function);
+```
 
 To traverse a tree and insert new values, use the "`insert_value`" functions. For example, the `ngx_str_rbtree_insert_value` function deals with the `ngx_str_t` type. Its arguments are pointers to a root node of an insertion, the newly created node to be added, and a tree sentinel.
 
-> void ngx\_str\_rbtree\_insert\_value(ngx\_rbtree\_node\_t \*temp,
->                                  ngx\_rbtree\_node\_t \*node,
->                                  ngx\_rbtree\_node\_t \*sentinel)
+```c
+void ngx_str_rbtree_insert_value(ngx_rbtree_node_t *temp,
+                                 ngx_rbtree_node_t *node,
+                                 ngx_rbtree_node_t *sentinel)
+```
 
 The traversal is pretty straightforward and can be demonstrated with the following lookup function pattern:
 
-> my\_node\_t \*
-> my\_rbtree\_lookup(ngx\_rbtree\_t \*rbtree, foo\_t \*val, uint32\_t hash)
-> {
->     ngx\_int\_t           rc;
->     my\_node\_t          \*n;
->     ngx\_rbtree\_node\_t  \*node, \*sentinel;
-> 
->     node = rbtree->root;
->     sentinel = rbtree->sentinel;
-> 
->     while (node != sentinel) {
-> 
->         n = (my\_node\_t \*) node;
-> 
->         if (hash != node->key) {
->             node = (hash < node->key) ? node->left : node->right;
->             continue;
->         }
-> 
->         rc = compare(val, node->val);
-> 
->         if (rc < 0) {
->             node = node->left;
->             continue;
->         }
-> 
->         if (rc > 0) {
->             node = node->right;
->             continue;
->         }
-> 
->         return n;
->     }
-> 
->     return NULL;
-> }
+```c
+my_node_t *
+my_rbtree_lookup(ngx_rbtree_t *rbtree, foo_t *val, uint32_t hash)
+{
+    ngx_int_t           rc;
+    my_node_t          *n;
+    ngx_rbtree_node_t  *node, *sentinel;
+
+    node = rbtree->root;
+    sentinel = rbtree->sentinel;
+
+    while (node != sentinel) {
+
+        n = (my_node_t *) node;
+
+        if (hash != node->key) {
+            node = (hash < node->key) ? node->left : node->right;
+            continue;
+        }
+
+        rc = compare(val, node->val);
+
+        if (rc < 0) {
+            node = node->left;
+            continue;
+        }
+
+        if (rc > 0) {
+            node = node->right;
+            continue;
+        }
+
+        return n;
+    }
+
+    return NULL;
+}
+```
 
 The `compare()` function is a classic comparator function that returns a value less than, equal to, or greater than zero. To speed up lookups and avoid comparing user objects that can be big, an integer hash field is used.
 
 To add a node to a tree, allocate a new node, initialize it and call `ngx_rbtree_insert()`:
 
->     my\_node\_t          \*my\_node;
->     ngx\_rbtree\_node\_t  \*node;
-> 
->     my\_node = ngx\_palloc(...);
->     init\_custom\_data(&my\_node->val);
-> 
->     node = &my\_node->rbnode;
->     node->key = create\_key(my\_node->val);
-> 
->     ngx\_rbtree\_insert(&root->rbtree, node);
+```c
+    my_node_t          *my_node;
+    ngx_rbtree_node_t  *node;
+
+    my_node = ngx_palloc(...);
+    init_custom_data(&my_node->val);
+
+    node = &my_node->rbnode;
+    node->key = create_key(my_node->val);
+
+    ngx_rbtree_insert(&root->rbtree, node);
+```
 
 To remove a node, call the `ngx_rbtree_delete()` function:
 
-> ngx\_rbtree\_delete(&root->rbtree, node);
+```c
+ngx_rbtree_delete(&root->rbtree, node);
+```
 
 #### Hash
 
@@ -646,104 +696,122 @@ Hash table functions are declared in `src/core/ngx_hash.h`. Both exact and wildc
 
 Before initializing a hash, you need to know the number of elements it will hold so that nginx can build it optimally. Two parameters that need to be configured are `max_size` and `bucket_size`, as detailed in a separate [document](https://nginx.org/en/docs/hash.html). They are usually configurable by the user. Hash initialization settings are stored with the `ngx_hash_init_t` type, and the hash itself is `ngx_hash_t`:
 
-> ngx\_hash\_t       foo\_hash;
-> ngx\_hash\_init\_t  hash;
-> 
-> hash.hash = &foo\_hash;
-> hash.key = ngx\_hash\_key;
-> hash.max\_size = 512;
-> hash.bucket\_size = ngx\_align(64, ngx\_cacheline\_size);
-> hash.name = "foo\_hash";
-> hash.pool = cf->pool;
-> hash.temp\_pool = cf->temp\_pool;
+```c
+ngx_hash_t       foo_hash;
+ngx_hash_init_t  hash;
+
+hash.hash = &foo_hash;
+hash.key = ngx_hash_key;
+hash.max_size = 512;
+hash.bucket_size = ngx_align(64, ngx_cacheline_size);
+hash.name = "foo_hash";
+hash.pool = cf->pool;
+hash.temp_pool = cf->temp_pool;
+```
 
 The `key` is a pointer to a function that creates the hash integer key from a string. There are two generic key-creation functions: `ngx_hash_key(data, len)` and `ngx_hash_key_lc(data, len)`. The latter converts a string to all lowercase characters, so the passed string must be writable. If that is not true, pass the `NGX_HASH_READONLY_KEY` flag to the function, initializing the key array (see below).
 
 The hash keys are stored in `ngx_hash_keys_arrays_t` and are initialized with `ngx_hash_keys_array_init(arr, type)`: The second parameter (`type`) controls the amount of resources preallocated for the hash and can be either `NGX_HASH_SMALL` or `NGX_HASH_LARGE`. The latter is appropriate if you expect the hash to contain thousands of elements.
 
-> ngx\_hash\_keys\_arrays\_t  foo\_keys;
-> 
-> foo\_keys.pool = cf->pool;
-> foo\_keys.temp\_pool = cf->temp\_pool;
-> 
-> ngx\_hash\_keys\_array\_init(&foo\_keys, NGX\_HASH\_SMALL);
+```c
+ngx_hash_keys_arrays_t  foo_keys;
+
+foo_keys.pool = cf->pool;
+foo_keys.temp_pool = cf->temp_pool;
+
+ngx_hash_keys_array_init(&foo_keys, NGX_HASH_SMALL);
+```
 
 To insert keys into a hash keys array, use the `ngx_hash_add_key(keys_array, key, value, flags)` function:
 
-> ngx\_str\_t k1 = ngx\_string("key1");
-> ngx\_str\_t k2 = ngx\_string("key2");
-> 
-> ngx\_hash\_add\_key(&foo\_keys, &k1, &my\_data\_ptr\_1, NGX\_HASH\_READONLY\_KEY);
-> ngx\_hash\_add\_key(&foo\_keys, &k2, &my\_data\_ptr\_2, NGX\_HASH\_READONLY\_KEY);
+```c
+ngx_str_t k1 = ngx_string("key1");
+ngx_str_t k2 = ngx_string("key2");
+
+ngx_hash_add_key(&foo_keys, &k1, &my_data_ptr_1, NGX_HASH_READONLY_KEY);
+ngx_hash_add_key(&foo_keys, &k2, &my_data_ptr_2, NGX_HASH_READONLY_KEY);
+```
 
 To build the hash table, call the `ngx_hash_init(hinit, key_names, nelts)` function:
 
-> ngx\_hash\_init(&hash, foo\_keys.keys.elts, foo\_keys.keys.nelts);
+```c
+ngx_hash_init(&hash, foo_keys.keys.elts, foo_keys.keys.nelts);
+```
 
 The function fails if `max_size` or `bucket_size` parameters are not big enough.
 
 When the hash is built, use the `ngx_hash_find(hash, key, name, len)` function to look up elements:
 
-> my\_data\_t   \*data;
-> ngx\_uint\_t   key;
-> 
-> key = ngx\_hash\_key(k1.data, k1.len);
-> 
-> data = ngx\_hash\_find(&foo\_hash, key, k1.data, k1.len);
-> if (data == NULL) {
->     /\* key not found \*/
-> }
+```c
+my_data_t   *data;
+ngx_uint_t   key;
+
+key = ngx_hash_key(k1.data, k1.len);
+
+data = ngx_hash_find(&foo_hash, key, k1.data, k1.len);
+if (data == NULL) {
+    /* key not found */
+}
+```
 
 #### Wildcard matching
 
 To create a hash that works with wildcards, use the `ngx_hash_combined_t` type. It includes the hash type described above and has two additional keys arrays: `dns_wc_head` and `dns_wc_tail`. The initialization of basic properties is similar to a regular hash:
 
-> ngx\_hash\_init\_t      hash
-> ngx\_hash\_combined\_t  foo\_hash;
-> 
-> hash.hash = &foo\_hash.hash;
-> hash.key = ...;
+```c
+ngx_hash_init_t      hash
+ngx_hash_combined_t  foo_hash;
+
+hash.hash = &foo_hash.hash;
+hash.key = ...;
+```
 
 It is possible to add wildcard keys using the `NGX_HASH_WILDCARD_KEY` flag:
 
-> /\* k1 = ".example.org"; \*/
-> /\* k2 = "foo.\*";        \*/
-> ngx\_hash\_add\_key(&foo\_keys, &k1, &data1, NGX\_HASH\_WILDCARD\_KEY);
-> ngx\_hash\_add\_key(&foo\_keys, &k2, &data2, NGX\_HASH\_WILDCARD\_KEY);
+```c
+/* k1 = ".example.org"; */
+/* k2 = "foo.*";        */
+ngx_hash_add_key(&foo_keys, &k1, &data1, NGX_HASH_WILDCARD_KEY);
+ngx_hash_add_key(&foo_keys, &k2, &data2, NGX_HASH_WILDCARD_KEY);
+```
 
 The function recognizes wildcards and adds keys into the corresponding arrays. Please refer to the [map](https://nginx.org/en/docs/http/ngx_http_map_module.html#map) module documentation for the description of the wildcard syntax and the matching algorithm.
 
 Depending on the contents of added keys, you may need to initialize up to three key arrays: one for exact matching (described above), and two more to enable matching starting from the head or tail of a string:
 
-> if (foo\_keys.dns\_wc\_head.nelts) {
-> 
->     ngx\_qsort(foo\_keys.dns\_wc\_head.elts,
->               (size\_t) foo\_keys.dns\_wc\_head.nelts,
->               sizeof(ngx\_hash\_key\_t),
->               cmp\_dns\_wildcards);
-> 
->     hash.hash = NULL;
->     hash.temp\_pool = pool;
-> 
->     if (ngx\_hash\_wildcard\_init(&hash, foo\_keys.dns\_wc\_head.elts,
->                                foo\_keys.dns\_wc\_head.nelts)
->         != NGX\_OK)
->     {
->         return NGX\_ERROR;
->     }
-> 
->     foo\_hash.wc\_head = (ngx\_hash\_wildcard\_t \*) hash.hash;
-> }
+```c
+if (foo_keys.dns_wc_head.nelts) {
+
+    ngx_qsort(foo_keys.dns_wc_head.elts,
+              (size_t) foo_keys.dns_wc_head.nelts,
+              sizeof(ngx_hash_key_t),
+              cmp_dns_wildcards);
+
+    hash.hash = NULL;
+    hash.temp_pool = pool;
+
+    if (ngx_hash_wildcard_init(&hash, foo_keys.dns_wc_head.elts,
+                               foo_keys.dns_wc_head.nelts)
+        != NGX_OK)
+    {
+        return NGX_ERROR;
+    }
+
+    foo_hash.wc_head = (ngx_hash_wildcard_t *) hash.hash;
+}
+```
 
 The keys array needs to be sorted, and initialization results must be added to the combined hash. The initialization of `dns_wc_tail` array is done similarly.
 
 The lookup in a combined hash is handled by the `ngx_hash_find_combined(chash, key, name, len)`:
 
-> /\* key = "bar.example.org"; — will match ".example.org" \*/
-> /\* key = "foo.example.com"; — will match "foo.\*"        \*/
-> 
-> hkey = ngx\_hash\_key(key.data, key.len);
-> res = ngx\_hash\_find\_combined(&foo\_hash, hkey, key.data, key.len);
+```c
+/* key = "bar.example.org"; — will match ".example.org" */
+/* key = "foo.example.com"; — will match "foo.*"        */
+
+hkey = ngx_hash_key(key.data, key.len);
+res = ngx_hash_find_combined(&foo_hash, hkey, key.data, key.len);
+```
 
 #### Memory management
 
@@ -771,20 +839,22 @@ The type for nginx pools is `ngx_pool_t`. The following operations are supported
 -   `ngx_pnalloc(pool, size)` — Allocate unaligned memory from the specified pool. Mostly used for allocating strings.
 -   `ngx_pfree(pool, p)` — Free memory that was previously allocated in the specified pool. Only allocations that result from requests forwarded to the system allocator can be freed.
 
-> u\_char      \*p;
-> ngx\_str\_t   \*s;
-> ngx\_pool\_t  \*pool;
-> 
-> pool = ngx\_create\_pool(1024, log);
-> if (pool == NULL) { /\* error \*/ }
-> 
-> s = ngx\_palloc(pool, sizeof(ngx\_str\_t));
-> if (s == NULL) { /\* error \*/ }
-> ngx\_str\_set(s, "foo");
-> 
-> p = ngx\_pnalloc(pool, 3);
-> if (p == NULL) { /\* error \*/ }
-> ngx\_memcpy(p, "foo", 3);
+```c
+u_char      *p;
+ngx_str_t   *s;
+ngx_pool_t  *pool;
+
+pool = ngx_create_pool(1024, log);
+if (pool == NULL) { /* error */ }
+
+s = ngx_palloc(pool, sizeof(ngx_str_t));
+if (s == NULL) { /* error */ }
+ngx_str_set(s, "foo");
+
+p = ngx_pnalloc(pool, 3);
+if (p == NULL) { /* error */ }
+ngx_memcpy(p, "foo", 3);
+```
 
 Chain links (`ngx_chain_t`) are actively used in nginx, so the nginx pool implementation provides a way to reuse them. The `chain` field of `ngx_pool_t` keeps a list of previously allocated links ready for reuse. For efficient allocation of a chain link in a pool, use the `ngx_alloc_chain_link(pool)` function. This function looks up a free chain link in the pool list and allocates a new chain link if the pool list is empty. To free a link, call the `ngx_free_chain(pool, cl)` function.
 
@@ -792,23 +862,25 @@ Cleanup handlers can be registered in a pool. A cleanup handler is a callback wi
 
 To register a pool cleanup, call `ngx_pool_cleanup_add(pool, size)`, which returns a `ngx_pool_cleanup_t` pointer to be filled in by the caller. Use the `size` argument to allocate context for the cleanup handler.
 
-> ngx\_pool\_cleanup\_t  \*cln;
-> 
-> cln = ngx\_pool\_cleanup\_add(pool, 0);
-> if (cln == NULL) { /\* error \*/ }
-> 
-> cln->handler = ngx\_my\_cleanup;
-> cln->data = "foo";
-> 
-> ...
-> 
-> static void
-> ngx\_my\_cleanup(void \*data)
-> {
->     u\_char  \*msg = data;
-> 
->     ngx\_do\_smth(msg);
-> }
+```c
+ngx_pool_cleanup_t  *cln;
+
+cln = ngx_pool_cleanup_add(pool, 0);
+if (cln == NULL) { /* error */ }
+
+cln->handler = ngx_my_cleanup;
+cln->data = "foo";
+
+...
+
+static void
+ngx_my_cleanup(void *data)
+{
+    u_char  *msg = data;
+
+    ngx_do_smth(msg);
+}
+```
 
 #### Shared memory
 
@@ -835,68 +907,70 @@ Slab pool divides all shared zone into pages. Each page is used for allocating o
 
 To protect data in shared memory from concurrent access, use the mutex available in the `mutex` field of `ngx_slab_pool_t`. A mutex is most commonly used by the slab pool while allocating and freeing memory, but it can be used to protect any other user data structures allocated in the shared zone. To lock or unlock a mutex, call `ngx_shmtx_lock(&shpool->mutex)` or `ngx_shmtx_unlock(&shpool->mutex)` respectively.
 
-> ngx\_str\_t        name;
-> ngx\_foo\_ctx\_t   \*ctx;
-> ngx\_shm\_zone\_t  \*shm\_zone;
-> 
-> ngx\_str\_set(&name, "foo");
-> 
-> /\* allocate shared zone context \*/
-> ctx = ngx\_pcalloc(cf->pool, sizeof(ngx\_foo\_ctx\_t));
-> if (ctx == NULL) {
->     /\* error \*/
-> }
-> 
-> /\* add an entry for 64k shared zone \*/
-> shm\_zone = ngx\_shared\_memory\_add(cf, &name, 65536, &ngx\_foo\_module);
-> if (shm\_zone == NULL) {
->     /\* error \*/
-> }
-> 
-> /\* register init callback and context \*/
-> shm\_zone->init = ngx\_foo\_init\_zone;
-> shm\_zone->data = ctx;
-> 
-> 
-> ...
-> 
-> 
-> static ngx\_int\_t
-> ngx\_foo\_init\_zone(ngx\_shm\_zone\_t \*shm\_zone, void \*data)
-> {
->     ngx\_foo\_ctx\_t  \*octx = data;
-> 
->     size\_t            len;
->     ngx\_foo\_ctx\_t    \*ctx;
->     ngx\_slab\_pool\_t  \*shpool;
-> 
->     value = shm\_zone->data;
-> 
->     if (octx) {
->         /\* reusing a shared zone from old cycle \*/
->         ctx->value = octx->value;
->         return NGX\_OK;
->     }
-> 
->     shpool = (ngx\_slab\_pool\_t \*) shm\_zone->shm.addr;
-> 
->     if (shm\_zone->shm.exists) {
->         /\* initialize shared zone context in Windows nginx worker \*/
->         ctx->value = shpool->data;
->         return NGX\_OK;
->     }
-> 
->     /\* initialize shared zone \*/
-> 
->     ctx->value = ngx\_slab\_alloc(shpool, sizeof(ngx\_uint\_t));
->     if (ctx->value == NULL) {
->         return NGX\_ERROR;
->     }
-> 
->     shpool->data = ctx->value;
-> 
->     return NGX\_OK;
-> }
+```c
+ngx_str_t        name;
+ngx_foo_ctx_t   *ctx;
+ngx_shm_zone_t  *shm_zone;
+
+ngx_str_set(&name, "foo");
+
+/* allocate shared zone context */
+ctx = ngx_pcalloc(cf->pool, sizeof(ngx_foo_ctx_t));
+if (ctx == NULL) {
+    /* error */
+}
+
+/* add an entry for 64k shared zone */
+shm_zone = ngx_shared_memory_add(cf, &name, 65536, &ngx_foo_module);
+if (shm_zone == NULL) {
+    /* error */
+}
+
+/* register init callback and context */
+shm_zone->init = ngx_foo_init_zone;
+shm_zone->data = ctx;
+
+
+...
+
+
+static ngx_int_t
+ngx_foo_init_zone(ngx_shm_zone_t *shm_zone, void *data)
+{
+    ngx_foo_ctx_t  *octx = data;
+
+    size_t            len;
+    ngx_foo_ctx_t    *ctx;
+    ngx_slab_pool_t  *shpool;
+
+    value = shm_zone->data;
+
+    if (octx) {
+        /* reusing a shared zone from old cycle */
+        ctx->value = octx->value;
+        return NGX_OK;
+    }
+
+    shpool = (ngx_slab_pool_t *) shm_zone->shm.addr;
+
+    if (shm_zone->shm.exists) {
+        /* initialize shared zone context in Windows nginx worker */
+        ctx->value = shpool->data;
+        return NGX_OK;
+    }
+
+    /* initialize shared zone */
+
+    ctx->value = ngx_slab_alloc(shpool, sizeof(ngx_uint_t));
+    if (ctx->value == NULL) {
+        return NGX_ERROR;
+    }
+
+    shpool->data = ctx->value;
+
+    return NGX_OK;
+}
+```
 
 #### Logging
 
@@ -939,21 +1013,25 @@ Nginx provides the following logging macros:
 
 A log message is formatted in a buffer of size `NGX_MAX_ERROR_STR` (currently, 2048 bytes) on stack. The message is prepended with the severity level, process ID (PID), connection ID (stored in `log->connection`), and the system error text. For non-debug messages `log->handler` is called as well to prepend more specific information to the log message. HTTP module sets `ngx_http_log_error()` function as log handler to log client and server addresses, current action (stored in `log->action`), client request line, server name etc.
 
-> /\* specify what is currently done \*/
-> log->action = "sending mp4 to client";
-> 
-> /\* error and debug log \*/
-> ngx\_log\_error(NGX\_LOG\_INFO, c->log, 0, "client prematurely
->               closed connection");
-> 
-> ngx\_log\_debug2(NGX\_LOG\_DEBUG\_HTTP, mp4->file.log, 0,
->                "mp4 start:%ui, length:%ui", mp4->start, mp4->length);
+```c
+/* specify what is currently done */
+log->action = "sending mp4 to client";
+
+/* error and debug log */
+ngx_log_error(NGX_LOG_INFO, c->log, 0, "client prematurely
+              closed connection");
+
+ngx_log_debug2(NGX_LOG_DEBUG_HTTP, mp4->file.log, 0,
+               "mp4 start:%ui, length:%ui", mp4->start, mp4->length);
+```
 
 The example above results in log entries like these:
 
-> 2016/09/16 22:08:52 \[info\] 17445#0: \*1 client prematurely closed connection while
-> sending mp4 to client, client: 127.0.0.1, server: , request: "GET /file.mp4 HTTP/1.1"
-> 2016/09/16 23:28:33 \[debug\] 22140#0: \*1 mp4 start:0, length:10000
+```
+2016/09/16 22:08:52 [info] 17445#0: *1 client prematurely closed connection while
+sending mp4 to client, client: 127.0.0.1, server: , request: "GET /file.mp4 HTTP/1.1"
+2016/09/16 23:28:33 [debug] 22140#0: *1 mp4 start:0, length:10000
+```
 
 #### Cycle
 
@@ -1003,55 +1081,59 @@ The `ngx_buf_t` structure has the following fields:
 
 For input and output operations buffers are linked in chains. A chain is a sequence of chain links of type `ngx_chain_t`, defined as follows:
 
-> typedef struct ngx\_chain\_s  ngx\_chain\_t;
-> 
-> struct ngx\_chain\_s {
->     ngx\_buf\_t    \*buf;
->     ngx\_chain\_t  \*next;
-> };
+```c
+typedef struct ngx_chain_s  ngx_chain_t;
+
+struct ngx_chain_s {
+    ngx_buf_t    *buf;
+    ngx_chain_t  *next;
+};
+```
 
 Each chain link keeps a reference to its buffer and a reference to the next chain link.
 
 An example of using buffers and chains:
 
-> ngx\_chain\_t \*
-> ngx\_get\_my\_chain(ngx\_pool\_t \*pool)
-> {
->     ngx\_buf\_t    \*b;
->     ngx\_chain\_t  \*out, \*cl, \*\*ll;
-> 
->     /\* first buf \*/
->     cl = ngx\_alloc\_chain\_link(pool);
->     if (cl == NULL) { /\* error \*/ }
-> 
->     b = ngx\_calloc\_buf(pool);
->     if (b == NULL) { /\* error \*/ }
-> 
->     b->start = (u\_char \*) "foo";
->     b->pos = b->start;
->     b->end = b->start + 3;
->     b->last = b->end;
->     b->memory = 1; /\* read-only memory \*/
-> 
->     cl->buf = b;
->     out = cl;
->     ll = &cl->next;
-> 
->     /\* second buf \*/
->     cl = ngx\_alloc\_chain\_link(pool);
->     if (cl == NULL) { /\* error \*/ }
-> 
->     b = ngx\_create\_temp\_buf(pool, 3);
->     if (b == NULL) { /\* error \*/ }
-> 
->     b->last = ngx\_cpymem(b->last, "foo", 3);
-> 
->     cl->buf = b;
->     cl->next = NULL;
->     \*ll = cl;
-> 
->     return out;
-> }
+```c
+ngx_chain_t *
+ngx_get_my_chain(ngx_pool_t *pool)
+{
+    ngx_buf_t    *b;
+    ngx_chain_t  *out, *cl, **ll;
+
+    /* first buf */
+    cl = ngx_alloc_chain_link(pool);
+    if (cl == NULL) { /* error */ }
+
+    b = ngx_calloc_buf(pool);
+    if (b == NULL) { /* error */ }
+
+    b->start = (u_char *) "foo";
+    b->pos = b->start;
+    b->end = b->start + 3;
+    b->last = b->end;
+    b->memory = 1; /* read-only memory */
+
+    cl->buf = b;
+    out = cl;
+    ll = &cl->next;
+
+    /* second buf */
+    cl = ngx_alloc_chain_link(pool);
+    if (cl == NULL) { /* error */ }
+
+    b = ngx_create_temp_buf(pool, 3);
+    if (b == NULL) { /* error */ }
+
+    b->last = ngx_cpymem(b->last, "foo", 3);
+
+    cl->buf = b;
+    cl->next = NULL;
+    *ll = cl;
+
+    return out;
+}
+```
 
 #### Networking
 
@@ -1118,46 +1200,48 @@ An event can be posted which means that its handler will be called at some point
 
 An example:
 
-> void
-> ngx\_my\_connection\_read(ngx\_connection\_t \*c)
-> {
->     ngx\_event\_t  \*rev;
-> 
->     rev = c->read;
-> 
->     ngx\_add\_timer(rev, 1000);
-> 
->     rev->handler = ngx\_my\_read\_handler;
-> 
->     ngx\_my\_read(rev);
-> }
-> 
-> 
-> void
-> ngx\_my\_read\_handler(ngx\_event\_t \*rev)
-> {
->     ssize\_t            n;
->     ngx\_connection\_t  \*c;
->     u\_char             buf\[256\];
-> 
->     if (rev->timedout) { /\* timeout expired \*/ }
-> 
->     c = rev->data;
-> 
->     while (rev->ready) {
->         n = c->recv(c, buf, sizeof(buf));
-> 
->         if (n == NGX\_AGAIN) {
->             break;
->         }
-> 
->         if (n == NGX\_ERROR) { /\* error \*/ }
-> 
->         /\* process buf \*/
->     }
-> 
->     if (ngx\_handle\_read\_event(rev, 0) != NGX\_OK) { /\* error \*/ }
-> }
+```c
+void
+ngx_my_connection_read(ngx_connection_t *c)
+{
+    ngx_event_t  *rev;
+
+    rev = c->read;
+
+    ngx_add_timer(rev, 1000);
+
+    rev->handler = ngx_my_read_handler;
+
+    ngx_my_read(rev);
+}
+
+
+void
+ngx_my_read_handler(ngx_event_t *rev)
+{
+    ssize_t            n;
+    ngx_connection_t  *c;
+    u_char             buf[256];
+
+    if (rev->timedout) { /* timeout expired */ }
+
+    c = rev->data;
+
+    while (rev->ready) {
+        n = c->recv(c, buf, sizeof(buf));
+
+        if (n == NGX_AGAIN) {
+            break;
+        }
+
+        if (n == NGX_ERROR) { /* error */ }
+
+        /* process buf */
+    }
+
+    if (ngx_handle_read_event(rev, 0) != NGX_OK) { /* error */ }
+}
+```
 
 #### Event loop
 
@@ -1223,74 +1307,78 @@ Instead of creating a new thread for each task, nginx implements a [thread\_pool
 
 The `src/core/ngx_thread_pool.h` header file contains relevant definitions:
 
-> struct ngx\_thread\_task\_s {
->     ngx\_thread\_task\_t   \*next;
->     ngx\_uint\_t           id;
->     void                \*ctx;
->     void               (\*handler)(void \*data, ngx\_log\_t \*log);
->     ngx\_event\_t          event;
-> };
-> 
-> typedef struct ngx\_thread\_pool\_s  ngx\_thread\_pool\_t;
-> 
-> ngx\_thread\_pool\_t \*ngx\_thread\_pool\_add(ngx\_conf\_t \*cf, ngx\_str\_t \*name);
-> ngx\_thread\_pool\_t \*ngx\_thread\_pool\_get(ngx\_cycle\_t \*cycle, ngx\_str\_t \*name);
-> 
-> ngx\_thread\_task\_t \*ngx\_thread\_task\_alloc(ngx\_pool\_t \*pool, size\_t size);
-> ngx\_int\_t ngx\_thread\_task\_post(ngx\_thread\_pool\_t \*tp, ngx\_thread\_task\_t \*task);
+```c
+struct ngx_thread_task_s {
+    ngx_thread_task_t   *next;
+    ngx_uint_t           id;
+    void                *ctx;
+    void               (*handler)(void *data, ngx_log_t *log);
+    ngx_event_t          event;
+};
+
+typedef struct ngx_thread_pool_s  ngx_thread_pool_t;
+
+ngx_thread_pool_t *ngx_thread_pool_add(ngx_conf_t *cf, ngx_str_t *name);
+ngx_thread_pool_t *ngx_thread_pool_get(ngx_cycle_t *cycle, ngx_str_t *name);
+
+ngx_thread_task_t *ngx_thread_task_alloc(ngx_pool_t *pool, size_t size);
+ngx_int_t ngx_thread_task_post(ngx_thread_pool_t *tp, ngx_thread_task_t *task);
+```
 
 At configuration time, a module willing to use threads has to obtain a reference to a thread pool by calling `ngx_thread_pool_add(cf, name)`, which either creates a new thread pool with the given `name` or returns a reference to the pool with that name if it already exists.
 
 To add a `task` into a queue of a specified thread pool `tp` at runtime, use the `ngx_thread_task_post(tp, task)` function. To execute a function in a thread, pass parameters and setup a completion handler using the `ngx_thread_task_t` structure:
 
-> typedef struct {
->     int    foo;
-> } my\_thread\_ctx\_t;
-> 
-> 
-> static void
-> my\_thread\_func(void \*data, ngx\_log\_t \*log)
-> {
->     my\_thread\_ctx\_t \*ctx = data;
-> 
->     /\* this function is executed in a separate thread \*/
-> }
-> 
-> 
-> static void
-> my\_thread\_completion(ngx\_event\_t \*ev)
-> {
->     my\_thread\_ctx\_t \*ctx = ev->data;
-> 
->     /\* executed in nginx event loop \*/
-> }
-> 
-> 
-> ngx\_int\_t
-> my\_task\_offload(my\_conf\_t \*conf)
-> {
->     my\_thread\_ctx\_t    \*ctx;
->     ngx\_thread\_task\_t  \*task;
-> 
->     task = ngx\_thread\_task\_alloc(conf->pool, sizeof(my\_thread\_ctx\_t));
->     if (task == NULL) {
->         return NGX\_ERROR;
->     }
-> 
->     ctx = task->ctx;
-> 
->     ctx->foo = 42;
-> 
->     task->handler = my\_thread\_func;
->     task->event.handler = my\_thread\_completion;
->     task->event.data = ctx;
-> 
->     if (ngx\_thread\_task\_post(conf->thread\_pool, task) != NGX\_OK) {
->         return NGX\_ERROR;
->     }
-> 
->     return NGX\_OK;
-> }
+```c
+typedef struct {
+    int    foo;
+} my_thread_ctx_t;
+
+
+static void
+my_thread_func(void *data, ngx_log_t *log)
+{
+    my_thread_ctx_t *ctx = data;
+
+    /* this function is executed in a separate thread */
+}
+
+
+static void
+my_thread_completion(ngx_event_t *ev)
+{
+    my_thread_ctx_t *ctx = ev->data;
+
+    /* executed in nginx event loop */
+}
+
+
+ngx_int_t
+my_task_offload(my_conf_t *conf)
+{
+    my_thread_ctx_t    *ctx;
+    ngx_thread_task_t  *task;
+
+    task = ngx_thread_task_alloc(conf->pool, sizeof(my_thread_ctx_t));
+    if (task == NULL) {
+        return NGX_ERROR;
+    }
+
+    ctx = task->ctx;
+
+    ctx->foo = 42;
+
+    task->handler = my_thread_func;
+    task->event.handler = my_thread_completion;
+    task->event.data = ctx;
+
+    if (ngx_thread_task_post(conf->thread_pool, task) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    return NGX_OK;
+}
+```
 
 #### Modules
 
@@ -1298,13 +1386,15 @@ To add a `task` into a queue of a specified thread pool `tp` at runtime, use the
 
 Each standalone nginx module resides in a separate directory that contains at least two files: `config` and a file with the module source code. The `config` file contains all information needed for nginx to integrate the module, for example:
 
-> ngx\_module\_type=CORE
-> ngx\_module\_name=ngx\_foo\_module
-> ngx\_module\_srcs="$ngx\_addon\_dir/ngx\_foo\_module.c"
-> 
-> . auto/module
-> 
-> ngx\_addon\_name=$ngx\_module\_name
+```
+ngx_module_type=CORE
+ngx_module_name=ngx_foo_module
+ngx_module_srcs="$ngx_addon_dir/ngx_foo_module.c"
+
+. auto/module
+
+ngx_addon_name=$ngx_module_name
+```
 
 The `config` file is a POSIX shell script that can set and access the following variables:
 
@@ -1329,27 +1419,29 @@ To compile a module into nginx statically, use the `--add-module=/path/to/module
 
 Modules are the building blocks of nginx, and most of its functionality is implemented as modules. The module source file must contain a global variable of type `ngx_module_t`, which is defined as follows:
 
-> struct ngx\_module\_s {
-> 
->     /\* private part is omitted \*/
-> 
->     void                 \*ctx;
->     ngx\_command\_t        \*commands;
->     ngx\_uint\_t            type;
-> 
->     ngx\_int\_t           (\*init\_master)(ngx\_log\_t \*log);
-> 
->     ngx\_int\_t           (\*init\_module)(ngx\_cycle\_t \*cycle);
-> 
->     ngx\_int\_t           (\*init\_process)(ngx\_cycle\_t \*cycle);
->     ngx\_int\_t           (\*init\_thread)(ngx\_cycle\_t \*cycle);
->     void                (\*exit\_thread)(ngx\_cycle\_t \*cycle);
->     void                (\*exit\_process)(ngx\_cycle\_t \*cycle);
-> 
->     void                (\*exit\_master)(ngx\_cycle\_t \*cycle);
-> 
->     /\* stubs for future extensions are omitted \*/
-> };
+```c
+struct ngx_module_s {
+
+    /* private part is omitted */
+
+    void                 *ctx;
+    ngx_command_t        *commands;
+    ngx_uint_t            type;
+
+    ngx_int_t           (*init_master)(ngx_log_t *log);
+
+    ngx_int_t           (*init_module)(ngx_cycle_t *cycle);
+
+    ngx_int_t           (*init_process)(ngx_cycle_t *cycle);
+    ngx_int_t           (*init_thread)(ngx_cycle_t *cycle);
+    void                (*exit_thread)(ngx_cycle_t *cycle);
+    void                (*exit_process)(ngx_cycle_t *cycle);
+
+    void                (*exit_master)(ngx_cycle_t *cycle);
+
+    /* stubs for future extensions are omitted */
+};
+```
 
 The omitted private part includes the module version and a signature and is filled using the predefined macro `NGX_MODULE_V1`.
 
@@ -1375,128 +1467,134 @@ The `NGX_CORE_MODULE` is the most basic and thus the most generic and most low-l
 
 The set of core modules includes `ngx_core_module`, `ngx_errlog_module`, `ngx_regex_module`, `ngx_thread_pool_module` and `ngx_openssl_module` modules. The HTTP module, the stream module, the mail module and event modules are core modules too. The context of a core module is defined as:
 
-> typedef struct {
->     ngx\_str\_t             name;
->     void               \*(\*create\_conf)(ngx\_cycle\_t \*cycle);
->     char               \*(\*init\_conf)(ngx\_cycle\_t \*cycle, void \*conf);
-> } ngx\_core\_module\_t;
+```c
+typedef struct {
+    ngx_str_t             name;
+    void               *(*create_conf)(ngx_cycle_t *cycle);
+    char               *(*init_conf)(ngx_cycle_t *cycle, void *conf);
+} ngx_core_module_t;
+```
 
 where the `name` is a module name string, `create_conf` and `init_conf` are pointers to functions that create and initialize module configuration respectively. For core modules, nginx calls `create_conf` before parsing a new configuration and `init_conf` after all configuration is parsed successfully. The typical `create_conf` function allocates memory for the configuration and sets default values.
 
 For example, a simplistic module called `ngx_foo_module` might look like this:
 
-> /\*
->  \* Copyright (C) Author.
->  \*/
-> 
-> 
-> #include <ngx\_config.h>
-> #include <ngx\_core.h>
-> 
-> 
-> typedef struct {
->     ngx\_flag\_t  enable;
-> } ngx\_foo\_conf\_t;
-> 
-> 
-> static void \*ngx\_foo\_create\_conf(ngx\_cycle\_t \*cycle);
-> static char \*ngx\_foo\_init\_conf(ngx\_cycle\_t \*cycle, void \*conf);
-> 
-> static char \*ngx\_foo\_enable(ngx\_conf\_t \*cf, void \*post, void \*data);
-> static ngx\_conf\_post\_t  ngx\_foo\_enable\_post = { ngx\_foo\_enable };
-> 
-> 
-> static ngx\_command\_t  ngx\_foo\_commands\[\] = {
-> 
->     { ngx\_string("foo\_enabled"),
->       NGX\_MAIN\_CONF|NGX\_DIRECT\_CONF|NGX\_CONF\_FLAG,
->       ngx\_conf\_set\_flag\_slot,
->       0,
->       offsetof(ngx\_foo\_conf\_t, enable),
->       &ngx\_foo\_enable\_post },
-> 
->       ngx\_null\_command
-> };
-> 
-> 
-> static ngx\_core\_module\_t  ngx\_foo\_module\_ctx = {
->     ngx\_string("foo"),
->     ngx\_foo\_create\_conf,
->     ngx\_foo\_init\_conf
-> };
-> 
-> 
-> ngx\_module\_t  ngx\_foo\_module = {
->     NGX\_MODULE\_V1,
->     &ngx\_foo\_module\_ctx,                   /\* module context \*/
->     ngx\_foo\_commands,                      /\* module directives \*/
->     NGX\_CORE\_MODULE,                       /\* module type \*/
->     NULL,                                  /\* init master \*/
->     NULL,                                  /\* init module \*/
->     NULL,                                  /\* init process \*/
->     NULL,                                  /\* init thread \*/
->     NULL,                                  /\* exit thread \*/
->     NULL,                                  /\* exit process \*/
->     NULL,                                  /\* exit master \*/
->     NGX\_MODULE\_V1\_PADDING
-> };
-> 
-> 
-> static void \*
-> ngx\_foo\_create\_conf(ngx\_cycle\_t \*cycle)
-> {
->     ngx\_foo\_conf\_t  \*fcf;
-> 
->     fcf = ngx\_pcalloc(cycle->pool, sizeof(ngx\_foo\_conf\_t));
->     if (fcf == NULL) {
->         return NULL;
->     }
-> 
->     fcf->enable = NGX\_CONF\_UNSET;
-> 
->     return fcf;
-> }
-> 
-> 
-> static char \*
-> ngx\_foo\_init\_conf(ngx\_cycle\_t \*cycle, void \*conf)
-> {
->     ngx\_foo\_conf\_t \*fcf = conf;
-> 
->     ngx\_conf\_init\_value(fcf->enable, 0);
-> 
->     return NGX\_CONF\_OK;
-> }
-> 
-> 
-> static char \*
-> ngx\_foo\_enable(ngx\_conf\_t \*cf, void \*post, void \*data)
-> {
->     ngx\_flag\_t  \*fp = data;
-> 
->     if (\*fp == 0) {
->         return NGX\_CONF\_OK;
->     }
-> 
->     ngx\_log\_error(NGX\_LOG\_NOTICE, cf->log, 0, "Foo Module is enabled");
-> 
->     return NGX\_CONF\_OK;
-> }
+```c
+/*
+ * Copyright (C) Author.
+ */
+
+
+#include <ngx_config.h>
+#include <ngx_core.h>
+
+
+typedef struct {
+    ngx_flag_t  enable;
+} ngx_foo_conf_t;
+
+
+static void *ngx_foo_create_conf(ngx_cycle_t *cycle);
+static char *ngx_foo_init_conf(ngx_cycle_t *cycle, void *conf);
+
+static char *ngx_foo_enable(ngx_conf_t *cf, void *post, void *data);
+static ngx_conf_post_t  ngx_foo_enable_post = { ngx_foo_enable };
+
+
+static ngx_command_t  ngx_foo_commands[] = {
+
+    { ngx_string("foo_enabled"),
+      NGX_MAIN_CONF|NGX_DIRECT_CONF|NGX_CONF_FLAG,
+      ngx_conf_set_flag_slot,
+      0,
+      offsetof(ngx_foo_conf_t, enable),
+      &ngx_foo_enable_post },
+
+      ngx_null_command
+};
+
+
+static ngx_core_module_t  ngx_foo_module_ctx = {
+    ngx_string("foo"),
+    ngx_foo_create_conf,
+    ngx_foo_init_conf
+};
+
+
+ngx_module_t  ngx_foo_module = {
+    NGX_MODULE_V1,
+    &ngx_foo_module_ctx,                   /* module context */
+    ngx_foo_commands,                      /* module directives */
+    NGX_CORE_MODULE,                       /* module type */
+    NULL,                                  /* init master */
+    NULL,                                  /* init module */
+    NULL,                                  /* init process */
+    NULL,                                  /* init thread */
+    NULL,                                  /* exit thread */
+    NULL,                                  /* exit process */
+    NULL,                                  /* exit master */
+    NGX_MODULE_V1_PADDING
+};
+
+
+static void *
+ngx_foo_create_conf(ngx_cycle_t *cycle)
+{
+    ngx_foo_conf_t  *fcf;
+
+    fcf = ngx_pcalloc(cycle->pool, sizeof(ngx_foo_conf_t));
+    if (fcf == NULL) {
+        return NULL;
+    }
+
+    fcf->enable = NGX_CONF_UNSET;
+
+    return fcf;
+}
+
+
+static char *
+ngx_foo_init_conf(ngx_cycle_t *cycle, void *conf)
+{
+    ngx_foo_conf_t *fcf = conf;
+
+    ngx_conf_init_value(fcf->enable, 0);
+
+    return NGX_CONF_OK;
+}
+
+
+static char *
+ngx_foo_enable(ngx_conf_t *cf, void *post, void *data)
+{
+    ngx_flag_t  *fp = data;
+
+    if (*fp == 0) {
+        return NGX_CONF_OK;
+    }
+
+    ngx_log_error(NGX_LOG_NOTICE, cf->log, 0, "Foo Module is enabled");
+
+    return NGX_CONF_OK;
+}
+```
 
 #### Configuration Directives
 
 The `ngx_command_t` type defines a single configuration directive. Each module that supports configuration provides an array of such structures that describe how to process arguments and what handlers to call:
 
-> typedef struct ngx\_command\_s  ngx\_command\_t;
-> 
-> struct ngx\_command\_s {
->     ngx\_str\_t             name;
->     ngx\_uint\_t            type;
->     char               \*(\*set)(ngx\_conf\_t \*cf, ngx\_command\_t \*cmd, void \*conf);
->     ngx\_uint\_t            conf;
->     ngx\_uint\_t            offset;
->     void                 \*post;
-> };
+```c
+typedef struct ngx_command_s  ngx_command_t;
+
+struct ngx_command_s {
+    ngx_str_t             name;
+    ngx_uint_t            type;
+    char               *(*set)(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+    ngx_uint_t            conf;
+    ngx_uint_t            offset;
+    void                 *post;
+};
+```
 
 Terminate the array with the special value `ngx_null_command`. The `name` is the name of a directive as it appears in the configuration file, for example "worker\_processes" or "listen". The `type` is a bit-field of flags that specify the number of arguments the directive takes, its type, and the context in which it appears. The flags are:
 
@@ -1562,8 +1660,10 @@ The `offset` defines the offset of a field in a module configuration structure t
 
 The `post` field has two purposes: it may be used to define a handler to be called after the main handler has completed, or to pass additional data to the main handler. In the first case, the `ngx_conf_post_t` structure needs to be initialized with a pointer to the handler, for example:
 
-> static char \*ngx\_do\_foo(ngx\_conf\_t \*cf, void \*post, void \*data);
-> static ngx\_conf\_post\_t  ngx\_foo\_post = { ngx\_do\_foo };
+```c
+static char *ngx_do_foo(ngx_conf_t *cf, void *post, void *data);
+static ngx_conf_post_t  ngx_foo_post = { ngx_do_foo };
+```
 
 The `post` argument is the `ngx_conf_post_t` object itself, and the `data` is a pointer to the value, converted from arguments by the main handler with the appropriate type.
 
@@ -1645,50 +1745,52 @@ Each HTTP module can have three types of configuration:
 
 Configuration structures are created at the nginx configuration stage by calling functions, which allocate the structures, initialize them and merge them. The following example shows how to create a simple location configuration for a module. The configuration has one setting, `foo`, of type unsigned integer.
 
-> typedef struct {
->     ngx\_uint\_t  foo;
-> } ngx\_http\_foo\_loc\_conf\_t;
-> 
-> 
-> static ngx\_http\_module\_t  ngx\_http\_foo\_module\_ctx = {
->     NULL,                                  /\* preconfiguration \*/
->     NULL,                                  /\* postconfiguration \*/
-> 
->     NULL,                                  /\* create main configuration \*/
->     NULL,                                  /\* init main configuration \*/
-> 
->     NULL,                                  /\* create server configuration \*/
->     NULL,                                  /\* merge server configuration \*/
-> 
->     ngx\_http\_foo\_create\_loc\_conf,          /\* create location configuration \*/
->     ngx\_http\_foo\_merge\_loc\_conf            /\* merge location configuration \*/
-> };
-> 
-> 
-> static void \*
-> ngx\_http\_foo\_create\_loc\_conf(ngx\_conf\_t \*cf)
-> {
->     ngx\_http\_foo\_loc\_conf\_t  \*conf;
-> 
->     conf = ngx\_pcalloc(cf->pool, sizeof(ngx\_http\_foo\_loc\_conf\_t));
->     if (conf == NULL) {
->         return NULL;
->     }
-> 
->     conf->foo = NGX\_CONF\_UNSET\_UINT;
-> 
->     return conf;
-> }
-> 
-> 
-> static char \*
-> ngx\_http\_foo\_merge\_loc\_conf(ngx\_conf\_t \*cf, void \*parent, void \*child)
-> {
->     ngx\_http\_foo\_loc\_conf\_t \*prev = parent;
->     ngx\_http\_foo\_loc\_conf\_t \*conf = child;
-> 
->     ngx\_conf\_merge\_uint\_value(conf->foo, prev->foo, 1);
-> }
+```c
+typedef struct {
+    ngx_uint_t  foo;
+} ngx_http_foo_loc_conf_t;
+
+
+static ngx_http_module_t  ngx_http_foo_module_ctx = {
+    NULL,                                  /* preconfiguration */
+    NULL,                                  /* postconfiguration */
+
+    NULL,                                  /* create main configuration */
+    NULL,                                  /* init main configuration */
+
+    NULL,                                  /* create server configuration */
+    NULL,                                  /* merge server configuration */
+
+    ngx_http_foo_create_loc_conf,          /* create location configuration */
+    ngx_http_foo_merge_loc_conf            /* merge location configuration */
+};
+
+
+static void *
+ngx_http_foo_create_loc_conf(ngx_conf_t *cf)
+{
+    ngx_http_foo_loc_conf_t  *conf;
+
+    conf = ngx_pcalloc(cf->pool, sizeof(ngx_http_foo_loc_conf_t));
+    if (conf == NULL) {
+        return NULL;
+    }
+
+    conf->foo = NGX_CONF_UNSET_UINT;
+
+    return conf;
+}
+
+
+static char *
+ngx_http_foo_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child)
+{
+    ngx_http_foo_loc_conf_t *prev = parent;
+    ngx_http_foo_loc_conf_t *conf = child;
+
+    ngx_conf_merge_uint_value(conf->foo, prev->foo, 1);
+}
+```
 
 As seen in the example, the `ngx_http_foo_create_loc_conf()` function creates a new configuration structure, and `ngx_http_foo_merge_loc_conf()` merges a configuration with configuration from a higher level. In fact, server and location configuration do not exist only at the server and location levels, but are also created for all levels above them. Specifically, a server configuration is also created at the main level and location configurations are created at the main, server, and location levels. These configurations make it possible to specify server- and location-specific settings at any level of an nginx configuration file. Eventually configurations are merged down. A number of macros like `NGX_CONF_UNSET` and `NGX_CONF_UNSET_UINT` are provided for indicating a missing setting and ignoring it while merging. Standard nginx merge macros like `ngx_conf_merge_value()` and `ngx_conf_merge_uint_value()` provide a convenient way to merge a setting and set the default value if none of the configurations provided an explicit value. For complete list of macros for different types, see `src/core/ngx_conf_file.h`.
 
@@ -1700,32 +1802,34 @@ The following macros are available. for accessing configuration for HTTP modules
 
 The following example gets a pointer to a location configuration of standard nginx core module [ngx\_http\_core\_module](https://nginx.org/en/docs/http/ngx_http_core_module.html) and replaces the location content handler kept in the `handler` field of the structure.
 
-> static ngx\_int\_t ngx\_http\_foo\_handler(ngx\_http\_request\_t \*r);
-> 
-> 
-> static ngx\_command\_t  ngx\_http\_foo\_commands\[\] = {
-> 
->     { ngx\_string("foo"),
->       NGX\_HTTP\_LOC\_CONF|NGX\_CONF\_NOARGS,
->       ngx\_http\_foo,
->       0,
->       0,
->       NULL },
-> 
->       ngx\_null\_command
-> };
-> 
-> 
-> static char \*
-> ngx\_http\_foo(ngx\_conf\_t \*cf, ngx\_command\_t \*cmd, void \*conf)
-> {
->     ngx\_http\_core\_loc\_conf\_t  \*clcf;
-> 
->     clcf = ngx\_http\_conf\_get\_module\_loc\_conf(cf, ngx\_http\_core\_module);
->     clcf->handler = ngx\_http\_bar\_handler;
-> 
->     return NGX\_CONF\_OK;
-> }
+```c
+static ngx_int_t ngx_http_foo_handler(ngx_http_request_t *r);
+
+
+static ngx_command_t  ngx_http_foo_commands[] = {
+
+    { ngx_string("foo"),
+      NGX_HTTP_LOC_CONF|NGX_CONF_NOARGS,
+      ngx_http_foo,
+      0,
+      0,
+      NULL },
+
+      ngx_null_command
+};
+
+
+static char *
+ngx_http_foo(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+    ngx_http_core_loc_conf_t  *clcf;
+
+    clcf = ngx_http_conf_get_module_loc_conf(cf, ngx_http_core_module);
+    clcf->handler = ngx_http_bar_handler;
+
+    return NGX_CONF_OK;
+}
+```
 
 The following macros are available for accessing configuration for HTTP modules at runtime.
 
@@ -1735,15 +1839,17 @@ The following macros are available for accessing configuration for HTTP modules 
 
 These macros receive a reference to an HTTP request `ngx_http_request_t`. The main configuration of a request never changes. Server configuration can change from the default after the virtual server for the request is chosen. Location configuration selected for processing a request can change multiple times as a result of a rewrite operation or internal redirect. The following example shows how to access a module's HTTP configuration at runtime.
 
-> static ngx\_int\_t
-> ngx\_http\_foo\_handler(ngx\_http\_request\_t \*r)
-> {
->     ngx\_http\_foo\_loc\_conf\_t  \*flcf;
-> 
->     flcf = ngx\_http\_get\_module\_loc\_conf(r, ngx\_http\_foo\_module);
-> 
->     ...
-> }
+```c
+static ngx_int_t
+ngx_http_foo_handler(ngx_http_request_t *r)
+{
+    ngx_http_foo_loc_conf_t  *flcf;
+
+    flcf = ngx_http_get_module_loc_conf(r, ngx_http_foo_module);
+
+    ...
+}
+```
 
 #### Phases
 
@@ -1763,58 +1869,60 @@ Each HTTP request passes through a sequence of phases. In each phase a distinct 
 
 Following is the example of a preaccess phase handler.
 
-> static ngx\_http\_module\_t  ngx\_http\_foo\_module\_ctx = {
->     NULL,                                  /\* preconfiguration \*/
->     ngx\_http\_foo\_init,                     /\* postconfiguration \*/
-> 
->     NULL,                                  /\* create main configuration \*/
->     NULL,                                  /\* init main configuration \*/
-> 
->     NULL,                                  /\* create server configuration \*/
->     NULL,                                  /\* merge server configuration \*/
-> 
->     NULL,                                  /\* create location configuration \*/
->     NULL                                   /\* merge location configuration \*/
-> };
-> 
-> 
-> static ngx\_int\_t
-> ngx\_http\_foo\_handler(ngx\_http\_request\_t \*r)
-> {
->     ngx\_table\_elt\_t  \*ua;
-> 
->     ua = r->headers\_in.user\_agent;
-> 
->     if (ua == NULL) {
->         return NGX\_DECLINED;
->     }
-> 
->     /\* reject requests with "User-Agent: foo" \*/
->     if (ua->value.len == 3 && ngx\_strncmp(ua->value.data, "foo", 3) == 0) {
->         return NGX\_HTTP\_FORBIDDEN;
->     }
-> 
->     return NGX\_DECLINED;
-> }
-> 
-> 
-> static ngx\_int\_t
-> ngx\_http\_foo\_init(ngx\_conf\_t \*cf)
-> {
->     ngx\_http\_handler\_pt        \*h;
->     ngx\_http\_core\_main\_conf\_t  \*cmcf;
-> 
->     cmcf = ngx\_http\_conf\_get\_module\_main\_conf(cf, ngx\_http\_core\_module);
-> 
->     h = ngx\_array\_push(&cmcf->phases\[NGX\_HTTP\_PREACCESS\_PHASE\].handlers);
->     if (h == NULL) {
->         return NGX\_ERROR;
->     }
-> 
->     \*h = ngx\_http\_foo\_handler;
-> 
->     return NGX\_OK;
-> }
+```c
+static ngx_http_module_t  ngx_http_foo_module_ctx = {
+    NULL,                                  /* preconfiguration */
+    ngx_http_foo_init,                     /* postconfiguration */
+
+    NULL,                                  /* create main configuration */
+    NULL,                                  /* init main configuration */
+
+    NULL,                                  /* create server configuration */
+    NULL,                                  /* merge server configuration */
+
+    NULL,                                  /* create location configuration */
+    NULL                                   /* merge location configuration */
+};
+
+
+static ngx_int_t
+ngx_http_foo_handler(ngx_http_request_t *r)
+{
+    ngx_table_elt_t  *ua;
+
+    ua = r->headers_in.user_agent;
+
+    if (ua == NULL) {
+        return NGX_DECLINED;
+    }
+
+    /* reject requests with "User-Agent: foo" */
+    if (ua->value.len == 3 && ngx_strncmp(ua->value.data, "foo", 3) == 0) {
+        return NGX_HTTP_FORBIDDEN;
+    }
+
+    return NGX_DECLINED;
+}
+
+
+static ngx_int_t
+ngx_http_foo_init(ngx_conf_t *cf)
+{
+    ngx_http_handler_pt        *h;
+    ngx_http_core_main_conf_t  *cmcf;
+
+    cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
+
+    h = ngx_array_push(&cmcf->phases[NGX_HTTP_PREACCESS_PHASE].handlers);
+    if (h == NULL) {
+        return NGX_ERROR;
+    }
+
+    *h = ngx_http_foo_handler;
+
+    return NGX_OK;
+}
+```
 
 Phase handlers are expected to return specific codes:
 
@@ -1831,27 +1939,31 @@ For some phases, return codes are treated in a slightly different way. At the co
 
 Variables can be referenced by index (this is the most common method) or name (see [below](https://nginx.org/en/docs/dev/development_guide.html#http_creating_variables)). The index is created at configuration stage, when a variable is added to the configuration. To obtain the variable index, use `ngx_http_get_variable_index()`:
 
-> ngx\_str\_t  name;  /\* ngx\_string("foo") \*/
-> ngx\_int\_t  index;
-> 
-> index = ngx\_http\_get\_variable\_index(cf, &name);
+```c
+ngx_str_t  name;  /* ngx_string("foo") */
+ngx_int_t  index;
+
+index = ngx_http_get_variable_index(cf, &name);
+```
 
 Here, `cf` is a pointer to nginx configuration and `name` points to a string containing the variable name. The function returns `NGX_ERROR` on error or a valid index otherwise, which is typically stored somewhere in the module's configuration for future use.
 
 All HTTP variables are evaluated in the context of a given HTTP request, and results are specific to and cached in that HTTP request. All functions that evaluate variables return the `ngx_http_variable_value_t` type, representing the variable value:
 
-> typedef ngx\_variable\_value\_t  ngx\_http\_variable\_value\_t;
-> 
-> typedef struct {
->     unsigned    len:28;
-> 
->     unsigned    valid:1;
->     unsigned    no\_cacheable:1;
->     unsigned    not\_found:1;
->     unsigned    escape:1;
-> 
->     u\_char     \*data;
-> } ngx\_variable\_value\_t;
+```c
+typedef ngx_variable_value_t  ngx_http_variable_value_t;
+
+typedef struct {
+    unsigned    len:28;
+
+    unsigned    valid:1;
+    unsigned    no_cacheable:1;
+    unsigned    not_found:1;
+    unsigned    escape:1;
+
+    u_char     *data;
+} ngx_variable_value_t;
+```
 
 where:
 
@@ -1864,16 +1976,18 @@ where:
 
 The `ngx_http_get_flushed_variable()` and `ngx_http_get_indexed_variable()` functions are used to obtain the value of a variable. They have the same interface - accepting an HTTP request `r` as a context for evaluating the variable and an `index` that identifies it. An example of typical usage:
 
-> ngx\_http\_variable\_value\_t  \*v;
-> 
-> v = ngx\_http\_get\_flushed\_variable(r, index);
-> 
-> if (v == NULL || v->not\_found) {
->     /\* we failed to get value or there is no such variable, handle it \*/
->     return NGX\_ERROR;
-> }
-> 
-> /\* some meaningful value is found \*/
+```c
+ngx_http_variable_value_t  *v;
+
+v = ngx_http_get_flushed_variable(r, index);
+
+if (v == NULL || v->not_found) {
+    /* we failed to get value or there is no such variable, handle it */
+    return NGX_ERROR;
+}
+
+/* some meaningful value is found */
+```
 
 The difference between functions is that the `ngx_http_get_indexed_variable()` returns a cached value and `ngx_http_get_flushed_variable()` flushes the cache for non-cacheable variables.
 
@@ -1890,103 +2004,111 @@ To create a variable, use the `ngx_http_add_variable()` function. It takes as ar
 
 The function returns NULL in case of error or a pointer to `ngx_http_variable_t` otherwise:
 
-> struct ngx\_http\_variable\_s {
->     ngx\_str\_t                     name;
->     ngx\_http\_set\_variable\_pt      set\_handler;
->     ngx\_http\_get\_variable\_pt      get\_handler;
->     uintptr\_t                     data;
->     ngx\_uint\_t                    flags;
->     ngx\_uint\_t                    index;
-> };
+```c
+struct ngx_http_variable_s {
+    ngx_str_t                     name;
+    ngx_http_set_variable_pt      set_handler;
+    ngx_http_get_variable_pt      get_handler;
+    uintptr_t                     data;
+    ngx_uint_t                    flags;
+    ngx_uint_t                    index;
+};
+```
 
 The `get` and `set` handlers are called to obtain or set the variable value, `data` is passed to variable handlers, and `index` holds assigned variable index used to reference the variable.
 
 Usually, a null-terminated static array of `ngx_http_variable_t` structures is created by a module and processed at the preconfiguration stage to add variables into the configuration, for example:
 
-> static ngx\_http\_variable\_t  ngx\_http\_foo\_vars\[\] = {
-> 
->     { ngx\_string("foo\_v1"), NULL, ngx\_http\_foo\_v1\_variable, 0, 0, 0 },
-> 
->       ngx\_http\_null\_variable
-> };
-> 
-> static ngx\_int\_t
-> ngx\_http\_foo\_add\_variables(ngx\_conf\_t \*cf)
-> {
->     ngx\_http\_variable\_t  \*var, \*v;
-> 
->     for (v = ngx\_http\_foo\_vars; v->name.len; v++) {
->         var = ngx\_http\_add\_variable(cf, &v->name, v->flags);
->         if (var == NULL) {
->             return NGX\_ERROR;
->         }
-> 
->         var->get\_handler = v->get\_handler;
->         var->data = v->data;
->     }
-> 
->     return NGX\_OK;
-> }
+```c
+static ngx_http_variable_t  ngx_http_foo_vars[] = {
+
+    { ngx_string("foo_v1"), NULL, ngx_http_foo_v1_variable, 0, 0, 0 },
+
+      ngx_http_null_variable
+};
+
+static ngx_int_t
+ngx_http_foo_add_variables(ngx_conf_t *cf)
+{
+    ngx_http_variable_t  *var, *v;
+
+    for (v = ngx_http_foo_vars; v->name.len; v++) {
+        var = ngx_http_add_variable(cf, &v->name, v->flags);
+        if (var == NULL) {
+            return NGX_ERROR;
+        }
+
+        var->get_handler = v->get_handler;
+        var->data = v->data;
+    }
+
+    return NGX_OK;
+}
+```
 
 This function in the example is used to initialize the `preconfiguration` field of the HTTP module context and is called before the parsing of HTTP configuration, so that the parser can refer to these variables.
 
 The `get` handler is responsible for evaluating a variable in the context of a specific request, for example:
 
-> static ngx\_int\_t
-> ngx\_http\_variable\_connection(ngx\_http\_request\_t \*r,
->     ngx\_http\_variable\_value\_t \*v, uintptr\_t data)
-> {
->     u\_char  \*p;
-> 
->     p = ngx\_pnalloc(r->pool, NGX\_ATOMIC\_T\_LEN);
->     if (p == NULL) {
->         return NGX\_ERROR;
->     }
-> 
->     v->len = ngx\_sprintf(p, "%uA", r->connection->number) - p;
->     v->valid = 1;
->     v->no\_cacheable = 0;
->     v->not\_found = 0;
->     v->data = p;
-> 
->     return NGX\_OK;
-> }
+```c
+static ngx_int_t
+ngx_http_variable_connection(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+    u_char  *p;
+
+    p = ngx_pnalloc(r->pool, NGX_ATOMIC_T_LEN);
+    if (p == NULL) {
+        return NGX_ERROR;
+    }
+
+    v->len = ngx_sprintf(p, "%uA", r->connection->number) - p;
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+    v->data = p;
+
+    return NGX_OK;
+}
+```
 
 It returns `NGX_ERROR` in case of internal error (for example, failed memory allocation) or `NGX_OK` otherwise. To learn the status of variable evaluation, inspect the flags in `ngx_http_variable_value_t` (see the description [above](https://nginx.org/en/docs/dev/development_guide.html#http_existing_variables)).
 
 The `set` handler allows setting the property referenced by the variable. For example, the set handler of the `$limit_rate` variable modifies the request's `limit_rate` field:
 
-> ...
-> { ngx\_string("limit\_rate"), ngx\_http\_variable\_request\_set\_size,
->   ngx\_http\_variable\_request\_get\_size,
->   offsetof(ngx\_http\_request\_t, limit\_rate),
->   NGX\_HTTP\_VAR\_CHANGEABLE|NGX\_HTTP\_VAR\_NOCACHEABLE, 0 },
-> ...
-> 
-> static void
-> ngx\_http\_variable\_request\_set\_size(ngx\_http\_request\_t \*r,
->     ngx\_http\_variable\_value\_t \*v, uintptr\_t data)
-> {
->     ssize\_t    s, \*sp;
->     ngx\_str\_t  val;
-> 
->     val.len = v->len;
->     val.data = v->data;
-> 
->     s = ngx\_parse\_size(&val);
-> 
->     if (s == NGX\_ERROR) {
->         ngx\_log\_error(NGX\_LOG\_ERR, r->connection->log, 0,
->                       "invalid size \\"%V\\"", &val);
->         return;
->     }
-> 
->     sp = (ssize\_t \*) ((char \*) r + data);
-> 
->     \*sp = s;
-> 
->     return;
-> }
+```c
+...
+{ ngx_string("limit_rate"), ngx_http_variable_request_set_size,
+  ngx_http_variable_request_get_size,
+  offsetof(ngx_http_request_t, limit_rate),
+  NGX_HTTP_VAR_CHANGEABLE|NGX_HTTP_VAR_NOCACHEABLE, 0 },
+...
+
+static void
+ngx_http_variable_request_set_size(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data)
+{
+    ssize_t    s, *sp;
+    ngx_str_t  val;
+
+    val.len = v->len;
+    val.data = v->data;
+
+    s = ngx_parse_size(&val);
+
+    if (s == NGX_ERROR) {
+        ngx_log_error(NGX_LOG_ERR, r->connection->log, 0,
+                      "invalid size \"%V\"", &val);
+        return;
+    }
+
+    sp = (ssize_t *) ((char *) r + data);
+
+    *sp = s;
+
+    return;
+}
+```
 
 #### Complex values
 
@@ -1994,23 +2116,25 @@ A complex value, despite its name, provides an easy way to evaluate expressions 
 
 The complex value description in `ngx_http_compile_complex_value` is compiled at the configuration stage into `ngx_http_complex_value_t` which is used at runtime to obtain results of expression evaluation.
 
-> ngx\_str\_t                         \*value;
-> ngx\_http\_complex\_value\_t           cv;
-> ngx\_http\_compile\_complex\_value\_t   ccv;
-> 
-> value = cf->args->elts; /\* directive arguments \*/
-> 
-> ngx\_memzero(&ccv, sizeof(ngx\_http\_compile\_complex\_value\_t));
-> 
-> ccv.cf = cf;
-> ccv.value = &value\[1\];
-> ccv.complex\_value = &cv;
-> ccv.zero = 1;
-> ccv.conf\_prefix = 1;
-> 
-> if (ngx\_http\_compile\_complex\_value(&ccv) != NGX\_OK) {
->     return NGX\_CONF\_ERROR;
-> }
+```c
+ngx_str_t                         *value;
+ngx_http_complex_value_t           cv;
+ngx_http_compile_complex_value_t   ccv;
+
+value = cf->args->elts; /* directive arguments */
+
+ngx_memzero(&ccv, sizeof(ngx_http_compile_complex_value_t));
+
+ccv.cf = cf;
+ccv.value = &value[1];
+ccv.complex_value = &cv;
+ccv.zero = 1;
+ccv.conf_prefix = 1;
+
+if (ngx_http_compile_complex_value(&ccv) != NGX_OK) {
+    return NGX_CONF_ERROR;
+}
+```
 
 Here, `ccv` holds all parameters that are required to initialize the complex value `cv`:
 
@@ -2029,11 +2153,13 @@ The `ngx_http_set_complex_value_slot()` is a convenient function used to initial
 
 At runtime, a complex value can be calculated using the `ngx_http_complex_value()` function:
 
-> ngx\_str\_t  res;
-> 
-> if (ngx\_http\_complex\_value(r, &cv, &res) != NGX\_OK) {
->     return NGX\_ERROR;
-> }
+```c
+ngx_str_t  res;
+
+if (ngx_http_complex_value(r, &cv, &res) != NGX_OK) {
+    return NGX_ERROR;
+}
+```
 
 Given the request `r` and previously compiled value `cv`, the function evaluates the expression and writes the result to `res`.
 
@@ -2047,30 +2173,34 @@ The `ngx_http_internal_redirect(r, uri, args)` function changes the request URI 
 
 The following example performs an internal redirect with the new request arguments.
 
-> ngx\_int\_t
-> ngx\_http\_foo\_redirect(ngx\_http\_request\_t \*r)
-> {
->     ngx\_str\_t  uri, args;
-> 
->     ngx\_str\_set(&uri, "/foo");
->     ngx\_str\_set(&args, "bar=1");
-> 
->     return ngx\_http\_internal\_redirect(r, &uri, &args);
-> }
+```c
+ngx_int_t
+ngx_http_foo_redirect(ngx_http_request_t *r)
+{
+    ngx_str_t  uri, args;
+
+    ngx_str_set(&uri, "/foo");
+    ngx_str_set(&args, "bar=1");
+
+    return ngx_http_internal_redirect(r, &uri, &args);
+}
+```
 
 The function `ngx_http_named_location(r, name)` redirects a request to a named location. The name of the location is passed as the argument. The location is looked up among all named locations of the current server, after which the requests switches to the `NGX_HTTP_REWRITE_PHASE` phase.
 
 The following example performs a redirect to a named location @foo.
 
-> ngx\_int\_t
-> ngx\_http\_foo\_named\_redirect(ngx\_http\_request\_t \*r)
-> {
->     ngx\_str\_t  name;
-> 
->     ngx\_str\_set(&name, "foo");
-> 
->     return ngx\_http\_named\_location(r, &name);
-> }
+```c
+ngx_int_t
+ngx_http_foo_named_redirect(ngx_http_request_t *r)
+{
+    ngx_str_t  name;
+
+    ngx_str_set(&name, "foo");
+
+    return ngx_http_named_location(r, &name);
+}
+```
 
 Both functions - `ngx_http_internal_redirect(r, uri, args)` and `ngx_http_named_location(r, name)` can be called when nginx modules have already stored some contexts in a request's `ctx` field. It's possible for these contexts to become inconsistent with the new location configuration. To prevent inconsistency, all request contexts are erased by both redirect functions.
 
@@ -2101,113 +2231,119 @@ Create a subrequest by calling the function `ngx_http_subrequest(r, uri, args, p
 
 The following example creates a subrequest with the URI of `/foo`.
 
-> ngx\_int\_t            rc;
-> ngx\_str\_t            uri;
-> ngx\_http\_request\_t  \*sr;
-> 
-> ...
-> 
-> ngx\_str\_set(&uri, "/foo");
-> 
-> rc = ngx\_http\_subrequest(r, &uri, NULL, &sr, NULL, 0);
-> if (rc == NGX\_ERROR) {
->     /\* error \*/
-> }
+```c
+ngx_int_t            rc;
+ngx_str_t            uri;
+ngx_http_request_t  *sr;
+
+...
+
+ngx_str_set(&uri, "/foo");
+
+rc = ngx_http_subrequest(r, &uri, NULL, &sr, NULL, 0);
+if (rc == NGX_ERROR) {
+    /* error */
+}
+```
 
 This example clones the current request and sets a finalization callback for the subrequest.
 
-> ngx\_int\_t
-> ngx\_http\_foo\_clone(ngx\_http\_request\_t \*r)
-> {
->     ngx\_http\_request\_t          \*sr;
->     ngx\_http\_post\_subrequest\_t  \*ps;
-> 
->     ps = ngx\_palloc(r->pool, sizeof(ngx\_http\_post\_subrequest\_t));
->     if (ps == NULL) {
->         return NGX\_ERROR;
->     }
-> 
->     ps->handler = ngx\_http\_foo\_subrequest\_done;
->     ps->data = "foo";
-> 
->     return ngx\_http\_subrequest(r, &r->uri, &r->args, &sr, ps,
->                                NGX\_HTTP\_SUBREQUEST\_CLONE);
-> }
-> 
-> 
-> ngx\_int\_t
-> ngx\_http\_foo\_subrequest\_done(ngx\_http\_request\_t \*r, void \*data, ngx\_int\_t rc)
-> {
->     char  \*msg = (char \*) data;
-> 
->     ngx\_log\_error(NGX\_LOG\_INFO, r->connection->log, 0,
->                   "done subrequest r:%p msg:%s rc:%i", r, msg, rc);
-> 
->     return rc;
-> }
+```c
+ngx_int_t
+ngx_http_foo_clone(ngx_http_request_t *r)
+{
+    ngx_http_request_t          *sr;
+    ngx_http_post_subrequest_t  *ps;
+
+    ps = ngx_palloc(r->pool, sizeof(ngx_http_post_subrequest_t));
+    if (ps == NULL) {
+        return NGX_ERROR;
+    }
+
+    ps->handler = ngx_http_foo_subrequest_done;
+    ps->data = "foo";
+
+    return ngx_http_subrequest(r, &r->uri, &r->args, &sr, ps,
+                               NGX_HTTP_SUBREQUEST_CLONE);
+}
+
+
+ngx_int_t
+ngx_http_foo_subrequest_done(ngx_http_request_t *r, void *data, ngx_int_t rc)
+{
+    char  *msg = (char *) data;
+
+    ngx_log_error(NGX_LOG_INFO, r->connection->log, 0,
+                  "done subrequest r:%p msg:%s rc:%i", r, msg, rc);
+
+    return rc;
+}
+```
 
 Subrequests are normally created in a body filter, in which case their output can be treated like the output from any explicit request. This means that eventually the output of a subrequest is sent to the client, after all explicit buffers that are passed before subrequest creation and before any buffers that are passed after creation. This ordering is preserved even for large hierarchies of subrequests. The following example inserts output from a subrequest after all request data buffers, but before the final buffer with the `last_buf` flag.
 
-> ngx\_int\_t
-> ngx\_http\_foo\_body\_filter(ngx\_http\_request\_t \*r, ngx\_chain\_t \*in)
-> {
->     ngx\_int\_t                   rc;
->     ngx\_buf\_t                  \*b;
->     ngx\_uint\_t                  last;
->     ngx\_chain\_t                \*cl, out;
->     ngx\_http\_request\_t         \*sr;
->     ngx\_http\_foo\_filter\_ctx\_t  \*ctx;
-> 
->     ctx = ngx\_http\_get\_module\_ctx(r, ngx\_http\_foo\_filter\_module);
->     if (ctx == NULL) {
->         return ngx\_http\_next\_body\_filter(r, in);
->     }
-> 
->     last = 0;
-> 
->     for (cl = in; cl; cl = cl->next) {
->         if (cl->buf->last\_buf) {
->             cl->buf->last\_buf = 0;
->             cl->buf->last\_in\_chain = 1;
->             cl->buf->sync = 1;
->             last = 1;
->         }
->     }
-> 
->     /\* Output explicit output buffers \*/
-> 
->     rc = ngx\_http\_next\_body\_filter(r, in);
-> 
->     if (rc == NGX\_ERROR || !last) {
->         return rc;
->     }
-> 
->     /\*
->      \* Create the subrequest.  The output of the subrequest
->      \* will automatically be sent after all preceding buffers,
->      \* but before the last\_buf buffer passed later in this function.
->      \*/
-> 
->     if (ngx\_http\_subrequest(r, ctx->uri, NULL, &sr, NULL, 0) != NGX\_OK) {
->         return NGX\_ERROR;
->     }
-> 
->     ngx\_http\_set\_ctx(r, NULL, ngx\_http\_foo\_filter\_module);
-> 
->     /\* Output the final buffer with the last\_buf flag \*/
-> 
->     b = ngx\_calloc\_buf(r->pool);
->     if (b == NULL) {
->         return NGX\_ERROR;
->     }
-> 
->     b->last\_buf = 1;
-> 
->     out.buf = b;
->     out.next = NULL;
-> 
->     return ngx\_http\_output\_filter(r, &out);
-> }
+```c
+ngx_int_t
+ngx_http_foo_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
+{
+    ngx_int_t                   rc;
+    ngx_buf_t                  *b;
+    ngx_uint_t                  last;
+    ngx_chain_t                *cl, out;
+    ngx_http_request_t         *sr;
+    ngx_http_foo_filter_ctx_t  *ctx;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_foo_filter_module);
+    if (ctx == NULL) {
+        return ngx_http_next_body_filter(r, in);
+    }
+
+    last = 0;
+
+    for (cl = in; cl; cl = cl->next) {
+        if (cl->buf->last_buf) {
+            cl->buf->last_buf = 0;
+            cl->buf->last_in_chain = 1;
+            cl->buf->sync = 1;
+            last = 1;
+        }
+    }
+
+    /* Output explicit output buffers */
+
+    rc = ngx_http_next_body_filter(r, in);
+
+    if (rc == NGX_ERROR || !last) {
+        return rc;
+    }
+
+    /*
+     * Create the subrequest.  The output of the subrequest
+     * will automatically be sent after all preceding buffers,
+     * but before the last_buf buffer passed later in this function.
+     */
+
+    if (ngx_http_subrequest(r, ctx->uri, NULL, &sr, NULL, 0) != NGX_OK) {
+        return NGX_ERROR;
+    }
+
+    ngx_http_set_ctx(r, NULL, ngx_http_foo_filter_module);
+
+    /* Output the final buffer with the last_buf flag */
+
+    b = ngx_calloc_buf(r->pool);
+    if (b == NULL) {
+        return NGX_ERROR;
+    }
+
+    b->last_buf = 1;
+
+    out.buf = b;
+    out.next = NULL;
+
+    return ngx_http_output_filter(r, &out);
+}
+```
 
 A subrequest can also be created for other purposes than data output. For example, the [ngx\_http\_auth\_request\_module](https://nginx.org/en/docs/http/ngx_http_auth_request_module.html) module creates a subrequest at the `NGX_HTTP_ACCESS_PHASE` phase. To disable output at this point, the `header_only` flag is set on the subrequest. This prevents the subrequest body from being sent to the client. Note that the subrequest's header is never sent to the client. The result of the subrequest can be analyzed in the callback handler.
 
@@ -2232,68 +2368,70 @@ The function `ngx_http_read_client_request_body(r, post_handler)` starts the pro
 
 The following example reads a client request body and returns its size.
 
-> ngx\_int\_t
-> ngx\_http\_foo\_content\_handler(ngx\_http\_request\_t \*r)
-> {
->     ngx\_int\_t  rc;
-> 
->     rc = ngx\_http\_read\_client\_request\_body(r, ngx\_http\_foo\_init);
-> 
->     if (rc >= NGX\_HTTP\_SPECIAL\_RESPONSE) {
->         /\* error \*/
->         return rc;
->     }
-> 
->     return NGX\_DONE;
-> }
-> 
-> 
-> void
-> ngx\_http\_foo\_init(ngx\_http\_request\_t \*r)
-> {
->     off\_t         len;
->     ngx\_buf\_t    \*b;
->     ngx\_int\_t     rc;
->     ngx\_chain\_t  \*in, out;
-> 
->     if (r->request\_body == NULL) {
->         ngx\_http\_finalize\_request(r, NGX\_HTTP\_INTERNAL\_SERVER\_ERROR);
->         return;
->     }
-> 
->     len = 0;
-> 
->     for (in = r->request\_body->bufs; in; in = in->next) {
->         len += ngx\_buf\_size(in->buf);
->     }
-> 
->     b = ngx\_create\_temp\_buf(r->pool, NGX\_OFF\_T\_LEN);
->     if (b == NULL) {
->         ngx\_http\_finalize\_request(r, NGX\_HTTP\_INTERNAL\_SERVER\_ERROR);
->         return;
->     }
-> 
->     b->last = ngx\_sprintf(b->pos, "%O", len);
->     b->last\_buf = (r == r->main) ? 1 : 0;
->     b->last\_in\_chain = 1;
-> 
->     r->headers\_out.status = NGX\_HTTP\_OK;
->     r->headers\_out.content\_length\_n = b->last - b->pos;
-> 
->     rc = ngx\_http\_send\_header(r);
-> 
->     if (rc == NGX\_ERROR || rc > NGX\_OK || r->header\_only) {
->         ngx\_http\_finalize\_request(r, rc);
->         return;
->     }
-> 
->     out.buf = b;
->     out.next = NULL;
-> 
->     rc = ngx\_http\_output\_filter(r, &out);
-> 
->     ngx\_http\_finalize\_request(r, rc);
-> }
+```c
+ngx_int_t
+ngx_http_foo_content_handler(ngx_http_request_t *r)
+{
+    ngx_int_t  rc;
+
+    rc = ngx_http_read_client_request_body(r, ngx_http_foo_init);
+
+    if (rc >= NGX_HTTP_SPECIAL_RESPONSE) {
+        /* error */
+        return rc;
+    }
+
+    return NGX_DONE;
+}
+
+
+void
+ngx_http_foo_init(ngx_http_request_t *r)
+{
+    off_t         len;
+    ngx_buf_t    *b;
+    ngx_int_t     rc;
+    ngx_chain_t  *in, out;
+
+    if (r->request_body == NULL) {
+        ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
+        return;
+    }
+
+    len = 0;
+
+    for (in = r->request_body->bufs; in; in = in->next) {
+        len += ngx_buf_size(in->buf);
+    }
+
+    b = ngx_create_temp_buf(r->pool, NGX_OFF_T_LEN);
+    if (b == NULL) {
+        ngx_http_finalize_request(r, NGX_HTTP_INTERNAL_SERVER_ERROR);
+        return;
+    }
+
+    b->last = ngx_sprintf(b->pos, "%O", len);
+    b->last_buf = (r == r->main) ? 1 : 0;
+    b->last_in_chain = 1;
+
+    r->headers_out.status = NGX_HTTP_OK;
+    r->headers_out.content_length_n = b->last - b->pos;
+
+    rc = ngx_http_send_header(r);
+
+    if (rc == NGX_ERROR || rc > NGX_OK || r->header_only) {
+        ngx_http_finalize_request(r, rc);
+        return;
+    }
+
+    out.buf = b;
+    out.next = NULL;
+
+    rc = ngx_http_output_filter(r, &out);
+
+    ngx_http_finalize_request(r, rc);
+}
+```
 
 The following fields of the request determine how the request body is read:
 
@@ -2315,163 +2453,165 @@ If a filter is planning to delay data buffers, it should set the flag `r->reques
 
 Following is an example of a simple request body filter that delays request body by one second.
 
-> #include <ngx\_config.h>
-> #include <ngx\_core.h>
-> #include <ngx\_http.h>
-> 
-> 
-> #define NGX\_HTTP\_DELAY\_BODY  1000
-> 
-> 
-> typedef struct {
->     ngx\_event\_t   event;
->     ngx\_chain\_t  \*out;
-> } ngx\_http\_delay\_body\_ctx\_t;
-> 
-> 
-> static ngx\_int\_t ngx\_http\_delay\_body\_filter(ngx\_http\_request\_t \*r,
->     ngx\_chain\_t \*in);
-> static void ngx\_http\_delay\_body\_cleanup(void \*data);
-> static void ngx\_http\_delay\_body\_event\_handler(ngx\_event\_t \*ev);
-> static ngx\_int\_t ngx\_http\_delay\_body\_init(ngx\_conf\_t \*cf);
-> 
-> 
-> static ngx\_http\_module\_t  ngx\_http\_delay\_body\_module\_ctx = {
->     NULL,                          /\* preconfiguration \*/
->     ngx\_http\_delay\_body\_init,      /\* postconfiguration \*/
-> 
->     NULL,                          /\* create main configuration \*/
->     NULL,                          /\* init main configuration \*/
-> 
->     NULL,                          /\* create server configuration \*/
->     NULL,                          /\* merge server configuration \*/
-> 
->     NULL,                          /\* create location configuration \*/
->     NULL                           /\* merge location configuration \*/
-> };
-> 
-> 
-> ngx\_module\_t  ngx\_http\_delay\_body\_filter\_module = {
->     NGX\_MODULE\_V1,
->     &ngx\_http\_delay\_body\_module\_ctx, /\* module context \*/
->     NULL,                          /\* module directives \*/
->     NGX\_HTTP\_MODULE,               /\* module type \*/
->     NULL,                          /\* init master \*/
->     NULL,                          /\* init module \*/
->     NULL,                          /\* init process \*/
->     NULL,                          /\* init thread \*/
->     NULL,                          /\* exit thread \*/
->     NULL,                          /\* exit process \*/
->     NULL,                          /\* exit master \*/
->     NGX\_MODULE\_V1\_PADDING
-> };
-> 
-> 
-> static ngx\_http\_request\_body\_filter\_pt   ngx\_http\_next\_request\_body\_filter;
-> 
-> 
-> static ngx\_int\_t
-> ngx\_http\_delay\_body\_filter(ngx\_http\_request\_t \*r, ngx\_chain\_t \*in)
-> {
->     ngx\_int\_t                   rc;
->     ngx\_chain\_t                \*cl, \*ln;
->     ngx\_http\_cleanup\_t         \*cln;
->     ngx\_http\_delay\_body\_ctx\_t  \*ctx;
-> 
->     ngx\_log\_debug0(NGX\_LOG\_DEBUG\_HTTP, r->connection->log, 0,
->                    "delay request body filter");
-> 
->     ctx = ngx\_http\_get\_module\_ctx(r, ngx\_http\_delay\_body\_filter\_module);
-> 
->     if (ctx == NULL) {
->         ctx = ngx\_pcalloc(r->pool, sizeof(ngx\_http\_delay\_body\_ctx\_t));
->         if (ctx == NULL) {
->             return NGX\_HTTP\_INTERNAL\_SERVER\_ERROR;
->         }
-> 
->         ngx\_http\_set\_ctx(r, ctx, ngx\_http\_delay\_body\_filter\_module);
-> 
->         r->request\_body->filter\_need\_buffering = 1;
->     }
-> 
->     if (ngx\_chain\_add\_copy(r->pool, &ctx->out, in) != NGX\_OK) {
->         return NGX\_HTTP\_INTERNAL\_SERVER\_ERROR;
->     }
-> 
->     if (!ctx->event.timedout) {
->         if (!ctx->event.timer\_set) {
-> 
->             /\* cleanup to remove the timer in case of abnormal termination \*/
-> 
->             cln = ngx\_http\_cleanup\_add(r, 0);
->             if (cln == NULL) {
->                 return NGX\_HTTP\_INTERNAL\_SERVER\_ERROR;
->             }
-> 
->             cln->handler = ngx\_http\_delay\_body\_cleanup;
->             cln->data = ctx;
-> 
->             /\* add timer \*/
-> 
->             ctx->event.handler = ngx\_http\_delay\_body\_event\_handler;
->             ctx->event.data = r;
->             ctx->event.log = r->connection->log;
-> 
->             ngx\_add\_timer(&ctx->event, NGX\_HTTP\_DELAY\_BODY);
->         }
-> 
->         return ngx\_http\_next\_request\_body\_filter(r, NULL);
->     }
-> 
->     rc = ngx\_http\_next\_request\_body\_filter(r, ctx->out);
-> 
->     for (cl = ctx->out; cl; /\* void \*/) {
->         ln = cl;
->         cl = cl->next;
->         ngx\_free\_chain(r->pool, ln);
->     }
-> 
->     ctx->out = NULL;
-> 
->     return rc;
-> }
-> 
-> 
-> static void
-> ngx\_http\_delay\_body\_cleanup(void \*data)
-> {
->     ngx\_http\_delay\_body\_ctx\_t \*ctx = data;
-> 
->     if (ctx->event.timer\_set) {
->         ngx\_del\_timer(&ctx->event);
->     }
-> }
-> 
-> 
-> static void
-> ngx\_http\_delay\_body\_event\_handler(ngx\_event\_t \*ev)
-> {
->     ngx\_connection\_t    \*c;
->     ngx\_http\_request\_t  \*r;
-> 
->     r = ev->data;
->     c = r->connection;
-> 
->     ngx\_log\_debug0(NGX\_LOG\_DEBUG\_HTTP, c->log, 0,
->                    "delay request body event");
-> 
->     ngx\_post\_event(c->read, &ngx\_posted\_events);
-> }
-> 
-> 
-> static ngx\_int\_t
-> ngx\_http\_delay\_body\_init(ngx\_conf\_t \*cf)
-> {
->     ngx\_http\_next\_request\_body\_filter = ngx\_http\_top\_request\_body\_filter;
->     ngx\_http\_top\_request\_body\_filter = ngx\_http\_delay\_body\_filter;
-> 
->     return NGX\_OK;
-> }
+```c
+#include <ngx_config.h>
+#include <ngx_core.h>
+#include <ngx_http.h>
+
+
+#define NGX_HTTP_DELAY_BODY  1000
+
+
+typedef struct {
+    ngx_event_t   event;
+    ngx_chain_t  *out;
+} ngx_http_delay_body_ctx_t;
+
+
+static ngx_int_t ngx_http_delay_body_filter(ngx_http_request_t *r,
+    ngx_chain_t *in);
+static void ngx_http_delay_body_cleanup(void *data);
+static void ngx_http_delay_body_event_handler(ngx_event_t *ev);
+static ngx_int_t ngx_http_delay_body_init(ngx_conf_t *cf);
+
+
+static ngx_http_module_t  ngx_http_delay_body_module_ctx = {
+    NULL,                          /* preconfiguration */
+    ngx_http_delay_body_init,      /* postconfiguration */
+
+    NULL,                          /* create main configuration */
+    NULL,                          /* init main configuration */
+
+    NULL,                          /* create server configuration */
+    NULL,                          /* merge server configuration */
+
+    NULL,                          /* create location configuration */
+    NULL                           /* merge location configuration */
+};
+
+
+ngx_module_t  ngx_http_delay_body_filter_module = {
+    NGX_MODULE_V1,
+    &ngx_http_delay_body_module_ctx, /* module context */
+    NULL,                          /* module directives */
+    NGX_HTTP_MODULE,               /* module type */
+    NULL,                          /* init master */
+    NULL,                          /* init module */
+    NULL,                          /* init process */
+    NULL,                          /* init thread */
+    NULL,                          /* exit thread */
+    NULL,                          /* exit process */
+    NULL,                          /* exit master */
+    NGX_MODULE_V1_PADDING
+};
+
+
+static ngx_http_request_body_filter_pt   ngx_http_next_request_body_filter;
+
+
+static ngx_int_t
+ngx_http_delay_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
+{
+    ngx_int_t                   rc;
+    ngx_chain_t                *cl, *ln;
+    ngx_http_cleanup_t         *cln;
+    ngx_http_delay_body_ctx_t  *ctx;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "delay request body filter");
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_delay_body_filter_module);
+
+    if (ctx == NULL) {
+        ctx = ngx_pcalloc(r->pool, sizeof(ngx_http_delay_body_ctx_t));
+        if (ctx == NULL) {
+            return NGX_HTTP_INTERNAL_SERVER_ERROR;
+        }
+
+        ngx_http_set_ctx(r, ctx, ngx_http_delay_body_filter_module);
+
+        r->request_body->filter_need_buffering = 1;
+    }
+
+    if (ngx_chain_add_copy(r->pool, &ctx->out, in) != NGX_OK) {
+        return NGX_HTTP_INTERNAL_SERVER_ERROR;
+    }
+
+    if (!ctx->event.timedout) {
+        if (!ctx->event.timer_set) {
+
+            /* cleanup to remove the timer in case of abnormal termination */
+
+            cln = ngx_http_cleanup_add(r, 0);
+            if (cln == NULL) {
+                return NGX_HTTP_INTERNAL_SERVER_ERROR;
+            }
+
+            cln->handler = ngx_http_delay_body_cleanup;
+            cln->data = ctx;
+
+            /* add timer */
+
+            ctx->event.handler = ngx_http_delay_body_event_handler;
+            ctx->event.data = r;
+            ctx->event.log = r->connection->log;
+
+            ngx_add_timer(&ctx->event, NGX_HTTP_DELAY_BODY);
+        }
+
+        return ngx_http_next_request_body_filter(r, NULL);
+    }
+
+    rc = ngx_http_next_request_body_filter(r, ctx->out);
+
+    for (cl = ctx->out; cl; /* void */) {
+        ln = cl;
+        cl = cl->next;
+        ngx_free_chain(r->pool, ln);
+    }
+
+    ctx->out = NULL;
+
+    return rc;
+}
+
+
+static void
+ngx_http_delay_body_cleanup(void *data)
+{
+    ngx_http_delay_body_ctx_t *ctx = data;
+
+    if (ctx->event.timer_set) {
+        ngx_del_timer(&ctx->event);
+    }
+}
+
+
+static void
+ngx_http_delay_body_event_handler(ngx_event_t *ev)
+{
+    ngx_connection_t    *c;
+    ngx_http_request_t  *r;
+
+    r = ev->data;
+    c = r->connection;
+
+    ngx_log_debug0(NGX_LOG_DEBUG_HTTP, c->log, 0,
+                   "delay request body event");
+
+    ngx_post_event(c->read, &ngx_posted_events);
+}
+
+
+static ngx_int_t
+ngx_http_delay_body_init(ngx_conf_t *cf)
+{
+    ngx_http_next_request_body_filter = ngx_http_top_request_body_filter;
+    ngx_http_top_request_body_filter = ngx_http_delay_body_filter;
+
+    return NGX_OK;
+}
+```
 
 #### Response
 
@@ -2481,38 +2621,40 @@ In nginx an HTTP response is produced by sending the response header followed by
 
 The `ngx_http_send_header(r)` function sends the output header. Do not call this function until `r->headers_out` contains all of the data required to produce the HTTP response header. The `status` field in `r->headers_out` must always be set. If the response status indicates that a response body follows the header, `content_length_n` can be set as well. The default value for this field is `-1`, which means that the body size is unknown. In this case, chunked transfer encoding is used. To output an arbitrary header, append the `headers` list.
 
-> static ngx\_int\_t
-> ngx\_http\_foo\_content\_handler(ngx\_http\_request\_t \*r)
-> {
->     ngx\_int\_t         rc;
->     ngx\_table\_elt\_t  \*h;
-> 
->     /\* send header \*/
-> 
->     r->headers\_out.status = NGX\_HTTP\_OK;
->     r->headers\_out.content\_length\_n = 3;
-> 
->     /\* X-Foo: foo \*/
-> 
->     h = ngx\_list\_push(&r->headers\_out.headers);
->     if (h == NULL) {
->         return NGX\_ERROR;
->     }
-> 
->     h->hash = 1;
->     ngx\_str\_set(&h->key, "X-Foo");
->     ngx\_str\_set(&h->value, "foo");
-> 
->     rc = ngx\_http\_send\_header(r);
-> 
->     if (rc == NGX\_ERROR || rc > NGX\_OK || r->header\_only) {
->         return rc;
->     }
-> 
->     /\* send body \*/
-> 
->     ...
-> }
+```c
+static ngx_int_t
+ngx_http_foo_content_handler(ngx_http_request_t *r)
+{
+    ngx_int_t         rc;
+    ngx_table_elt_t  *h;
+
+    /* send header */
+
+    r->headers_out.status = NGX_HTTP_OK;
+    r->headers_out.content_length_n = 3;
+
+    /* X-Foo: foo */
+
+    h = ngx_list_push(&r->headers_out.headers);
+    if (h == NULL) {
+        return NGX_ERROR;
+    }
+
+    h->hash = 1;
+    ngx_str_set(&h->key, "X-Foo");
+    ngx_str_set(&h->value, "foo");
+
+    rc = ngx_http_send_header(r);
+
+    if (rc == NGX_ERROR || rc > NGX_OK || r->header_only) {
+        return rc;
+    }
+
+    /* send body */
+
+    ...
+}
+```
 
 #### Header filters
 
@@ -2522,84 +2664,86 @@ To add a handler to the header filter chain, store its address in the global var
 
 The following example of a header filter module adds the HTTP header "`X-Foo: foo`" to every response with status `200`.
 
-> #include <ngx\_config.h>
-> #include <ngx\_core.h>
-> #include <ngx\_http.h>
-> 
-> 
-> static ngx\_int\_t ngx\_http\_foo\_header\_filter(ngx\_http\_request\_t \*r);
-> static ngx\_int\_t ngx\_http\_foo\_header\_filter\_init(ngx\_conf\_t \*cf);
-> 
-> 
-> static ngx\_http\_module\_t  ngx\_http\_foo\_header\_filter\_module\_ctx = {
->     NULL,                                   /\* preconfiguration \*/
->     ngx\_http\_foo\_header\_filter\_init,        /\* postconfiguration \*/
-> 
->     NULL,                                   /\* create main configuration \*/
->     NULL,                                   /\* init main configuration \*/
-> 
->     NULL,                                   /\* create server configuration \*/
->     NULL,                                   /\* merge server configuration \*/
-> 
->     NULL,                                   /\* create location configuration \*/
->     NULL                                    /\* merge location configuration \*/
-> };
-> 
-> 
-> ngx\_module\_t  ngx\_http\_foo\_header\_filter\_module = {
->     NGX\_MODULE\_V1,
->     &ngx\_http\_foo\_header\_filter\_module\_ctx, /\* module context \*/
->     NULL,                                   /\* module directives \*/
->     NGX\_HTTP\_MODULE,                        /\* module type \*/
->     NULL,                                   /\* init master \*/
->     NULL,                                   /\* init module \*/
->     NULL,                                   /\* init process \*/
->     NULL,                                   /\* init thread \*/
->     NULL,                                   /\* exit thread \*/
->     NULL,                                   /\* exit process \*/
->     NULL,                                   /\* exit master \*/
->     NGX\_MODULE\_V1\_PADDING
-> };
-> 
-> 
-> static ngx\_http\_output\_header\_filter\_pt  ngx\_http\_next\_header\_filter;
-> 
-> 
-> static ngx\_int\_t
-> ngx\_http\_foo\_header\_filter(ngx\_http\_request\_t \*r)
-> {
->     ngx\_table\_elt\_t  \*h;
-> 
->     /\*
->      \* The filter handler adds "X-Foo: foo" header
->      \* to every HTTP 200 response
->      \*/
-> 
->     if (r->headers\_out.status != NGX\_HTTP\_OK) {
->         return ngx\_http\_next\_header\_filter(r);
->     }
-> 
->     h = ngx\_list\_push(&r->headers\_out.headers);
->     if (h == NULL) {
->         return NGX\_ERROR;
->     }
-> 
->     h->hash = 1;
->     ngx\_str\_set(&h->key, "X-Foo");
->     ngx\_str\_set(&h->value, "foo");
-> 
->     return ngx\_http\_next\_header\_filter(r);
-> }
-> 
-> 
-> static ngx\_int\_t
-> ngx\_http\_foo\_header\_filter\_init(ngx\_conf\_t \*cf)
-> {
->     ngx\_http\_next\_header\_filter = ngx\_http\_top\_header\_filter;
->     ngx\_http\_top\_header\_filter = ngx\_http\_foo\_header\_filter;
-> 
->     return NGX\_OK;
-> }
+```c
+#include <ngx_config.h>
+#include <ngx_core.h>
+#include <ngx_http.h>
+
+
+static ngx_int_t ngx_http_foo_header_filter(ngx_http_request_t *r);
+static ngx_int_t ngx_http_foo_header_filter_init(ngx_conf_t *cf);
+
+
+static ngx_http_module_t  ngx_http_foo_header_filter_module_ctx = {
+    NULL,                                   /* preconfiguration */
+    ngx_http_foo_header_filter_init,        /* postconfiguration */
+
+    NULL,                                   /* create main configuration */
+    NULL,                                   /* init main configuration */
+
+    NULL,                                   /* create server configuration */
+    NULL,                                   /* merge server configuration */
+
+    NULL,                                   /* create location configuration */
+    NULL                                    /* merge location configuration */
+};
+
+
+ngx_module_t  ngx_http_foo_header_filter_module = {
+    NGX_MODULE_V1,
+    &ngx_http_foo_header_filter_module_ctx, /* module context */
+    NULL,                                   /* module directives */
+    NGX_HTTP_MODULE,                        /* module type */
+    NULL,                                   /* init master */
+    NULL,                                   /* init module */
+    NULL,                                   /* init process */
+    NULL,                                   /* init thread */
+    NULL,                                   /* exit thread */
+    NULL,                                   /* exit process */
+    NULL,                                   /* exit master */
+    NGX_MODULE_V1_PADDING
+};
+
+
+static ngx_http_output_header_filter_pt  ngx_http_next_header_filter;
+
+
+static ngx_int_t
+ngx_http_foo_header_filter(ngx_http_request_t *r)
+{
+    ngx_table_elt_t  *h;
+
+    /*
+     * The filter handler adds "X-Foo: foo" header
+     * to every HTTP 200 response
+     */
+
+    if (r->headers_out.status != NGX_HTTP_OK) {
+        return ngx_http_next_header_filter(r);
+    }
+
+    h = ngx_list_push(&r->headers_out.headers);
+    if (h == NULL) {
+        return NGX_ERROR;
+    }
+
+    h->hash = 1;
+    ngx_str_set(&h->key, "X-Foo");
+    ngx_str_set(&h->value, "foo");
+
+    return ngx_http_next_header_filter(r);
+}
+
+
+static ngx_int_t
+ngx_http_foo_header_filter_init(ngx_conf_t *cf)
+{
+    ngx_http_next_header_filter = ngx_http_top_header_filter;
+    ngx_http_top_header_filter = ngx_http_foo_header_filter;
+
+    return NGX_OK;
+}
+```
 
 #### Response body
 
@@ -2607,44 +2751,46 @@ To send the response body, call the `ngx_http_output_filter(r, cl)` function. Th
 
 The following example produces a complete HTTP response with "foo" as its body. For the example to work as subrequest as well as a main request, the `last_in_chain` flag is set in the last buffer of the output. The `last_buf` flag is set only for the main request because the last buffer for a subrequest does not end the entire output.
 
-> static ngx\_int\_t
-> ngx\_http\_bar\_content\_handler(ngx\_http\_request\_t \*r)
-> {
->     ngx\_int\_t     rc;
->     ngx\_buf\_t    \*b;
->     ngx\_chain\_t   out;
-> 
->     /\* send header \*/
-> 
->     r->headers\_out.status = NGX\_HTTP\_OK;
->     r->headers\_out.content\_length\_n = 3;
-> 
->     rc = ngx\_http\_send\_header(r);
-> 
->     if (rc == NGX\_ERROR || rc > NGX\_OK || r->header\_only) {
->         return rc;
->     }
-> 
->     /\* send body \*/
-> 
->     b = ngx\_calloc\_buf(r->pool);
->     if (b == NULL) {
->         return NGX\_ERROR;
->     }
-> 
->     b->last\_buf = (r == r->main) ? 1 : 0;
->     b->last\_in\_chain = 1;
-> 
->     b->memory = 1;
-> 
->     b->pos = (u\_char \*) "foo";
->     b->last = b->pos + 3;
-> 
->     out.buf = b;
->     out.next = NULL;
-> 
->     return ngx\_http\_output\_filter(r, &out);
-> }
+```c
+static ngx_int_t
+ngx_http_bar_content_handler(ngx_http_request_t *r)
+{
+    ngx_int_t     rc;
+    ngx_buf_t    *b;
+    ngx_chain_t   out;
+
+    /* send header */
+
+    r->headers_out.status = NGX_HTTP_OK;
+    r->headers_out.content_length_n = 3;
+
+    rc = ngx_http_send_header(r);
+
+    if (rc == NGX_ERROR || rc > NGX_OK || r->header_only) {
+        return rc;
+    }
+
+    /* send body */
+
+    b = ngx_calloc_buf(r->pool);
+    if (b == NULL) {
+        return NGX_ERROR;
+    }
+
+    b->last_buf = (r == r->main) ? 1 : 0;
+    b->last_in_chain = 1;
+
+    b->memory = 1;
+
+    b->pos = (u_char *) "foo";
+    b->last = b->pos + 3;
+
+    out.buf = b;
+    out.next = NULL;
+
+    return ngx_http_output_filter(r, &out);
+}
+```
 
 #### Response body filters
 
@@ -2654,136 +2800,138 @@ A body filter handler receives a chain of buffers. The handler is supposed to pr
 
 Following is an example of a simple body filter that counts the number of bytes in the body. The result is available as the `$counter` variable which can be used in the access log.
 
-> #include <ngx\_config.h>
-> #include <ngx\_core.h>
-> #include <ngx\_http.h>
-> 
-> 
-> typedef struct {
->     off\_t  count;
-> } ngx\_http\_counter\_filter\_ctx\_t;
-> 
-> 
-> static ngx\_int\_t ngx\_http\_counter\_body\_filter(ngx\_http\_request\_t \*r,
->     ngx\_chain\_t \*in);
-> static ngx\_int\_t ngx\_http\_counter\_variable(ngx\_http\_request\_t \*r,
->     ngx\_http\_variable\_value\_t \*v, uintptr\_t data);
-> static ngx\_int\_t ngx\_http\_counter\_add\_variables(ngx\_conf\_t \*cf);
-> static ngx\_int\_t ngx\_http\_counter\_filter\_init(ngx\_conf\_t \*cf);
-> 
-> 
-> static ngx\_http\_module\_t  ngx\_http\_counter\_filter\_module\_ctx = {
->     ngx\_http\_counter\_add\_variables,        /\* preconfiguration \*/
->     ngx\_http\_counter\_filter\_init,          /\* postconfiguration \*/
-> 
->     NULL,                                  /\* create main configuration \*/
->     NULL,                                  /\* init main configuration \*/
-> 
->     NULL,                                  /\* create server configuration \*/
->     NULL,                                  /\* merge server configuration \*/
-> 
->     NULL,                                  /\* create location configuration \*/
->     NULL                                   /\* merge location configuration \*/
-> };
-> 
-> 
-> ngx\_module\_t  ngx\_http\_counter\_filter\_module = {
->     NGX\_MODULE\_V1,
->     &ngx\_http\_counter\_filter\_module\_ctx,   /\* module context \*/
->     NULL,                                  /\* module directives \*/
->     NGX\_HTTP\_MODULE,                       /\* module type \*/
->     NULL,                                  /\* init master \*/
->     NULL,                                  /\* init module \*/
->     NULL,                                  /\* init process \*/
->     NULL,                                  /\* init thread \*/
->     NULL,                                  /\* exit thread \*/
->     NULL,                                  /\* exit process \*/
->     NULL,                                  /\* exit master \*/
->     NGX\_MODULE\_V1\_PADDING
-> };
-> 
-> 
-> static ngx\_http\_output\_body\_filter\_pt  ngx\_http\_next\_body\_filter;
-> 
-> static ngx\_str\_t  ngx\_http\_counter\_name = ngx\_string("counter");
-> 
-> 
-> static ngx\_int\_t
-> ngx\_http\_counter\_body\_filter(ngx\_http\_request\_t \*r, ngx\_chain\_t \*in)
-> {
->     ngx\_chain\_t                    \*cl;
->     ngx\_http\_counter\_filter\_ctx\_t  \*ctx;
-> 
->     ctx = ngx\_http\_get\_module\_ctx(r, ngx\_http\_counter\_filter\_module);
->     if (ctx == NULL) {
->         ctx = ngx\_pcalloc(r->pool, sizeof(ngx\_http\_counter\_filter\_ctx\_t));
->         if (ctx == NULL) {
->             return NGX\_ERROR;
->         }
-> 
->         ngx\_http\_set\_ctx(r, ctx, ngx\_http\_counter\_filter\_module);
->     }
-> 
->     for (cl = in; cl; cl = cl->next) {
->         ctx->count += ngx\_buf\_size(cl->buf);
->     }
-> 
->     return ngx\_http\_next\_body\_filter(r, in);
-> }
-> 
-> 
-> static ngx\_int\_t
-> ngx\_http\_counter\_variable(ngx\_http\_request\_t \*r, ngx\_http\_variable\_value\_t \*v,
->     uintptr\_t data)
-> {
->     u\_char                         \*p;
->     ngx\_http\_counter\_filter\_ctx\_t  \*ctx;
-> 
->     ctx = ngx\_http\_get\_module\_ctx(r, ngx\_http\_counter\_filter\_module);
->     if (ctx == NULL) {
->         v->not\_found = 1;
->         return NGX\_OK;
->     }
-> 
->     p = ngx\_pnalloc(r->pool, NGX\_OFF\_T\_LEN);
->     if (p == NULL) {
->         return NGX\_ERROR;
->     }
-> 
->     v->data = p;
->     v->len = ngx\_sprintf(p, "%O", ctx->count) - p;
->     v->valid = 1;
->     v->no\_cacheable = 0;
->     v->not\_found = 0;
-> 
->     return NGX\_OK;
-> }
-> 
-> 
-> static ngx\_int\_t
-> ngx\_http\_counter\_add\_variables(ngx\_conf\_t \*cf)
-> {
->     ngx\_http\_variable\_t  \*var;
-> 
->     var = ngx\_http\_add\_variable(cf, &ngx\_http\_counter\_name, 0);
->     if (var == NULL) {
->         return NGX\_ERROR;
->     }
-> 
->     var->get\_handler = ngx\_http\_counter\_variable;
-> 
->     return NGX\_OK;
-> }
-> 
-> 
-> static ngx\_int\_t
-> ngx\_http\_counter\_filter\_init(ngx\_conf\_t \*cf)
-> {
->     ngx\_http\_next\_body\_filter = ngx\_http\_top\_body\_filter;
->     ngx\_http\_top\_body\_filter = ngx\_http\_counter\_body\_filter;
-> 
->     return NGX\_OK;
-> }
+```c
+#include <ngx_config.h>
+#include <ngx_core.h>
+#include <ngx_http.h>
+
+
+typedef struct {
+    off_t  count;
+} ngx_http_counter_filter_ctx_t;
+
+
+static ngx_int_t ngx_http_counter_body_filter(ngx_http_request_t *r,
+    ngx_chain_t *in);
+static ngx_int_t ngx_http_counter_variable(ngx_http_request_t *r,
+    ngx_http_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_http_counter_add_variables(ngx_conf_t *cf);
+static ngx_int_t ngx_http_counter_filter_init(ngx_conf_t *cf);
+
+
+static ngx_http_module_t  ngx_http_counter_filter_module_ctx = {
+    ngx_http_counter_add_variables,        /* preconfiguration */
+    ngx_http_counter_filter_init,          /* postconfiguration */
+
+    NULL,                                  /* create main configuration */
+    NULL,                                  /* init main configuration */
+
+    NULL,                                  /* create server configuration */
+    NULL,                                  /* merge server configuration */
+
+    NULL,                                  /* create location configuration */
+    NULL                                   /* merge location configuration */
+};
+
+
+ngx_module_t  ngx_http_counter_filter_module = {
+    NGX_MODULE_V1,
+    &ngx_http_counter_filter_module_ctx,   /* module context */
+    NULL,                                  /* module directives */
+    NGX_HTTP_MODULE,                       /* module type */
+    NULL,                                  /* init master */
+    NULL,                                  /* init module */
+    NULL,                                  /* init process */
+    NULL,                                  /* init thread */
+    NULL,                                  /* exit thread */
+    NULL,                                  /* exit process */
+    NULL,                                  /* exit master */
+    NGX_MODULE_V1_PADDING
+};
+
+
+static ngx_http_output_body_filter_pt  ngx_http_next_body_filter;
+
+static ngx_str_t  ngx_http_counter_name = ngx_string("counter");
+
+
+static ngx_int_t
+ngx_http_counter_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
+{
+    ngx_chain_t                    *cl;
+    ngx_http_counter_filter_ctx_t  *ctx;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_counter_filter_module);
+    if (ctx == NULL) {
+        ctx = ngx_pcalloc(r->pool, sizeof(ngx_http_counter_filter_ctx_t));
+        if (ctx == NULL) {
+            return NGX_ERROR;
+        }
+
+        ngx_http_set_ctx(r, ctx, ngx_http_counter_filter_module);
+    }
+
+    for (cl = in; cl; cl = cl->next) {
+        ctx->count += ngx_buf_size(cl->buf);
+    }
+
+    return ngx_http_next_body_filter(r, in);
+}
+
+
+static ngx_int_t
+ngx_http_counter_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v,
+    uintptr_t data)
+{
+    u_char                         *p;
+    ngx_http_counter_filter_ctx_t  *ctx;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_counter_filter_module);
+    if (ctx == NULL) {
+        v->not_found = 1;
+        return NGX_OK;
+    }
+
+    p = ngx_pnalloc(r->pool, NGX_OFF_T_LEN);
+    if (p == NULL) {
+        return NGX_ERROR;
+    }
+
+    v->data = p;
+    v->len = ngx_sprintf(p, "%O", ctx->count) - p;
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_http_counter_add_variables(ngx_conf_t *cf)
+{
+    ngx_http_variable_t  *var;
+
+    var = ngx_http_add_variable(cf, &ngx_http_counter_name, 0);
+    if (var == NULL) {
+        return NGX_ERROR;
+    }
+
+    var->get_handler = ngx_http_counter_variable;
+
+    return NGX_OK;
+}
+
+
+static ngx_int_t
+ngx_http_counter_filter_init(ngx_conf_t *cf)
+{
+    ngx_http_next_body_filter = ngx_http_top_body_filter;
+    ngx_http_top_body_filter = ngx_http_counter_body_filter;
+
+    return NGX_OK;
+}
+```
 
 #### Building filter modules
 
@@ -2793,11 +2941,13 @@ For third-party filter modules nginx provides a special slot `HTTP_AUX_FILTER_MO
 
 The following example shows a filter module config file assuming for a module with just one source file, `ngx_http_foo_filter_module.c`.
 
-> ngx\_module\_type=HTTP\_AUX\_FILTER
-> ngx\_module\_name=ngx\_http\_foo\_filter\_module
-> ngx\_module\_srcs="$ngx\_addon\_dir/ngx\_http\_foo\_filter\_module.c"
-> 
-> . auto/module
+```
+ngx_module_type=HTTP_AUX_FILTER
+ngx_module_name=ngx_http_foo_filter_module
+ngx_module_srcs="$ngx_addon_dir/ngx_http_foo_filter_module.c"
+
+. auto/module
+```
 
 #### Buffer reuse
 
@@ -2805,77 +2955,79 @@ When issuing or altering a stream of buffers, it's often desirable to reuse the 
 
 The following example is a body filter that inserts the string “foo” before each incoming buffer. The new buffers allocated by the module are reused if possible. Note that for this example to work properly, setting up a [header filter](https://nginx.org/en/docs/dev/development_guide.html#http_header_filters) and resetting `content_length_n` to `-1` is also required, but the relevant code is not provided here.
 
-> typedef struct {
->     ngx\_chain\_t  \*free;
->     ngx\_chain\_t  \*busy;
-> }  ngx\_http\_foo\_filter\_ctx\_t;
-> 
-> 
-> ngx\_int\_t
-> ngx\_http\_foo\_body\_filter(ngx\_http\_request\_t \*r, ngx\_chain\_t \*in)
-> {
->     ngx\_int\_t                   rc;
->     ngx\_buf\_t                  \*b;
->     ngx\_chain\_t                \*cl, \*tl, \*out, \*\*ll;
->     ngx\_http\_foo\_filter\_ctx\_t  \*ctx;
-> 
->     ctx = ngx\_http\_get\_module\_ctx(r, ngx\_http\_foo\_filter\_module);
->     if (ctx == NULL) {
->         ctx = ngx\_pcalloc(r->pool, sizeof(ngx\_http\_foo\_filter\_ctx\_t));
->         if (ctx == NULL) {
->             return NGX\_ERROR;
->         }
-> 
->         ngx\_http\_set\_ctx(r, ctx, ngx\_http\_foo\_filter\_module);
->     }
-> 
->     /\* create a new chain "out" from "in" with all the changes \*/
-> 
->     ll = &out;
-> 
->     for (cl = in; cl; cl = cl->next) {
-> 
->         /\* append "foo" in a reused buffer if possible \*/
-> 
->         tl = ngx\_chain\_get\_free\_buf(r->pool, &ctx->free);
->         if (tl == NULL) {
->             return NGX\_ERROR;
->         }
-> 
->         b = tl->buf;
->         b->tag = (ngx\_buf\_tag\_t) &ngx\_http\_foo\_filter\_module;
->         b->memory = 1;
->         b->pos = (u\_char \*) "foo";
->         b->last = b->pos + 3;
-> 
->         \*ll = tl;
->         ll = &tl->next;
-> 
->         /\* append the next incoming buffer \*/
-> 
->         tl = ngx\_alloc\_chain\_link(r->pool);
->         if (tl == NULL) {
->             return NGX\_ERROR;
->         }
-> 
->         tl->buf = cl->buf;
->         \*ll = tl;
->         ll = &tl->next;
->     }
-> 
->     \*ll = NULL;
-> 
->     /\* send the new chain \*/
-> 
->     rc = ngx\_http\_next\_body\_filter(r, out);
-> 
->     /\* update "busy" and "free" chains for reuse \*/
-> 
->     ngx\_chain\_update\_chains(r->pool, &ctx->free, &ctx->busy, &out,
->                             (ngx\_buf\_tag\_t) &ngx\_http\_foo\_filter\_module);
-> 
->     return rc;
-> }
+```c
+typedef struct {
+    ngx_chain_t  *free;
+    ngx_chain_t  *busy;
+}  ngx_http_foo_filter_ctx_t;
+
+
+ngx_int_t
+ngx_http_foo_body_filter(ngx_http_request_t *r, ngx_chain_t *in)
+{
+    ngx_int_t                   rc;
+    ngx_buf_t                  *b;
+    ngx_chain_t                *cl, *tl, *out, **ll;
+    ngx_http_foo_filter_ctx_t  *ctx;
+
+    ctx = ngx_http_get_module_ctx(r, ngx_http_foo_filter_module);
+    if (ctx == NULL) {
+        ctx = ngx_pcalloc(r->pool, sizeof(ngx_http_foo_filter_ctx_t));
+        if (ctx == NULL) {
+            return NGX_ERROR;
+        }
+
+        ngx_http_set_ctx(r, ctx, ngx_http_foo_filter_module);
+    }
+
+    /* create a new chain "out" from "in" with all the changes */
+
+    ll = &out;
+
+    for (cl = in; cl; cl = cl->next) {
+
+        /* append "foo" in a reused buffer if possible */
+
+        tl = ngx_chain_get_free_buf(r->pool, &ctx->free);
+        if (tl == NULL) {
+            return NGX_ERROR;
+        }
+
+        b = tl->buf;
+        b->tag = (ngx_buf_tag_t) &ngx_http_foo_filter_module;
+        b->memory = 1;
+        b->pos = (u_char *) "foo";
+        b->last = b->pos + 3;
+
+        *ll = tl;
+        ll = &tl->next;
+
+        /* append the next incoming buffer */
+
+        tl = ngx_alloc_chain_link(r->pool);
+        if (tl == NULL) {
+            return NGX_ERROR;
+        }
+
+        tl->buf = cl->buf;
+        *ll = tl;
+        ll = &tl->next;
+    }
+
+    *ll = NULL;
+
+    /* send the new chain */
+
+    rc = ngx_http_next_body_filter(r, out);
+
+    /* update "busy" and "free" chains for reuse */
+
+    ngx_chain_update_chains(r->pool, &ctx->free, &ctx->busy, &out,
+                            (ngx_buf_tag_t) &ngx_http_foo_filter_module);
+
+    return rc;
+}
+```
 
 #### Load balancing
 
@@ -2885,23 +3037,25 @@ The [least\_conn](https://nginx.org/en/docs/http/ngx_http_upstream_module.html#l
 
 The [ngx\_http\_upstream\_module](https://nginx.org/en/docs/http/ngx_http_upstream_module.html) can be configured explicitly by placing the corresponding [upstream](https://nginx.org/en/docs/http/ngx_http_upstream_module.html#upstream) block into the configuration file, or implicitly by using directives such as [proxy\_pass](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_pass) that accept a URL that gets evaluated at some point into a list of servers. The alternative load-balancing methods are available only with an explicit upstream configuration. The upstream module configuration has its own directive context `NGX_HTTP_UPS_CONF`. The structure is defined as follows:
 
-> struct ngx\_http\_upstream\_srv\_conf\_s {
->     ngx\_http\_upstream\_peer\_t         peer;
->     void                           \*\*srv\_conf;
-> 
->     ngx\_array\_t                     \*servers;  /\* ngx\_http\_upstream\_server\_t \*/
-> 
->     ngx\_uint\_t                       flags;
->     ngx\_str\_t                        host;
->     u\_char                          \*file\_name;
->     ngx\_uint\_t                       line;
->     in\_port\_t                        port;
->     ngx\_uint\_t                       no\_port;  /\* unsigned no\_port:1 \*/
-> 
-> #if (NGX\_HTTP\_UPSTREAM\_ZONE)
->     ngx\_shm\_zone\_t                  \*shm\_zone;
-> #endif
-> };
+```c
+struct ngx_http_upstream_srv_conf_s {
+    ngx_http_upstream_peer_t         peer;
+    void                           **srv_conf;
+
+    ngx_array_t                     *servers;  /* ngx_http_upstream_server_t */
+
+    ngx_uint_t                       flags;
+    ngx_str_t                        host;
+    u_char                          *file_name;
+    ngx_uint_t                       line;
+    in_port_t                        port;
+    ngx_uint_t                       no_port;  /* unsigned no_port:1 */
+
+#if (NGX_HTTP_UPSTREAM_ZONE)
+    ngx_shm_zone_t                  *shm_zone;
+#endif
+};
+```
 
 -   `srv_conf` — Configuration context of upstream modules.
 -   `servers` — Array of `ngx_http_upstream_server_t`, the result of parsing a set of [server](https://nginx.org/en/docs/http/ngx_http_upstream_module.html#server) directives in the `upstream` block.
@@ -2919,11 +3073,13 @@ The [ngx\_http\_upstream\_module](https://nginx.org/en/docs/http/ngx_http_upstre
 -   `shm_zone` — Shared memory zone used by this upstream group, if any.
 -   `peer` — object that holds generic methods for initializing upstream configuration:
     
-    > typedef struct {
-    >     ngx\_http\_upstream\_init\_pt        init\_upstream;
-    >     ngx\_http\_upstream\_init\_peer\_pt   init;
-    >     void                            \*data;
-    > } ngx\_http\_upstream\_peer\_t;
+    ```c
+    typedef struct {
+        ngx_http_upstream_init_pt        init_upstream;
+        ngx_http_upstream_init_peer_pt   init;
+        void                            *data;
+    } ngx_http_upstream_peer_t;
+    ```
     
     A module that implements a load-balancing algorithm must set these methods and initialize private `data`. If `init_upstream` was not initialized during configuration parsing, `ngx_http_upstream_module` sets it to the default `ngx_http_upstream_init_round_robin` algorithm.
     -   `init_upstream(cf, us)` — Configuration-time method responsible for initializing a group of servers and initializing the `init()` method in case of success. A typical load-balancing module uses a list of servers in the `upstream` block to create an efficient data structure that it uses and saves its own configuration to the `data` field.
@@ -2931,27 +3087,29 @@ The [ngx\_http\_upstream\_module](https://nginx.org/en/docs/http/ngx_http_upstre
 
 When nginx has to pass a request to another host for processing, it uses the configured load-balancing method to obtain an address to connect to. The method is obtained from the `ngx_http_upstream_t.peer` object of type `ngx_peer_connection_t`:
 
-> struct ngx\_peer\_connection\_s {
->     ...
-> 
->     struct sockaddr                 \*sockaddr;
->     socklen\_t                        socklen;
->     ngx\_str\_t                       \*name;
-> 
->     ngx\_uint\_t                       tries;
-> 
->     ngx\_event\_get\_peer\_pt            get;
->     ngx\_event\_free\_peer\_pt           free;
->     ngx\_event\_notify\_peer\_pt         notify;
->     void                            \*data;
-> 
-> #if (NGX\_SSL || NGX\_COMPAT)
->     ngx\_event\_set\_peer\_session\_pt    set\_session;
->     ngx\_event\_save\_peer\_session\_pt   save\_session;
-> #endif
-> 
->     ...
-> };
+```c
+struct ngx_peer_connection_s {
+    ...
+
+    struct sockaddr                 *sockaddr;
+    socklen_t                        socklen;
+    ngx_str_t                       *name;
+
+    ngx_uint_t                       tries;
+
+    ngx_event_get_peer_pt            get;
+    ngx_event_free_peer_pt           free;
+    ngx_event_notify_peer_pt         notify;
+    void                            *data;
+
+#if (NGX_SSL || NGX_COMPAT)
+    ngx_event_set_peer_session_pt    set_session;
+    ngx_event_save_peer_session_pt   save_session;
+#endif
+
+    ...
+};
+```
 
 The structure has the following fields:
 
@@ -2992,31 +3150,33 @@ The [nginx-dev-examples](https://github.com/nginx/nginx-dev-examples) repository
 -   hexadecimal literals are lowercase
 -   file names, function and type names, and global variables have the `ngx_` or more specific prefix such as `ngx_http_` and `ngx_mail_`
 
-> size\_t
-> ngx\_utf8\_length(u\_char \*p, size\_t n)
-> {
->     u\_char  c, \*last;
->     size\_t  len;
-> 
->     last = p + n;
-> 
->     for (len = 0; p < last; len++) {
-> 
->         c = \*p;
-> 
->         if (c < 0x80) {
->             p++;
->             continue;
->         }
-> 
->         if (ngx\_utf8\_decode(&p, last - p) > 0x10ffff) {
->             /\* invalid UTF-8 \*/
->             return n;
->         }
->     }
-> 
->     return len;
-> }
+```c
+size_t
+ngx_utf8_length(u_char *p, size_t n)
+{
+    u_char  c, *last;
+    size_t  len;
+
+    last = p + n;
+
+    for (len = 0; p < last; len++) {
+
+        c = *p;
+
+        if (c < 0x80) {
+            p++;
+            continue;
+        }
+
+        if (ngx_utf8_decode(&p, last - p) > 0x10ffff) {
+            /* invalid UTF-8 */
+            return n;
+        }
+    }
+
+    return len;
+}
+```
 
 #### Files
 
@@ -3041,17 +3201,19 @@ If the file is modified significantly, the list of authors should be updated, th
 
 The `ngx_config.h` and `ngx_core.h` files are always included first, followed by one of `ngx_http.h`, `ngx_stream.h`, or `ngx_mail.h`. Then follow optional external header files:
 
-> #include <ngx\_config.h>
-> #include <ngx\_core.h>
-> #include <ngx\_http.h>
-> 
-> #include <libxml/parser.h>
-> #include <libxml/tree.h>
-> #include <libxslt/xslt.h>
-> 
-> #if (NGX\_HAVE\_EXSLT)
-> #include <libexslt/exslt.h>
-> #endif
+```c
+#include <ngx_config.h>
+#include <ngx_core.h>
+#include <ngx_http.h>
+
+#include <libxml/parser.h>
+#include <libxml/tree.h>
+#include <libxslt/xslt.h>
+
+#if (NGX_HAVE_EXSLT)
+#include <libexslt/exslt.h>
+#endif
+```
 
 Header files should include the so called "header protection":
 
@@ -3071,22 +3233,26 @@ Header files should include the so called "header protection":
     >  \* the "Introduction to Algorithms" by Cormen, Leiserson and Rivest.
     >  \*/
     
-    > /\* find the server configuration for the address:port \*/
+    ```
+    /* find the server configuration for the address:port */
+    ```
     
 
 #### Preprocessor
 
 Macro names start from `ngx_` or `NGX_` (or more specific) prefix. Macro names for constants are uppercase. Parameterized macros and macros for initializers are lowercase. The macro name and value are separated by at least two spaces:
 
-> #define NGX\_CONF\_BUFFER  4096
-> 
-> #define ngx\_buf\_in\_memory(b)  (b->temporary || b->memory || b->mmap)
-> 
-> #define ngx\_buf\_size(b)                                                      \\
->     (ngx\_buf\_in\_memory(b) ? (off\_t) (b->last - b->pos):                      \\
->                             (b->file\_last - b->file\_pos))
-> 
-> #define ngx\_null\_string  { 0, NULL }
+```c
+#define NGX_CONF_BUFFER  4096
+
+#define ngx_buf_in_memory(b)  (b->temporary || b->memory || b->mmap)
+
+#define ngx_buf_size(b)                                                      \
+    (ngx_buf_in_memory(b) ? (off_t) (b->last - b->pos):                      \
+                            (b->file_last - b->file_pos))
+
+#define ngx_null_string  { 0, NULL }
+```
 
 Conditions are inside parentheses, negation is outside:
 
@@ -3107,309 +3273,379 @@ Conditions are inside parentheses, negation is outside:
 
 Type names end with the “`_t`” suffix. A defined type name is separated by at least two spaces:
 
-> typedef ngx\_uint\_t  ngx\_rbtree\_key\_t;
+```c
+typedef ngx_uint_t  ngx_rbtree_key_t;
+```
 
 Structure types are defined using `typedef`. Inside structures, member types and names are aligned:
 
-> typedef struct {
->     size\_t      len;
->     u\_char     \*data;
-> } ngx\_str\_t;
+```c
+typedef struct {
+    size_t      len;
+    u_char     *data;
+} ngx_str_t;
+```
 
 Keep alignment identical among different structures in the file. A structure that points to itself has the name, ending with “`_s`”. Adjacent structure definitions are separated with two empty lines:
 
-> typedef struct ngx\_list\_part\_s  ngx\_list\_part\_t;
-> 
-> struct ngx\_list\_part\_s {
->     void             \*elts;
->     ngx\_uint\_t        nelts;
->     ngx\_list\_part\_t  \*next;
-> };
-> 
-> 
-> typedef struct {
->     ngx\_list\_part\_t  \*last;
->     ngx\_list\_part\_t   part;
->     size\_t            size;
->     ngx\_uint\_t        nalloc;
->     ngx\_pool\_t       \*pool;
-> } ngx\_list\_t;
+```c
+typedef struct ngx_list_part_s  ngx_list_part_t;
+
+struct ngx_list_part_s {
+    void             *elts;
+    ngx_uint_t        nelts;
+    ngx_list_part_t  *next;
+};
+
+
+typedef struct {
+    ngx_list_part_t  *last;
+    ngx_list_part_t   part;
+    size_t            size;
+    ngx_uint_t        nalloc;
+    ngx_pool_t       *pool;
+} ngx_list_t;
+```
 
 Each structure member is declared on its own line:
 
-> typedef struct {
->     ngx\_uint\_t        hash;
->     ngx\_str\_t         key;
->     ngx\_str\_t         value;
->     u\_char           \*lowcase\_key;
-> } ngx\_table\_elt\_t;
+```c
+typedef struct {
+    ngx_uint_t        hash;
+    ngx_str_t         key;
+    ngx_str_t         value;
+    u_char           *lowcase_key;
+} ngx_table_elt_t;
+```
 
 Function pointers inside structures have defined types ending with “`_pt`”:
 
-> typedef ssize\_t (\*ngx\_recv\_pt)(ngx\_connection\_t \*c, u\_char \*buf, size\_t size);
-> typedef ssize\_t (\*ngx\_recv\_chain\_pt)(ngx\_connection\_t \*c, ngx\_chain\_t \*in,
->     off\_t limit);
-> typedef ssize\_t (\*ngx\_send\_pt)(ngx\_connection\_t \*c, u\_char \*buf, size\_t size);
-> typedef ngx\_chain\_t \*(\*ngx\_send\_chain\_pt)(ngx\_connection\_t \*c, ngx\_chain\_t \*in,
->     off\_t limit);
-> 
-> typedef struct {
->     ngx\_recv\_pt        recv;
->     ngx\_recv\_chain\_pt  recv\_chain;
->     ngx\_recv\_pt        udp\_recv;
->     ngx\_send\_pt        send;
->     ngx\_send\_pt        udp\_send;
->     ngx\_send\_chain\_pt  udp\_send\_chain;
->     ngx\_send\_chain\_pt  send\_chain;
->     ngx\_uint\_t         flags;
-> } ngx\_os\_io\_t;
+```c
+typedef ssize_t (*ngx_recv_pt)(ngx_connection_t *c, u_char *buf, size_t size);
+typedef ssize_t (*ngx_recv_chain_pt)(ngx_connection_t *c, ngx_chain_t *in,
+    off_t limit);
+typedef ssize_t (*ngx_send_pt)(ngx_connection_t *c, u_char *buf, size_t size);
+typedef ngx_chain_t *(*ngx_send_chain_pt)(ngx_connection_t *c, ngx_chain_t *in,
+    off_t limit);
+
+typedef struct {
+    ngx_recv_pt        recv;
+    ngx_recv_chain_pt  recv_chain;
+    ngx_recv_pt        udp_recv;
+    ngx_send_pt        send;
+    ngx_send_pt        udp_send;
+    ngx_send_chain_pt  udp_send_chain;
+    ngx_send_chain_pt  send_chain;
+    ngx_uint_t         flags;
+} ngx_os_io_t;
+```
 
 Enumerations have types ending with “`_e`”:
 
-> typedef enum {
->     ngx\_http\_fastcgi\_st\_version = 0,
->     ngx\_http\_fastcgi\_st\_type,
->     ...
->     ngx\_http\_fastcgi\_st\_padding
-> } ngx\_http\_fastcgi\_state\_e;
+```nginx
+typedef enum {
+    ngx_http_fastcgi_st_version = 0,
+    ngx_http_fastcgi_st_type,
+    ...
+    ngx_http_fastcgi_st_padding
+} ngx_http_fastcgi_state_e;
+```
 
 #### Variables
 
 Variables are declared sorted by length of a base type, then alphabetically. Type names and variable names are aligned. The type and name “columns” are separated with two spaces. Large arrays are put at the end of a declaration block:
 
-> u\_char                      |  | \*rv, \*p;
-> ngx\_conf\_t                  |  | \*cf;
-> ngx\_uint\_t                  |  |  i, j, k;
-> unsigned int                |  |  len;
-> struct sockaddr             |  | \*sa;
-> const unsigned char         |  | \*data;
-> ngx\_peer\_connection\_t       |  | \*pc;
-> ngx\_http\_core\_srv\_conf\_t    |  |\*\*cscfp;
-> ngx\_http\_upstream\_srv\_conf\_t|  | \*us, \*uscf;
-> u\_char                      |  |  text\[NGX\_SOCKADDR\_STRLEN\];
+```c
+u_char                      |  | *rv, *p;
+ngx_conf_t                  |  | *cf;
+ngx_uint_t                  |  |  i, j, k;
+unsigned int                |  |  len;
+struct sockaddr             |  | *sa;
+const unsigned char         |  | *data;
+ngx_peer_connection_t       |  | *pc;
+ngx_http_core_srv_conf_t    |  |**cscfp;
+ngx_http_upstream_srv_conf_t|  | *us, *uscf;
+u_char                      |  |  text[NGX_SOCKADDR_STRLEN];
+```
 
 Static and global variables may be initialized on declaration:
 
-> static ngx\_str\_t  ngx\_http\_memcached\_key = ngx\_string("memcached\_key");
+```c
+static ngx_str_t  ngx_http_memcached_key = ngx_string("memcached_key");
+```
 
-> static ngx\_uint\_t  mday\[\] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+```c
+static ngx_uint_t  mday[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+```
 
-> static uint32\_t  ngx\_crc32\_table16\[\] = {
->     0x00000000, 0x1db71064, 0x3b6e20c8, 0x26d930ac,
->     ...
->     0x9b64c2b0, 0x86d3d2d4, 0xa00ae278, 0xbdbdf21c
-> };
+```nginx
+static uint32_t  ngx_crc32_table16[] = {
+    0x00000000, 0x1db71064, 0x3b6e20c8, 0x26d930ac,
+    ...
+    0x9b64c2b0, 0x86d3d2d4, 0xa00ae278, 0xbdbdf21c
+};
+```
 
 There is a bunch of commonly used type/name combinations:
 
-> u\_char                        \*rv;
-> ngx\_int\_t                      rc;
-> ngx\_conf\_t                    \*cf;
-> ngx\_connection\_t              \*c;
-> ngx\_http\_request\_t            \*r;
-> ngx\_peer\_connection\_t         \*pc;
-> ngx\_http\_upstream\_srv\_conf\_t  \*us, \*uscf;
+```c
+u_char                        *rv;
+ngx_int_t                      rc;
+ngx_conf_t                    *cf;
+ngx_connection_t              *c;
+ngx_http_request_t            *r;
+ngx_peer_connection_t         *pc;
+ngx_http_upstream_srv_conf_t  *us, *uscf;
+```
 
 #### Functions
 
 All functions (even static ones) should have prototypes. Prototypes include argument names. Long prototypes are wrapped with a single indentation on continuation lines:
 
-> static char \*ngx\_http\_block(ngx\_conf\_t \*cf, ngx\_command\_t \*cmd, void \*conf);
-> static ngx\_int\_t ngx\_http\_init\_phases(ngx\_conf\_t \*cf,
->     ngx\_http\_core\_main\_conf\_t \*cmcf);
-> 
-> static char \*ngx\_http\_merge\_servers(ngx\_conf\_t \*cf,
->     ngx\_http\_core\_main\_conf\_t \*cmcf, ngx\_http\_module\_t \*module,
->     ngx\_uint\_t ctx\_index);
+```c
+static char *ngx_http_block(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+static ngx_int_t ngx_http_init_phases(ngx_conf_t *cf,
+    ngx_http_core_main_conf_t *cmcf);
+
+static char *ngx_http_merge_servers(ngx_conf_t *cf,
+    ngx_http_core_main_conf_t *cmcf, ngx_http_module_t *module,
+    ngx_uint_t ctx_index);
+```
 
 The function name in a definition starts with a new line. The function body opening and closing braces are on separate lines. The body of a function is indented. There are two empty lines between functions:
 
-> static ngx\_int\_t
-> ngx\_http\_find\_virtual\_server(ngx\_http\_request\_t \*r, u\_char \*host, size\_t len)
-> {
->     ...
-> }
-> 
-> 
-> static ngx\_int\_t
-> ngx\_http\_add\_addresses(ngx\_conf\_t \*cf, ngx\_http\_core\_srv\_conf\_t \*cscf,
->     ngx\_http\_conf\_port\_t \*port, ngx\_http\_listen\_opt\_t \*lsopt)
-> {
->     ...
-> }
+```c
+static ngx_int_t
+ngx_http_find_virtual_server(ngx_http_request_t *r, u_char *host, size_t len)
+{
+    ...
+}
+
+
+static ngx_int_t
+ngx_http_add_addresses(ngx_conf_t *cf, ngx_http_core_srv_conf_t *cscf,
+    ngx_http_conf_port_t *port, ngx_http_listen_opt_t *lsopt)
+{
+    ...
+}
+```
 
 There is no space after the function name and opening parenthesis. Long function calls are wrapped such that continuation lines start from the position of the first function argument. If this is impossible, format the first continuation line such that it ends at position 79:
 
-> ngx\_log\_debug2(NGX\_LOG\_DEBUG\_HTTP, r->connection->log, 0,
->                "http header: \\"%V: %V\\"",
->                &h->key, &h->value);
-> 
-> hc->busy = ngx\_palloc(r->connection->pool,
->                   cscf->large\_client\_header\_buffers.num \* sizeof(ngx\_buf\_t \*));
+```c
+ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+               "http header: \"%V: %V\"",
+               &h->key, &h->value);
+
+hc->busy = ngx_palloc(r->connection->pool,
+                  cscf->large_client_header_buffers.num * sizeof(ngx_buf_t *));
+```
 
 The `ngx_inline` macro should be used instead of `inline`:
 
-> static ngx\_inline void ngx\_cpuid(uint32\_t i, uint32\_t \*buf);
+```c
+static ngx_inline void ngx_cpuid(uint32_t i, uint32_t *buf);
+```
 
 #### Expressions
 
 Binary operators except “`.`” and “`−>`” should be separated from their operands by one space. Unary operators and subscripts are not separated from their operands by spaces:
 
-> width = width \* 10 + (\*fmt++ - '0');
+```nginx
+width = width * 10 + (*fmt++ - '0');
+```
 
-> ch = (u\_char) ((decoded << 4) + (ch - '0'));
+```c
+ch = (u_char) ((decoded << 4) + (ch - '0'));
+```
 
-> r->exten.data = &r->uri.data\[i + 1\];
+```c
+r->exten.data = &r->uri.data[i + 1];
+```
 
 Type casts are separated by one space from casted expressions. An asterisk inside type cast is separated with space from type name:
 
-> len = ngx\_sock\_ntop((struct sockaddr \*) sin6, p, len, 1);
+```c
+len = ngx_sock_ntop((struct sockaddr *) sin6, p, len, 1);
+```
 
 If an expression does not fit into single line, it is wrapped. The preferred point to break a line is a binary operator. The continuation line is lined up with the start of expression:
 
-> if (status == NGX\_HTTP\_MOVED\_PERMANENTLY
->     || status == NGX\_HTTP\_MOVED\_TEMPORARILY
->     || status == NGX\_HTTP\_SEE\_OTHER
->     || status == NGX\_HTTP\_TEMPORARY\_REDIRECT
->     || status == NGX\_HTTP\_PERMANENT\_REDIRECT)
-> {
->     ...
-> }
+```nginx
+if (status == NGX_HTTP_MOVED_PERMANENTLY
+    || status == NGX_HTTP_MOVED_TEMPORARILY
+    || status == NGX_HTTP_SEE_OTHER
+    || status == NGX_HTTP_TEMPORARY_REDIRECT
+    || status == NGX_HTTP_PERMANENT_REDIRECT)
+{
+    ...
+}
+```
 
-> p->temp\_file->warn = "an upstream response is buffered "
->                      "to a temporary file";
+```c
+p->temp_file->warn = "an upstream response is buffered "
+                     "to a temporary file";
+```
 
 As a last resort, it is possible to wrap an expression so that the continuation line ends at position 79:
 
-> hinit->hash = ngx\_pcalloc(hinit->pool, sizeof(ngx\_hash\_wildcard\_t)
->                                      + size \* sizeof(ngx\_hash\_elt\_t \*));
+```c
+hinit->hash = ngx_pcalloc(hinit->pool, sizeof(ngx_hash_wildcard_t)
+                                     + size * sizeof(ngx_hash_elt_t *));
+```
 
 The above rules also apply to sub-expressions, where each sub-expression has its own indentation level:
 
-> if (((u->conf->cache\_use\_stale & NGX\_HTTP\_UPSTREAM\_FT\_UPDATING)
->      || c->stale\_updating) && !r->background
->     && u->conf->cache\_background\_update)
-> {
->     ...
-> }
+```c
+if (((u->conf->cache_use_stale & NGX_HTTP_UPSTREAM_FT_UPDATING)
+     || c->stale_updating) && !r->background
+    && u->conf->cache_background_update)
+{
+    ...
+}
+```
 
 Sometimes, it is convenient to wrap an expression after a cast. In this case, the continuation line is indented:
 
-> node = (ngx\_rbtree\_node\_t \*)
->            ((u\_char \*) lr - offsetof(ngx\_rbtree\_node\_t, color));
+```c
+node = (ngx_rbtree_node_t *)
+           ((u_char *) lr - offsetof(ngx_rbtree_node_t, color));
+```
 
 Pointers are explicitly compared to `NULL` (not `0`):
 
-> if (ptr != NULL) {
->     ...
-> }
+```nginx
+if (ptr != NULL) {
+    ...
+}
+```
 
 #### Conditionals and Loops
 
 The “`if`” keyword is separated from the condition by one space. Opening brace is located on the same line, or on a dedicated line if the condition takes several lines. Closing brace is located on a dedicated line, optionally followed by “`else if` / `else`”. Usually, there is an empty line before the “`else if` / `else`” part:
 
-> if (node->left == sentinel) {
->     temp = node->right;
->     subst = node;
-> 
-> } else if (node->right == sentinel) {
->     temp = node->left;
->     subst = node;
-> 
-> } else {
->     subst = ngx\_rbtree\_min(node->right, sentinel);
-> 
->     if (subst->left != sentinel) {
->         temp = subst->left;
-> 
->     } else {
->         temp = subst->right;
->     }
-> }
+```c
+if (node->left == sentinel) {
+    temp = node->right;
+    subst = node;
+
+} else if (node->right == sentinel) {
+    temp = node->left;
+    subst = node;
+
+} else {
+    subst = ngx_rbtree_min(node->right, sentinel);
+
+    if (subst->left != sentinel) {
+        temp = subst->left;
+
+    } else {
+        temp = subst->right;
+    }
+}
+```
 
 Similar formatting rules are applied to “`do`” and “`while`” loops:
 
-> while (p < last && \*p == ' ') {
->     p++;
-> }
+```nginx
+while (p < last && *p == ' ') {
+    p++;
+}
+```
 
-> do {
->     ctx->node = rn;
->     ctx = ctx->next;
-> } while (ctx);
+```c
+do {
+    ctx->node = rn;
+    ctx = ctx->next;
+} while (ctx);
+```
 
 The “`switch`” keyword is separated from the condition by one space. Opening brace is located on the same line. Closing brace is located on a dedicated line. The “`case`” keywords are lined up with “`switch`”:
 
-> switch (ch) {
-> case '!':
->     looked = 2;
->     state = ssi\_comment0\_state;
->     break;
-> 
-> case '<':
->     copy\_end = p;
->     break;
-> 
-> default:
->     copy\_end = p;
->     looked = 0;
->     state = ssi\_start\_state;
->     break;
-> }
+```nginx
+switch (ch) {
+case '!':
+    looked = 2;
+    state = ssi_comment0_state;
+    break;
+
+case '<':
+    copy_end = p;
+    break;
+
+default:
+    copy_end = p;
+    looked = 0;
+    state = ssi_start_state;
+    break;
+}
+```
 
 Most “`for`” loops are formatted like this:
 
-> for (i = 0; i < ccf->env.nelts; i++) {
->     ...
-> }
+```c
+for (i = 0; i < ccf->env.nelts; i++) {
+    ...
+}
+```
 
-> for (q = ngx\_queue\_head(locations);
->      q != ngx\_queue\_sentinel(locations);
->      q = ngx\_queue\_next(q))
-> {
->     ...
-> }
+```c
+for (q = ngx_queue_head(locations);
+     q != ngx_queue_sentinel(locations);
+     q = ngx_queue_next(q))
+{
+    ...
+}
+```
 
 If some part of the “`for`” statement is omitted, this is indicated by the “`/* void */`” comment:
 
-> for (i = 0; /\* void \*/ ; i++) {
->     ...
-> }
+```nginx
+for (i = 0; /* void */ ; i++) {
+    ...
+}
+```
 
 A loop with an empty body is also indicated by the “`/* void */`” comment which may be put on the same line:
 
-> for (cl = \*busy; cl->next; cl = cl->next) { /\* void \*/ }
+```c
+for (cl = *busy; cl->next; cl = cl->next) { /* void */ }
+```
 
 An endless loop looks like this:
 
-> for ( ;; ) {
->     ...
-> }
+```nginx
+for ( ;; ) {
+    ...
+}
+```
 
 #### Labels
 
 Labels are surrounded with empty lines and are indented at the previous level:
 
->     if (i == 0) {
->         u->err = "host not found";
->         goto failed;
->     }
-> 
->     u->addrs = ngx\_pcalloc(pool, i \* sizeof(ngx\_addr\_t));
->     if (u->addrs == NULL) {
->         goto failed;
->     }
-> 
->     u->naddrs = i;
-> 
->     ...
-> 
->     return NGX\_OK;
-> 
-> failed:
-> 
->     freeaddrinfo(res);
->     return NGX\_ERROR;
+```c
+    if (i == 0) {
+        u->err = "host not found";
+        goto failed;
+    }
+
+    u->addrs = ngx_pcalloc(pool, i * sizeof(ngx_addr_t));
+    if (u->addrs == NULL) {
+        goto failed;
+    }
+
+    u->naddrs = i;
+
+    ...
+
+    return NGX_OK;
+
+failed:
+
+    freeaddrinfo(res);
+    return NGX_ERROR;
+```
 
 #### Debugging memory issues
 
@@ -3419,8 +3655,10 @@ Since most allocations in nginx are made from nginx internal [pool](https://ngin
 
 The following configuration line summarizes the information provided above. It is recommended while developing third-party modules and testing nginx on different platforms.
 
-> auto/configure --with-cc-opt='-fsanitize=address -DNGX\_DEBUG\_PALLOC=1'
->                --with-ld-opt=-fsanitize=address
+```
+auto/configure --with-cc-opt='-fsanitize=address -DNGX_DEBUG_PALLOC=1'
+               --with-ld-opt=-fsanitize=address
+```
 
 #### Common Pitfalls
 

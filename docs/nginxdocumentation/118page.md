@@ -25,27 +25,33 @@ Support for [QUIC](https://datatracker.ietf.org/doc/html/rfc9000) and [HTTP/3](h
 
 使用以下命令配置nginx與[BoringSSL](https://boringssl.googlesource.com/boringssl)：
 
-> ./configure
->     --with-debug
->     --with-http\_v3\_module
->     --with-cc-opt="-I../boringssl/include」
->     --with-ld-opt="-L../boringssl/build -lstdc++」
+```bash
+./configure
+    --with-debug
+    --with-http_v3_module
+    --with-cc-opt="-I../boringssl/include」
+    --with-ld-opt="-L../boringssl/build -lstdc++」
+```
 
 或者，nginx可以配置為[QuicTLS](https://github.com/quictls/openssl)：
 
-> ./configure
->     --with-debug
->     --with-http\_v3\_module
->     --with-cc-opt="-I../quictls/build/include」
->     --with-ld-opt="-L../quictls/build/lib」
+```bash
+./configure
+    --with-debug
+    --with-http_v3_module
+    --with-cc-opt="-I../quictls/build/include」
+    --with-ld-opt="-L../quictls/build/lib」
+```
 
 或者，nginx可以配置為[LibreSSL](https://www.libressl.org/)：
 
-> ./configure
->     --with-debug
->     --with-http\_v3\_module
->     --with-cc-opt="-I../libressl/build/include」
->     --with-ld-opt="-L../libressl/build/lib」
+```bash
+./configure
+    --with-debug
+    --with-http_v3_module
+    --with-cc-opt="-I../libressl/build/include」
+    --with-ld-opt="-L../libressl/build/lib」
+```
 
 配置完成後，使用`make`編譯並安裝nginx。
 
@@ -57,19 +63,27 @@ Support for [QUIC](https://datatracker.ietf.org/doc/html/rfc9000) and [HTTP/3](h
 
 到[enable](https://nginx.org/en/docs/http/ngx_http_v3_module.html#quic_retry)地址驗證：
 
-> quic\_retry on;
+```nginx
+quic_retry on;
+```
 
 至[enable](https://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_early_data)0-RTT：
 
-> ssl\_early\_data on;
+```nginx
+ssl_early_data on;
+```
 
 至[enable](https://nginx.org/en/docs/http/ngx_http_v3_module.html#quic_gso)GSO（通用分段卸載）：
 
-> quic\_gso on;
+```nginx
+quic_gso on;
+```
 
 到各種令牌的[set](https://nginx.org/en/docs/http/ngx_http_v3_module.html#quic_host_key)host密鑰：
 
-> quic\_host\_key <filename>;
+```nginx
+quic_host_key <filename>;
+```
 
 QUIC需要TLSv1.3協議版本，該版本在[ssl\_protocols](https://nginx.org/en/docs/http/ngx_http_ssl_module.html#ssl_protocols)指令中默認啟用。
 
@@ -85,7 +99,9 @@ QUIC需要TLSv1.3協議版本，該版本在[ssl\_protocols](https://nginx.org/e
 -   使用[debug support](https://nginx.org/en/docs/debugging_log.html)構建nginx，並查看調試日誌。它應該包含有關連接的所有詳細信息以及失敗原因。所有相關消息都包含「`quic`」前綴，可以輕鬆過濾掉。
 -   為了進行更深入的調查，可以使用以下宏啟用其他調試：`NGX_QUIC_DEBUG_PACKETS`、`NGX_QUIC_DEBUG_FRAMES`、`NGX_QUIC_DEBUG_ALLOC`、`NGX_QUIC_DEBUG_CRYPTO`。
     
-    > ./configure
-    >     --with-http\_v3\_module
-    >     --with-debug
-    >     --with-cc-opt="-DNGX\_QUIC\_DEBUG\_PACKETS -DNGX\_QUIC\_DEBUG\_PACKPTO」
+    ```bash
+    ./configure
+        --with-http_v3_module
+        --with-debug
+        --with-cc-opt="-DNGX_QUIC_DEBUG_PACKETS -DNGX_QUIC_DEBUG_PACKPTO」
+    ```

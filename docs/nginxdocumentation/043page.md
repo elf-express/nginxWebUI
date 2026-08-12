@@ -18,15 +18,17 @@ The `ngx_http_grpc_module` module allows passing requests to a gRPC server (1.13
 
 #### Example Configuration
 
-> server {
->     listen 9000;
-> 
->     http2 on;
-> 
->     location / {
->         grpc\_pass 127.0.0.1:9000;
->     }
-> }
+```nginx
+server {
+    listen 9000;
+
+    http2 on;
+
+    location / {
+        grpc_pass 127.0.0.1:9000;
+    }
+}
+```
 
 #### Directives
 
@@ -36,21 +38,23 @@ This directive appeared in version 1.29.3.
 
 Defines conditions under which access to a gRPC server is allowed or [denied](https://nginx.org/en/docs/http/ngx_http_grpc_module.html#denied). If all string parameters are not empty and not equal to “0” then the access is allowed. The conditions are evaluated each time before a connection to a gRPC server is established. Parameter values can contain variables:
 
-> geo $upstream\_last\_addr $allow {
->     volatile;
->     10.10.0.0/24        1;
-> }
-> 
-> server {
->     listen 127.0.0.1:8080;
->     http2 on;
-> 
->     location / {
->         grpc\_pass           localhost:9000;
->         grpc\_allow\_upstream $allow;
->         ...
->     }
-> }
+```nginx
+geo $upstream_last_addr $allow {
+    volatile;
+    10.10.0.0/24        1;
+}
+
+server {
+    listen 127.0.0.1:8080;
+    http2 on;
+
+    location / {
+        grpc_pass           localhost:9000;
+        grpc_allow_upstream $allow;
+        ...
+    }
+}
+```
 
 > This directive is available as part of our [commercial subscription](https://www.f5.com/products/nginx).
 
@@ -60,7 +64,9 @@ Makes outgoing connections to a gRPC server originate from the specified local I
 
 The `transparent` parameter allows outgoing connections to a gRPC server originate from a non-local IP address, for example, from a real IP address of a client:
 
-> grpc\_bind $remote\_addr transparent;
+```nginx
+grpc_bind $remote_addr transparent;
+```
 
 In order for this parameter to work, it is usually necessary to run nginx worker processes with the [superuser](https://nginx.org/en/docs/ngx_core_module.html#user) privileges. On Linux it is not required as if the `transparent` parameter is specified, worker processes inherit the `CAP_NET_RAW` capability from the master process. It is also necessary to configure kernel routing table to intercept network traffic from the gRPC server.
 
@@ -173,19 +179,27 @@ Limits the number of possible tries for passing a request to the [next server](h
 
 Sets the gRPC server address. The address can be specified as a domain name or IP address, and a port:
 
-> grpc\_pass localhost:9000;
+```nginx
+grpc_pass localhost:9000;
+```
 
 or as a UNIX-domain socket path:
 
-> grpc\_pass unix:/tmp/grpc.socket;
+```nginx
+grpc_pass unix:/tmp/grpc.socket;
+```
 
 Alternatively, the “`grpc://`” scheme can be used:
 
-> grpc\_pass grpc://127.0.0.1:9000;
+```nginx
+grpc_pass grpc://127.0.0.1:9000;
+```
 
 To use gRPC over SSL, the “`grpcs://`” scheme should be used:
 
-> grpc\_pass grpcs://127.0.0.1:443;
+```nginx
+grpc_pass grpcs://127.0.0.1:443;
+```
 
 If a domain name resolves to several addresses, all of them will be used in a round-robin fashion. In addition, an address can be specified as a [server group](https://nginx.org/en/docs/http/ngx_http_upstream_module.html).
 
@@ -207,8 +221,10 @@ This directive appeared in version 1.29.3.
 
 Enables or disables creation of a separate request instance for each gRPC server. By default, a single request is used for all gRPC servers. If enabled, a separate request instance is created, allowing per-server request customization. For example, the server-specific “Host” request header field can be set:
 
-> grpc\_request\_dynamic on;
-> grpc\_set\_header      Host $upstream\_last\_server\_name;
+```nginx
+grpc_request_dynamic on;
+grpc_set_header      Host $upstream_last_server_name;
+```
 
 > This directive is available as part of our [commercial subscription](https://www.f5.com/products/nginx).
 
@@ -222,7 +238,9 @@ Allows redefining or appending fields to the request header [passed](https://ngi
 
 If the value of a header field is an empty string then this field will not be passed to a gRPC server:
 
-> grpc\_set\_header Accept-Encoding "";
+```nginx
+grpc_set_header Accept-Encoding "";
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>grpc_socket_keepalive</strong> <code>on</code> | <code>off</code>;</code><br></td></tr><tr><th>Default:</th><td><pre>grpc_socket_keepalive off;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -274,9 +292,11 @@ disables the cache.
 
 Example:
 
-> grpc\_ssl\_certificate       $grpc\_ssl\_server\_name.crt;
-> grpc\_ssl\_certificate\_key   $grpc\_ssl\_server\_name.key;
-> grpc\_ssl\_certificate\_cache max=1000 inactive=20s valid=1m;
+```nginx
+grpc_ssl_certificate       $grpc_ssl_server_name.crt;
+grpc_ssl_certificate_key   $grpc_ssl_server_name.key;
+grpc_ssl_certificate_cache max=1000 inactive=20s valid=1m;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>grpc_ssl_certificate_key</strong> <code><i>file</i></code>;</code><br></td></tr><tr><th>Default:</th><td>—</td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 

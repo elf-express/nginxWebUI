@@ -19,44 +19,48 @@
 
 #### 配置示例
 
-> upstream **backend** {
->     hash $remote\_addr consistent;
-> 
->     server backend1.example.com:12345  weight=5;
->     server backend2.example.com:12345;
->     server unix:/tmp/backend3;
-> 
->     server backup1.example.com:12345   backup;
->     server backup2.example.com:12345   backup;
-> }
-> 
-> server {
->     listen 12346;
->     proxy\_pass **backend**;
-> }
+```nginx
+upstream **backend** {
+    hash $remote_addr consistent;
+
+    server backend1.example.com:12345  weight=5;
+    server backend2.example.com:12345;
+    server unix:/tmp/backend3;
+
+    server backup1.example.com:12345   backup;
+    server backup2.example.com:12345   backup;
+}
+
+server {
+    listen 12346;
+    proxy_pass **backend**;
+}
+```
 
 具有周期性[health checks](https://nginx.org/en/docs/stream/ngx_stream_upstream_hc_module.html)的動態可配置組可作為我們的[commercial subscription](https://www.f5.com/products/nginx)：
 
-> resolver 10.0.0.1;
-> 
-> upstream **dynamic** {
->     zone upstream\_dynamic 64k;
-> 
->     server backend1.example.com:12345 weight=5;
->     server backend2.example.com:12345 fail\_timeout=5s slow\_start=30s;
->     server 192.0.2.1:12345            max\_fails=3;
->     server backend3.example.com:12345 resolve;
->     server backend4.example.com       service=http resolve;
-> 
->     server backup1.example.com:12345  backup;
->     server backup2.example.com:12345  backup;
-> }
-> 
-> server {
->     listen 12346;
->     proxy\_pass **dynamic**;
->     health\_check;
-> }
+```nginx
+resolver 10.0.0.1;
+
+upstream **dynamic** {
+    zone upstream_dynamic 64k;
+
+    server backend1.example.com:12345 weight=5;
+    server backend2.example.com:12345 fail_timeout=5s slow_start=30s;
+    server 192.0.2.1:12345            max_fails=3;
+    server backend3.example.com:12345 resolve;
+    server backend4.example.com       service=http resolve;
+
+    server backup1.example.com:12345  backup;
+    server backup2.example.com:12345  backup;
+}
+
+server {
+    listen 12346;
+    proxy_pass **dynamic**;
+    health_check;
+}
+```
 
 #### Directives
 
@@ -66,14 +70,16 @@
 
 Example:
 
-> upstream backend {
->     server backend1.example.com:12345 weight=5;
->     server 127.0.0.1:12345            max\_fails=3 fail\_timeout=30s;
->     server unix:/tmp/backend2;
->     server backend3.example.com:12345 resolve;
-> 
->     server backup1.example.com:12345  backup;
-> }
+```nginx
+upstream backend {
+    server backend1.example.com:12345 weight=5;
+    server 127.0.0.1:12345            max_fails=3 fail_timeout=30s;
+    server unix:/tmp/backend2;
+    server backend3.example.com:12345 resolve;
+
+    server backup1.example.com:12345  backup;
+}
+```
 
 默認情況下，伺服器之間的連接分配採用加權輪詢均衡方式。在上例中，每7個連接分配如下：5個連接到`backend1.example.com:12345`，第二個和第三個伺服器各有一個連接。如果在與伺服器通信時發生錯誤，則連接將傳遞到下一個伺服器，以此類推，直到嘗試所有運行中的伺服器。如果與所有伺服器的通信失敗，連接將被關閉。
 
@@ -130,12 +136,16 @@ sets
 
 如果服務名稱不包含點（「`.`」），則構造符合[RFC](https://datatracker.ietf.org/doc/html/rfc2782)\-的名稱，並將TCP協議添加到服務前綴。例如，要查找`_http._tcp.backend.example.com`SRV記錄，需要指定以下指令：
 
-> server backend.example.com service=http resolve;
+```nginx
+server backend.example.com service=http resolve;
+```
 
 如果服務名包含一個或多個點，則通過連接服務前綴和伺服器名來構造名稱。例如，要查找`_http._tcp.backend.example.com`和`server1.backend.example.com`SRV記錄，需要指定以下指令：
 
-> server backend.example.com service=\_http.\_tcp resolve;
-> server example.com service=server1.backend resolve;
+```nginx
+server backend.example.com service=_http._tcp resolve;
+server example.com service=server1.backend resolve;
+```
 
 最高優先級的SRV記錄（具有相同的最低編號優先級值的記錄）被解析為主伺服器，其餘的SRV記錄被解析為備份伺服器。如果為伺服器指定了[backup](https://nginx.org/en/docs/stream/ngx_stream_upstream_module.html#backup)參數，則高優先級的SRV記錄被解析為備份伺服器，其餘的SRV記錄被忽略。
 
@@ -167,8 +177,10 @@ sets
 
 Examples:
 
-> state /var/lib/nginx/state/servers.conf; # path for Linux
-> state /var/db/nginx/state/servers.conf;  # path for FreeBSD
+```
+state /var/lib/nginx/state/servers.conf; # path for Linux
+state /var/db/nginx/state/servers.conf;  # path for FreeBSD
+```
 
 當前狀態僅限於伺服器及其參數的列表。解析配置時讀取文件，每次上游配置為[changed](https://nginx.org/en/docs/http/ngx_http_api_module.html#stream_upstreams_stream_upstream_name_servers_)時更新文件。應避免直接更改文件內容。指令不能沿著與[server](https://nginx.org/en/docs/stream/ngx_stream_upstream_module.html#server)指令一起使用。
 
@@ -180,7 +192,9 @@ Examples:
 
 指定伺服器組的負載平衡方法，其中客戶端-伺服器映射基於哈希值`*key*`。`*key*`可以包含文本、變量及其組合（1.11.2）。用法示例：
 
-> hash $remote\_addr;
+```nginx
+hash $remote_addr;
+```
 
 請注意，在組中添加或刪除伺服器可能會導致將大多數鍵重新映射到不同的伺服器。該方法與[Cache::Memcached](https://metacpan.org/pod/Cache::Memcached)Perl庫兼容。
 
@@ -220,7 +234,9 @@ Examples:
 
 配置用於將上游伺服器的名稱解析為地址的名稱伺服器，例如：
 
-> resolver 127.0.0.1 \[::1\]:5353;
+```nginx
+resolver 127.0.0.1 [::1]:5353;
+```
 
 地址可以指定為域名或IP位址，並帶有可選埠。如果未指定埠，則使用埠53。名稱伺服器以循環方式查詢。
 
@@ -228,7 +244,9 @@ Examples:
 
 默認情況下，nginx會使用響應的TTL值來緩存答案。可選的`valid`參數允許覆蓋它：
 
-> resolver 127.0.0.1 \[::1\]:5353 valid=30s;
+```nginx
+resolver 127.0.0.1 [::1]:5353 valid=30s;
+```
 
 > >為了防止DNS欺騙，建議在適當安全的可信本地網絡中配置DNS伺服器。
 
@@ -242,7 +260,9 @@ Examples:
 
 設置名稱解析的超時，例如：
 
-> resolver\_timeout 5s;
+```nginx
+resolver_timeout 5s;
+```
 
 > >自版本1.17.5和版本1.27.3之前，此指令僅作為我們的[commercial subscription](https://www.f5.com/products/nginx)的一部分可用。
 

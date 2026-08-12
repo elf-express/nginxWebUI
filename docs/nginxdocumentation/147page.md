@@ -38,9 +38,11 @@
 
 系統日誌配置示例：
 
-> error\_log syslog:server=192.168.1.1 debug;
-> 
-> access\_log syslog:server=unix:/var/log/nginx.sock,nohostname;
-> access\_log syslog:server=\[2001:db8::1\]:12345,facility=local7,tag=nginx,severity=info combined;
+```nginx
+error_log syslog:server=192.168.1.1 debug;
+
+access_log syslog:server=unix:/var/log/nginx.sock,nohostname;
+access_log syslog:server=[2001:db8::1]:12345,facility=local7,tag=nginx,severity=info combined;
+```
 
 > >自1.7.1版起可登錄到系統日誌。作為我們[commercial subscription](https://www.f5.com/products/nginx)的一部分，自1.5.3版起可登錄到系統日誌。

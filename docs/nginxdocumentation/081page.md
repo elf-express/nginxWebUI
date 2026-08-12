@@ -20,19 +20,21 @@
 
 #### 配置示例
 
-> upstream backend {
->     zone upstream\_backend 64k;
-> 
->     ...
-> }
-> 
-> server {
->     location /upstream\_conf {
->         **upstream\_conf**;
->         allow 127.0.0.1;
->         deny all;
->     }
-> }
+```nginx
+upstream backend {
+    zone upstream_backend 64k;
+
+    ...
+}
+
+server {
+    location /upstream_conf {
+        **upstream_conf**;
+        allow 127.0.0.1;
+        deny all;
+    }
+}
+```
 
 #### Directives
 
@@ -50,7 +52,9 @@
 
 配置命令由作為請求參數傳遞的參數組成，例如：
 
-> http://127.0.0.1/upstream\_conf?upstream=backend
+```nginx
+http://127.0.0.1/upstream_conf?upstream=backend
+```
 
 支持以下參數：
 
@@ -130,40 +134,58 @@
 
 例如，要查看整個組的配置，請發送：
 
-> http://127.0.0.1/upstream\_conf?upstream=backend
+```nginx
+http://127.0.0.1/upstream_conf?upstream=backend
+```
 
 要查看特定伺服器的配置，請同時指定其ID：
 
-> http://127.0.0.1/upstream\_conf?upstream=backend&id=42
+```nginx
+http://127.0.0.1/upstream_conf?upstream=backend&id=42
+```
 
 要添加新伺服器，請在「`server=`」參數中指定其地址。如果未指定其他參數，則將添加其他參數設置為默認值的伺服器（請參閱[http](https://nginx.org/en/docs/http/ngx_http_upstream_module.html#server)或[stream](https://nginx.org/en/docs/stream/ngx_stream_upstream_module.html#server)「`server`」指令）。
 
 例如，要添加新的主伺服器，請發送：
 
-> http://127.0.0.1/upstream\_conf?add=&upstream=backend&server=127.0.0.1:8080
+```nginx
+http://127.0.0.1/upstream_conf?add=&upstream=backend&server=127.0.0.1:8080
+```
 
 要添加新的備份伺服器，請發送：
 
-> http://127.0.0.1/upstream\_conf?add=&upstream=backend&backup=&server=127.0.0.1:8080
+```nginx
+http://127.0.0.1/upstream_conf?add=&upstream=backend&backup=&server=127.0.0.1:8080
+```
 
 要添加新的主伺服器，請將其參數設置為非默認值並將其標記為「`down`"，發送：
 
-> http://127.0.0.1/upstream\_conf?add=&upstream=backend&server=127.0.0.1:8080&weight=2&down=
+```nginx
+http://127.0.0.1/upstream_conf?add=&upstream=backend&server=127.0.0.1:8080&weight=2&down=
+```
 
 要刪除伺服器，請指定其ID：
 
-> http://127.0.0.1/upstream\_conf?remove=&upstream=backend&id=42
+```nginx
+http://127.0.0.1/upstream_conf?remove=&upstream=backend&id=42
+```
 
 要將現有伺服器標記為「`down`"，請發送：
 
-> http://127.0.0.1/upstream\_conf?upstream=backend&id=42&down=
+```nginx
+http://127.0.0.1/upstream_conf?upstream=backend&id=42&down=
+```
 
 要修改現有伺服器的地址，請發送：
 
-> http://127.0.0.1/upstream\_conf?upstream=backend&id=42&server=192.0.2.3:8123
+```nginx
+http://127.0.0.1/upstream_conf?upstream=backend&id=42&server=192.0.2.3:8123
+```
 
 要修改現有伺服器的其他參數，請發送：
 
-> http://127.0.0.1/upstream\_conf?upstream=backend&id=42&max\_fails=3&weight=4
+```nginx
+http://127.0.0.1/upstream_conf?upstream=backend&id=42&max_fails=3&weight=4
+```
 
 以上示例適用於[http](https://nginx.org/en/docs/http/ngx_http_upstream_module.html)上游伺服器組。類似的示例適用於[stream](https://nginx.org/en/docs/stream/ngx_stream_upstream_module.html)上游伺服器組，需要「`stream=`」參數。

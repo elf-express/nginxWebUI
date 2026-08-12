@@ -34,43 +34,51 @@
 -   開始狂歡吧。
 -   從GitHub倉庫查看nginx原始碼：
     
-    > git clonehttps://github.com/nginx/nginx.git
+    ```
+    git clone https://github.com/nginx/nginx.git
+    ```
     
 -   創建構建和lib目錄，並將zlib、PCRE和OpenSSL庫源解壓到lib目錄中：
     
-    > mkdir對象
-    > mkdir objs/lib
-    > cd objs/lib
-    > tar -xzf ../../pcre2-10.39.tar.gz
-    > tar -xzf ../../zlib-1.3.1.tar.gz
-    > tar -xzf ../../openssl-3.0.14.tar.gz
+    ```
+    mkdir對象
+    mkdir objs/lib
+    cd objs/lib
+    tar -xzf ../../pcre2-10.39.tar.gz
+    tar -xzf ../../zlib-1.3.1.tar.gz
+    tar -xzf ../../openssl-3.0.14.tar.gz
+    ```
     
 -   運行配置腳本：
     
-    > auto/configure \\
-    >     --with-cc =cl \\
-    >     --with-debug \\
-    >     --prefix= \\
-    >     --conf-path=conf/nginx.conf \\
-    >     --pid-path=logs/nginx.pid\\
-    >     --http-log-path=logs/access.log \\
-    >     --錯誤日誌路徑=logs/error.log \\
-    >     --sbin-path=nginx.exe \\
-    >     --http-client-body-temp-path=temp/client\_body\_temp \\
-    >     --http-proxy-temp-path=temp/proxy\_temp \\
-    >     --http-fastcgi-temp-path=temp/fastcgi\_temp \\
-    >     --http-scgi-temp-path=temp/scgi\_temp \\
-    >     --http-uwsgi-temp-path=temp/uwsgi\_temp \\
-    >     --with-cc-opt=-DFD\_SETSIZE=1024 \\
-    >     --with-pcre=objs/lib/pcre2-10.39 \\
-    >     --with-zlib=objs/lib/zlib-1.3.1 \\
-    >     --with-openssl=objs/lib/openssl-3.0.14 \\
-    >     --with-openssl-opt=no-asm \\
-    >     --with-http\_ssl\_module
+    ```
+    auto/configure \
+        --with-cc =cl \
+        --with-debug \
+        --prefix= \
+        --conf-path=conf/nginx.conf \
+        --pid-path=logs/nginx.pid\
+        --http-log-path=logs/access.log \
+        --錯誤日誌路徑=logs/error.log \
+        --sbin-path=nginx.exe \
+        --http-client-body-temp-path=temp/client_body_temp \
+        --http-proxy-temp-path=temp/proxy_temp \
+        --http-fastcgi-temp-path=temp/fastcgi_temp \
+        --http-scgi-temp-path=temp/scgi_temp \
+        --http-uwsgi-temp-path=temp/uwsgi_temp \
+        --with-cc-opt=-DFD_SETSIZE=1024 \
+        --with-pcre=objs/lib/pcre2-10.39 \
+        --with-zlib=objs/lib/zlib-1.3.1 \
+        --with-openssl=objs/lib/openssl-3.0.14 \
+        --with-openssl-opt=no-asm \
+        --with-http_ssl_module
+    ```
     
 -   運行製造商：
     
-    > nmake
+    ```
+    nmake
+    ```
     
 
 #### 參見

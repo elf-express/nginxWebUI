@@ -21,8 +21,10 @@
 
 #### 配置示例
 
-> mqtt\_preread on;
-> return       $mqtt\_preread\_clientid;
+```nginx
+mqtt_preread on;
+return       $mqtt_preread_clientid;
+```
 
 #### Directives
 

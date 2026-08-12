@@ -18,28 +18,30 @@ The `ngx_stream_proxy_module` module (1.9.0) allows proxying data streams over T
 
 #### Example Configuration
 
-> server {
->     listen 127.0.0.1:12345;
->     proxy\_pass 127.0.0.1:8080;
-> }
-> 
-> server {
->     listen 12345;
->     proxy\_connect\_timeout 1s;
->     proxy\_timeout 1m;
->     proxy\_pass example.com:12345;
-> }
-> 
-> server {
->     listen 53 udp reuseport;
->     proxy\_timeout 20s;
->     proxy\_pass dns.example.com:53;
-> }
-> 
-> server {
->     listen \[::1\]:12345;
->     proxy\_pass unix:/tmp/stream.socket;
-> }
+```nginx
+server {
+    listen 127.0.0.1:12345;
+    proxy_pass 127.0.0.1:8080;
+}
+
+server {
+    listen 12345;
+    proxy_connect_timeout 1s;
+    proxy_timeout 1m;
+    proxy_pass example.com:12345;
+}
+
+server {
+    listen 53 udp reuseport;
+    proxy_timeout 20s;
+    proxy_pass dns.example.com:53;
+}
+
+server {
+    listen [::1]:12345;
+    proxy_pass unix:/tmp/stream.socket;
+}
+```
 
 #### Directives
 
@@ -51,7 +53,9 @@ Makes outgoing connections to a proxied server originate from the specified loca
 
 The `transparent` parameter (1.11.0) allows outgoing connections to a proxied server originate from a non-local IP address, for example, from a real IP address of a client:
 
-> proxy\_bind $remote\_addr transparent;
+```nginx
+proxy_bind $remote_addr transparent;
+```
 
 In order for this parameter to work, it is usually necessary to run nginx worker processes with the [superuser](https://nginx.org/en/docs/ngx_core_module.html#user) privileges. On Linux it is not required (1.13.8) as if the `transparent` parameter is specified, worker processes inherit the `CAP_NET_RAW` capability from the master process. It is also necessary to configure kernel routing table to intercept network traffic from the proxied server.
 
@@ -81,12 +85,14 @@ Limits the speed of reading the data from the proxied server. The `*rate*` is sp
 
 Parameter value can contain variables (1.17.0). It may be useful in cases where rate should be limited depending on a certain condition:
 
-> map $slow $rate {
->     1     4k;
->     2     8k;
-> }
-> 
-> proxy\_download\_rate $rate;
+```nginx
+map $slow $rate {
+    1     4k;
+    2     8k;
+}
+
+proxy_download_rate $rate;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>proxy_half_close</strong> <code>on</code> | <code>off</code>;</code><br></td></tr><tr><th>Default:</th><td><pre>proxy_half_close off;</pre></td></tr><tr><th>Context:</th><td><code>stream</code>, <code>server</code><br></td></tr></tbody></table>
 
@@ -112,17 +118,23 @@ Limits the number of possible tries for passing a connection to the [next server
 
 Sets the address of a proxied server. The address can be specified as a domain name or IP address, and a port:
 
-> proxy\_pass localhost:12345;
+```nginx
+proxy_pass localhost:12345;
+```
 
 or as a UNIX-domain socket path:
 
-> proxy\_pass unix:/tmp/stream.socket;
+```nginx
+proxy_pass unix:/tmp/stream.socket;
+```
 
 If a domain name resolves to several addresses, all of them will be used in a round-robin fashion. In addition, an address can be specified as a [server group](https://nginx.org/en/docs/stream/ngx_stream_upstream_module.html).
 
 The address can also be specified using variables (1.11.3):
 
-> proxy\_pass $upstream;
+```nginx
+proxy_pass $upstream;
+```
 
 In this case, the server name is searched among the described [server groups](https://nginx.org/en/docs/stream/ngx_stream_upstream_module.html), and, if not found, is determined using a [resolver](https://nginx.org/en/docs/stream/ngx_stream_core_module.html#resolver).
 
@@ -182,11 +194,15 @@ This directive appeared in version 1.31.0.
 
 Specifies the list of protocols to advertise via the [ALPN](https://datatracker.ietf.org/doc/html/rfc7301) extension when establishing a connection with the proxied server. For example:
 
-> proxy\_ssl\_alpn h2 http/1.1;
+```nginx
+proxy_ssl_alpn h2 http/1.1;
+```
 
 Parameter value can contain variables:
 
-> proxy\_ssl\_alpn $ssl\_alpn\_protocol;
+```nginx
+proxy_ssl_alpn $ssl_alpn_protocol;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>proxy_ssl_certificate</strong> <code><i>file</i></code>;</code><br></td></tr><tr><th>Default:</th><td>—</td></tr><tr><th>Context:</th><td><code>stream</code>, <code>server</code><br></td></tr></tbody></table>
 
@@ -220,9 +236,11 @@ disables the cache.
 
 Example:
 
-> proxy\_ssl\_certificate       $proxy\_ssl\_server\_name.crt;
-> proxy\_ssl\_certificate\_key   $proxy\_ssl\_server\_name.key;
-> proxy\_ssl\_certificate\_cache max=1000 inactive=20s valid=1m;
+```nginx
+proxy_ssl_certificate       $proxy_ssl_server_name.crt;
+proxy_ssl_certificate_key   $proxy_ssl_server_name.key;
+proxy_ssl_certificate_cache max=1000 inactive=20s valid=1m;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>proxy_ssl_certificate_key</strong> <code><i>file</i></code>;</code><br></td></tr><tr><th>Default:</th><td>—</td></tr><tr><th>Context:</th><td><code>stream</code>, <code>server</code><br></td></tr></tbody></table>
 
@@ -310,9 +328,11 @@ Limits the speed of reading the data from the client. The `*rate*` is specified 
 
 Parameter value can contain variables (1.17.0). It may be useful in cases where rate should be limited depending on a certain condition:
 
-> map $slow $rate {
->     1     4k;
->     2     8k;
-> }
-> 
-> proxy\_upload\_rate $rate;
+```nginx
+map $slow $rate {
+    1     4k;
+    2     8k;
+}
+
+proxy_upload_rate $rate;
+```

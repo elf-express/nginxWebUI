@@ -20,22 +20,24 @@ The `ngx_http_keyval_module` module (1.13.3) creates variables with values taken
 
 #### Example Configuration
 
-> http {
-> 
->     keyval\_zone zone=one:32k state=/var/lib/nginx/state/one.keyval;
->     keyval $arg\_text $text zone=one;
->     ...
->     server {
->         ...
->         location / {
->             return 200 $text;
->         }
-> 
->         location /api {
->             api write=on;
->         }
->     }
-> }
+```nginx
+http {
+
+    keyval_zone zone=one:32k state=/var/lib/nginx/state/one.keyval;
+    keyval $arg_text $text zone=one;
+    ...
+    server {
+        ...
+        location / {
+            return 200 $text;
+        }
+
+        location /api {
+            api write=on;
+        }
+    }
+}
+```
 
 #### Directives
 
@@ -51,8 +53,10 @@ The optional `state` parameter specifies a `*file*` that keeps the current state
 
 Examples:
 
-> keyval\_zone zone=one:32k state=/var/lib/nginx/state/one.keyval; # path for Linux
-> keyval\_zone zone=one:32k state=/var/db/nginx/state/one.keyval;  # path for FreeBSD
+```
+keyval_zone zone=one:32k state=/var/lib/nginx/state/one.keyval; # path for Linux
+keyval_zone zone=one:32k state=/var/db/nginx/state/one.keyval;  # path for FreeBSD
+```
 
 The optional `timeout` parameter (1.15.0) sets the time after which key-value pairs are removed from the zone.
 

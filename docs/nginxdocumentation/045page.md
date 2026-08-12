@@ -21,10 +21,12 @@
 
 #### 配置示例
 
-> gzip            on;
-> gzip\_min\_length 1000;
-> gzip\_proxied    expired no-cache no-store private auth;
-> gzip\_types      text/plain application/xml;
+```nginx
+gzip            on;
+gzip_min_length 1000;
+gzip_proxied    expired no-cache no-store private auth;
+gzip_types      text/plain application/xml;
+```
 
 `$gzip_ratio`變量可用於記錄所達到的壓縮率。
 

@@ -30,24 +30,26 @@ To reduce the processor load, it is recommended to
 -   disable the [built-in](https://nginx.org/en/docs/stream/ngx_stream_ssl_module.html#ssl_session_cache_builtin) session cache,
 -   and possibly increase the session [lifetime](https://nginx.org/en/docs/stream/ngx_stream_ssl_module.html#ssl_session_timeout) (by default, 5 minutes):
 
-> **worker\_processes auto;**
-> 
-> stream {
-> 
->     ...
-> 
->     server {
->         listen              12345 ssl;
-> 
->         ssl\_protocols       TLSv1.2 TLSv1.3;
->         ssl\_ciphers         AES128-SHA:AES256-SHA:RC4-SHA:DES-CBC3-SHA:RC4-MD5;
->         ssl\_certificate     /usr/local/nginx/conf/cert.pem;
->         ssl\_certificate\_key /usr/local/nginx/conf/cert.key;
->         **ssl\_session\_cache   shared:SSL:10m;**
->         **ssl\_session\_timeout 10m;**
-> 
->         ...
->     }
+```nginx
+**worker_processes auto;**
+
+stream {
+
+    ...
+
+    server {
+        listen              12345 ssl;
+
+        ssl_protocols       TLSv1.2 TLSv1.3;
+        ssl_ciphers         AES128-SHA:AES256-SHA:RC4-SHA:DES-CBC3-SHA:RC4-MD5;
+        ssl_certificate     /usr/local/nginx/conf/cert.pem;
+        ssl_certificate_key /usr/local/nginx/conf/cert.key;
+        **ssl_session_cache   shared:SSL:10m;**
+        **ssl_session_timeout 10m;**
+
+        ...
+    }
+```
 
 #### Directives
 
@@ -57,16 +59,18 @@ This directive appeared in version 1.21.4.
 
 Specifies the list of supported [ALPN](https://datatracker.ietf.org/doc/html/rfc7301) protocols. One of the protocols must be [negotiated](https://nginx.org/en/docs/stream/ngx_stream_ssl_module.html#var_ssl_alpn_protocol) if the client uses ALPN:
 
-> map $ssl\_alpn\_protocol $proxy {
->     h2                127.0.0.1:8001;
->     http/1.1          127.0.0.1:8002;
-> }
-> 
-> server {
->     listen      12346;
->     proxy\_pass  $proxy;
->     ssl\_alpn    h2 http/1.1;
-> }
+```nginx
+map $ssl_alpn_protocol $proxy {
+    h2                127.0.0.1:8001;
+    http/1.1          127.0.0.1:8002;
+}
+
+server {
+    listen      12346;
+    proxy_pass  $proxy;
+    ssl_alpn    h2 http/1.1;
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>ssl_certificate</strong> <code><i>file</i></code>;</code><br></td></tr><tr><th>Default:</th><td>—</td></tr><tr><th>Context:</th><td><code>stream</code>, <code>server</code><br></td></tr></tbody></table>
 
@@ -74,24 +78,28 @@ Specifies a `*file*` with the certificate in the PEM format for the given virtua
 
 Since version 1.11.0, this directive can be specified multiple times to load certificates of different types, for example, RSA and ECDSA:
 
-> server {
->     listen              12345 ssl;
-> 
->     ssl\_certificate     example.com.rsa.crt;
->     ssl\_certificate\_key example.com.rsa.key;
-> 
->     ssl\_certificate     example.com.ecdsa.crt;
->     ssl\_certificate\_key example.com.ecdsa.key;
-> 
->     ...
-> }
+```nginx
+server {
+    listen              12345 ssl;
+
+    ssl_certificate     example.com.rsa.crt;
+    ssl_certificate_key example.com.rsa.key;
+
+    ssl_certificate     example.com.ecdsa.crt;
+    ssl_certificate_key example.com.ecdsa.key;
+
+    ...
+}
+```
 
 > Only OpenSSL 1.0.2 or higher supports separate [certificate chains](https://nginx.org/en/docs/http/configuring_https_servers.html#chains) for different certificates. With older versions, only one certificate chain can be used.
 
 Since version 1.15.9, variables can be used in the `*file*` name when using OpenSSL 1.0.2 or higher:
 
-> ssl\_certificate     $ssl\_server\_name.crt;
-> ssl\_certificate\_key $ssl\_server\_name.key;
+```nginx
+ssl_certificate     $ssl_server_name.crt;
+ssl_certificate_key $ssl_server_name.key;
+```
 
 Note that using variables implies that a certificate will be loaded for each SSL handshake, and this may have a negative impact on performance.
 
@@ -125,9 +133,11 @@ disables the cache.
 
 Example:
 
-> ssl\_certificate       $ssl\_server\_name.crt;
-> ssl\_certificate\_key   $ssl\_server\_name.key;
-> ssl\_certificate\_cache max=1000 inactive=20s valid=1m;
+```nginx
+ssl_certificate       $ssl_server_name.crt;
+ssl_certificate_key   $ssl_server_name.key;
+ssl_certificate_cache max=1000 inactive=20s valid=1m;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>ssl_certificate_compression</strong> <code>on</code> | <code>off</code>;</code><br></td></tr><tr><th>Default:</th><td><pre>ssl_certificate_compression off;</pre></td></tr><tr><th>Context:</th><td><code>stream</code>, <code>server</code><br></td></tr></tbody></table>
 
@@ -155,7 +165,9 @@ Since version 1.15.9, variables can be used in the `*file*` name when using Open
 
 Specifies the enabled ciphers. The ciphers are specified in the format understood by the OpenSSL library, for example:
 
-> ssl\_ciphers ALL:!aNULL:!EXPORT56:RC4+RSA:+HIGH:+MEDIUM:+LOW:+SSLv2:+EXP;
+```nginx
+ssl_ciphers ALL:!aNULL:!EXPORT56:RC4+RSA:+HIGH:+MEDIUM:+LOW:+SSLv2:+EXP;
+```
 
 The full list can be viewed using the “`openssl ciphers`” command.
 
@@ -177,8 +189,10 @@ Sets arbitrary OpenSSL configuration [commands](https://www.openssl.org/docs/man
 
 Several `ssl_conf_command` directives can be specified on the same level:
 
-> ssl\_conf\_command Options PrioritizeChaCha;
-> ssl\_conf\_command Ciphersuites TLS\_CHACHA20\_POLY1305\_SHA256;
+```nginx
+ssl_conf_command Options PrioritizeChaCha;
+ssl_conf_command Ciphersuites TLS_CHACHA20_POLY1305_SHA256;
+```
 
 These directives are inherited from the previous configuration level if and only if there are no `ssl_conf_command` directives defined on the current level.
 
@@ -204,7 +218,9 @@ Specifies a `*curve*` for ECDHE ciphers.
 
 When using OpenSSL 1.0.2 or higher, it is possible to specify multiple curves (1.11.0), for example:
 
-> ssl\_ecdh\_curve prime256v1:secp384r1;
+```nginx
+ssl_ecdh_curve prime256v1:secp384r1;
+```
 
 The special value `auto` (1.11.0) instructs nginx to use a list built into the OpenSSL library when using OpenSSL 1.0.2 or higher, or `prime256v1` with older versions.
 
@@ -244,9 +260,11 @@ To resolve the OCSP responder hostname, the [resolver](https://nginx.org/en/docs
 
 Example:
 
-> ssl\_verify\_client on;
-> ssl\_ocsp          on;
-> resolver          192.0.2.1;
+```nginx
+ssl_verify_client on;
+ssl_ocsp          on;
+resolver          192.0.2.1;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>ssl_ocsp_cache</strong> <code>off</code> | [<code>shared</code>:<code><i>name</i></code>:<code><i>size</i></code>];</code><br></td></tr><tr><th>Default:</th><td><pre>ssl_ocsp_cache off;</pre></td></tr><tr><th>Context:</th><td><code>stream</code>, <code>server</code><br></td></tr></tbody></table>
 
@@ -264,7 +282,9 @@ Overrides the URL of the OCSP responder specified in the “[Authority Informati
 
 Only “`http://`” OCSP responders are supported:
 
-> ssl\_ocsp\_responder http://ocsp.example.com/;
+```nginx
+ssl_ocsp_responder http://ocsp.example.com/;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>ssl_password_file</strong> <code><i>file</i></code>;</code><br></td></tr><tr><th>Default:</th><td>—</td></tr><tr><th>Context:</th><td><code>stream</code>, <code>server</code><br></td></tr></tbody></table>
 
@@ -272,23 +292,25 @@ Specifies a `*file*` with passphrases for [secret keys](https://nginx.org/en/doc
 
 Example:
 
-> stream {
->     ssl\_password\_file /etc/keys/global.pass;
->     ...
-> 
->     server {
->         listen 127.0.0.1:12345;
->         ssl\_certificate\_key /etc/keys/first.key;
->     }
-> 
->     server {
->         listen 127.0.0.1:12346;
-> 
->         # named pipe can also be used instead of a file
->         ssl\_password\_file /etc/keys/fifo;
->         ssl\_certificate\_key /etc/keys/second.key;
->     }
-> }
+```nginx
+stream {
+    ssl_password_file /etc/keys/global.pass;
+    ...
+
+    server {
+        listen 127.0.0.1:12345;
+        ssl_certificate_key /etc/keys/first.key;
+    }
+
+    server {
+        listen 127.0.0.1:12346;
+
+        # named pipe can also be used instead of a file
+        ssl_password_file /etc/keys/fifo;
+        ssl_certificate_key /etc/keys/second.key;
+    }
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>ssl_prefer_server_ciphers</strong> <code>on</code> | <code>off</code>;</code><br></td></tr><tr><th>Default:</th><td><pre>ssl_prefer_server_ciphers off;</pre></td></tr><tr><th>Context:</th><td><code>stream</code>, <code>server</code><br></td></tr></tbody></table>
 
@@ -314,17 +336,19 @@ If enabled, SSL handshakes in the [server](https://nginx.org/en/docs/stream/ngx_
 
 For example, in the following configuration, SSL handshakes with server names other than `example.com` are rejected:
 
-> server {
->     listen               443 ssl default\_server;
->     ssl\_reject\_handshake on;
-> }
-> 
-> server {
->     listen              443 ssl;
->     server\_name         example.com;
->     ssl\_certificate     example.com.crt;
->     ssl\_certificate\_key example.com.key;
-> }
+```nginx
+server {
+    listen               443 ssl default_server;
+    ssl_reject_handshake on;
+}
+
+server {
+    listen              443 ssl;
+    server_name         example.com;
+    ssl_certificate     example.com.crt;
+    ssl_certificate_key example.com.key;
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>ssl_session_cache</strong> <code>off</code> | <code>none</code> | [<code>builtin</code>[:<code><i>size</i></code>]] [<code>shared</code>:<code><i>name</i></code>:<code><i>size</i></code>];</code><br></td></tr><tr><th>Default:</th><td><pre>ssl_session_cache none;</pre></td></tr><tr><th>Context:</th><td><code>stream</code>, <code>server</code><br></td></tr></tbody></table>
 
@@ -348,7 +372,9 @@ a cache shared between all worker processes. The cache size is specified in byte
 
 Both cache types can be used simultaneously, for example:
 
-> ssl\_session\_cache builtin:1000 shared:SSL:10m;
+```nginx
+ssl_session_cache builtin:1000 shared:SSL:10m;
+```
 
 but using only shared cache without the built-in cache should be more efficient.
 
@@ -360,12 +386,16 @@ Sets a `*file*` with the secret key used to encrypt and decrypt TLS session tick
 
 If several keys are specified, only the first key is used to encrypt TLS session tickets. This allows configuring key rotation, for example:
 
-> ssl\_session\_ticket\_key current.key;
-> ssl\_session\_ticket\_key previous.key;
+```nginx
+ssl_session_ticket_key current.key;
+ssl_session_ticket_key previous.key;
+```
 
 The `*file*` must contain 80 or 48 bytes of random data and can be created using the following command:
 
-> openssl rand 80 > ticket.key
+```
+openssl rand 80 > ticket.key
+```
 
 Depending on the file size either AES256 (for 80-byte keys, 1.11.8) or AES128 (for 48-byte keys) is used for encryption.
 
@@ -389,8 +419,10 @@ This directive appeared in version 1.27.2.
 
 Enables or disables [stapling of OCSP responses](https://datatracker.ietf.org/doc/html/rfc6066#section-8) by the server. Example:
 
-> ssl\_stapling on;
-> resolver 192.0.2.1;
+```nginx
+ssl_stapling on;
+resolver 192.0.2.1;
+```
 
 For the OCSP stapling to work, the certificate of the server certificate issuer should be known. If the [ssl\_certificate](https://nginx.org/en/docs/stream/ngx_stream_ssl_module.html#ssl_certificate) file does not contain intermediate certificates, the certificate of the server certificate issuer should be present in the [ssl\_trusted\_certificate](https://nginx.org/en/docs/stream/ngx_stream_ssl_module.html#ssl_trusted_certificate) file.
 
@@ -412,7 +444,9 @@ Overrides the URL of the OCSP responder specified in the “[Authority Informati
 
 Only “`http://`” OCSP responders are supported:
 
-> ssl\_stapling\_responder http://ocsp.example.com/;
+```nginx
+ssl_stapling_responder http://ocsp.example.com/;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>ssl_stapling_verify</strong> <code>on</code> | <code>off</code>;</code><br></td></tr><tr><th>Default:</th><td><pre>ssl_stapling_verify off;</pre></td></tr><tr><th>Context:</th><td><code>stream</code>, <code>server</code><br></td></tr></tbody></table>
 
@@ -462,7 +496,9 @@ returns the name of the cipher used for an established SSL connection;
 
 returns the list of ciphers supported by the client (1.11.7). Known ciphers are listed by names, unknown are shown in hexadecimal, for example:
 
-> AES128-SHA:AES256-SHA:0x00ff
+```
+AES128-SHA:AES256-SHA:0x00ff
+```
 
 > The variable is fully supported only when using OpenSSL version 1.0.2 or higher. With older versions, the variable is available only for new sessions and lists only known ciphers.
 
@@ -518,7 +554,9 @@ returns the result of client certificate verification (1.11.8): “`SUCCESS`”,
 
 returns the negotiated curve used for SSL handshake key exchange process (1.21.5). Known curves are listed by names, unknown are shown in hexadecimal, for example:
 
-> prime256v1
+```
+prime256v1
+```
 
 > The variable is supported only when using OpenSSL version 3.0 or higher. With older versions, the variable value will be an empty string.
 
@@ -526,7 +564,9 @@ returns the negotiated curve used for SSL handshake key exchange process (1.21.5
 
 returns the list of curves supported by the client (1.11.7). Known curves are listed by names, unknown are shown in hexadecimal, for example:
 
-> 0x001d:prime256v1:secp521r1:secp384r1
+```
+0x001d:prime256v1:secp521r1:secp384r1
+```
 
 > The variable is supported only when using OpenSSL version 1.0.2 or higher. With older versions, the variable value will be an empty string.
 
@@ -570,7 +610,9 @@ returns the [signature algorithm](https://www.iana.org/assignments/tls-parameter
 
 returns the list of [signature algorithms](https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-16) supported by the client (1.31.2). Known values are listed by names, unknown are shown in hexadecimal, for example:
 
-> 0xfe00:rsa\_pkcs1\_sha256:rsa\_pss\_rsae\_sha256:ecdsa\_secp256r1\_sha256
+```
+0xfe00:rsa_pkcs1_sha256:rsa_pss_rsae_sha256:ecdsa_secp256r1_sha256
+```
 
 > The variable is fully supported only when using OpenSSL version 4.0 or higher. For OpenSSL versions 1.0.2+, the values are always shown in hexadecimal. With older versions, the variable value will be an empty string.
 

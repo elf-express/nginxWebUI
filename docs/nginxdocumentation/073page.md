@@ -26,14 +26,16 @@
 
 #### 配置示例
 
-> location / {
->     **slice**             1m;
->     proxy\_cache       cache;
->     proxy\_cache\_key   $uri$is\_args$args**$slice\_range**;
->     proxy\_set\_header  Range **$slice\_range**;
->     proxy\_cache\_valid 200 206 1h;
->     proxy\_pass        http://localhost:8000;
-> }
+```nginx
+location / {
+    **slice**             1m;
+    proxy_cache       cache;
+    proxy_cache_key   $uri$is_args$args**$slice_range**;
+    proxy_set_header  Range **$slice_range**;
+    proxy_cache_valid 200 206 1h;
+    proxy_pass        http://localhost:8000;
+}
+```
 
 在本例中，響應被分割為1 MB的可緩存切片。
 

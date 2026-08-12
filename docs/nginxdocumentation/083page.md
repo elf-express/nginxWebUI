@@ -19,44 +19,48 @@
 
 #### 配置示例
 
-> upstream **backend** {
->     server backend1.example.com       weight=5;
->     server backend2.example.com:8080;
->     server unix:/tmp/backend3;
-> 
->     server backup1.example.com:8080   backup;
->     server backup2.example.com:8080   backup;
-> }
-> 
-> server {
->     location / {
->         proxy\_pass http://**backend**;
->     }
-> }
+```nginx
+upstream **backend** {
+    server backend1.example.com       weight=5;
+    server backend2.example.com:8080;
+    server unix:/tmp/backend3;
+
+    server backup1.example.com:8080   backup;
+    server backup2.example.com:8080   backup;
+}
+
+server {
+    location / {
+        proxy_pass http://**backend**;
+    }
+}
+```
 
 具有周期性[health checks](https://nginx.org/en/docs/http/ngx_http_upstream_hc_module.html)的動態可配置組可作為我們的[commercial subscription](https://www.f5.com/products/nginx)：
 
-> resolver 10.0.0.1;
-> 
-> upstream **dynamic** {
->     zone upstream\_dynamic 64k;
-> 
->     server backend1.example.com      weight=5;
->     server backend2.example.com:8080 fail\_timeout=5s slow\_start=30s;
->     server 192.0.2.1                 max\_fails=3;
->     server backend3.example.com      resolve;
->     server backend4.example.com      service=http resolve;
-> 
->     server backup1.example.com:8080  backup;
->     server backup2.example.com:8080  backup;
-> }
-> 
-> server {
->     location / {
->         proxy\_pass http://**dynamic**;
->         health\_check;
->     }
-> }
+```nginx
+resolver 10.0.0.1;
+
+upstream **dynamic** {
+    zone upstream_dynamic 64k;
+
+    server backend1.example.com      weight=5;
+    server backend2.example.com:8080 fail_timeout=5s slow_start=30s;
+    server 192.0.2.1                 max_fails=3;
+    server backend3.example.com      resolve;
+    server backend4.example.com      service=http resolve;
+
+    server backup1.example.com:8080  backup;
+    server backup2.example.com:8080  backup;
+}
+
+server {
+    location / {
+        proxy_pass http://**dynamic**;
+        health_check;
+    }
+}
+```
 
 #### Directives
 
@@ -66,13 +70,15 @@
 
 Example:
 
-> upstream backend {
->     server backend1.example.com weight=5;
->     server 127.0.0.1:8080       max\_fails=3 fail\_timeout=30s;
->     server unix:/tmp/backend3;
-> 
->     server backup1.example.com  backup;
-> }
+```nginx
+upstream backend {
+    server backend1.example.com weight=5;
+    server 127.0.0.1:8080       max_fails=3 fail_timeout=30s;
+    server unix:/tmp/backend3;
+
+    server backup1.example.com  backup;
+}
+```
 
 默認情況下，請求在伺服器之間採用加權輪詢均衡方式進行分配。在上例中，每7個請求將按如下方式進行分配：5個請求發送到`backend1.example.com`，第二個和第三個伺服器各發送一個請求。如果在與伺服器通信時發生錯誤，則請求將被傳遞到下一個伺服器，如此類推，直到所有運行中的伺服器都將被嘗試。如果不能從任何一個伺服器獲得成功的響應，則客戶端將接收與最後一個伺服器的通信結果。
 
@@ -131,12 +137,16 @@ sets
 
 如果服務名稱不包含點（「`.`」），則構造符合[RFC](https://datatracker.ietf.org/doc/html/rfc2782)\-的名稱，並將TCP協議添加到服務前綴。例如，要查找`_http._tcp.backend.example.com`SRV記錄，需要指定以下指令：
 
-> server backend.example.com service=http resolve;
+```nginx
+server backend.example.com service=http resolve;
+```
 
 如果服務名包含一個或多個點，則通過連接服務前綴和伺服器名來構造名稱。例如，要查找`_http._tcp.backend.example.com`和`server1.backend.example.com`SRV記錄，需要指定以下指令：
 
-> server backend.example.com service=\_http.\_tcp resolve;
-> server example.com service=server1.backend resolve;
+```nginx
+server backend.example.com service=_http._tcp resolve;
+server example.com service=server1.backend resolve;
+```
 
 最高優先級的SRV記錄（具有相同的最低編號優先級值的記錄）被解析為主伺服器，其餘的SRV記錄被解析為備份伺服器。如果為伺服器指定了[backup](https://nginx.org/en/docs/http/ngx_http_upstream_module.html#backup)參數，則高優先級的SRV記錄被解析為備份伺服器，其餘的SRV記錄被忽略。
 
@@ -184,8 +194,10 @@ sets
 
 Examples:
 
-> state /var/lib/nginx/state/servers.conf; # path for Linux
-> state /var/db/nginx/state/servers.conf;  # path for FreeBSD
+```
+state /var/lib/nginx/state/servers.conf; # path for Linux
+state /var/db/nginx/state/servers.conf;  # path for FreeBSD
+```
 
 當前狀態僅限於伺服器及其參數的列表。解析配置時讀取文件，每次上游配置為[changed](https://nginx.org/en/docs/http/ngx_http_api_module.html#http_upstreams_http_upstream_name_servers_)時更新文件。應避免直接更改文件內容。指令不能沿著與[server](https://nginx.org/en/docs/http/ngx_http_upstream_module.html#server)指令一起使用。
 
@@ -211,14 +223,16 @@ Examples:
 
 Example:
 
-> upstream backend {
->     ip\_hash;
-> 
->     server backend1.example.com;
->     server backend2.example.com;
->     server backend3.example.com **down**;
->     server backend4.example.com;
-> }
+```nginx
+upstream backend {
+    ip_hash;
+
+    server backend1.example.com;
+    server backend2.example.com;
+    server backend3.example.com **down**;
+    server backend4.example.com;
+}
+```
 
 > >在1.3.1和1.2.2版本之前，無法使用`ip_hash`負載平衡方法為伺服器指定權重。
 
@@ -240,61 +254,67 @@ Example:
 
 使用keepalive連接的memcached上游配置示例：
 
-> upstream memcached\_backend {
->     server 127.0.0.1:11211;
->     server 10.0.0.2:11211;
-> 
->     keepalive 32;
-> }
-> 
-> server {
->     ...
-> 
->     location /memcached/ {
->         set $memcached\_key $uri;
->         memcached\_pass memcached\_backend;
->     }
-> 
-> }
+```nginx
+upstream memcached_backend {
+    server 127.0.0.1:11211;
+    server 10.0.0.2:11211;
+
+    keepalive 32;
+}
+
+server {
+    ...
+
+    location /memcached/ {
+        set $memcached_key $uri;
+        memcached_pass memcached_backend;
+    }
+
+}
+```
 
 對於HTTP，[proxy\_http\_version](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_http_version)指令應該是"`1.1`"（從1.29.7開始默認）或設置為"`2`"，並且"Connection"頭欄位應該被清除。此示例適用於1.29.7之前的版本：
 
-> upstream http\_backend {
->     server 127.0.0.1:8080;
-> 
->     keepalive 16;
-> }
-> 
-> server {
->     ...
-> 
->     location /http/ {
->         proxy\_pass http://http\_backend;
->         # proxy\_http\_version 1.1; # before version 1.29.7
->         # proxy\_set\_header Connection ""; # before version 1.29.7
->         ...
->     }
-> }
+```nginx
+upstream http_backend {
+    server 127.0.0.1:8080;
+
+    keepalive 16;
+}
+
+server {
+    ...
+
+    location /http/ {
+        proxy_pass http://http_backend;
+        # proxy_http_version 1.1; # before version 1.29.7
+        # proxy_set_header Connection ""; # before version 1.29.7
+        ...
+    }
+}
+```
 
 > 或者，HTTP/1.0持久連接可以通過將「Connection：Keep-Alive」頭欄位傳遞給上游伺服器來使用，儘管不推薦這種方法。
 
 對於FastCGI伺服器，需要設置[fastcgi\_keep\_conn](https://nginx.org/en/docs/http/ngx_http_fastcgi_module.html#fastcgi_keep_conn)以使keepalive連接工作：
 
-> upstream fastcgi\_backend {
->     server 127.0.0.1:9000;
-> 
->     keepalive 8;
-> }
-> 
-> server {
->     ...
-> 
->     location /fastcgi/ {
->         fastcgi\_pass fastcgi\_backend;
->         fastcgi\_keep\_conn on;
->         ...
->     }
-> }
+```nginx
+upstream fastcgi_backend {
+    server 127.0.0.1:9000;
+
+    keepalive 8;
+}
+
+server {
+    ...
+
+    location /fastcgi/ {
+        fastcgi_pass fastcgi_backend;
+        fastcgi_keep_conn on;
+        ...
+    }
+}
+```
 
 > SCGI和uwsgi協議沒有keepalive連接的概念。
 
@@ -328,22 +348,24 @@ Example:
 
 為了使NTLM身份驗證工作，必須啟用到上游伺服器的keepalive連接。[proxy\_http\_version](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_http_version)指令應該是「`1.1`」（自1.29.7起默認設置）或設置為「`2`」，並且應該清除「Connection」頭欄位。此示例適用於1.29.7之前的版本：
 
-> upstream http\_backend {
->     server 127.0.0.1:8080;
-> 
->     ntlm;
-> }
-> 
-> server {
->     ...
-> 
->     location /http/ {
->         proxy\_pass http://http\_backend;
->         # proxy\_http\_version 1.1; # before version 1.29.7
->         # proxy\_set\_header Connection ""; # before version 1.29.7
->         ...
->     }
-> }
+```nginx
+upstream http_backend {
+    server 127.0.0.1:8080;
+
+    ntlm;
+}
+
+server {
+    ...
+
+    location /http/ {
+        proxy_pass http://http_backend;
+        # proxy_http_version 1.1; # before version 1.29.7
+        # proxy_set_header Connection ""; # before version 1.29.7
+        ...
+    }
+}
+```
 
 > >當使用非默認輪詢方法的負載均衡方法時，需要在`ntlm`指令之前激活它們。
 
@@ -397,7 +419,9 @@ Example:
 
 配置用於將上游伺服器的名稱解析為地址的名稱伺服器，例如：
 
-> resolver 127.0.0.1 \[::1\]:5353;
+```nginx
+resolver 127.0.0.1 [::1]:5353;
+```
 
 地址可以指定為域名或IP位址，並帶有可選埠。如果未指定埠，則使用埠53。名稱伺服器以循環方式查詢。
 
@@ -405,7 +429,9 @@ Example:
 
 默認情況下，nginx會使用響應的TTL值來緩存答案。可選的`valid`參數允許覆蓋它：
 
-> resolver 127.0.0.1 \[::1\]:5353 valid=30s;
+```nginx
+resolver 127.0.0.1 [::1]:5353 valid=30s;
+```
 
 > >為了防止DNS欺騙，建議在適當安全的可信本地網絡中配置DNS伺服器。
 
@@ -419,7 +445,9 @@ Example:
 
 設置名稱解析的超時，例如：
 
-> resolver\_timeout 5s;
+```nginx
+resolver_timeout 5s;
+```
 
 > >自版本1.17.5和版本1.27.3之前，此指令僅作為我們的[commercial subscription](https://www.f5.com/products/nginx)的一部分可用。
 
@@ -433,12 +461,14 @@ Example:
 
 當使用`cookie`方法時，指定伺服器的信息會通過nginx生成的HTTP cookie傳遞：
 
-> upstream backend {
->     server backend1.example.com;
->     server backend2.example.com;
-> 
->     sticky cookie srv\_id expires=1h domain=.example.com path=/;
-> }
+```nginx
+upstream backend {
+    server backend1.example.com;
+    server backend2.example.com;
+
+    sticky cookie srv_id expires=1h domain=.example.com path=/;
+}
+```
 
 來自尚未綁定到特定伺服器的客戶端的請求將被傳遞到配置的平衡方法所選擇的伺服器。帶有此Cookie的其他請求將被傳遞到指定的伺服器。如果指定的伺服器無法處理請求，則會選擇新的伺服器，就像客戶端尚未綁定一樣。
 
@@ -446,12 +476,14 @@ Example:
 
 第一個參數設置要設置或檢查的cookie的名稱。cookie值是IP位址和埠或UNIX域套接字路徑的MD5哈希的十六進位表示。但是，如果指定了[server](https://nginx.org/en/docs/http/ngx_http_upstream_module.html#server)指令的「`route`」參數，則cookie值將是「`route`」參數的值：
 
-> upstream backend {
->     server backend1.example.com route=**a**;
->     server backend2.example.com route=**b**;
-> 
->     sticky cookie srv\_id expires=1h domain=.example.com path=/;
-> }
+```nginx
+upstream backend {
+    server backend1.example.com route=**a**;
+    server backend2.example.com route=**b**;
+
+    sticky cookie srv_id expires=1h domain=.example.com path=/;
+}
+```
 
 在這種情況下，「`srv_id`」cookie的值將是`*a*`或`*b*`。
 
@@ -491,20 +523,22 @@ Example:
 
 Example:
 
-> map $cookie\_jsessionid $route\_cookie {
->     ~.+\\.(?P<route>\\w+)$ $route;
-> }
-> 
-> map $request\_uri $route\_uri {
->     ~jsessionid=.+\\.(?P<route>\\w+)$ $route;
-> }
-> 
-> upstream backend {
->     server backend1.example.com route=a;
->     server backend2.example.com route=b;
-> 
->     sticky route $route\_cookie $route\_uri;
-> }
+```nginx
+map $cookie_jsessionid $route_cookie {
+    ~.+\.(?P<route>\w+)$ $route;
+}
+
+map $request_uri $route_uri {
+    ~jsessionid=.+\.(?P<route>\w+)$ $route;
+}
+
+upstream backend {
+    server backend1.example.com route=a;
+    server backend2.example.com route=b;
+
+    sticky route $route_cookie $route_uri;
+}
+```
 
 在這裡，如果請求中存在「`JSESSIONID`」cookie，則從該cookie獲取路由。否則，使用來自URI的路由。
 
@@ -512,15 +546,17 @@ Example:
 
 當使用`learn`方法（1.7.1）時，nginx分析上游伺服器響應並學習通常在HTTP cookie中傳遞的伺服器發起的會話。
 
-> upstream backend {
->    server backend1.example.com:8080;
->    server backend2.example.com:8081;
-> 
->    粘性學習
->           create=$upstream\_cookie\_examplecookie
->           lookup=$cookie\_examplecookie
->           zone=client\_sessions:1m;
-> }
+```nginx
+upstream backend {
+   server backend1.example.com:8080;
+   server backend2.example.com:8081;
+
+   粘性學習
+          create=$upstream_cookie_examplecookie
+          lookup=$cookie_examplecookie
+          zone=client_sessions:1m;
+}
+```
 
 在本例中，上游伺服器通過在響應中設置cookie「`EXAMPLECOOKIE`」來創建會話。使用此cookie的後續請求將被傳遞到同一伺服器。如果伺服器無法處理該請求，則選擇新伺服器，就像客戶端尚未綁定一樣。
 
@@ -580,8 +616,10 @@ Example:
 
 保留最後選擇的上游伺服器的名稱（1.25.3）;允許傳遞它[through SNI](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_ssl_server_name)：
 
-> proxy\_ssl\_server\_name on;
-> proxy\_ssl\_name        $upstream\_last\_server\_name;
+```nginx
+proxy_ssl_server_name on;
+proxy_ssl_name        $upstream_last_server_name;
+```
 
 > >此變量作為我們的[commercial subscription](https://www.f5.com/products/nginx)的一部分可用。
 

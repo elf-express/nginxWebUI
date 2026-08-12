@@ -20,28 +20,30 @@ The `ngx_stream_keyval_module` module (1.13.7) creates variables with values tak
 
 #### Example Configuration
 
-> http {
-> 
->     server {
->         ...
->         location /api {
->             api write=on;
->         }
->     }
-> }
-> 
-> stream {
-> 
->     keyval\_zone zone=one:32k state=/var/lib/nginx/state/one.keyval;
->     keyval      $ssl\_server\_name $name zone=one;
-> 
->     server {
->         listen              12345 ssl;
->         proxy\_pass          $name;
->         ssl\_certificate     /usr/local/nginx/conf/cert.pem;
->         ssl\_certificate\_key /usr/local/nginx/conf/cert.key;
->     }
-> }
+```nginx
+http {
+
+    server {
+        ...
+        location /api {
+            api write=on;
+        }
+    }
+}
+
+stream {
+
+    keyval_zone zone=one:32k state=/var/lib/nginx/state/one.keyval;
+    keyval      $ssl_server_name $name zone=one;
+
+    server {
+        listen              12345 ssl;
+        proxy_pass          $name;
+        ssl_certificate     /usr/local/nginx/conf/cert.pem;
+        ssl_certificate_key /usr/local/nginx/conf/cert.key;
+    }
+}
+```
 
 #### Directives
 
@@ -57,8 +59,10 @@ The optional `state` parameter specifies a `*file*` that keeps the current state
 
 Examples:
 
-> keyval\_zone zone=one:32k state=/var/lib/nginx/state/one.keyval; # path for Linux
-> keyval\_zone zone=one:32k state=/var/db/nginx/state/one.keyval;  # path for FreeBSD
+```
+keyval_zone zone=one:32k state=/var/lib/nginx/state/one.keyval; # path for Linux
+keyval_zone zone=one:32k state=/var/db/nginx/state/one.keyval;  # path for FreeBSD
+```
 
 The optional `timeout` parameter (1.15.0) sets the time after which key-value pairs are removed from the zone.
 

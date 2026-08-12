@@ -20,9 +20,11 @@
 
 #### 配置示例
 
-> location / {
->     random\_index on;
-> }
+```nginx
+location / {
+    random_index on;
+}
+```
 
 #### Directives
 
