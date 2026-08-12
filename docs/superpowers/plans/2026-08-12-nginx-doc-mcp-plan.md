@@ -962,9 +962,9 @@ package com.cym.mcp;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.noear.solon.ai.annotation.ToolMapping;
 import org.noear.solon.ai.mcp.McpChannel;
-import org.noear.solon.ai.mcp.annotation.McpServerEndpoint;
-import org.noear.solon.ai.mcp.annotation.ToolMapping;
+import org.noear.solon.ai.mcp.server.annotation.McpServerEndpoint;
 import org.noear.solon.annotation.Inject;
 import org.noear.solon.annotation.Param;
 
@@ -981,7 +981,7 @@ import com.cym.utils.NginxConfChecker;
  *
  * 所有工具唯讀。任何情況都回傳可讀字串,不向外拋例外——協定層的例外對 AI 是不透明的失敗。
  */
-@McpServerEndpoint(channel = McpChannel.STREAMABLE, mcpEndpoint = "/mcp", name = "nginx-docs")
+@McpServerEndpoint(channel = McpChannel.STREAMABLE_STATELESS, mcpEndpoint = "/mcp", name = "nginx-docs")
 public class NginxDocMcpServer {
 
 	@Inject
@@ -1106,11 +1106,23 @@ Expected: `404`
 ```bash
 java -jar target/nginxWebUI-5.2.8.jar --server.port=18081 --project.home=./dev-home-mcp/ --mcp.token=testtoken &
 curl -s -o /dev/null -w "%{http_code}\n" http://localhost:18081/mcp
-curl -s -X POST http://localhost:18081/mcp -H "Authorization: Bearer testtoken" \
+curl -s -X POST http://localhost:18081/mcp \
+  -H "Authorization: Bearer testtoken" \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | head -c 400
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | head -c 600
 ```
-Expected: 第一個 curl 不是 404（未帶 token 時為 401）；第二個回傳含五個工具名稱的 JSON。
+Expected: 第一個 curl 不是 404（未帶 token 時為 401）；第二個回傳含五個工具名稱的純 JSON。
+
+**`Accept: application/json, text/event-stream` 是必要的**，少了它一律 400 空 body，而且錯誤訊息不會告訴你原因——這是 spike 實測踩到的坑。
+
+啟動 log 應出現這一行,`toolRegistered=5` 是 MCP 掛載成功最快的驗收依據:
+
+```
+INFO org.noear.solon.ai.mcp.server.manager.StatelessMcpServerHost
+  - Mcp-Server started, name=nginx-docs, ..., channel=streamable_stateless,
+    mcpEndpoint=/mcp, toolRegistered=5, ...
+```
 
 - [ ] **Step 6: Commit**
 
@@ -1139,10 +1151,15 @@ git commit -m "feat(mcp): expose the nginx docs as an opt-in MCP endpoint"
 const { test, expect } = require('@playwright/test');
 
 // MCP 端點是 opt-in：測試 server 未帶 --mcp.token，所以端點必須不存在。
-// 這條守的是「既有部署升級後行為零變化」這個承諾。
+// 這條守的是「既有部署升級後行為零變化」這個承諾——它是這個功能唯一會影響
+// 既有使用者的地方，也是最該被自動化守住的一條。
+//
+// 端點用 STREAMABLE_STATELESS，所以不需要 initialize 握手、回應是純 JSON。
+// 若日後改成 STREAMABLE，測試要先取 Mcp-Session-Id 並剝掉 SSE 的 data: 前綴。
 test.describe('MCP 端點', () => {
-	test('未設定 token 時 /mcp 回 404', async ({ request, baseURL }) => {
+	test('未設定 token 時 POST /mcp 回 404', async ({ request, baseURL }) => {
 		const res = await request.post(new URL('/mcp', baseURL).toString(), {
+			headers: { 'Accept': 'application/json, text/event-stream' },
 			data: { jsonrpc: '2.0', id: 1, method: 'tools/list' },
 			failOnStatusCode: false,
 		});
@@ -1222,7 +1239,10 @@ git commit -m "feat(mcp): add endpoint E2E, client config and documentation"
 
 ## 風險與退路
 
-- **`solon-ai-mcp` 的實際註解行為與文件不符**：`@McpServerEndpoint` 的 `channel`／`mcpEndpoint` 參數已由 context7 查證,但未實際跑過。Task 5 Step 5 的手動驗證就是這道關卡——若端點沒起來,停下回報,不要繞路自行實作 JSON-RPC。
+- **~~`solon-ai-mcp` 的實際註解行為與文件不符~~ — 已由 spike 實測解決**（`.superpowers/sdd/2026-08-12-nginx-doc-mcp-plan/spike-solon-ai-mcp.md`）。文件確實有兩處錯誤,本計畫的程式碼已改為實測正確的 import：`McpServerEndpoint` 在 `...ai.mcp.server.annotation`（多一層 `server`）、`ToolMapping` 在 `...ai.annotation`（來自 solon-ai-core 而非 solon-ai-mcp）。`@Param` 用 Solon core 的那個是唯一選擇——`solon-ai-*` 沒有自己的 `Param` 註解,解析器的 bytecode 硬寫死讀 core 版。`McpChannel` 不是 enum 而是 interface + String 常數,`channel()` 回傳 String。
+- **`-parameters` 編譯旗標是必要的**：`@Param` 只給 `description` 時,參數名 fallback 到反射,少了這個旗標會變成 `arg0`/`arg1`,tool schema 直接壞掉。`pom.xml:171` 已明寫,這點安全。
+- **jar 體積**：`solon-ai-mcp` 會連帶拉進 5 個 LLM dialect（dashscope／ollama／openai／gemini／anthropic）與 `jtokkit`、`reactor-core`。本案只當 MCP server 用不到 dialect,Task 5 打包後若 jar 增幅超過 15 MB,值得評估 exclude——但 spike 未驗證 exclude 後還能不能跑,不要在沒有測試的情況下砍依賴。
+- **認證與 `AppFilter` 的互動未經 spike 驗證**：spike 沒有 filter,真專案的 `/mcp` 會不會被既有的登入攔截器擋掉是 Task 5 要實測的。Step 5 的手動驗證就是這道關卡——若端點回了非預期的狀態碼,停下回報。
 - **947 這個數字對不上**：Task 1 Step 6 會擋下。表示語料有未預期的表格形態,停下回報而不是調整斷言。
 - **jar 體積**：預期從 42.6 MB 增至約 44.6 MB。若超過 46 MB,表示 `<resources>` 設定把不該打包的東西也帶進去了。
 - **啟動時間**：索引只在設定了 `--mcp.token` 時才建,沒啟用 MCP 的部署完全不受影響。
