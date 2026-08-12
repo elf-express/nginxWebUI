@@ -1,0 +1,21 @@
+docs/superpowers/plans/2026-08-13-asn-security-harden-plan.md
+  s_492e18725e3eaa::t_5a7c449b389085 1-478
+docs/superpowers/specs/2026-08-13-asn-security-harden-design.md
+  s_492e18725e3eaa::t_54e438e73680be 1-82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "c3b3ad5bebe6513483d89b04127b9594e48fc10a",
+  "prompts": {},
+  "sessions": {
+    "s_492e18725e3eaa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0393758c-a272-4bb9-a97c-c1ed6354bc61",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
