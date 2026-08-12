@@ -101,6 +101,7 @@ Only the core two services start by default; CrowdSec is opt-in via the compose 
 
 ### 🚀 Development
 
+- **nginx docs MCP server** — 969 official directive definitions served over MCP: exact lookup, full-text search, context reverse-lookup, and checking a config draft against the docs. Off by default; opt in with `--mcp.token` (see [nginx docs MCP server](#nginx-docs-mcp-server))
 - **dev / master dual-branch model**: daily dev on dev, master = last release snapshot (releases go via `release/*` branch PR → master)
 - **`scripts/release.sh`** automates pom bump + commit (CI auto-tags on master push)
 - **GitHub Actions** push to master → version-gated image build (linux/amd64) → ghcr.io, auto-tags `v*` + creates Release
@@ -167,6 +168,73 @@ docker pull ghcr.io/elf-express/nginxwebui:latest
 ```
 
 Platform: linux/amd64 (single-arch, not multi-platform)
+
+---
+
+## nginx docs MCP server
+
+A read-only [MCP](https://modelcontextprotocol.io/) endpoint that serves the official nginx directive
+reference to an AI assistant, so it answers from the documentation instead of from memory. The index is
+built at startup from the 150 documentation pages bundled inside the jar — **969 directive definitions /
+803 distinct names / 99 modules / 15 contexts** — with no network access at any point.
+
+Five read-only tools: `nginx_directive` (exact lookup), `nginx_search` (full-text search),
+`nginx_module` (list one module's directives), `nginx_context` (reverse lookup — what may legally appear
+inside `location`, `server`, `upstream`, …), and `nginx_check_config` (check a config draft against the
+documented contexts).
+
+### Turning it on
+
+**The endpoint is off by default.** It exists only when the app is started with `--mcp.token=<token>`, and
+that same token is the credential clients must present. Without the flag, `/mcp` returns `404` and the
+documentation index is never even parsed — an existing deployment that upgrades sees no change whatsoever.
+
+Choose any hard-to-guess string as the token (`openssl rand -hex 16` produces a suitable one).
+
+**Running the jar:**
+
+```bash
+java -jar -Dfile.encoding=UTF-8 \
+     target/nginxWebUI-*.jar \
+     --server.port=8080 \
+     --project.home=./dev-home/ \
+     --mcp.token=REPLACE_WITH_YOUR_TOKEN
+```
+
+**Docker Compose:** append the same flag to `BOOT_OPTIONS` in `docker/docker-compose.yml`, then
+`docker compose up -d`:
+
+```yaml
+    environment:
+      # keep the flags already on this line, just add --mcp.token at the end
+      - BOOT_OPTIONS=--spring.database.type=postgresql ... --mcp.token=REPLACE_WITH_YOUR_TOKEN
+```
+
+> **Why the launch flag rather than an environment variable.** The setting key is `mcp.token`, and the dot
+> makes it an invalid POSIX shell identifier: `export mcp.token=...` is a *syntax error* in sh/bash. The key
+> can still be supplied as an environment variable wherever no shell parses it — a Compose `environment:`
+> entry, or `docker run -e mcp.token=...` — but the launch flag works everywhere, so prefer it.
+
+Once enabled, `/mcp` requires the header `Authorization: Bearer <token>`; a missing or wrong token gets
+`401`. The transport is streamable-stateless HTTP, so a plain `POST` returns plain JSON — there is no
+session handshake and no SSE framing.
+
+### Pointing a client at it
+
+[`.mcp.json`](./.mcp.json) in the repository root registers the server for Claude Code. It reads two
+environment variables, so no token is ever committed:
+
+| Variable | Default | Notes |
+|---|---|---|
+| `NGINX_WEBUI_MCP_TOKEN` | none — **required** | Must match the value passed to `--mcp.token` |
+| `NGINX_WEBUI_MCP_URL` | `http://localhost:12300/mcp` | `12300` is only the port Docker Compose publishes. Running the jar directly, use whatever you passed to `--server.port` — typically `http://localhost:8080/mcp` |
+
+Both names are ordinary shell identifiers, so export them the usual way before starting the client:
+
+```bash
+export NGINX_WEBUI_MCP_TOKEN=REPLACE_WITH_YOUR_TOKEN
+export NGINX_WEBUI_MCP_URL=http://localhost:8080/mcp   # only if you are not on the Compose port
+```
 
 ---
 

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "nginx-docs": {
+      "type": "http",
+      "url": "${NGINX_WEBUI_MCP_URL:-http://localhost:12300/mcp}",
+      "headers": {
+        "Authorization": "Bearer ${NGINX_WEBUI_MCP_TOKEN}"
+      }
+    }
+  }
+}

@@ -101,6 +101,7 @@ docker compose up -d          # image 預設拉 :latest，永遠跟最新 releas
 
 ### 🚀 開發流程
 
+- **nginx 文件 MCP 服務** — 969 條官方指令定義以 MCP 提供：精準查詢、全文搜尋、context 反查、拿設定草稿對照文件檢查。預設關閉，以 `--mcp.token` opt-in 啟用（見 [nginx 文件 MCP 服務](#nginx-文件-mcp-服務)）
 - **dev / master 雙分支模型**：日常開發在 dev、master = 最近一次 release 快照（發版走 `release/*` 分支 PR → master）
 - **`scripts/release.sh`** 自動化 pom bump + commit（tag 由 CI 在 master push 時自動打）
 - **GitHub Actions** push master → 版本閘控 build image (linux/amd64) → push ghcr.io，並自動打 `v*` tag + 建 Release
@@ -170,6 +171,69 @@ docker pull ghcr.io/elf-express/nginxwebui:latest
 ```
 
 Platform: linux/amd64（單一平台，非多架構）
+
+---
+
+## nginx 文件 MCP 服務
+
+一個唯讀的 [MCP](https://modelcontextprotocol.io/) 端點，把 nginx 官方指令文件提供給 AI 助理查，
+讓它照文件回答而不是憑記憶。索引在啟動時從打包進 jar 的 150 頁文件建立 —— **969 條指令定義 /
+803 個相異名稱 / 99 個模組 / 15 個 context** —— 全程不連外網。
+
+五個唯讀工具：`nginx_directive`（精準查詢單一指令）、`nginx_search`（全文搜尋）、
+`nginx_module`（列出某模組的所有指令）、`nginx_context`（反查 `location`、`server`、`upstream` 等
+context 裡能合法使用哪些指令）、`nginx_check_config`（拿設定草稿對照文件檢查）。
+
+### 如何啟用
+
+**這個端點預設是關閉的。** 只有啟動時加上 `--mcp.token=<token>` 才會存在，而這個 token 同時就是
+client 必須出示的憑證。沒加這個參數時 `/mcp` 一律回 `404`，文件索引也完全不會被解析 ——
+既有部署升級後行為零變化。
+
+token 自己挑一個難猜的字串即可（`openssl rand -hex 16` 產生的就很適合）。
+
+**跑 jar：**
+
+```bash
+java -jar -Dfile.encoding=UTF-8 \
+     target/nginxWebUI-*.jar \
+     --server.port=8080 \
+     --project.home=./dev-home/ \
+     --mcp.token=REPLACE_WITH_YOUR_TOKEN
+```
+
+**Docker Compose：** 把同一個參數接到 `docker/docker-compose.yml` 的 `BOOT_OPTIONS` 後面，
+再 `docker compose up -d`：
+
+```yaml
+    environment:
+      # 這行原本的參數都保留，只在最後加上 --mcp.token
+      - BOOT_OPTIONS=--spring.database.type=postgresql ... --mcp.token=REPLACE_WITH_YOUR_TOKEN
+```
+
+> **為什麼用啟動參數而不是環境變數。** 設定鍵是 `mcp.token`，中間那個點讓它**不是合法的 POSIX shell
+> 識別字**：`export mcp.token=...` 在 sh/bash 會直接語法錯誤。在沒有 shell 介入的地方它仍然可以用環境變數
+> 給 —— compose 的 `environment:` 條目、或 `docker run -e mcp.token=...` —— 但啟動參數哪裡都能用，優先用它。
+
+啟用之後，打 `/mcp` 必須帶 header `Authorization: Bearer <token>`；沒帶或帶錯一律 `401`。
+傳輸走 streamable-stateless HTTP，所以裸 `POST` 直接回純 JSON —— 不需要 session 握手，也沒有 SSE 包裝。
+
+### client 端怎麼設定
+
+專案根目錄的 [`.mcp.json`](./.mcp.json) 已經幫 Claude Code 註冊好這個 server。它讀兩個環境變數，
+所以 token 不會進版控：
+
+| 變數 | 預設 | 說明 |
+|---|---|---|
+| `NGINX_WEBUI_MCP_TOKEN` | 無 —— **必填** | 必須與啟動時 `--mcp.token` 的值一致 |
+| `NGINX_WEBUI_MCP_URL` | `http://localhost:12300/mcp` | `12300` 只是 Docker Compose 對外映射的 port。直接跑 jar 的話要改成 `--server.port` 給的那個，通常是 `http://localhost:8080/mcp` |
+
+這兩個名字都是正常的 shell 識別字，啟動 client 前照一般方式 export 即可：
+
+```bash
+export NGINX_WEBUI_MCP_TOKEN=REPLACE_WITH_YOUR_TOKEN
+export NGINX_WEBUI_MCP_URL=http://localhost:8080/mcp   # 不是走 Compose 那個 port 才需要設
+```
 
 ---
 
