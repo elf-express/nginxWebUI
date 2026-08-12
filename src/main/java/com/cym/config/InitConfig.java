@@ -384,6 +384,14 @@ public class InitConfig {
 			settingService.set("denyAllowStream", "0");
 		}
 
+		// ASN protection profile + AsMeta daily sync time (defaults only when missing)
+		if (settingService.get("protection.profile") == null) {
+			settingService.set("protection.profile", "light");
+		}
+		if (settingService.get("asn.meta.syncTime") == null) {
+			settingService.set("asn.meta.syncTime", "04:15");
+		}
+
 		// 種子:預設惡意 IP 黑名單(seed-on-empty;flag 保證只播一次,使用者刪光不重播)
 		if (!"1".equals(settingService.get("denyAllowSeeded"))) {
 			if (sqlHelper.findAllCount(DenyAllow.class) == 0) {

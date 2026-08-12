@@ -24,6 +24,7 @@ import com.cym.model.DenyAllow;
 import com.cym.model.Remote;
 import com.cym.model.Upstream;
 import com.cym.model.UpstreamServer;
+import com.cym.service.AsnMetaService;
 import com.cym.service.DenyAllowService;
 import com.cym.service.GeoipService;
 import com.cym.service.HttpService;
@@ -75,6 +76,8 @@ public class ScheduleTask {
 	DenyAllowService denyAllowService;
 	@Inject
 	GeoipService geoipService;
+	@Inject
+	AsnMetaService asnMetaService;
 	@Inject
 	MessageUtils m;
 	@Inject
@@ -152,6 +155,34 @@ public class ScheduleTask {
 				geoipDownloading.set(false);
 			}
 		}, "geoip-download").start();
+	}
+
+	// AsMeta (ipverse as-metadata) daily sync at asn.meta.syncTime (default 04:15).
+	// Background thread + single-flight so a slow catalog download never stacks.
+	private final java.util.concurrent.atomic.AtomicBoolean asMetaSyncing = new java.util.concurrent.atomic.AtomicBoolean(false);
+
+	@Scheduled(cron = "0 * * * * ?")
+	public void syncAsMeta() {
+		String fetchTime = settingService.get("asn.meta.syncTime");
+		if (StrUtil.isBlank(fetchTime) || !fetchTime.matches("^([01]\\d|2[0-3]):[0-5]\\d$")) {
+			fetchTime = "04:15";
+		}
+		String nowHHmm = DateUtil.format(new Date(), "HH:mm");
+		if (!nowHHmm.equals(fetchTime)) {
+			return;
+		}
+		if (!asMetaSyncing.compareAndSet(false, true)) {
+			return;
+		}
+		new Thread(() -> {
+			try {
+				asnMetaService.syncFromRemote();
+			} catch (Exception e) {
+				logger.error("AsMeta sync failed", e);
+			} finally {
+				asMetaSyncing.set(false);
+			}
+		}, "as-meta-sync").start();
 	}
 
 	// 续签证书
