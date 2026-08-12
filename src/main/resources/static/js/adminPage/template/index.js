@@ -59,7 +59,12 @@ var DEF_TAG_ORDER = ["http", "server", "server1", "server2", "stream", "location
 var DEF_HTTP_STACK = ["http", "server", "location", "upstream"];
 var DEF_STREAM_STACK = ["stream", "server1", "server2"];
 
-/** 與後端 TemplateDefUtils 對齊的最小安全清單（前端即時禁用） */
+/** 與後端 TemplateDefUtils 對齊（精準子集；存檔以後端 filter 為準） */
+var SERVER_LOCATION_ONLY = { "if": 1, "try_files": 1, "internal": 1, "alias": 1 };
+var HTTP_TOP_ONLY = {
+	"limit_req_zone": 1, "proxy_cache_path": 1, "lua_shared_dict": 1,
+	"types": 1, "charset_map": 1, "vhost_traffic_status_zone": 1, "acme_issuer": 1
+};
 var HTTP_ONLY_NAMES = {
 	"if": 1, "add_header": 1, "more_set_headers": 1, "more_clear_headers": 1,
 	"more_set_input_headers": 1, "auth_request": 1, "auth_request_set": 1,
@@ -82,49 +87,98 @@ var STREAM_ONLY_NAMES = {
 	"preread_buffer_size": 1, "preread_timeout": 1, "udp_requests": 1, "udp_responses": 1
 };
 
+function normalizeDirectiveNameJs(raw) {
+	var n = (raw || "").trim().toLowerCase();
+	if (!n) {
+		return "";
+	}
+	if (n === "if" || n.indexOf("if ") === 0 || n.indexOf("if(") === 0 || n.indexOf("if\t") === 0) {
+		return "if";
+	}
+	var sp = n.indexOf(" ");
+	if (sp > 0) {
+		n = n.substring(0, sp);
+	}
+	var paren = n.indexOf("(");
+	if (paren > 0) {
+		n = n.substring(0, paren);
+	}
+	return n;
+}
+
 function collectParamDirectiveNames() {
 	var names = [];
 	$("#paramList textarea[name='name']").each(function() {
-		var n = ($(this).val() || "").trim().toLowerCase();
-		if (!n) {
-			return;
+		var n = normalizeDirectiveNameJs($(this).val());
+		if (n) {
+			names.push(n);
 		}
-		if (n.indexOf("if") === 0) {
-			n = "if";
-		}
-		names.push(n);
 	});
 	return names;
 }
 
 /**
- * 依參數推算允許層級（與 TemplateDefUtils.allowedContexts 同邏輯）
+ * 依參數推算允許層級（與 TemplateDefUtils.allowedContexts 對齊）
  * @returns {Object} map of context -> true
  */
 function computeAllowedDefMap() {
 	var names = collectParamDirectiveNames();
 	var hasHttpOnly = false;
 	var hasStreamOnly = false;
+	var hasServerLocationOnly = false;
+	var hasHttpTopOnly = false;
 	for (var i = 0; i < names.length; i++) {
 		var n = names[i];
-		if (HTTP_ONLY_NAMES[n]) {
+		if (SERVER_LOCATION_ONLY[n]) {
+			hasServerLocationOnly = true;
+			hasHttpOnly = true;
+		} else if (HTTP_TOP_ONLY[n]) {
+			hasHttpTopOnly = true;
+			hasHttpOnly = true;
+		} else if (HTTP_ONLY_NAMES[n]) {
 			hasHttpOnly = true;
 		}
 		if (STREAM_ONLY_NAMES[n]) {
 			hasStreamOnly = true;
 		}
 	}
-	var allowed = {};
 	var list;
 	if (hasHttpOnly && hasStreamOnly) {
 		list = [];
-	} else if (hasHttpOnly) {
-		list = DEF_HTTP_STACK;
 	} else if (hasStreamOnly) {
 		list = DEF_STREAM_STACK;
+	} else if (hasHttpTopOnly && !hasServerLocationOnly) {
+		var onlyTop = true;
+		for (var t = 0; t < names.length; t++) {
+			var nt = names[t];
+			if (HTTP_TOP_ONLY[nt] || STREAM_ONLY_NAMES[nt]) {
+				continue;
+			}
+			if (HTTP_ONLY_NAMES[nt] || SERVER_LOCATION_ONLY[nt]) {
+				onlyTop = false;
+				break;
+			}
+		}
+		list = onlyTop ? ["http"] : DEF_HTTP_STACK;
+	} else if (hasServerLocationOnly && !hasHttpTopOnly) {
+		var onlySl = true;
+		for (var s = 0; s < names.length; s++) {
+			var ns = names[s];
+			if (SERVER_LOCATION_ONLY[ns]) {
+				continue;
+			}
+			if (HTTP_ONLY_NAMES[ns] || HTTP_TOP_ONLY[ns]) {
+				onlySl = false;
+				break;
+			}
+		}
+		list = onlySl ? ["server", "location"] : DEF_HTTP_STACK;
+	} else if (hasHttpOnly) {
+		list = DEF_HTTP_STACK;
 	} else {
 		list = DEF_TAG_ORDER;
 	}
+	var allowed = {};
 	for (var j = 0; j < list.length; j++) {
 		allowed[list[j]] = true;
 	}

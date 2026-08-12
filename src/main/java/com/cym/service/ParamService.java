@@ -37,6 +37,7 @@ public class ParamService {
 		List<Param> list = new ArrayList<>();
 		// 自動套用：Template.def 可多選（逗號分隔），例 "server,location"
 		String matchType = type;
+		boolean streamServer = "server1".equals(matchType) || "server2".equals(matchType);
 		List<Template> allTemplates = sqlHelper.findAll(Template.class);
 		for (Template template : allTemplates) {
 			if (!TemplateDefUtils.contains(template.getDef(), matchType)) {
@@ -44,7 +45,19 @@ public class ParamService {
 			}
 			List<Param> addList = sqlHelper.findListByQuery(
 					new ConditionAndWrapper().eq(Param::getTemplateId, template.getId()), Param.class);
-			list.addAll(addList);
+			// stream TCP/UDP server：再擋一層 HTTP-only 指令（與 ConfService stream 頂層白名單互補）
+			if (streamServer) {
+				for (Param p : addList) {
+					if (p == null || StrUtil.isEmpty(p.getName())) {
+						continue;
+					}
+					if (TemplateDefUtils.isSafeForStreamServer(p.getName())) {
+						list.add(p);
+					}
+				}
+			} else {
+				list.addAll(addList);
+			}
 		}
 
 		if (type.contains("server")) {

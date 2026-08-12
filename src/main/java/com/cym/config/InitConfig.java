@@ -41,6 +41,7 @@ import com.cym.sqlhelper.utils.SqlHelper;
 import com.cym.utils.EncodePassUtils;
 import com.cym.utils.MessageUtils;
 import com.cym.utils.SystemTool;
+import com.cym.utils.TemplateDefUtils;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 
@@ -813,14 +814,22 @@ public class InitConfig {
 					changed = true;
 				}
 			} else if (name.equals(streamServerHint) || name.startsWith("Connection Limit (stream server)")) {
-				if (!"server1".equals(tpl.getDef())) {
-					tpl.setDef("server1");
+				// TCP + UDP stream server 皆可套用 limit_conn
+				String want = "server1,server2";
+				if (!want.equals(TemplateDefUtils.normalize(tpl.getDef()))) {
+					tpl.setDef(want);
 					changed = true;
 				}
 			} else if (StrUtil.isNotEmpty(tpl.getDef())) {
-				// 其餘（含 GeoIP / Rate Limit / Connection Limit http|server）一律手動套用
-				tpl.setDef("");
-				changed = true;
+				// 僅剔除「參數不允許」的層級，保留合法的 http/server/location 多選
+				List<Param> params = sqlHelper.findListByQuery(
+						new ConditionAndWrapper().eq(Param::getTemplateId, tpl.getId()), Param.class);
+				String filtered = TemplateDefUtils.normalizeAndFilter(tpl.getDef(), params);
+				if (!filtered.equals(TemplateDefUtils.normalize(tpl.getDef()))) {
+					tpl.setDef(filtered);
+					changed = true;
+					logger.info("Migration: filtered template def for '{}': -> '{}'", name, filtered);
+				}
 			}
 
 			if (changed) {

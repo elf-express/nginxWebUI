@@ -146,8 +146,12 @@ public final class TemplateDefUtils {
 		}
 		LinkedHashSet<String> picked = new LinkedHashSet<>();
 		for (String part : split(def)) {
-			if (ALLOWED.contains(part)) {
-				picked.add(part);
+			if (part == null || part.isEmpty()) {
+				continue;
+			}
+			String key = part.trim().toLowerCase(Locale.ROOT);
+			if (ALLOWED.contains(key)) {
+				picked.add(key);
 			}
 		}
 		List<String> ordered = new ArrayList<>();
@@ -176,6 +180,15 @@ public final class TemplateDefUtils {
 		return normalize(String.join(",", values));
 	}
 
+	/** rewrite if / try_files 等：官網 Context 僅 server|location（非 http 頂層、非 upstream） */
+	private static final Set<String> SERVER_LOCATION_ONLY = setOf(
+			"if", "try_files", "internal", "alias");
+
+	/** 僅能寫在 http{} 頂層的宣告（勿放 http/stream 共有的 limit_conn_zone / map / log_format） */
+	private static final Set<String> HTTP_TOP_ONLY = setOf(
+			"limit_req_zone", "proxy_cache_path", "lua_shared_dict",
+			"types", "charset_map", "vhost_traffic_status_zone", "acme_issuer");
+
 	/**
 	 * 依模板參數推算「允許自動套用」的層級（固定序）。
 	 * 無參數或無法判斷時回傳全部（進可攻）；有 HTTP-only / stream-only 衝突時收斂。
@@ -183,17 +196,21 @@ public final class TemplateDefUtils {
 	public static List<String> allowedContexts(Iterable<Param> params) {
 		boolean hasHttpOnly = false;
 		boolean hasStreamOnly = false;
+		boolean hasServerLocationOnly = false;
+		boolean hasHttpTopOnly = false;
 		if (params != null) {
 			for (Param p : params) {
 				if (p == null || StrUtil.isEmpty(p.getName())) {
 					continue;
 				}
-				String n = p.getName().trim().toLowerCase(Locale.ROOT);
-				// 區塊名可能寫成 "if (" 殘片
-				if (n.startsWith("if")) {
-					n = "if";
-				}
-				if (HTTP_ONLY_NAMES.contains(n)) {
+				String n = normalizeDirectiveName(p.getName());
+				if (SERVER_LOCATION_ONLY.contains(n)) {
+					hasServerLocationOnly = true;
+					hasHttpOnly = true;
+				} else if (HTTP_TOP_ONLY.contains(n)) {
+					hasHttpTopOnly = true;
+					hasHttpOnly = true;
+				} else if (HTTP_ONLY_NAMES.contains(n)) {
 					hasHttpOnly = true;
 				}
 				if (STREAM_ONLY_NAMES.contains(n)) {
@@ -206,13 +223,79 @@ public final class TemplateDefUtils {
 		if (hasHttpOnly && hasStreamOnly) {
 			return Collections.emptyList();
 		}
-		if (hasHttpOnly) {
-			return new ArrayList<>(HTTP_STACK);
-		}
 		if (hasStreamOnly) {
 			return new ArrayList<>(STREAM_STACK);
 		}
+		// 僅有 http 頂層 zone 類 → 只允許 http
+		if (hasHttpTopOnly && !hasServerLocationOnly) {
+			// 若同時還有一般 http-only（如 add_header）仍可 server/location
+			boolean onlyTop = true;
+			if (params != null) {
+				for (Param p : params) {
+					if (p == null || StrUtil.isEmpty(p.getName())) {
+						continue;
+					}
+					String n = normalizeDirectiveName(p.getName());
+					if (HTTP_TOP_ONLY.contains(n) || STREAM_ONLY_NAMES.contains(n)) {
+						continue;
+					}
+					if (HTTP_ONLY_NAMES.contains(n) || SERVER_LOCATION_ONLY.contains(n)) {
+						onlyTop = false;
+						break;
+					}
+				}
+			}
+			if (onlyTop) {
+				return new ArrayList<>(Collections.singletonList("http"));
+			}
+		}
+		// if / try_files 等 → server + location only
+		if (hasServerLocationOnly && !hasHttpTopOnly) {
+			boolean onlySl = true;
+			if (params != null) {
+				for (Param p : params) {
+					if (p == null || StrUtil.isEmpty(p.getName())) {
+						continue;
+					}
+					String n = normalizeDirectiveName(p.getName());
+					if (SERVER_LOCATION_ONLY.contains(n)) {
+						continue;
+					}
+					if (HTTP_ONLY_NAMES.contains(n) || HTTP_TOP_ONLY.contains(n)) {
+						onlySl = false;
+						break;
+					}
+				}
+			}
+			if (onlySl) {
+				return new ArrayList<>(Arrays.asList("server", "location"));
+			}
+		}
+		if (hasHttpOnly) {
+			return new ArrayList<>(HTTP_STACK);
+		}
 		return new ArrayList<>(ALL);
+	}
+
+	/** 正規化指令名：trim、小寫；"if (" 殘片 → if */
+	public static String normalizeDirectiveName(String raw) {
+		if (raw == null) {
+			return "";
+		}
+		String n = raw.trim().toLowerCase(Locale.ROOT);
+		if (n.equals("if") || n.startsWith("if ") || n.startsWith("if(") || n.startsWith("if\t")) {
+			return "if";
+		}
+		// 避免 if_modified_since 被當成 if
+		int sp = n.indexOf(' ');
+		if (sp > 0) {
+			n = n.substring(0, sp);
+		}
+		int paren = n.indexOf('(');
+		if (paren > 0) {
+			n = n.substring(0, paren);
+		}
+		return n;
 	}
 
 	/** 從指令名列表推算（前端可送 names；後端亦可自 Param 取） */
@@ -257,6 +340,28 @@ public final class TemplateDefUtils {
 			return false;
 		}
 		return allowedContexts(params).contains(context.trim().toLowerCase(Locale.ROOT));
+	}
+
+	/**
+	 * stream TCP/UDP server 自動注入時是否安全（反向：非 HTTP-only / 非明確僅 http 頂層）。
+	 * 未知指令預設允許（與 stream 頂層白名單策略不同：server 層指令較雜）。
+	 */
+	public static boolean isSafeForStreamServer(String directiveName) {
+		String n = normalizeDirectiveName(directiveName);
+		if (n.isEmpty()) {
+			return false;
+		}
+		if (HTTP_ONLY_NAMES.contains(n) || SERVER_LOCATION_ONLY.contains(n) || HTTP_TOP_ONLY.contains(n)) {
+			return false;
+		}
+		// 常見 HTTP proxy 專用（未盡列入 HTTP_ONLY 時仍擋）
+		if (n.startsWith("proxy_set_") || n.startsWith("proxy_hide_") || n.startsWith("proxy_pass_")
+				|| n.startsWith("proxy_cache") || n.startsWith("proxy_cookie") || n.startsWith("proxy_redirect")
+				|| n.equals("proxy_http_version") || n.equals("proxy_buffering") || n.equals("proxy_request_buffering")
+				|| n.equals("proxy_method") || n.equals("proxy_store")) {
+			return false;
+		}
+		return true;
 	}
 
 	private static String[] split(String def) {

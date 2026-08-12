@@ -10,7 +10,9 @@ test.describe('參數模板分組編輯器', () => {
     // Layui form.render() hides native <select>; assert presence + name input visibility
     await expect(page.locator('#groupName')).toBeAttached();
     await expect(page.locator('#name')).toBeVisible();
-    await expect(page.locator('#def')).toBeAttached();
+    // multi-select context tags (replaces single #def <select>)
+    await expect(page.locator('#defTags')).toBeAttached();
+    await expect(page.locator('#defTags input[name=defTag]')).toHaveCount(7);
     // Group dropdown should be rendered in the dialog (label + Layui select UI)
     await expect(page.locator('#windowDiv').getByText(/分组|分組|Group/).first()).toBeVisible();
 
@@ -21,6 +23,13 @@ test.describe('參數模板分組編輯器', () => {
     const box = await ta.boundingBox();
     expect(box.height).toBeLessThanOrEqual(56); // 40px + padding
     expect(box.height).toBeGreaterThanOrEqual(32);
+
+    // HTTP-only directive "if" → stream/tcp/udp tags disabled (safety lock)
+    await ta.fill('if');
+    await page.locator('#paramList textarea').nth(1).fill('($x) { return 403; }');
+    await expect(page.locator('#defTags input[name=defTag][value=stream]')).toBeDisabled();
+    await expect(page.locator('#defTags input[name=defTag][value=server1]')).toBeDisabled();
+    await expect(page.locator('#defTags input[name=defTag][value=server]')).toBeEnabled();
   });
 
   test('列表存在分組 collapse（含 CORS 或 compress）', async ({ page }) => {
