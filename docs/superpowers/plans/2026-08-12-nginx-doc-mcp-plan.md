@@ -323,7 +323,9 @@ git commit -m "feat(mcp): parse nginx directive definitions from the captured do
 - Consumes: `NginxDocParser.parsePage(String)`、`NginxDirective`
 - Produces:
   - `NginxDocService.load(List<String> pages) -> void` — 從頁面內容建索引（測試用,不碰 classpath）
-  - `NginxDocService.directive(String name) -> NginxDirective`（查無回 null）
+  - `NginxDocService.directive(String name) -> List<NginxDirective>` — **回傳全部同名定義**（查無回空 list）。
+    語料有 122 個名字存在於 2 個以上模組（`proxy_pass` 在 http 與 stream 底下 context 完全不同），
+    先到先贏會靜默丟掉 158 筆定義,而且失敗是無聲的 —— AI 會拿到另一個模組的 context 卻毫無察覺。
   - `NginxDocService.byContext(String ctx) -> List<NginxDirective>`
   - `NginxDocService.byModule(String moduleQuery) -> List<String>` — 回相符的模組**名稱**清單,唯一相符時長度為 1
   - `NginxDocService.directivesOfModule(String module) -> List<NginxDirective>`
@@ -835,6 +837,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import com.cym.model.NginxDirective;
 import com.cym.service.NginxDocService;
@@ -888,8 +891,8 @@ public class NginxConfChecker {
 				continue; // 跨行指令,無法確定 → 不報
 			}
 
-			NginxDirective d = svc.directive(first);
-			if (d == null) {
+			List<NginxDirective> defs = svc.directive(first);
+			if (defs.isEmpty()) {
 				List<String> hints = svc.suggest(first);
 				if (!hints.isEmpty()) {
 					problems.add("第 " + lineNo + " 行: 未知指令 " + first + ",是否想寫 " + String.join(" / ", hints) + " ?");
@@ -898,12 +901,23 @@ public class NginxConfChecker {
 			}
 
 			String ctx = stack.isEmpty() ? "main" : stack.peekLast();
-			if ("unknown".equals(ctx) || d.contexts().isEmpty()) {
-				continue; // 無法確定 → 不報
+			if ("unknown".equals(ctx)) {
+				continue; // 無法確定目前在哪一層 → 不報
 			}
-			if (!d.contexts().contains(ctx)) {
+
+			// 同名指令可能跨模組（語料有 122 個這種名字）。只要任一個定義允許目前 context
+			// 就算合法 —— 否則 stream 設定裡的 proxy_pass 會被 http 版的定義誤判成錯誤。
+			List<NginxDirective> known = defs.stream().filter(d -> !d.contexts().isEmpty()).toList();
+			if (known.isEmpty()) {
+				continue; // 沒有任何一份定義說得出 context → 不報
+			}
+			if (known.stream().noneMatch(d -> d.contexts().contains(ctx))) {
+				NginxDirective first0 = known.get(0);
+				String allowed = known.stream()
+						.map(d -> d.module() + ": " + String.join(", ", d.contexts()))
+						.collect(Collectors.joining(" / "));
 				problems.add("第 " + lineNo + " 行: " + first + " 不能用在 " + ctx
-						+ ",官方允許的 context 是 " + String.join(", ", d.contexts()) + " — " + d.sourceUrl());
+						+ ",官方允許的 context 是 " + allowed + " — " + first0.sourceUrl());
 			}
 		}
 		return problems;
@@ -987,16 +1001,22 @@ public class NginxDocMcpServer {
 	@Inject
 	NginxDocService docService;
 
-	@ToolMapping(description = "查詢單一 nginx 指令的官方定義:語法、預設值、可用的 context、所屬模組與官方連結。查無時回傳拼法相近的候選。")
+	@ToolMapping(description = "查詢 nginx 指令的官方定義:語法、預設值、可用的 context、所屬模組與官方連結。同名指令若存在於多個模組會全部列出。查無時回傳拼法相近的候選。")
 	public String nginx_directive(@Param(description = "指令名稱,例如 proxy_pass") String name) {
-		NginxDirective d = docService.directive(name);
-		if (d == null) {
+		List<NginxDirective> defs = docService.directive(name);
+		if (defs.isEmpty()) {
 			List<String> hints = docService.suggest(name);
 			return hints.isEmpty()
 					? "查無指令 " + name + "。可改用 nginx_search 以關鍵字搜尋。"
 					: "查無指令 " + name + "。是否想查:" + String.join(" / ", hints);
 		}
-		return format(d);
+		if (defs.size() == 1) {
+			return format(defs.get(0));
+		}
+		// 全部列出而非挑一個:proxy_pass 在 http 與 stream 底下的 context 完全不同,
+		// 只回其中一份會讓 AI 拿著錯誤的 context 卻毫無察覺。
+		return defs.size() + " 個模組定義了 " + name + ",以下全部列出:\n\n"
+				+ defs.stream().map(this::format).collect(Collectors.joining("\n\n"));
 	}
 
 	@ToolMapping(description = "以關鍵字全文搜尋 nginx 官方文件,用於還不知道指令名稱時。回傳命中片段與來源連結。")
