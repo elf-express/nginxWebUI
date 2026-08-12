@@ -268,6 +268,156 @@ public class NginxConfCheckerTest {
 	}
 
 	@Test
+	public void check_左大括號後面帶註解仍然推入區塊() {
+		// 這是 } 帶註解那條的鏡像,而且更嚴重:區塊沒進 stack,裡面每一行都拿到錯的 context,
+		// 配對的 } 又多 pop 一層,錯位一路擴散到檔尾 —— 一個 server { # api 就能讓整份判讀報廢。
+		String conf = """
+				http {           # global http
+				    server {     # site A
+				        listen 80;
+				        location / {   # root
+				            proxy_pass http://backend;
+				        }
+				    }
+				}
+				""";
+		assertEquals(List.of(), NginxConfChecker.check(conf, svc));
+	}
+
+	@Test
+	public void check_行尾註解不會讓真錯誤消失() {
+		// 剝註解最省事的寫法是「含 # 的行整行跳過」,那會把這一類錯誤永久關掉,
+		// 而且照樣通過其他每一條測試 —— 所以正反兩面都要有人盯。
+		String conf = """
+				http {
+				    server {
+				        proxy_pas http://backend;   # 打錯字,但後面有註解
+				    }
+				    worker_connections 1024;        # 放錯層,後面也有註解
+				}
+				""";
+		List<String> problems = NginxConfChecker.check(conf, svc);
+		assertEquals(2, problems.size(), "實際:" + problems);
+		assertTrue(problems.get(0).startsWith("第 3 行: 未知指令 proxy_pas"), problems.get(0));
+		assertTrue(problems.get(1).startsWith("第 5 行: worker_connections 不能用在 http"), problems.get(1));
+	}
+
+	@Test
+	public void check_引號裡的井字號不是註解() {
+		// 剝到引號裡去,這一行就會變成沒有分號結尾的殘句而被整行跳過。用一個「真的放錯層」的
+		// 指令當探針:抓得到才代表這一行還完整地留在檢查流程裡。
+		String conf = """
+				http {
+				    upstream u {
+				        root "/var/www/#1";
+				    }
+				}
+				""";
+		List<String> problems = NginxConfChecker.check(conf, svc);
+		assertEquals(1, problems.size(), "實際:" + problems);
+		assertTrue(problems.get(0).startsWith("第 3 行: root 不能用在 upstream"), problems.get(0));
+	}
+
+	@Test
+	public void check_stream的server不放行http專屬指令() {
+		// stream { server { } } 與 http { server { } } 對堆疊來說都只是字串 server,
+		// 光看最內層會把 8 條純 HTTP 指令全放行。CLAUDE.md 把「HTTP-only 指令混進 stream」
+		// 列為本 repo 反覆踩到的雷(ConfService 自動注入要略過 if/add_header、
+		// migration streamDefTemplatesSanitized20260812 就是在清這個),不能沒有意見。
+		String conf = """
+				stream {
+				    server {
+				        listen 12345;
+				        proxy_pass tcp_backend;
+				        add_header X-Foo 1;
+				        root /var/www;
+				    }
+				}
+				""";
+		List<String> problems = NginxConfChecker.check(conf, svc);
+		assertEquals(2, problems.size(), "實際:" + problems);
+		assertTrue(problems.get(0).startsWith("第 5 行: add_header 不能用在 stream 的 server"), problems.get(0));
+		assertTrue(problems.get(1).startsWith("第 6 行: root 不能用在 stream 的 server"), problems.get(1));
+	}
+
+	@Test
+	public void check_mail的server不放行http專屬指令() {
+		String conf = """
+				mail {
+				    server {
+				        listen 110;
+				        protocol pop3;
+				        add_header X-Foo 1;
+				    }
+				}
+				""";
+		List<String> problems = NginxConfChecker.check(conf, svc);
+		assertEquals(1, problems.size(), "實際:" + problems);
+		assertTrue(problems.get(0).startsWith("第 5 行: add_header 不能用在 mail 的 server"), problems.get(0));
+	}
+
+	@Test
+	public void check_mgmt區塊的內容會被檢查() {
+		// mgmt / oidc_provider / acme_issuer 不在區塊清單裡的話會整層落進 opaque,
+		// 語料裡 41 條指令的 context 資料就是死的 —— 那不是「沒測到」,是結構上永遠不會檢查。
+		String conf = """
+				mgmt {
+				    usage_report interval=30m;
+				    state_path /var/lib/nginx/state;
+				    listen 80;
+				}
+				""";
+		List<String> problems = NginxConfChecker.check(conf, svc);
+		assertEquals(1, problems.size(), "實際:" + problems);
+		assertTrue(problems.get(0).startsWith("第 4 行: listen 不能用在 mgmt"), problems.get(0));
+	}
+
+	@Test
+	public void check_acme與oidc區塊的指令合法() {
+		String conf = """
+				http {
+				    acme_issuer letsencrypt {
+				        uri https://acme-v02.api.letsencrypt.org/directory;
+				        contact admin@example.com;
+				    }
+				    oidc_provider keycloak {
+				        issuer https://kc.example.com/realms/x;
+				        client_id nginx;
+				    }
+				}
+				""";
+		assertEquals(List.of(), NginxConfChecker.check(conf, svc));
+	}
+
+	@Test
+	public void check_藏在抑制構造後面的錯也要抓到() {
+		// 反向對照只擋得住「全面靜音」。抑制規則(剝註解、資料區塊、家族過濾)各自都可能
+		// 一不小心從「不誤報」滑成「不報」,所以每一條抑制構造後面都要藏一個真錯誤。
+		String conf = """
+				http {                      # 帶註解的區塊行
+				    server {                # 同上
+				        proxy_pas http://x;    # 註解後面的錯字
+				        map $a $b {
+				            default 0;
+				        }
+				        add_header X 1;
+				    }
+				    worker_connections 1;   # 註解後面的放錯層
+				}
+				stream {
+				    server {
+				        root /var/www;
+				    }
+				}
+				""";
+		List<String> problems = NginxConfChecker.check(conf, svc);
+		assertEquals(3, problems.size(), "實際:" + problems);
+		assertTrue(problems.get(0).startsWith("第 3 行: 未知指令 proxy_pas"), problems.get(0));
+		assertTrue(problems.get(1).startsWith("第 9 行: worker_connections 不能用在 http"), problems.get(1));
+		assertTrue(problems.get(2).startsWith("第 13 行: root 不能用在 stream 的 server"), problems.get(2));
+	}
+
+	@Test
 	public void check_真的寫錯的設定一則都不能漏() {
 		// 上面那一堆「不要誤報」的規則,最容易的過關方式就是什麼都不報。這條反向對照
 		// 盯著另一邊:每一行都是 nginx 會直接拒絕啟動的錯,一則都不該被放行。

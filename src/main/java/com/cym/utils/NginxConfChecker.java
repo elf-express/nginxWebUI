@@ -27,9 +27,22 @@ public class NginxConfChecker {
 	 * 刻意不含 map / geo / types / charset_map / split_clients —— 它們大括號裡裝的是
 	 * 「值對值」的對照資料(default upgrade;、C0 D18E;),逐行當指令查會把 default、CN
 	 * 報成拼錯的指令。不在這張表上的區塊一律當作看不懂,見 {@link #OPAQUE}。
+	 *
+	 * 語料 15 個 context 全部在這裡有對應(扣掉 any 與資料區塊),漏一個就等於那個 context
+	 * 底下的指令永遠不會被檢查 —— mgmt / oidc_provider / acme_issuer 共 41 條就是這樣被漏掉過。
 	 */
 	private static final List<String> DIRECTIVE_BLOCKS = List.of(
-			"http", "server", "location", "upstream", "stream", "events", "mail", "limit_except", "if");
+			"http", "server", "location", "upstream", "stream", "events", "mail", "limit_except", "if",
+			"mgmt", "oidc_provider", "acme_issuer");
+
+	/**
+	 * 頂層區塊 → 該層只認這個家族的模組。
+	 *
+	 * stream { server { } } 與 http { server { } } 對堆疊來說都只是字串 server,只看最內層
+	 * 會讓 add_header、root 這些純 HTTP 指令在 stream 的 server 裡暢行無阻(它們的 contexts
+	 * 含 server,一比就中)—— 而那正是本 repo 反覆踩到的雷。
+	 */
+	private static final List<String> FAMILY_BLOCKS = List.of("http", "stream", "mail");
 
 	/** 看不懂的區塊:資料區塊、或第三方模組的區塊(geoip2 { })。整層都不檢查。 */
 	private static final String OPAQUE = "opaque";
@@ -53,14 +66,17 @@ public class NginxConfChecker {
 		String[] lines = conf.split("\n");
 
 		for (int i = 0; i < lines.length; i++) {
-			String line = lines[i].trim();
+			// 行尾註解要先剝掉,不能只認整行都是註解的情況。手寫 conf 到處是 server { # site A,
+			// 而這種行結尾是註解不是 {:區塊沒被推進 stack,裡面每一行都拿到錯的 context,
+			// 配對的 } 又多 pop 一層,錯位一路擴散到檔尾。指令行同理(proxy_pas x; # typo
+			// 結尾不是分號就整行被丟掉,真的錯字反而靜音)。
+			String line = stripComment(lines[i]).trim();
 			int lineNo = i + 1;
 
-			if (line.isEmpty() || line.startsWith("#")) {
-				continue;
+			if (line.isEmpty()) {
+				continue; // 空行,或整行都是註解
 			}
-			// 收尾的大括號常帶註解(} # end location)。只比對整行等於 } 會漏掉這個 pop,
-			// 之後每一行都少算一層 —— server 的 listen 會被說成寫在 location 裡。
+			// 收尾的大括號常帶註解(} # end location)。只比對整行等於 } 會漏掉這個 pop。
 			if (line.startsWith("}")) {
 				stack.pollLast();
 				continue;
@@ -104,18 +120,83 @@ public class NginxConfChecker {
 			if (known.isEmpty()) {
 				continue; // 沒有任何一份定義說得出 context → 不報
 			}
+			// 先用最外層區塊把候選定義篩掉別的家族,再比對 context。同名跨模組的指令兩份定義
+			// 都在,篩完會留下對的那一份 —— 這正是 directive() 回 list 的用意。
+			String family = topLevelFamily(stack);
+			List<NginxDirective> applicable = family == null ? known
+					: known.stream().filter(d -> {
+						String f = moduleFamily(d.module());
+						return f == null || f.equals(family);
+					}).toList();
+
 			List<String> accepted = acceptedContexts(stack, ctx);
-			boolean legal = known.stream().anyMatch(
+			// applicable 被篩空時 anyMatch 自然是 false,也就會被報出來 —— 一條純 HTTP 指令
+			// 在 stream 底下沒有任何一份適用的定義,這件事是確定的。
+			boolean legal = applicable.stream().anyMatch(
 					d -> d.contexts().contains(ANY) || d.contexts().stream().anyMatch(accepted::contains));
 			if (!legal) {
 				String allowed = known.stream()
 						.map(d -> d.module() + ": " + String.join(", ", d.contexts()))
 						.collect(Collectors.joining(" / "));
-				problems.add("第 " + lineNo + " 行: " + first + " 不能用在 " + ctx
+				problems.add("第 " + lineNo + " 行: " + first + " 不能用在 " + where(family, ctx)
 						+ ",官方允許的 context 是 " + allowed + " — " + known.get(0).sourceUrl());
 			}
 		}
 		return problems;
+	}
+
+	/**
+	 * 剝掉行尾註解。引號裡的 # 不是註解 —— add_header X "a#b"; 剝過頭會變成沒有分號的殘句,
+	 * 整行從檢查裡消失,連真的寫錯都跟著靜音。
+	 */
+	private static String stripComment(String line) {
+		char quote = 0;
+		for (int i = 0; i < line.length(); i++) {
+			char c = line.charAt(i);
+			if (quote != 0 && c == '\\' && i + 1 < line.length()) {
+				i++; // 引號內的跳脫,連同下一個字一起跳過
+			} else if (quote != 0) {
+				if (c == quote) {
+					quote = 0;
+				}
+			} else if (c == '"' || c == '\'') {
+				quote = c;
+			} else if (c == '#') {
+				return line.substring(0, i);
+			}
+		}
+		return line;
+	}
+
+	/** 最外層區塊決定的家族;不是 http / stream / mail(例如只貼了一段 server {})就回 null 表示不篩。 */
+	private static String topLevelFamily(Deque<String> stack) {
+		String outermost = stack.peekFirst();
+		return outermost != null && FAMILY_BLOCKS.contains(outermost) ? outermost : null;
+	}
+
+	/**
+	 * 模組屬於哪個家族。回 null 代表「哪個家族都算數」——ngx_core_module 這種跨層模組
+	 * (include 就在裡面),以及語料裡 3 個不照前綴命名的模組(ngx_mgmt / ngx_otel /
+	 * ngx_google_perftools)。只在「能明確判定是別的家族」時才篩掉,才不會反過來造成誤報。
+	 */
+	private static String moduleFamily(String module) {
+		for (String family : FAMILY_BLOCKS) {
+			if (module.startsWith("ngx_" + family + "_")) {
+				return family;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * 訊息裡怎麼稱呼「目前這一層」。
+	 *
+	 * 只有 stream / mail 需要標明是哪一層的 server:http 的 server 是所有人預設的讀法,
+	 * 標成「http 的 server」只是雜訊,而「stream 的 server」正是要講清楚的那個區別。
+	 */
+	private static String where(String family, String ctx) {
+		boolean needsQualifier = ("stream".equals(family) || "mail".equals(family)) && !family.equals(ctx);
+		return needsQualifier ? family + " 的 " + ctx : ctx;
 	}
 
 	/**
