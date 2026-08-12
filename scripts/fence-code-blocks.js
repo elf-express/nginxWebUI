@@ -9,28 +9,30 @@
 'use strict';
 
 const QUOTE_RE = /^\s*>/;
-const SOURCE_RE = /^\s*>\s*Source:/;
+// 檔頭 metadata：抓取工具留下的 Source 行，以及本專案翻譯版加的翻譯標注。
+// 兩者都是檔案開頭的註記而非內容，永遠不該變成程式碼。
+const META_RE = /^\s*>\s*(?:Source:|翻譯\s*[:：])/;
 const NESTED_RE = /^\s*>\s*>/;
 
 // 連續引用行構成一個區塊，由任何非引用行（含空行）分隔。
-// Source metadata 與巢狀引用（nginx.org 的 note box）在這一層就排除，
-// 它們永遠不該變成程式碼。
+// 區塊內只要出現 metadata 或巢狀引用（nginx.org 的 note box），整段一併退出：
+// note box 與它的續行是同一則訊息，只 fence 後半會讓一則訊息一半引用塊、一半 fence。
 function splitBlocks(lines) {
   const blocks = [];
   let cur = null;
+  const flush = () => {
+    if (cur && !cur.excluded) blocks.push({ start: cur.start, end: cur.end, lines: cur.lines });
+    cur = null;
+  };
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];
-    const isQuote = QUOTE_RE.test(l) && !SOURCE_RE.test(l) && !NESTED_RE.test(l);
-    if (isQuote) {
-      if (!cur) cur = { start: i, end: i, lines: [] };
-      cur.end = i;
-      cur.lines.push(l);
-    } else if (cur) {
-      blocks.push(cur);
-      cur = null;
-    }
+    if (!QUOTE_RE.test(l)) { flush(); continue; }
+    if (!cur) cur = { start: i, end: i, lines: [], excluded: false };
+    cur.end = i;
+    cur.lines.push(l);
+    if (META_RE.test(l) || NESTED_RE.test(l)) cur.excluded = true;
   }
-  if (cur) blocks.push(cur);
+  flush();
   return blocks;
 }
 
@@ -52,8 +54,8 @@ const CODE_SIGNALS = [
   /^[a-z_][a-z0-9_]*\s+[a-z0-9_$/.:*-]+\s*$/i,  // 「指令 參數」形式，例如 kldload aio
 ];
 
-// 散文訊號：句末標點（中英文皆算）且不含程式碼訊號時，判為散文。
-const PROSE_END_RE = /[.。！!？?]\s*$/;
+// 散文訊號：句末標點（中英文皆算，含引出下方範例的冒號）且不含程式碼訊號時，判為散文。
+const PROSE_END_RE = /[.。！!？?:：]\s*$/;
 
 function isCodeBlock(blockLines) {
   const bodies = blockLines.map((l) => unescapeMd(stripQuote(l))).filter((s) => s.trim());
