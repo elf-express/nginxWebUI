@@ -208,7 +208,10 @@ npm run test:fast             # 跑 E2E（headless / CI）
 
 | Tag | 主軸 |
 |---|---|
-| **[v5.2.5](https://github.com/elf-express/nginxWebUI/releases/tag/v5.2.5)** | 安全修復（CodeQL：zip-slip path traversal / DOM XSS / 敏感資訊入 log）+ 依賴升級收齊 |
+| **[v5.2.8](https://github.com/elf-express/nginxWebUI/releases/tag/v5.2.8)** | nginx 官方文件在地化＋程式碼安全工具：822 個程式碼範例從引用塊轉為 code fence，以字元級內容指紋把關；另修 138 處機器翻譯損壞 |
+| [v5.2.7](https://github.com/elf-express/nginxWebUI/releases/tag/v5.2.7) | 全域 http 參數面板移至 http 參數配置頁；header GeoIP 狀態改為 2x2 grid |
+| [v5.2.6](https://github.com/elf-express/nginxWebUI/releases/tag/v5.2.6) | 修復全站儲存死鎖（`nginx -t` 前置檢查逾時）＋ DenyAllow 改為全站自動生效，取消逐站綁定 |
+| [v5.2.5](https://github.com/elf-express/nginxWebUI/releases/tag/v5.2.5) | 安全修復（CodeQL：zip-slip path traversal / DOM XSS / 敏感資訊入 log）+ 依賴升級收齊 |
 | [v5.2.4](https://github.com/elf-express/nginxWebUI/releases/tag/v5.2.4) | CI 發版自動建 GitHub Release（不再手動補、頁面不再落後）|
 | [v5.2.0](https://github.com/elf-express/nginxWebUI/releases/tag/v5.2.0) | GeoIP DB 模組：header 顯示 Country/City/ASN MMDB build date + 手動下載 |
 | [v5.1.1](https://github.com/elf-express/nginxWebUI/releases/tag/v5.1.1) | 自建 sidecar baked images（config 燒進 image）+ CI matrix build；目前為 **2 個自建 image**（nginxwebui + nginxwebui-crowdsec）|

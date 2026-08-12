@@ -204,7 +204,10 @@ npm run test:fast             # E2E (headless / CI)
 
 | Tag | Highlight |
 |---|---|
-| **[v5.2.5](https://github.com/elf-express/nginxWebUI/releases/tag/v5.2.5)** | Security fixes (CodeQL: zip-slip path traversal / DOM XSS / sensitive-log) + dependency upgrades |
+| **[v5.2.8](https://github.com/elf-express/nginxWebUI/releases/tag/v5.2.8)** | nginx documentation localised with code-safe tooling: 822 code samples converted from quote blocks to fenced blocks, guarded by a character-level content fingerprint; 138 machine-translation defects fixed |
+| [v5.2.7](https://github.com/elf-express/nginxWebUI/releases/tag/v5.2.7) | Global http-param panel moved to the http config page; header GeoIP status laid out as a 2x2 grid |
+| [v5.2.6](https://github.com/elf-express/nginxWebUI/releases/tag/v5.2.6) | Site-wide save deadlock resolved (`nginx -t` precheck timeout) + DenyAllow redesigned to apply globally, no per-server binding |
+| [v5.2.5](https://github.com/elf-express/nginxWebUI/releases/tag/v5.2.5) | Security fixes (CodeQL: zip-slip path traversal / DOM XSS / sensitive-log) + dependency upgrades |
 | [v5.2.4](https://github.com/elf-express/nginxWebUI/releases/tag/v5.2.4) | CI auto-creates GitHub Release (no more manual/stale releases) |
 | [v5.2.0](https://github.com/elf-express/nginxWebUI/releases/tag/v5.2.0) | GeoIP DB module: header shows Country/City/ASN MMDB build dates + manual download |
 | [v5.1.1](https://github.com/elf-express/nginxWebUI/releases/tag/v5.1.1) | Self-built sidecar baked images (config baked in) + CI matrix build; now **2 self-built images** (nginxwebui + nginxwebui-crowdsec) |
