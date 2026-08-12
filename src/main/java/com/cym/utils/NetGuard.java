@@ -37,6 +37,10 @@ public final class NetGuard {
 		String host = slash >= 0 ? t.substring(0, slash) : t;
 		String pref = slash >= 0 ? t.substring(slash + 1) : null;
 		if (pref != null) {
+			// prefix must be digits only (reject "/ 32", "/+32")
+			if (!pref.matches("^\\d+$")) {
+				return false;
+			}
 			try {
 				int p = Integer.parseInt(pref);
 				if (p < 0) {
@@ -83,6 +87,10 @@ public final class NetGuard {
 	}
 
 	public static boolean isAllowedWebuiReason(String reason) {
-		return StrUtil.isNotBlank(reason) && reason.startsWith("nginxwebui:");
+		if (reason == null) {
+			return false;
+		}
+		String r = reason.trim();
+		return StrUtil.isNotBlank(r) && r.startsWith("nginxwebui:");
 	}
 }

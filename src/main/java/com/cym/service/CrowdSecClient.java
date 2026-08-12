@@ -176,15 +176,23 @@ public class CrowdSecClient {
 		postDecision(duration, reason, "ip", ip, "whitelist");
 	}
 
-	void postDecision(String duration, String reason, String scope, String value, String type) {
-		ensureConfigured();
-		// Hard gates before HTTP — ban reason is free text (manual add OK); duration/CIDR always.
+	/**
+	 * Pure input gates for {@link #postDecision} — unit-tested so removing call-site gates fails CI.
+	 * Ban reason is free text; duration always; CIDR for ip/range.
+	 */
+	static void validatePostDecisionInputs(String duration, String scope, String value) {
 		requireDuration(duration);
 		if ("range".equals(scope) || "ip".equals(scope)) {
 			requireCidr(value);
 		} else if (StrUtil.isBlank(value)) {
 			throw new IllegalArgumentException("empty value");
 		}
+	}
+
+	void postDecision(String duration, String reason, String scope, String value, String type) {
+		ensureConfigured();
+		// Hard gates before HTTP — ban reason is free text (manual add OK); duration/CIDR always.
+		validatePostDecisionInputs(duration, scope, value);
 		String jsonBody = buildDecisionBody(duration, reason, scope, value, type);
 		HttpResponse resp = HttpRequest.post(base() + "/v1/decisions")
 				.header("X-Api-Key", apiKey())

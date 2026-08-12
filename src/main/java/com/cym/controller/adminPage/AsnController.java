@@ -237,7 +237,7 @@ public class AsnController extends BaseController {
 				}
 			}
 			if (StrUtil.isBlank(reasonTag)) {
-				return renderError("reason_tag_required");
+				return renderError(mapServiceError("reason_tag_required"));
 			}
 			if (!asnBlockService.isCrowdSecConfigured()) {
 				return renderError(mapServiceError("crowdsec_not_configured"));
@@ -276,8 +276,14 @@ public class AsnController extends BaseController {
 				continue;
 			}
 			scanned++;
+			String asnDigits;
+			try {
+				asnDigits = com.cym.utils.AsnSourceUrls.digits(meta.getAsn());
+			} catch (IllegalArgumentException e) {
+				continue;
+			}
 			AsBlockIntent existing = sqlHelper.findOneByQuery(
-					new ConditionAndWrapper().eq("asn", meta.getAsn()), AsBlockIntent.class);
+					new ConditionAndWrapper().eq("asn", asnDigits), AsBlockIntent.class);
 			if (existing != null) {
 				continue;
 			}
@@ -287,16 +293,16 @@ public class AsnController extends BaseController {
 			}
 			try {
 				AsBlockIntent i = new AsBlockIntent();
-				i.setAsn(meta.getAsn());
+				i.setAsn(asnDigits);
 				i.setStatus(AsBlockIntent.STATUS_CANDIDATE);
 				i.setDuration("24h");
-				i.setReasonTag(AsnBlockService.reasonTagForAsn(meta.getAsn()));
+				i.setReasonTag(AsnBlockService.reasonTagForAsn(asnDigits));
 				i.setCreatedByProfile(profile);
 				i.setNote("candidate:" + category);
 				sqlHelper.insert(i);
 				added++;
 			} catch (Exception e) {
-				logger.warn("suggestCandidates skip asn={}: {}", meta.getAsn(), e.getMessage());
+				logger.warn("suggestCandidates skip asn={}: {}", asnDigits, e.getMessage());
 			}
 		}
 		Map<String, Object> out = new HashMap<>();
@@ -337,6 +343,8 @@ public class AsnController extends BaseController {
 			return msgOr("asnStr.invalidDuration", code);
 		case "invalid_reason":
 			return msgOr("asnStr.invalidReason", code);
+		case "reason_tag_required":
+			return msgOr("asnStr.reasonTagRequired", code);
 		case "crowdsec_error":
 			return msgOr("crowdsecStr.error", code);
 		default:

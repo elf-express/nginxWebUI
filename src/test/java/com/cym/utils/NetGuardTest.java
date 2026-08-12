@@ -19,6 +19,9 @@ public class NetGuardTest {
 		assertTrue(NetGuard.isValidCidr("2001:db8::/32"));
 		assertTrue(NetGuard.isValidCidr("::1"));
 		assertFalse(NetGuard.isValidCidr("gggg::/32"));
+		assertFalse(NetGuard.isValidCidr("2001:db8::/ 32"));
+		assertFalse(NetGuard.isValidCidr("2001:db8::/+32"));
+		assertFalse(NetGuard.isValidCidr("example.com"));
 	}
 
 	@Test
@@ -39,6 +42,7 @@ public class NetGuardTest {
 	public void reason_prefix() {
 		assertTrue(NetGuard.isAllowedWebuiReason("nginxwebui:as-ban:AS1"));
 		assertTrue(NetGuard.isAllowedWebuiReason("nginxwebui:fp-whitelist"));
+		assertTrue(NetGuard.isAllowedWebuiReason("  nginxwebui:x  "));
 		assertFalse(NetGuard.isAllowedWebuiReason("cscli manual"));
 		assertFalse(NetGuard.isAllowedWebuiReason(""));
 		assertFalse(NetGuard.isAllowedWebuiReason(null));

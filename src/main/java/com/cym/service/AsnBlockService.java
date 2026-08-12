@@ -5,6 +5,8 @@ import java.util.List;
 
 import org.noear.solon.annotation.Component;
 import org.noear.solon.annotation.Inject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.cym.model.AsBlockIntent;
 import com.cym.sqlhelper.utils.ConditionAndWrapper;
@@ -22,6 +24,8 @@ import cn.hutool.http.HttpResponse;
  */
 @Component
 public class AsnBlockService {
+
+	private static final Logger logger = LoggerFactory.getLogger(AsnBlockService.class);
 
 	/** CrowdSec decision reason prefix for all nginxWebUI ASN bans. */
 	public static final String WEBUI_ASN_REASON_PREFIX = "nginxwebui:as-ban:AS";
@@ -260,7 +264,7 @@ public class AsnBlockService {
 		}
 		String reason = intent.getReasonTag();
 		int ok = 0;
-		String lastErr = null;
+		int fail = 0;
 		for (String cidr : cidrs) {
 			// double-guard: feed already filtered; skip if anything slips through
 			if (!NetGuard.isValidCidr(cidr)) {
@@ -270,20 +274,20 @@ public class AsnBlockService {
 				crowdSecClient.banRange(cidr, duration, reason);
 				ok++;
 			} catch (Exception e) {
-				lastErr = e.getMessage();
+				fail++;
+				// Log full LAPI detail; never store raw body in lastError (admin UI surface)
+				logger.warn("banRange failed asn={} cidr={}: {}", intent.getAsn(), cidr, e.getMessage());
 			}
 		}
 		intent.setPushBatchId(batchId);
 		intent.setLastPushAt(System.currentTimeMillis());
 		if (ok == 0) {
 			intent.setStatus(AsBlockIntent.STATUS_FAILED);
-			intent.setLastError(lastErr != null ? lastErr : "all_failed");
+			intent.setLastError("all_failed");
 		} else {
 			intent.setStatus(AsBlockIntent.STATUS_ACTIVE);
-			// clear on full success; keep partial note when some ranges fail
-			intent.setLastError(ok < cidrs.size()
-					? "partial:" + ok + "/" + cidrs.size() + " " + lastErr
-					: "");
+			// fixed codes only — no LAPI message leakage
+			intent.setLastError(fail > 0 ? "partial:" + ok + "/" + (ok + fail) : "");
 		}
 		sqlHelper.updateAllColumnById(intent);
 	}

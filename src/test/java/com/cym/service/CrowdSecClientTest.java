@@ -64,6 +64,20 @@ public class CrowdSecClientTest {
 	public void requireWebuiReason_acceptsPrefix() {
 		assertDoesNotThrow(() -> CrowdSecClient.requireWebuiReason("nginxwebui:as-ban:AS51167"));
 		assertDoesNotThrow(() -> CrowdSecClient.requireWebuiReason("nginxwebui:manual"));
+		assertDoesNotThrow(() -> CrowdSecClient.requireWebuiReason("  nginxwebui:fp-whitelist  "));
+	}
+
+	/** Ensures postDecision call-site cannot drop gates without breaking this test. */
+	@Test
+	public void validatePostDecisionInputs_boundToPostPath() {
+		assertDoesNotThrow(() -> CrowdSecClient.validatePostDecisionInputs("24h", "range", "1.2.3.0/24"));
+		assertDoesNotThrow(() -> CrowdSecClient.validatePostDecisionInputs("4h", "ip", "10.0.0.1"));
+		IllegalArgumentException badCidr = assertThrows(IllegalArgumentException.class,
+				() -> CrowdSecClient.validatePostDecisionInputs("24h", "range", "not-a-cidr"));
+		assertEquals(NetGuard.ERR_INVALID_CIDR, badCidr.getMessage());
+		IllegalArgumentException badDur = assertThrows(IllegalArgumentException.class,
+				() -> CrowdSecClient.validatePostDecisionInputs("forever", "ip", "1.1.1.1"));
+		assertEquals(NetGuard.ERR_INVALID_DURATION, badDur.getMessage());
 	}
 
 	@Test
