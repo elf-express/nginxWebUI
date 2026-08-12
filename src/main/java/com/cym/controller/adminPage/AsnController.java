@@ -36,7 +36,10 @@ public class AsnController extends BaseController {
 	/** Manual catalog sync single-flight (optional; schedule has its own flag). */
 	private final AtomicBoolean metaSyncing = new AtomicBoolean(false);
 
-	// ── legacy AsnRule CRUD (kept until Task 8 migration) ──────────────
+	// ── legacy AsnRule CRUD (deprecated; nginx map only if asn.nginxMapEnabled=true) ──
+	// Primary ASN big-block path = AsBlockIntent → CrowdSec. Soft-disable: list/del remain
+	// for cleanup; addOver/setEnable still persist AsnRule but do not auto-push CS and do
+	// not emit map unless the operator explicitly re-enables asn.nginxMapEnabled.
 
 	@Mapping("list")
 	public JsonResult list() {
@@ -44,6 +47,9 @@ public class AsnController extends BaseController {
 		return renderSuccess(list);
 	}
 
+	/**
+	 * @deprecated Prefer {@link #addIntent}; AsnRule map is not the product primary path.
+	 */
 	@Mapping("addOver")
 	public JsonResult addOver(AsnRule asnRule) {
 		if (StrUtil.isBlank(asnRule.getAsn()) || !asnRule.getAsn().trim().matches("\\d+")) {
@@ -75,6 +81,9 @@ public class AsnController extends BaseController {
 		return renderSuccess();
 	}
 
+	/**
+	 * @deprecated Prefer intent revoke/push; map path is opt-in via asn.nginxMapEnabled.
+	 */
 	@Mapping("setEnable")
 	public JsonResult setEnable(String id, Boolean enable) {
 		AsnRule rule = sqlHelper.findById(id, AsnRule.class);

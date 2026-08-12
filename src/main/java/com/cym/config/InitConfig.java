@@ -18,6 +18,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.cym.model.Admin;
+import com.cym.model.AsBlockIntent;
+import com.cym.model.AsnRule;
 import com.cym.model.Basic;
 import com.cym.model.DenyAllow;
 import com.cym.model.GeoRule;
@@ -26,6 +28,7 @@ import com.cym.model.Param;
 import com.cym.model.Module;
 import com.cym.model.Server;
 import com.cym.model.Template;
+import com.cym.service.AsnBlockService;
 import com.cym.service.BasicService;
 import com.cym.service.ConfService;
 import com.cym.service.DenyAllowService;
@@ -177,7 +180,8 @@ public class InitConfig {
 			https.add(new Http("variables_hash_max_size", "2048", seq++, "base"));
 			https.add(new Http("variables_hash_bucket_size", "128", seq++, "base"));
 
-			// ASN 封鎖清單改由 AsnRule 表 + ConfService 動態產生 map，不再寫入 Http 表
+			// ASN 大封主路徑 = CrowdSec AsBlockIntent；AsnRule nginx map 僅 asn.nginxMapEnabled=true 時產生
+			// （預設 false；seed 的 if ($blocked_asn) 模板保留給手動重開 map 的使用者）
 
 			// 日誌格式（含真實 IP + GeoIP + ASN）
 			https.add(new Http("log_format", "main '$remote_addr - $remote_user [$time_local] \"$request\" '\r\n                      '$status $body_bytes_sent \"$http_referer\" '\r\n                      '\"$http_user_agent\" \"$geoip2_data_country_code\" \"$geoip2_data_city_name\" \"$geoip2_data_asn\" \"$geoip2_data_asn_org\"'", seq++, "logging"));
@@ -390,6 +394,18 @@ public class InitConfig {
 		}
 		if (settingService.get("asn.meta.syncTime") == null) {
 			settingService.set("asn.meta.syncTime", "04:15");
+		}
+		// AsnRule nginx map is deprecated as primary path (default off → CrowdSec intents)
+		if (settingService.get("asn.nginxMapEnabled") == null) {
+			settingService.set("asn.nginxMapEnabled", "false");
+		}
+
+		// 遷移：既有 enable=true 的 AsnRule → AsBlockIntent status=active（不自動推 CrowdSec）
+		if (!"1".equals(settingService.get("asnRuleToIntent20260812"))) {
+			int migrated = migrateAsnRuleToIntent();
+			settingService.set("asnRuleToIntent20260812", "1");
+			logger.info("Migration: AsnRule→AsBlockIntent {} row(s); primary path is CrowdSec (map off by default)",
+					migrated);
 		}
 
 		// 種子:預設惡意 IP 黑名單(seed-on-empty;flag 保證只播一次,使用者刪光不重播)
@@ -1137,6 +1153,50 @@ public class InitConfig {
 			}
 		}
 		logger.info("Migration: renamed {} templates with Chinese annotation", renamed);
+	}
+
+	/**
+	 * One-shot: enable=true AsnRule rows → AsBlockIntent status=active when no intent exists
+	 * for that ASN. Does <strong>not</strong> push to CrowdSec (operator re-push manually).
+	 *
+	 * @return number of intents inserted
+	 */
+	private int migrateAsnRuleToIntent() {
+		int migrated = 0;
+		List<AsnRule> rules = sqlHelper.findAll(AsnRule.class);
+		for (AsnRule rule : rules) {
+			if (rule == null || rule.getEnable() == null || !rule.getEnable()) {
+				continue;
+			}
+			if (StrUtil.isBlank(rule.getAsn())) {
+				continue;
+			}
+			String asn = rule.getAsn().trim();
+			if (!asn.matches("\\d+")) {
+				logger.warn("Migration asnRuleToIntent: skip invalid asn={}", rule.getAsn());
+				continue;
+			}
+			AsBlockIntent existing = sqlHelper.findOneByQuery(
+					new ConditionAndWrapper().eq("asn", asn), AsBlockIntent.class);
+			if (existing != null) {
+				continue;
+			}
+			AsBlockIntent i = new AsBlockIntent();
+			i.setAsn(asn);
+			i.setStatus(AsBlockIntent.STATUS_ACTIVE);
+			i.setDuration("24h");
+			i.setReasonTag(AsnBlockService.reasonTagForAsn(asn));
+			i.setCreatedByProfile(AsnBlockService.PROFILE_MANUAL);
+			String note = "migrated from AsnRule";
+			if (StrUtil.isNotBlank(rule.getOrgName())) {
+				note = note + ": " + rule.getOrgName().trim();
+			}
+			i.setNote(note);
+			// intentionally no CrowdSec push
+			sqlHelper.insert(i);
+			migrated++;
+		}
+		return migrated;
 	}
 
 	private void migrateTemplateGroups() {

@@ -210,25 +210,30 @@ public class ConfService {
 				hasHttp = true;
 			}
 
-			// ASN 封鎖 — 從 AsnRule 表動態產生 map
-			List<AsnRule> asnRules = sqlHelper.findAll(AsnRule.class);
-			boolean hasEnabledAsn = false;
-			NgxBlock asnMapBlock = new NgxBlock();
-			asnMapBlock.addValue("map $geoip2_data_asn $blocked_asn");
-			NgxParam asnDefault = new NgxParam();
-			asnDefault.addValue("default 0");
-			asnMapBlock.addEntry(asnDefault);
-			for (AsnRule asnRule : asnRules) {
-				if (asnRule.getEnable() != null && asnRule.getEnable() && StrUtil.isNotBlank(asnRule.getAsn())) {
-					NgxParam asnParam = new NgxParam();
-					asnParam.addValue(asnRule.getAsn().trim() + " 1");
-					asnMapBlock.addEntry(asnParam);
-					hasEnabledAsn = true;
+			// ASN 封鎖 map — deprecated primary path; only when asn.nginxMapEnabled=true.
+			// Default false: CrowdSec range bans (AsBlockIntent) are the product primary path.
+			// Seed templates with if ($blocked_asn) remain for operators who re-enable the map.
+			boolean asnNginxMapEnabled = "true".equals(settingService.get("asn.nginxMapEnabled"));
+			if (asnNginxMapEnabled) {
+				List<AsnRule> asnRules = sqlHelper.findAll(AsnRule.class);
+				boolean hasEnabledAsn = false;
+				NgxBlock asnMapBlock = new NgxBlock();
+				asnMapBlock.addValue("map $geoip2_data_asn $blocked_asn");
+				NgxParam asnDefault = new NgxParam();
+				asnDefault.addValue("default 0");
+				asnMapBlock.addEntry(asnDefault);
+				for (AsnRule asnRule : asnRules) {
+					if (asnRule.getEnable() != null && asnRule.getEnable() && StrUtil.isNotBlank(asnRule.getAsn())) {
+						NgxParam asnParam = new NgxParam();
+						asnParam.addValue(asnRule.getAsn().trim() + " 1");
+						asnMapBlock.addEntry(asnParam);
+						hasEnabledAsn = true;
+					}
 				}
-			}
-			if (hasEnabledAsn) {
-				ngxBlockHttp.addEntry(asnMapBlock);
-				hasHttp = true;
+				if (hasEnabledAsn) {
+					ngxBlockHttp.addEntry(asnMapBlock);
+					hasHttp = true;
+				}
 			}
 
 			// 添加upstream
