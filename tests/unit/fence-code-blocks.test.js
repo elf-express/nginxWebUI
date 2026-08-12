@@ -23,7 +23,7 @@ test('splitBlocks 以空行切開連續引用行', () => {
   assert.strictEqual(blocks[1].start, 8);
 });
 
-test('splitBlocks 排除 Source metadata 與巢狀引用', () => {
+test('splitBlocks 排除 Source metadata；巢狀引用改由分類器擋下', () => {
   const lines = [
     '> Source: https://nginx.org/en/docs/',
     '',
@@ -32,8 +32,15 @@ test('splitBlocks 排除 Source metadata 與巢狀引用', () => {
     '> server {',
   ];
   const blocks = splitBlocks(lines);
-  assert.strictEqual(blocks.length, 1);
-  assert.strictEqual(blocks[0].start, 4);
+
+  // Source 檔頭仍在切分階段排除
+  assert.strictEqual(blocks.length, 2);
+  assert.strictEqual(blocks[0].start, 2);
+  assert.strictEqual(blocks[1].start, 4);
+
+  // note box 留在輸出裡，但不得變成程式碼——這是 Task 1 這條測試真正要守的東西
+  assert.strictEqual(isCodeBlock(blocks[0].lines), false);
+  assert.strictEqual(isCodeBlock(blocks[1].lines), true);
 });
 
 test('splitBlocks 保留區塊內的空引用行', () => {
@@ -59,15 +66,23 @@ test('splitBlocks 排除翻譯檔頭 metadata', () => {
   assert.deepStrictEqual(splitBlocks(['> 翻譯: zh-TW（人工校對）']), []);
 });
 
-test('splitBlocks 讓含巢狀行的整段引用退出，不留半截續行', () => {
-  assert.deepStrictEqual(splitBlocks(['> server {', '> >note', '> }']), []);
+test('splitBlocks 保留含巢狀行的區塊，交給分類器判斷', () => {
+  // 巢狀行不再切斷區塊、也不再讓整段退出：`> >` 在這份語料裡不一定是 note box，
+  // 也可能是內容本身就有 >（HTTP header、diff 的 ---/+++）。改由 isCodeBlock 看內容決定。
+  const blocks = splitBlocks(['> server {', '> >note', '> }']);
+  assert.strictEqual(blocks.length, 1);
+  assert.deepStrictEqual(blocks[0], {
+    start: 0, end: 2,
+    lines: ['> server {', '> >note', '> }'],
+  });
 
-  // 真實形態：巢狀首行 + 一般續行的錯誤訊息，整段維持引用塊
+  // 真實形態：巢狀首行 + 一般續行的錯誤訊息，整段是一個區塊、且判為散文（維持引用塊）
   const errMsg = [
     '> >「/some/movie/file.mp4」mp4 moov原子太大：',
     '> 12583268，您可能需要增加mp4\\_max\\_buffer\\_size',
   ];
-  assert.deepStrictEqual(splitBlocks(errMsg), []);
+  assert.strictEqual(splitBlocks(errMsg).length, 1);
+  assert.strictEqual(isCodeBlock(errMsg), false);
 });
 
 test('isCodeBlock 認得 nginx 設定', () => {
@@ -111,4 +126,30 @@ test('isCodeBlock 不把冒號結尾的導言句當程式碼', () => {
 
   // 程式碼訊號先判定並提前返回，冒號不影響帶大括號／分號的區塊
   assert.strictEqual(isCodeBlock(['> location / {', '>     proxy\\_pass http://backend:8080;', '> }']), true);
+});
+
+test('isCodeBlock 用程式碼訊號救回被誤標成巢狀的樣本', () => {
+  // 004page.md:33 —— git show 輸出裡的 unified diff，
+  // `> >- a/...` 其實是 `--- a/...`，不是 note box
+  const patch = [
+    '> diff --git a/src/http/ngx\\_http\\_core\\_module.c B/src/http/ngx\\_http\\_core\\_module.c',
+    '> >- a/src/http/ngx\\_http\\_core\\_module.c',
+    '> >+ B/src/http/ngx\\_http\\_core\\_module.c',
+    '> @@ -2453,6 +2453,8 @@ ngx\\_http\\_subrequest(ngx\\_http\\_request\\_t \\*r,',
+    '> sr->方法 = NGX\\_HTTP\\_GET;',
+  ];
+  // 整條路徑都要通：區塊要先活過切分，才輪得到分類器判它是程式碼
+  const blocks = splitBlocks(patch);
+  assert.strictEqual(blocks.length, 1);
+  assert.strictEqual(blocks[0].lines.length, 5);
+  assert.strictEqual(isCodeBlock(blocks[0].lines), true);
+});
+
+test('isCodeBlock 讓真正的 note box 維持散文', () => {
+  assert.strictEqual(isCodeBlock(['> >此模塊是我們的商業訂閱的一部分。']), false);
+
+  // 守門條件：巢狀區塊沒有明確程式碼訊號時判散文，
+  // 不走「沒有句末標點就當程式碼」的 fallback 推定（068page.md:22 真實形態）
+  assert.strictEqual(isCodeBlock(['> >valid\\_referers沒有阻止server\\_names']), false);
+  assert.strictEqual(isCodeBlock(['> >當前監聽隊列大小（qlen/incqlen/maxqlen）']), false);
 });

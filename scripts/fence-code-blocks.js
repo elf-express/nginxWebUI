@@ -15,8 +15,8 @@ const META_RE = /^\s*>\s*(?:Source:|翻譯\s*[:：])/;
 const NESTED_RE = /^\s*>\s*>/;
 
 // 連續引用行構成一個區塊，由任何非引用行（含空行）分隔。
-// 區塊內只要出現 metadata 或巢狀引用（nginx.org 的 note box），整段一併退出：
-// note box 與它的續行是同一則訊息，只 fence 後半會讓一則訊息一半引用塊、一半 fence。
+// 檔頭 metadata 讓整段退出（Source 與翻譯標注是同一組註記）。巢狀行不在這一層處理：
+// `> >` 不一定是 note box，也可能是內容本身就有 >，得看內容才知道，交給 isCodeBlock。
 function splitBlocks(lines) {
   const blocks = [];
   let cur = null;
@@ -30,7 +30,7 @@ function splitBlocks(lines) {
     if (!cur) cur = { start: i, end: i, lines: [], excluded: false };
     cur.end = i;
     cur.lines.push(l);
-    if (META_RE.test(l) || NESTED_RE.test(l)) cur.excluded = true;
+    if (META_RE.test(l)) cur.excluded = true;
   }
   flush();
   return blocks;
@@ -58,10 +58,17 @@ const CODE_SIGNALS = [
 const PROSE_END_RE = /[.。！!？?:：]\s*$/;
 
 function isCodeBlock(blockLines) {
+  const hasNested = blockLines.some((l) => NESTED_RE.test(l));
   const bodies = blockLines.map((l) => unescapeMd(stripQuote(l))).filter((s) => s.trim());
   if (bodies.length === 0) return false;
 
   const hasCodeSignal = bodies.some((b) => CODE_SIGNALS.some((re) => re.test(b.trim())));
+
+  // 含巢狀引用的區塊語意模糊：可能是 note box，也可能是內容本身就有 >
+  // （curl verbose 的 HTTP header、diff 的 ---/+++、njs REPL）。只在命中
+  // 明確程式碼訊號時才轉換 —— 不讓 fallback 推定把 note box 包進 code block。
+  if (hasNested) return hasCodeSignal;
+
   if (hasCodeSignal) return true;
 
   // 沒有任何程式碼訊號：只要有一行以句末標點收尾就當散文
