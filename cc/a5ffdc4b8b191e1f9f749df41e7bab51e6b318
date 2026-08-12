@@ -1,0 +1,33 @@
+.github/workflows/build.yml
+  s_c8ef65e070d276::t_f64bbefa499fba 24,27,59,70,89,126
+.github/workflows/claude-code-review.yml
+  s_c8ef65e070d276::t_14c0d696080148 28
+.github/workflows/claude.yml
+  s_c8ef65e070d276::t_03393ddb33598e 35
+pom.xml
+  s_0f42d4541db339::t_e77b2f47d29859 62,84,100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "cca5ffdc4b8b191e1f9f749df41e7bab51e6b318",
+  "prompts": {},
+  "sessions": {
+    "s_0f42d4541db339": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d4847da6-26e6-485d-a0ba-31c84ff39992",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    },
+    "s_c8ef65e070d276": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50a5711e-6dec-48f3-95d8-31c9541c3480",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
