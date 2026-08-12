@@ -1,0 +1,34 @@
+src/test/java/com/cym/service/NginxDocServiceTest.java
+  s_492e18725e3eaa::t_c04e233137f696 192-221
+  s_492e18725e3eaa::t_5a7fde03470297 21
+  s_492e18725e3eaa::t_8e9a7397ca1641 8,10,16
+  s_492e18725e3eaa::t_e448678aabd216 191
+CLAUDE.md
+  s_492e18725e3eaa::t_6c19485d836b85 237
+README_TW.md
+  s_492e18725e3eaa::t_c9645f513aabbc 224-240
+  s_492e18725e3eaa::t_1f10c1f6339faf 102,105-107
+README.md
+  s_492e18725e3eaa::t_401240df59f995 225-241
+  s_492e18725e3eaa::t_b470362bec69bf 102,105-107
+tests/e2e/35-mcp.spec.js
+  s_492e18725e3eaa::t_0212a4a8b3b922 148,151-155
+  s_492e18725e3eaa::t_3a4daa2d1e73ef 70-73,75,82-87
+  s_492e18725e3eaa::t_4a93c78b7067c6 126-134,136-144
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "53f335d34912cf3b404c820aec1553eabf578a88",
+  "prompts": {},
+  "sessions": {
+    "s_492e18725e3eaa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0393758c-a272-4bb9-a97c-c1ed6354bc61",
+        "model": "claude-opus-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
