@@ -1,0 +1,21 @@
+README.md
+  s_492e18725e3eaa::t_a5eb3d42be879b 207-210
+README_TW.md
+  s_492e18725e3eaa::t_544444f1956b3b 211-214
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "8d947323eb248be9d59fe0169bb0dccab6bb862c",
+  "prompts": {},
+  "sessions": {
+    "s_492e18725e3eaa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0393758c-a272-4bb9-a97c-c1ed6354bc61",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
