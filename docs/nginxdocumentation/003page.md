@@ -532,7 +532,7 @@
 參數使用範例（所有這些都需要在一行中輸入）：
 
 ```
-./配置
+./configure
 --sbin-path=/usr/local/nginx/nginx
 --conf-path=/usr/local/nginx/nginx.conf
 --pid-path=/usr/local/nginx/nginx.pid

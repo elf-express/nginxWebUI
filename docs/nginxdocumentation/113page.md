@@ -63,7 +63,7 @@ $ cat >數據包. json <<EOF
   "description": "",
   「主要」：        「索引. js」，
   "keywords":    [],
-  「作者」：      「某個用戶名（some.emailexample.comhttps://example.com)",
+  「作者」：      「某個用戶名（some.emailexample.com https://example.com)",
   "license":     "some_license_here",
   「私有」：     說真，
   "scripts": {

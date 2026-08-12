@@ -35,7 +35,7 @@
 -   從GitHub倉庫查看nginx原始碼：
     
     ```
-    git clonehttps://github.com/nginx/nginx.git
+    git clone https://github.com/nginx/nginx.git
     ```
     
 -   創建構建和lib目錄，並將zlib、PCRE和OpenSSL庫源解壓到lib目錄中：

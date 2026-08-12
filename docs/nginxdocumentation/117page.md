@@ -26,7 +26,7 @@ njs為其[API](https://nginx.org/en/docs/njs/reference.html)提供了TypeScript�
 
 #### 編譯TypeScript定義文件
 
-> >$git clonehttps://github.com/nginx/njs
+> >$git clone https://github.com/nginx/njs
 > >$cd njs &&./configure && make ts
 > >$ls build/ts/
 > njs\_core.d.ts

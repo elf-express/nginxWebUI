@@ -21,7 +21,7 @@
 [GitHub](https://github.com/)用於儲存原始碼。可以使用以下命令克隆[存儲庫](https://github.com/nginx/nginx)：
 
 ```
-git clonehttps://github.com/nginx/nginx.git
+git clone https://github.com/nginx/nginx.git
 ```
 
 #### 格式更改
@@ -64,7 +64,7 @@ sr->uri = *uri;
 - 通过测试套件传递您的更改是确保它们不会导致回归的好方法。可以使用以下命令克隆帶有測試的[存儲庫](https://github.com/nginx/nginx-tests)：
     
     ```
-    git clonehttps://github.com/nginx/nginx-tests.git
+    git clone https://github.com/nginx/nginx-tests.git
     ```
 
 #### 提交更改
@@ -76,7 +76,7 @@ sr->uri = *uri;
 GitHub 用於儲存本網站的原始碼。可以使用以下命令克隆[存儲庫](https://www.github.com/nginx/nginx.org)：
 
 ```
-git clonehttps://github.com/nginx/nginx.org.git
+git clone https://github.com/nginx/nginx.org.git
 ```
 
 文件變更應作為拉取請求從您的分叉提交。
