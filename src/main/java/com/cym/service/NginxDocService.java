@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -30,14 +31,14 @@ public class NginxDocService {
 	/** 語料在 classpath 的位置(由 pom 的 <resources> 打包)。 */
 	private static final String RESOURCE_DIR = "nginxdocumentation/";
 
-	private final Map<String, NginxDirective> directives = new LinkedHashMap<>();
+	private final Map<String, List<NginxDirective>> byName = new LinkedHashMap<>();
 	private final Map<String, List<NginxDirective>> byContext = new LinkedHashMap<>();
 	private final Map<String, List<NginxDirective>> byModule = new LinkedHashMap<>();
 	private final List<String> pages = new ArrayList<>();
 
 	/** 從頁面內容建索引。與載入來源解耦,測試可直接餵字串。 */
 	public void load(List<String> pageContents) {
-		directives.clear();
+		byName.clear();
 		byContext.clear();
 		byModule.clear();
 		pages.clear();
@@ -45,7 +46,7 @@ public class NginxDocService {
 
 		for (String md : pageContents) {
 			for (NginxDirective d : NginxDocParser.parsePage(md)) {
-				directives.putIfAbsent(d.name(), d);
+				byName.computeIfAbsent(d.name(), k -> new ArrayList<>()).add(d);
 				for (String c : d.contexts()) {
 					byContext.computeIfAbsent(c, k -> new ArrayList<>()).add(d);
 				}
@@ -54,14 +55,20 @@ public class NginxDocService {
 				}
 			}
 		}
-		logger.info("nginx 文件索引:{} 條指令 / {} 個模組 / {} 個 context", directives.size(), byModule.size(), byContext.size());
+		logger.info("nginx 文件索引:{} 條指令({} 個相異名稱) / {} 個模組 / {} 個 context",
+				size(), byName.size(), byModule.size(), byContext.size());
+		if (byName.isEmpty()) {
+			logger.error("nginx 文件索引是空的！語料沒有被載入 —— 若這是從 jar 啟動,八成是 pom 的 <resources> 掉了 nginxdocumentation");
+		}
 	}
 
 	/** 從 classpath 載入打包的語料。啟動時由 InitConfig 呼叫。 */
 	public void loadFromClasspath() {
 		List<String> contents = new ArrayList<>();
 		for (int i = 1; i <= 200; i++) {
-			String name = RESOURCE_DIR + String.format("%03d", i) + "page.md";
+			// Locale.ROOT:阿拉伯／波斯語系的 JVM 會把 %03d 格式成非 ASCII 數字,
+			// 檔名對不上、getResourceAsStream 全回 null,索引就這樣無聲地載入 0 頁。
+			String name = RESOURCE_DIR + String.format(Locale.ROOT, "%03d", i) + "page.md";
 			try (InputStream in = getClass().getClassLoader().getResourceAsStream(name)) {
 				if (in != null) {
 					contents.add(new String(in.readAllBytes(), StandardCharsets.UTF_8));
@@ -73,16 +80,22 @@ public class NginxDocService {
 		load(contents);
 	}
 
+	/** 指令總條數(不是相異名稱數)——這個數字才看得出語料有沒有完整載入。 */
 	public int size() {
-		return directives.size();
+		return byName.values().stream().mapToInt(List::size).sum();
 	}
 
-	public NginxDirective directive(String name) {
-		return name == null ? null : directives.get(name.trim());
+	/**
+	 * 同名指令可能存在於多個模組(語料有 122 個這種名字,例如 proxy_pass 同時在
+	 * http 與 stream 底下且 context 完全不同)。回傳全部,讓呼叫端決定怎麼呈現 ——
+	 * 先到先贏會讓 AI 拿到另一個模組的 context 而毫無察覺。
+	 */
+	public List<NginxDirective> directive(String name) {
+		return name == null ? List.of() : List.copyOf(byName.getOrDefault(name.trim(), List.of()));
 	}
 
 	public List<NginxDirective> byContext(String ctx) {
-		return byContext.getOrDefault(ctx == null ? "" : ctx.trim(), List.of());
+		return List.copyOf(byContext.getOrDefault(ctx == null ? "" : ctx.trim(), List.of()));
 	}
 
 	/** 模組查詢:完整名稱優先;否則回所有名稱含該片段的模組。 */
@@ -104,7 +117,7 @@ public class NginxDocService {
 	}
 
 	public List<NginxDirective> directivesOfModule(String module) {
-		return byModule.getOrDefault(module, List.of());
+		return List.copyOf(byModule.getOrDefault(module == null ? "" : module.trim(), List.of()));
 	}
 
 	/**
@@ -119,9 +132,9 @@ public class NginxDocService {
 		if (query == null || query.isBlank() || limit <= 0) {
 			return hits;
 		}
-		String q = query.toLowerCase();
+		String q = query.toLowerCase(Locale.ROOT);
 		for (String md : pages) {
-			int idx = md.toLowerCase().indexOf(q);
+			int idx = md.toLowerCase(Locale.ROOT).indexOf(q);
 			if (idx < 0) {
 				continue;
 			}

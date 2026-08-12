@@ -32,15 +32,23 @@ public class NginxDocServiceTest {
 
 	@Test
 	public void directive_查得到並帶完整欄位() {
-		NginxDirective d = svc.directive("proxy_pass");
-		assertNotNull(d);
+		NginxDirective d = svc.directive("proxy_pass").stream()
+				.filter(x -> "ngx_http_proxy_module".equals(x.module())).findFirst().orElseThrow();
 		assertTrue(d.contexts().contains("location"));
 		assertTrue(d.sourceUrl().startsWith("https://nginx.org/"));
 	}
 
 	@Test
-	public void directive_查無回null() {
-		assertNull(svc.directive("proxy_pas"));
+	public void directive_查無回空清單() {
+		assertTrue(svc.directive("proxy_pas").isEmpty());
+	}
+
+	@Test
+	public void directive_同名跨模組時全部回傳() {
+		List<NginxDirective> list = svc.directive("proxy_pass");
+		assertTrue(list.size() >= 2, "proxy_pass 同時存在於 http 與 stream 模組");
+		assertTrue(list.stream().anyMatch(d -> d.module().contains("stream")));
+		assertTrue(list.stream().anyMatch(d -> d.module().contains("http")));
 	}
 
 	@Test
@@ -71,5 +79,19 @@ public class NginxDocServiceTest {
 		assertFalse(hits.isEmpty());
 		assertTrue(hits.size() <= 5);
 		assertTrue(hits.get(0).contains("https://nginx.org/"));
+	}
+
+	@Test
+	public void search_limit真的截斷() {
+		// load balancing 只命中 1 頁,截斷路徑不會被走到;nginx 每頁的 Source 標頭都有,150 頁全中。
+		assertEquals(3, svc.search("nginx", 3).size());
+		assertTrue(svc.search("nginx", 0).isEmpty(), "limit 0 不該回任何結果");
+	}
+
+	@Test
+	public void loadFromClasspath_語料真的在classpath裡() {
+		NginxDocService fromCp = new NginxDocService();
+		fromCp.loadFromClasspath();
+		assertTrue(fromCp.size() > 900, "classpath 載入到 " + fromCp.size() + " 條,語料可能沒進 target/classes");
 	}
 }
