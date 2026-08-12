@@ -116,7 +116,13 @@ public class NginxDocMcpServer {
 		}
 		List<String> hits = docService.byModule(name);
 		if (hits.isEmpty()) {
-			return "查無模組 " + name + "。";
+			// 查無不能停在死路。規格的錯誤契約是「查無 → 回傳該類別的有效值」,nginx_context
+			// 直接倒出 15 個 context;模組有 99 個,整包倒出只是把成本轉嫁給呼叫端,所以改成
+			// 給一個走得通的下一步 —— 這個參數本來就是子字串比對,ngx_ 就能把 99 個全列出來。
+			// 數字現算不寫死:語料增減模組時,這句話不會變成另一個過期的說明。
+			return "查無模組 " + name + "。這個參數是子字串比對:用 proxy、ssl 這類簡寫可列出相符的模組,"
+					+ "查 ngx_ 可列出全部 " + docService.byModule("ngx_").size() + " 個模組名稱;"
+					+ "也可以先用 nginx_directive 查一條指令,回應裡的「模組」欄位就是完整模組名。";
 		}
 		if (hits.size() > 1) {
 			return "「" + name + "」對應到多個模組,請指定其中一個:\n" + String.join("\n", hits);
@@ -130,7 +136,10 @@ public class NginxDocMcpServer {
 
 	@ToolMapping(description = "反查某個 context(例如 location、server、http)裡能使用哪些指令。寫設定時用這個確認指令放對地方。")
 	public String nginx_context(@Param(description = "context 名稱,例如 location") String context,
-			@Param(description = "最多列出幾條,省略則列出全部(location 有 541 條,約 31 KB)", required = false) Integer limit) {
+			// 提示要指向真正最大的那個 context,否則呼叫端會照著它低估最壞情況。
+			// server(761 條 / 約 44 KB)> http(599 條)> location(541 條)—— 由
+			// NginxDocMcpServerTest.context參數的大小提示要指向真正最大的context 從語料重算核對。
+			@Param(description = "最多列出幾條,省略則列出全部(最大的 server 有 761 條,約 44 KB)", required = false) Integer limit) {
 		if (indexEmpty()) {
 			return indexEmptyMessage();
 		}
@@ -151,7 +160,10 @@ public class NginxDocMcpServer {
 		return header + shown.stream().map(this::brief).collect(Collectors.joining("\n"));
 	}
 
-	@ToolMapping(description = "拿一段 nginx 設定對照官方文件檢查:指令是否存在、是否用在合法的 context。只回報能確定的問題。")
+	// 描述只講做得到的事。「檢查 context」聽起來像連 if 寫在 http 層都抓得到,但開區塊那一行
+	// 本身從來沒被檢查過(NginxConfChecker 見到行尾的 { 就推堆疊並跳過),而那正是規格範例裡
+	// 舉的錯誤。工具描述與 README 是 AI 與人形成期待的地方,寫得比實作大就是在製造錯誤的信任。
+	@ToolMapping(description = "拿一段 nginx 設定對照官方文件檢查區塊「內」的指令:指令是否存在、是否用在合法的 context。開區塊那一行本身不檢查(http 層誤寫 if {、最外層誤寫 server { 這類錯誤查不出來,即使 nginx 會因此拒絕啟動)。只回報能確定的問題,沒有回報不等於設定正確。")
 	public String nginx_check_config(@Param(description = "要檢查的 nginx 設定文字") String conf) {
 		if (indexEmpty()) {
 			return indexEmptyMessage();
@@ -171,9 +183,15 @@ public class NginxDocMcpServer {
 		}
 		// 檢查器刻意「寧可漏不可誤」(區塊指令本身不檢查、單行區塊整行跳過、第三方區塊內靜音、
 		// 大小寫錯的指令名被形狀過濾吃掉),所以無問題不等於設定正確,措辭不能寫成保證。
+		//
+		// 有問題時同樣要附但書,而且理由更硬:context 是逐行追蹤大括號推得的,設定少一個或多一個
+		// 大括號,後面每一行都會被算在錯的那一層 —— 多一個 } 提早收掉 http,底下三行合法的
+		// http 指令就會被斬釘截鐵地報成「不能用在 main」。乾淨路徑有但書、回報路徑沒有,
+		// 等於只在沒人會被誤導的時候才誠實。
 		return problems.isEmpty()
 				? "未發現可確定的問題(此檢查只回報能確定的錯誤,不代表設定完全正確)。"
-				: String.join("\n", problems);
+				: "以下判斷以逐行括號追蹤推得;若設定的大括號不平衡,context 可能判斷錯誤。\n"
+						+ String.join("\n", problems);
 	}
 
 	/**
@@ -224,10 +242,15 @@ public class NginxDocMcpServer {
 	}
 
 	/**
-	 * 參數沒給時要明講,不能讓它一路流進查詢。
+	 * 參數是空的時候要明講,不能讓它一路流進查詢 —— "查無指令 " 這種回應會讓模型以為
+	 * 自己查的東西真的不存在,而不是自己沒帶參數。
 	 *
-	 * MCP client 省略選填參數、或把必填參數送成 null 都是常態,而 "查無指令 null" 這種回應
-	 * 會讓模型以為自己查的東西真的不存在,而不是自己沒帶參數。
+	 * 實際會走到這裡的只有空字串與全空白。必填參數缺漏或送 null 都到不了方法裡:
+	 * solon-ai-mcp 在呼叫前就擋下來,直接回 {@code isError:true} 與
+	 * {@code Missing required parameter 'name'}。
+	 *
+	 * null 分支仍然留著。它不花成本,而且不依賴上游那道擋:框架換版本或改行為時,
+	 * 這裡的最差情況是多一個永遠為 false 的判斷,不是回一句「查無指令 null」。
 	 */
 	private boolean isBlank(String value) {
 		return value == null || value.isBlank();

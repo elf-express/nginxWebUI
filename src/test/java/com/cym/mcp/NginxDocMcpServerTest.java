@@ -94,6 +94,69 @@ public class NginxDocMcpServerTest {
 		assertFalse(out.equals("未發現問題。"), out);
 	}
 
+	/**
+	 * 有問題時也要附上「context 由括號追蹤推得」的但書。
+	 *
+	 * 乾淨路徑講了「不代表設定完全正確」,回報路徑卻一句但書都沒有 —— 等於只在沒人會被
+	 * 誤導的時候才誠實。下面這份設定只是多了一個 },http 因此提早收掉,三行合法的 http
+	 * 指令就被斬釘截鐵地報成「不能用在 main」。這三條誤報是已知且刻意不修的(修它要動
+	 * 括號追蹤),所以能做的是不要讓它們聽起來像定論。
+	 */
+	@Test
+	public void 有問題時也要附上括號追蹤的但書() {
+		String out = server.nginx_check_config("http {\n    server {\n        listen 80;\n    }\n}\n"
+				+ "    gzip on;\n    keepalive_timeout 65;\n    server_tokens off;\n");
+		assertTrue(out.contains("不能用在 main"), out);
+		assertEquals(3, out.lines().filter(l -> l.startsWith("第 ")).count(), out);
+		assertTrue(out.contains("大括號不平衡"), out);
+	}
+
+	/**
+	 * 查無模組不能停在死路。
+	 *
+	 * 規格的錯誤契約是「模組／context 查無 → 回傳該類別的有效值清單」。nginx_context 直接
+	 * 倒出 15 個 context;模組有 99 個,倒出來只是把成本轉嫁給呼叫端,所以改成給一個真的
+	 * 走得通的下一步。這裡連那個下一步本身也一併驗證 —— 講了做不到的事比什麼都不講更糟。
+	 */
+	@Test
+	public void 查無模組時要給得出下一步() {
+		String out = server.nginx_module("totally_not_a_module");
+		assertTrue(out.startsWith("查無模組 totally_not_a_module。"), out);
+
+		int all = server.docService.byModule("ngx_").size();
+		assertTrue(out.contains("查 ngx_ 可列出全部 " + all + " 個模組名稱"), out);
+		// 承諾的下一步真的走得通:99 個模組名稱全部列得出來
+		String listing = server.nginx_module("ngx_");
+		assertEquals(all, listing.lines().filter(l -> l.startsWith("ngx_")).count(), listing);
+	}
+
+	/**
+	 * limit 參數的大小提示必須指向真正最大的那個 context。
+	 *
+	 * 這句提示是寫死的數字,語料一改就過時,而過時的提示會讓呼叫端照著低估最壞情況 ——
+	 * 原本寫的是 location(541 條 / 31 KB),但實際最大的是 server(761 條 / 44 KB)。
+	 * 這裡從語料重算,提示與現實脫節時直接紅。
+	 */
+	@Test
+	public void context參數的大小提示要指向真正最大的context() throws Exception {
+		String hint = NginxDocMcpServer.class.getMethod("nginx_context", String.class, Integer.class)
+				.getParameters()[1].getAnnotation(org.noear.solon.annotation.Param.class).description();
+
+		String largest = null;
+		int largestBytes = 0;
+		for (String c : server.docService.knownContexts()) {
+			int bytes = server.nginx_context(c, null).getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+			if (bytes > largestBytes) {
+				largestBytes = bytes;
+				largest = c;
+			}
+		}
+		assertTrue(hint.contains("最大的 " + largest + " 有 " + server.docService.byContext(largest).size() + " 條"),
+				"提示應指向最大的 " + largest + ",實際:" + hint);
+		assertTrue(hint.contains("約 " + Math.round(largestBytes / 1024.0) + " KB"),
+				largest + " 實測 " + largestBytes + " bytes,實際提示:" + hint);
+	}
+
 	/** 清單型輸出在 syntax 為空時只印名字,不留懸空的破折號。 */
 	@Test
 	public void 清單列的空語法不留懸空破折號() {

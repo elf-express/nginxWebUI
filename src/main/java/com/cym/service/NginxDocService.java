@@ -63,21 +63,51 @@ public class NginxDocService {
 		}
 	}
 
-	/** 從 classpath 載入打包的語料。啟動時由 InitConfig 呼叫。 */
+	/**
+	 * 連續這麼多個編號都不存在,才當作掃到語料尾端。
+	 *
+	 * 語料是 001 起連號,所以任何一次「掃不到」單看都不代表結束。取 20 是為了讓中間抽掉
+	 * 幾頁時,後面的頁不會整批跟著消失。
+	 */
+	private static final int MISSING_RUN = 20;
+
+	/**
+	 * 從 classpath 載入打包的語料。啟動時由 InitConfig 呼叫。
+	 *
+	 * 沒有頁數上限。語料會繼續增頁(151page.md、152page.md…),而寫死上限的失敗方式是最糟的
+	 * 那一種:超過上限的頁不會報錯,只是從索引裡消失,MCP 從此對那一頁的指令回「查無」——
+	 * 正是這個分支在別處修掉的那種無聲遺漏。
+	 *
+	 * 為什麼是「連續缺 N 個才停」而不是列舉 classpath 目錄:jar 裡的目錄項目不保證存在
+	 * (getResource("nginxdocumentation/") 可能回 null),而 JarURLConnection 拿到的 JarFile 是
+	 * classloader 共用的快取實例,誤關會弄壞執行中的整個應用。為了「能多載幾頁」承擔那種風險
+	 * 不划算;探測式掃描在 jar 與 IDE 兩邊行為完全一樣,也維持了原本的 001→N 數字順序
+	 * (同名跨模組的指令是先到先贏,順序一變,directive() 第一筆就換人)。
+	 *
+	 * 最後把「載到幾頁 / 最後命中的編號」寫進 log:兩個數字對不起來就代表中間有缺頁,
+	 * 萬一真的停早了,這一行是唯一的線索。
+	 */
 	public void loadFromClasspath() {
 		List<String> contents = new ArrayList<>();
-		for (int i = 1; i <= 200; i++) {
+		int lastFound = 0;
+		for (int i = 1, missing = 0; missing < MISSING_RUN; i++) {
 			// Locale.ROOT:阿拉伯／波斯語系的 JVM 會把 %03d 格式成非 ASCII 數字,
 			// 檔名對不上、getResourceAsStream 全回 null,索引就這樣無聲地載入 0 頁。
 			String name = RESOURCE_DIR + String.format(Locale.ROOT, "%03d", i) + "page.md";
 			try (InputStream in = getClass().getClassLoader().getResourceAsStream(name)) {
-				if (in != null) {
-					contents.add(new String(in.readAllBytes(), StandardCharsets.UTF_8));
+				if (in == null) {
+					missing++;
+					continue;
 				}
+				// 檔案在就不算到尾端 —— 這行要在 readAllBytes 之前,讀失敗不該被當成語料結束。
+				missing = 0;
+				lastFound = i;
+				contents.add(new String(in.readAllBytes(), StandardCharsets.UTF_8));
 			} catch (IOException e) {
 				logger.warn("讀取 {} 失敗:{}", name, e.getMessage());
 			}
 		}
+		logger.info("nginx 文件語料:載入 {} 頁,最後命中的編號是 {}", contents.size(), lastFound);
 		load(contents);
 	}
 

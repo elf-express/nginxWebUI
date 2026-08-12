@@ -101,7 +101,7 @@ docker compose up -d          # image 預設拉 :latest，永遠跟最新 releas
 
 ### AI 助理整合
 
-- **nginx 文件 MCP 服務** — 969 條官方指令定義以 MCP 提供：精準查詢、全文搜尋、context 反查、拿設定草稿對照文件檢查。預設關閉，以 `--mcp.token` opt-in 啟用（見 [nginx 文件 MCP 服務](#nginx-文件-mcp-服務)）
+- **nginx 文件 MCP 服務** — 969 條官方指令定義以 MCP 提供：精準查詢、全文搜尋、context 反查、拿設定草稿裡的指令對照文件檢查 context。預設關閉，以 `--mcp.token` opt-in 啟用（見 [nginx 文件 MCP 服務](#nginx-文件-mcp-服務)）
 
 ### 🚀 開發流程
 
@@ -185,7 +185,14 @@ Platform: linux/amd64（單一平台，非多架構）
 
 五個唯讀工具：`nginx_directive`（精準查詢單一指令）、`nginx_search`（全文搜尋）、
 `nginx_module`（列出某模組的所有指令）、`nginx_context`（反查 `location`、`server`、`upstream` 等
-context 裡能合法使用哪些指令）、`nginx_check_config`（拿設定草稿對照文件檢查）。
+context 裡能合法使用哪些指令）、`nginx_check_config`（拿設定草稿裡**區塊內的指令**對照文件檢查 context）。
+
+**`nginx_check_config` 檢查什麼、不檢查什麼。** 它逐行讀設定，靠追蹤大括號知道每一行落在哪個區塊，
+然後檢查**指令行**：這是不是真的指令、目前這一層是不是文件允許的 context。開區塊那一行只用來追蹤巢狀，
+它自己合不合法從來沒被判斷過。所以區塊開錯位置——`if { }` 直接寫在 `http` 底下、`server { }` 寫在最外層
+——不會被報出來，即使 nginx 會因此拒絕啟動。大括號追蹤同時也是「設定的大括號不平衡時會給出斬釘截鐵卻
+錯誤的結論」的原因：從不平衡那一點之後，每一行都會被算在錯的區塊裡。因此回報結果一律附上這個但書，
+而且沒有回報永遠不等於設定正確——這個工具只講能確定的事，其餘一律刻意保持沉默。
 
 ### 如何啟用
 

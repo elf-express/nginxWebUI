@@ -101,7 +101,7 @@ Only the core two services start by default; CrowdSec is opt-in via the compose 
 
 ### AI assistant integration
 
-- **nginx docs MCP server** — 969 official directive definitions served over MCP: exact lookup, full-text search, context reverse-lookup, and checking a config draft against the docs. Off by default; opt in with `--mcp.token` (see [nginx docs MCP server](#nginx-docs-mcp-server))
+- **nginx docs MCP server** — 969 official directive definitions served over MCP: exact lookup, full-text search, context reverse-lookup, and checking the directives inside a config draft against their documented contexts. Off by default; opt in with `--mcp.token` (see [nginx docs MCP server](#nginx-docs-mcp-server))
 
 ### 🚀 Development
 
@@ -183,8 +183,18 @@ built at startup from the 150 documentation pages bundled inside the jar — **9
 
 Five read-only tools: `nginx_directive` (exact lookup), `nginx_search` (full-text search),
 `nginx_module` (list one module's directives), `nginx_context` (reverse lookup — what may legally appear
-inside `location`, `server`, `upstream`, …), and `nginx_check_config` (check a config draft against the
-documented contexts).
+inside `location`, `server`, `upstream`, …), and `nginx_check_config` (check the directives *inside* a
+config draft against their documented contexts).
+
+**What `nginx_check_config` does and does not check.** It reads the config line by line, tracking braces to
+know which block each line sits in, and then checks the **directive lines** — is this a real directive, and
+is this context one the documentation allows it in. The lines that *open* a block are only used to track
+nesting; their own legality is never judged. So a block opened in the wrong place — `if { }` written
+directly under `http`, or `server { }` at the top level — is not reported, even though nginx refuses to
+start on it. The brace tracking is also the reason a config with unbalanced braces can produce confident
+but wrong findings: every line after the mismatch is attributed to the wrong block. Findings therefore come
+with that caveat attached, and nothing reported never means the config is correct — the tool reports only
+what it is certain of, and deliberately stays silent everywhere else.
 
 ### Turning it on
 

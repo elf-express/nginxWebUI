@@ -225,4 +225,20 @@ public class NginxDocServiceTest {
 		fromCp.loadFromClasspath();
 		assertTrue(fromCp.size() > 900, "classpath 載入到 " + fromCp.size() + " 條,語料可能沒進 target/classes");
 	}
+
+	/**
+	 * classpath 載到的必須與 docs/ 下的檔案完全一致。
+	 *
+	 * 原本只斷言 > 900,而語料有 969 條 —— 掉三十幾條也照樣是綠的。掃描迴圈曾經寫死
+	 * i <= 200 的上限,第 201 頁會在沒有任何錯誤訊息的情況下消失;上限拿掉之後,這條
+	 * 等值斷言才是「有沒有掉頁」唯一守得住的地方(用總條數而非頁數,連掉半頁都算數)。
+	 */
+	@Test
+	public void loadFromClasspath_與檔案系統語料完全一致() {
+		NginxDocService fromCp = new NginxDocService();
+		fromCp.loadFromClasspath();
+		assertEquals(svc.size(), fromCp.size(), "classpath 載到的條數與 docs/nginxdocumentation 不一致,有頁面沒被載到");
+		assertEquals(svc.knownContexts(), fromCp.knownContexts(), "context 清單不一致");
+		assertEquals(svc.byModule("ngx_").size(), fromCp.byModule("ngx_").size(), "模組數不一致");
+	}
 }
