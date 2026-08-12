@@ -224,9 +224,9 @@ function buildTemplateParam(uuid, param, includePosition) {
 					${templateStr.template}
 				</td>
 				<td  style="width: ${includePosition ? '40%' : '50%'};">
-					${param.templateName}
-					<input type="hidden" name="templateValue" value="${param.templateValue}">
-					<input type="hidden" name="templateName" value="${param.templateName}">
+					${escapeHtml(param.templateName)}
+					<input type="hidden" name="templateValue" value="${escapeHtml(param.templateValue)}">
+					<input type="hidden" name="templateName" value="${escapeHtml(param.templateName)}">
 				</td>
 				${positionTd}
 				<td>

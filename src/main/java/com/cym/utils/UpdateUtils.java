@@ -41,27 +41,26 @@ public class UpdateUtils {
 		}
 
 		String param = " --server.port=" + port + " --project.home=" + home;
+		String logParam = param;
 
 		if ("mysql".equalsIgnoreCase(type)) {
-			param += " --spring.database.type=" + type //
+			// 執行用與記 log 用的參數分開組:前者帶真密碼,後者從頭就是 ***。
+			// 先組再 replace 也能遮住,但密碼仍流進了 log 字串,靜態分析追不出它被遮掉。
+			String dbParam = " --spring.database.type=" + type //
 					+ " --spring.datasource.url=" + url //
-					+ " --spring.datasource.username=" + username //
-					+ " --spring.datasource.password=" + password;
+					+ " --spring.datasource.username=" + username;
+			param += dbParam + " --spring.datasource.password=" + password;
+			logParam += dbParam + " --spring.datasource.password=***";
 		}
 
-		String cmd = null;
-		if (SystemTool.isWindows()) {
-			cmd = "java -jar -Dfile.encoding=UTF-8 " + path + param;
-		} else {
-			cmd = "nohup java -jar -Dfile.encoding=UTF-8 " + path + param + " > /dev/null &";
-		}
-
-		// 遮蔽 DB 密碼後再記 log(避免明文密碼寫入日誌;exec 仍用原 cmd)
-		String logCmd = (password == null || password.isEmpty())
-				? cmd
-				: cmd.replace("--spring.datasource.password=" + password, "--spring.datasource.password=***");
-		LOG.info(logCmd);
-		RuntimeUtil.exec(cmd);
+		LOG.info(buildCmd(path, logParam));
+		RuntimeUtil.exec(buildCmd(path, param));
 	}
 
+	private static String buildCmd(String path, String param) {
+		if (SystemTool.isWindows()) {
+			return "java -jar -Dfile.encoding=UTF-8 " + path + param;
+		}
+		return "nohup java -jar -Dfile.encoding=UTF-8 " + path + param + " > /dev/null &";
+	}
 }
