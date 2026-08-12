@@ -199,3 +199,24 @@ test('detectLanguage 新規則沒有搶走一般 nginx 設定', () => {
   assert.strictEqual(detectLanguage(['> fastcgi\\_param SCRIPT\\_FILENAME /home/www$fastcgi\\_script\\_name;']), 'nginx');
   assert.strictEqual(detectLanguage(['> worker\\_processes    4;', '> worker\\_cpu\\_affinity 0001 0010;']), 'nginx');
 });
+
+test('detectLanguage 不把路徑裡的 /var/ 當成 JS 宣告', () => {
+  // 010page.md:17 形態——設定檔提到 /var/run/nginx.pid，不是 JavaScript
+  assert.strictEqual(
+    detectLanguage(['> user  www www;', '> worker\\_processes  2;', '> pid /var/run/nginx.pid;']),
+    'nginx',
+  );
+  assert.strictEqual(detectLanguage(['> listen unix:/var/run/nginx.sock;']), 'nginx');
+});
+
+test('detectLanguage 不把 SSI 註解結尾的 --> 當成 C 的箭號', () => {
+  // 075page.md:175 形態——SSI 標記沒有任何語言標註才是對的
+  assert.strictEqual(detectLanguage(['> <!--# include virtual="/remote/body.php?argument=value" -->']), '');
+  assert.strictEqual(detectLanguage(['> <!--# block name="one" -->', '> stub', '> <!--# endblock -->']), '');
+});
+
+test('detectLanguage 收緊後仍認得真的 var 宣告與真的 C 箭號', () => {
+  // 守門：收緊不得矯枉過正，這兩種形態必須還在
+  assert.strictEqual(detectLanguage(['> var pb = require(\'./static.js\');']), 'javascript');
+  assert.strictEqual(detectLanguage(['> log->action = "sending mp4 to client";']), 'c');
+});
