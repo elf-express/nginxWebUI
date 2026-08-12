@@ -34,4 +34,36 @@ function splitBlocks(lines) {
   return blocks;
 }
 
-module.exports = { splitBlocks };
+// 剝掉 "> " 前綴，還原 markdown 跳脫，方便後續比對
+function stripQuote(line) {
+  return line.replace(/^\s*>\s?/, '');
+}
+function unescapeMd(s) {
+  return s.replace(/\\([_*[\]`])/g, '$1');
+}
+
+// 明確的程式碼訊號。命中任一條，整個區塊就是程式碼。
+const CODE_SIGNALS = [
+  /[{}]\s*$/,                       // 大括號結尾：nginx 區塊、C 函式
+  /;\s*$/,                          // 分號結尾：nginx 指令、C 敘述
+  /^#include\b/,                    // C 前置處理器
+  /^@@ -\d+/,                       // patch diff
+  /^(\.\/configure|nginx|kill|service|systemctl|ps|curl|sudo|make|kldload|options|expr|set|memory|dump|while|end)\b/,
+  /^[a-z_][a-z0-9_]*\s+[a-z0-9_$/.:*-]+\s*$/i,  // 「指令 參數」形式，例如 kldload aio
+];
+
+// 散文訊號：句末標點（中英文皆算）且不含程式碼訊號時，判為散文。
+const PROSE_END_RE = /[.。！!？?]\s*$/;
+
+function isCodeBlock(blockLines) {
+  const bodies = blockLines.map((l) => unescapeMd(stripQuote(l))).filter((s) => s.trim());
+  if (bodies.length === 0) return false;
+
+  const hasCodeSignal = bodies.some((b) => CODE_SIGNALS.some((re) => re.test(b.trim())));
+  if (hasCodeSignal) return true;
+
+  // 沒有任何程式碼訊號：只要有一行以句末標點收尾就當散文
+  return !bodies.some(PROSE_END_RE.test.bind(PROSE_END_RE));
+}
+
+module.exports = { splitBlocks, isCodeBlock, stripQuote, unescapeMd };
