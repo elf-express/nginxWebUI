@@ -182,6 +182,89 @@ public class NginxDocParserTest {
 		assertNull(d.defaultValue());
 	}
 
+	// ---- 以下三條用合成 markdown。測的正是今日語料裡「還不存在」的形態:
+	// 本任務的立論就是使用者之後會用自己的格式新增 151page.md,這些洞要到那時候才會咬人。
+	// 真語料測不到它們(用真語料反而會綠得毫無意義),所以這裡不違反「用真語料」的精神。
+
+	private static final String FAKE_PAGE_HEADER = """
+			# 模組 ngx_http_fake_module
+
+			> Source: https://nginx.org/en/docs/http/ngx_http_fake_module.html
+
+			""";
+
+	@Test
+	public void parsePage_指令段落止於下一個標題不會吃到後面章節的範例() {
+		String md = FAKE_PAGE_HEADER + """
+				#### `fake_directive`
+
+				- 這條沒有語法條列,也沒有自己的 fenced block。
+
+				### 本專案
+
+				```nginx
+				unrelated_example on;
+				```
+				""";
+		NginxDirective d = only(md);
+		// body 若以「下一個指令標題」為界(而不是下一個任意標題),這裡會抓到 ### 本專案 的範例,
+		// 把毫不相干的 unrelated_example 當成 fake_directive 的語法。
+		assertEquals("", d.syntax(), "syntax 不該跨過章節標題去抓範例,實際:" + d.syntax());
+		assertEquals("這條沒有語法條列,也沒有自己的 fenced block。", d.description());
+	}
+
+	@Test
+	public void parsePage_fenced_block裡頂格的nginx註解不可被當成標題() {
+		String md = FAKE_PAGE_HEADER + """
+				#### `fake_directive`
+
+				```nginx
+				fake_directive on;
+				# nginx 註解頂格寫是常態,不是 markdown 標題
+				```
+
+				- **語境：** `http`, `server`
+				- 說明文字。
+				""";
+		NginxDirective d = only(md);
+		// 把註解當標題會讓 body 在那一行就結束,後面的語境條列與說明整段消失 —— 而且是靜默消失。
+		assertEquals(List.of("http", "server"), d.contexts(), "fenced block 裡的頂格 # 截斷了 body");
+		assertEquals("說明文字。", d.description());
+		assertEquals("fake_directive on;", d.syntax());
+	}
+
+	@Test
+	public void parsePage_標題有多個括號時仍找得到context() {
+		String md = FAKE_PAGE_HEADER + """
+				#### `fake_directive`（1.3.0）（僅 `http`）
+
+				- 說明文字。
+				""";
+		// 只看第一個括號的話,（1.3.0）沒有 backtick 就直接放棄,（僅 `http`）整個被丟掉。
+		assertEquals(List.of("http"), only(md).contexts());
+	}
+
+	/** 合成頁面只有一條指令,直接取出來。順便斷言沒有多抽出東西。 */
+	private NginxDirective only(String markdown) {
+		List<NginxDirective> list = NginxDocParser.parsePage(markdown);
+		assertEquals(1, list.size(), "應該只抽出一條指令,實際:" + list.stream().map(NginxDirective::name).toList());
+		assertEquals("fake_directive", list.get(0).name());
+		assertEquals(NginxDirective.Origin.PROJECT_SUMMARY, list.get(0).origin());
+		return list.get(0);
+	}
+
+	@Test
+	public void parsePage_contexts不論來源都是不可變的() throws Exception {
+		// record 不做防禦性複製。表格頁傳可變 ArrayList、摘要頁傳 List.of,同一個欄位兩種行為 ——
+		// 呼叫端只要在其中一種上面測過 add() 就會誤以為到處都能改。
+		NginxDirective fromTable = NginxDocParser.parsePage(page("100page.md")).get(0);
+		NginxDirective fromSummary = NginxDocParser.parsePage(page("024page.md")).get(0);
+		assertEquals(NginxDirective.Origin.OFFICIAL_TABLE, fromTable.origin());
+		assertEquals(NginxDirective.Origin.PROJECT_SUMMARY, fromSummary.origin());
+		assertThrows(UnsupportedOperationException.class, () -> fromTable.contexts().add("x"));
+		assertThrows(UnsupportedOperationException.class, () -> fromSummary.contexts().add("x"));
+	}
+
 	@Test
 	public void parsePage_摘要流程只在表格抽不到東西時才跑() throws Exception {
 		// 觸發條件是「有官方 Source 且表格流程抽出 0 條」,全語料 150 頁裡有 58 頁符合。

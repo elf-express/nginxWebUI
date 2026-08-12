@@ -156,8 +156,9 @@ public class NginxDocServiceTest {
 
 	@Test
 	public void directive_本專案自己產生的設定查得到() {
-		// 這 4 條全部只存在於手寫 zh-TW 摘要頁(沒有 nginx.org 表格)。少了摘要流程它們就完全不在索引裡,
-		// 設定檢查會把 nginxWebUI 自己輸出的合法 conf 判成「指令不存在」。
+		// 前 4 條只存在於手寫 zh-TW 摘要頁,少了摘要流程就完全不在索引裡,設定檢查會把 nginxWebUI
+		// 自己輸出的合法 conf 判成「指令不存在」。後 2 條(allow / map)的 stream 版有官方表格,
+		// 但 http 版同樣只來自摘要頁 —— 見 directive_limit_conn的http與stream版都要在。
 		for (String name : List.of("limit_req", "limit_conn", "real_ip_header", "auth_request", "allow", "map")) {
 			assertFalse(svc.directive(name).isEmpty(), name + " 不在索引裡");
 		}

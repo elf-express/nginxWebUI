@@ -38,7 +38,13 @@ public class NginxDocParser {
 	private static final Pattern CODE = Pattern.compile("<code>([^<]*)</code>");
 	private static final Pattern TAG = Pattern.compile("<[^>]+>");
 
-	/** 任何層級的標題,用來切出「這條指令的段落到哪裡結束」。 */
+	/**
+	 * 任何層級的標題,用來切出「這條指令的段落到哪裡結束」。
+	 *
+	 * **只能用在 fenced block 之外的行。** 這個 pattern 認不得 code fence,而 nginx conf 裡頂格寫
+	 * `# 註解` 是常態 —— 直接掃全文會把註解當成標題,該指令的段落就在那裡被提早切斷,
+	 * syntax／contexts／defaultValue 會**靜默**遺失。呼叫端(parseSummary)負責追蹤 fence 狀態。
+	 */
 	private static final Pattern HEADING = Pattern.compile("^(#{1,6})\\s+(.*)$", Pattern.MULTILINE);
 	/** 摘要頁的指令標題:h3/h4 + backtick 包住的識別字,其餘(版本號、context)留在 group(2)。 */
 	private static final Pattern SUMMARY_HEADING = Pattern.compile("^`([a-z][a-z0-9_]*)`\\s*(.*)$");
@@ -131,7 +137,9 @@ public class NginxDocParser {
 					stripHtml(name.group(1)),
 					stripHtml(syntaxCell.group(1)),
 					defaultValue,
-					contexts,
+					// record 不做防禦性複製,直接傳可變 ArrayList 會讓 contexts 在兩種 origin 下行為不一致:
+					// 表格頁的 add() 會成功、摘要頁的丟 UnsupportedOperationException。統一成不可變。
+					List.copyOf(contexts),
 					module,
 					sourceUrl,
 					description,
@@ -158,10 +166,21 @@ public class NginxDocParser {
 
 		// 先收集所有標題位置:一條指令的段落止於「下一個標題」,不論那個標題是不是指令。
 		// 用下一個「指令標題」當邊界會讓每頁最後一條指令吃進整個 ### 本專案 區段。
+		// 逐行掃並追蹤 fence 狀態:fenced block 裡頂格的 nginx `# 註解` 不是標題(見 HEADING 的說明)。
 		List<int[]> headings = new ArrayList<>(); // {標題行起點, 標題行終點, 井號數}
-		Matcher h = HEADING.matcher(markdown);
-		while (h.find()) {
-			headings.add(new int[] { h.start(), h.end(), h.group(1).length() });
+		boolean inFence = false;
+		int lineStart = 0;
+		for (String line : markdown.split("\n", -1)) {
+			int nextLineStart = lineStart + line.length() + 1; // split("\n") → 每行後面固定少一個 \n
+			if (FENCE_LINE.matcher(line).find()) {
+				inFence = !inFence;
+			} else if (!inFence) {
+				Matcher h = HEADING.matcher(line);
+				if (h.find()) {
+					headings.add(new int[] { lineStart, lineStart + line.length(), h.group(1).length() });
+				}
+			}
+			lineStart = nextLineStart;
 		}
 
 		List<String> previousContexts = List.of(); // 供「語境：同上」反向參照
@@ -194,8 +213,10 @@ public class NginxDocParser {
 
 	/** context 先看標題括號(內含 backtick 才算),再看 - **語境：** 條列,「同上」沿用前一條。 */
 	private static List<String> contextsOf(String titleTail, String body, List<String> previousContexts) {
+		// 掃過每一個括號,不是只看第一個 —— 標題可能同時帶版本號與 context,
+		// 例如 #### `foo`（1.3.0）（僅 `http`）:只看第一個括號會把 context 整個丟掉。
 		Matcher parens = PARENS.matcher(titleTail);
-		if (parens.find()) {
+		while (parens.find()) {
 			List<String> fromTitle = backtickedTokens(parens.group(1));
 			if (!fromTitle.isEmpty()) {
 				return fromTitle;
