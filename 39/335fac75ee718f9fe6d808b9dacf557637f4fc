@@ -1,0 +1,19 @@
+docs/superpowers/plans/2026-08-13-next-ai-handoff-asn-phase1.md
+  s_7117b6e57fadcc::t_bd44ede1e973c3 1-47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "39335fac75ee718f9fe6d808b9dacf557637f4fc",
+  "prompts": {},
+  "sessions": {
+    "s_7117b6e57fadcc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-amcp-finalfix-e996f9ed49d6cdde",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
