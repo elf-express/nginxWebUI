@@ -1,0 +1,31 @@
+src/main/java/com/cym/config/InitConfig.java
+  s_0f42d4541db339::t_15606e76aa3997 387-394
+src/main/java/com/cym/controller/adminPage/AsnController.java
+  s_55173c9e199ca9::t_f5c9477c5f165b 3,5-6,9,14-15,17-19,31-40,87-309
+src/main/java/com/cym/task/ScheduleTask.java
+  s_55173c9e199ca9::t_d3ecea9abb4069 27,80-81,160-187
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "6bcfc6a2e5289e4f4e0da98c5fbde9401f57cef3",
+  "prompts": {},
+  "sessions": {
+    "s_0f42d4541db339": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d4847da6-26e6-485d-a0ba-31c84ff39992",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    },
+    "s_55173c9e199ca9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-amcp-task1-f59feafc03290089",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
