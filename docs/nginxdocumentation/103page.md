@@ -16,17 +16,19 @@
 
 #### 配置示例
 
-> user www www;
-> worker\_processes 2;
-> 
-> error\_log /var/log/nginx-error.log info;
-> 
-> events {
->     use kqueue;
->     worker\_connections 2048;
-> }
-> 
-> ...
+```nginx
+user www www;
+worker_processes 2;
+
+error_log /var/log/nginx-error.log info;
+
+events {
+    use kqueue;
+    worker_connections 2048;
+}
+
+...
+```
 
 #### Directives
 
@@ -50,15 +52,17 @@
 
 為選定的客戶端連接啟用調試日誌。其他連接將使用由[error\_log](https://nginx.org/en/docs/ngx_core_module.html#error_log)指令設置的日誌記錄級別。已調試的連接由IPv4或IPv6（1.3.0、1.2.1）地址或網絡指定。也可以使用主機名指定連接。對於使用UNIX域套接字（1.3.0、1.2.1）的連接，調試日誌由「`unix:`」參數啟用。
 
-> events {
->     debug\_connection 127.0.0.1;
->     debug\_connection localhost;
->     debug\_connection 192.0.2.0/24;
->     debug\_connection ::1;
->     debug\_connection 2001:0db8::/32;
->     debug\_connection unix:;
->     ...
-> }
+```nginx
+events {
+    debug_connection 127.0.0.1;
+    debug_connection localhost;
+    debug_connection 192.0.2.0/24;
+    debug_connection ::1;
+    debug_connection 2001:0db8::/32;
+    debug_connection unix:;
+    ...
+}
+```
 
 > >要使此指令生效，nginx需要使用`--with-debug`構建，請參閱「[A debugging log](https://nginx.org/en/docs/debugging_log.html)"。
 
@@ -80,9 +84,11 @@ TZ變量總是繼承的，並且對[ngx\_http\_perl\_module](https://nginx.org/e
 
 使用示例：
 
-> env MALLOC\_OPTIONS;
-> env PERL5LIB=/data/site/modules;
-> env OPENSSL\_ALLOW\_PROXY\_CERTS=1;
+```nginx
+env MALLOC_OPTIONS;
+env PERL5LIB=/data/site/modules;
+env OPENSSL_ALLOW_PROXY_CERTS=1;
+```
 
 > NGINX環境變量由nginx內部使用，不應該由用戶直接設置。
 
@@ -98,17 +104,19 @@ TZ變量總是繼承的，並且對[ngx\_http\_perl\_module](https://nginx.org/e
 
 通過`json`參數（1.29.8）可以寫JSON格式的日誌，支持[context tags](https://nginx.org/en/docs/http/ngx_http_core_module.html#error_log_tag)：
 
-> {
->   「level」：「error」，
->   "timestamp": "2026-05-13T10:30:15.042+00:00",
->   「pid」：12345，「tid」：12345，「cnum」：3，
->   「msg」：「connect（）failed」，
->   「client」：「192.168.1.10「，「server」：「example.com「，
->   「request」：「GET /API HTTP/1.1」，
->   "upstream": "http://127.0.0.1:8080/api",
->   "errno": 111,
->   「errtext」：「連接被拒絕」
-> }
+```json
+{
+  「level」：「error」，
+  "timestamp": "2026-05-13T10:30:15.042+00:00",
+  「pid」：12345，「tid」：12345，「cnum」：3，
+  「msg」：「connect（）failed」，
+  「client」：「192.168.1.10「，「server」：「example.com「，
+  「request」：「GET /API HTTP/1.1」，
+  "upstream": "http://127.0.0.1:8080/api",
+  "errno": 111,
+  「errtext」：「連接被拒絕」
+}
+```
 
 日誌條目不能超過2 KB，超過此限制的數據將被截斷為`“truncated”:1`。JSON不支持此日誌記錄。
 
@@ -126,8 +134,10 @@ TZ變量總是繼承的，並且對[ngx\_http\_perl\_module](https://nginx.org/e
 
 使用示例：
 
-> include mime.types;
-> include vhosts/\*.conf;
+```nginx
+include mime.types;
+include vhosts/*.conf;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>load_module</strong> <code><i>file</i></code>;</code><br></td></tr><tr><th>Default:</th><td>—</td></tr><tr><th>Context:</th><td><code>main</code><br></td></tr></tbody></table>
 
@@ -137,7 +147,9 @@ TZ變量總是繼承的，並且對[ngx\_http\_perl\_module](https://nginx.org/e
 
 Example:
 
-> load\_module modules/ngx\_mail\_module.so;
+```nginx
+load_module modules/ngx_mail_module.so;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>lock_file</strong> <code><i>file</i></code>;</code><br></td></tr><tr><th>Default:</th><td><pre>lock_file logs/nginx.lock;</pre></td></tr><tr><th>Context:</th><td><code>main</code><br></td></tr></tbody></table>
 
@@ -185,16 +197,18 @@ PCRE JIT可以顯著加快正則表達式的處理速度。
 
 Example:
 
-> ssl\_object\_cache\_inheritable on;
-> 
-> http {
->     ...
->     server {
->         ...
->         ssl\_certificate     example.com.crt;
->         ssl\_certificate\_key example.com.key;
->     }
-> }
+```nginx
+ssl_object_cache_inheritable on;
+
+http {
+    ...
+    server {
+        ...
+        ssl_certificate     example.com.crt;
+        ssl_certificate_key example.com.key;
+    }
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>stall_threshold</strong> <code><i>time</i></code>;</code><br></td></tr><tr><th>Default:</th><td><pre>stall_threshold 1000ms;</pre></td></tr><tr><th>Context:</th><td><code>events</code><br></td></tr></tbody></table>
 
@@ -220,7 +234,9 @@ Example:
 
 Example:
 
-> timer\_resolution 100ms;
+```nginx
+timer_resolution 100ms;
+```
 
 間隔的內部實現取決於所使用的方法：
 
@@ -254,24 +270,32 @@ Example:
 
 比如說，
 
-> worker\_processes    4;
-> worker\_cpu\_affinity 0001 0010 0100 1000;
+```nginx
+worker_processes    4;
+worker_cpu_affinity 0001 0010 0100 1000;
+```
 
 將每個工作進程綁定到單獨的CPU，
 
-> worker\_processes    2;
-> worker\_cpu\_affinity 0101 1010;
+```nginx
+worker_processes    2;
+worker_cpu_affinity 0101 1010;
+```
 
 將第一個工作進程綁定到CPU0/CPU2，將第二個工作進程綁定到CPU1/CPU3。第二個示例適用於超線程。
 
 特殊值`auto`（1.9.10）允許將工作進程自動綁定到可用CPU：
 
-> worker\_processes auto;
-> worker\_cpu\_affinity auto;
+```nginx
+worker_processes auto;
+worker_cpu_affinity auto;
+```
 
 可選的mask參數可用於限制可用於自動綁定的CPU：
 
-> worker\_cpu\_affinity auto 01010101;
+```nginx
+worker_cpu_affinity auto 01010101;
+```
 
 > >該指令僅在FreeBSD和Linux上可用。
 
@@ -281,7 +305,9 @@ Example:
 
 Example:
 
-> worker\_priority -10;
+```nginx
+worker_priority -10;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>worker_processes</strong> <code><i>number</i></code> | <code>auto</code>;</code><br></td></tr><tr><th>Default:</th><td><pre>worker_processes 1;</pre></td></tr><tr><th>Context:</th><td><code>main</code><br></td></tr></tbody></table>
 

@@ -20,16 +20,18 @@
 
 #### 配置示例
 
-> location / {
->     fastcgi\_pass  localhost:9000;
->     fastcgi\_index index.php;
-> 
->     fastcgi\_param SCRIPT\_FILENAME /home/www/scripts/php$fastcgi\_script\_name;
->     fastcgi\_param QUERY\_STRING    $query\_string;
->     fastcgi\_param REQUEST\_METHOD  $request\_method;
->     fastcgi\_param CONTENT\_TYPE    $content\_type;
->     fastcgi\_param CONTENT\_LENGTH  $content\_length;
-> }
+```nginx
+location / {
+    fastcgi_pass  localhost:9000;
+    fastcgi_index index.php;
+
+    fastcgi_param SCRIPT_FILENAME /home/www/scripts/php$fastcgi_script_name;
+    fastcgi_param QUERY_STRING    $query_string;
+    fastcgi_param REQUEST_METHOD  $request_method;
+    fastcgi_param CONTENT_TYPE    $content_type;
+    fastcgi_param CONTENT_LENGTH  $content_length;
+}
+```
 
 #### Directives
 
@@ -39,20 +41,22 @@
 
 定義允許訪問FastCGI伺服器的條件或[denied](https://nginx.org/en/docs/http/ngx_http_fastcgi_module.html#denied)。如果所有字符串參數都不為空且不等於「0」，則允許訪問。每次在建立到FastCGI伺服器的連接之前，都會評估這些條件。參數值可以包含變量：
 
-> geo $upstream\_last\_addr $allow {
->     volatile;
->     10.10.0.0/24        1;
-> }
-> 
-> server {
->     listen 127.0.0.1:8080;
-> 
->     location / {
->         fastcgi\_pass           localhost:9000;
->         fastcgi\_allow\_upstream $allow;
->         ...
->     }
-> }
+```nginx
+geo $upstream_last_addr $allow {
+    volatile;
+    10.10.0.0/24        1;
+}
+
+server {
+    listen 127.0.0.1:8080;
+
+    location / {
+        fastcgi_pass           localhost:9000;
+        fastcgi_allow_upstream $allow;
+        ...
+    }
+}
+```
 
 > >此指令作為我們[commercial subscription](https://www.f5.com/products/nginx)的一部分提供。
 
@@ -64,7 +68,9 @@
 
 `transparent`參數（1.11.0）允許從非本地IP位址（例如，從客戶端的真實的IP位址）發出到FastCGI伺服器的傳出連接：
 
-> fastcgi\_bind $remote\_addr transparent;
+```nginx
+fastcgi_bind $remote_addr transparent;
+```
 
 為了使此參數生效，通常需要以[superuser](https://nginx.org/en/docs/ngx_core_module.html#user)權限運行nginx工作進程。在Linux上，不需要（1.13.8），因為如果指定了`transparent`參數，工作進程將從主進程繼承`CAP_NET_RAW`功能。還需要配置內核路由表以攔截來自FastCGI伺服器的網絡流量。
 
@@ -114,8 +120,10 @@
 
 定義不從緩存中獲取響應的條件。如果字符串參數中至少有一個值不為空且不等於「0」，則不從該高速緩存中獲取響應：
 
-> fastcgi\_cache\_bypass $cookie\_nocache $arg\_nocache$arg\_comment;
-> fastcgi\_cache\_bypass $http\_pragma    $http\_authorization;
+```nginx
+fastcgi_cache_bypass $cookie_nocache $arg_nocache$arg_comment;
+fastcgi_cache_bypass $http_pragma    $http_authorization;
+```
 
 可與[fastcgi\_no\_cache](https://nginx.org/en/docs/http/ngx_http_fastcgi_module.html#fastcgi_no_cache)指令一起沿著使用。
 
@@ -123,7 +131,9 @@
 
 定義用於緩存的鍵，例如
 
-> fastcgi\_cache\_key localhost:9000$request\_uri;
+```nginx
+fastcgi_cache_key localhost:9000$request_uri;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>fastcgi_cache_lock</strong> <code>on</code> | <code>off</code>;</code><br></td></tr><tr><th>Default:</th><td><pre>fastcgi_cache_lock off;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -165,11 +175,15 @@
 
 設置緩存的路徑和其他參數。緩存數據存儲在文件中。緩存中的鍵和文件名都是對代理URL應用MD5函數的結果。`levels`參數定義緩存的層次結構級別：從1到3，每個級別接受值1或2。例如，在以下配置中
 
-> fastcgi\_cache\_path /data/nginx/cache levels=1:2 keys\_zone=one:10m;
+```nginx
+fastcgi_cache_path /data/nginx/cache levels=1:2 keys_zone=one:10m;
+```
 
 緩存中的文件名如下所示：
 
-> /data/nginx/cache/**c**/**29**/b7f54b2df7773722d382f4809d650**29c**
+```
+/data/nginx/cache/**c**/**29**/b7f54b2df7773722d382f4809d650**29c**
+```
 
 一個緩存的響應先寫到一個臨時文件，然後文件重命名，從0. 8. 9版本開始，臨時文件和該高速緩存可以放在不同的文件系統上，但是，請注意，在這種情況下，文件是跨兩個文件系統複製的，而不是廉價的重命名操作。因此，建議對於任何給定的位置，都啟用緩存和保存臨時文件的目錄相同的文件系統。臨時文件的目錄是根據`use_temp_path`參數（1.7.10）設置的。如果該參數被省略或設置為值`on`，則將使用[fastcgi\_temp\_path](https://nginx.org/en/docs/http/ngx_http_fastcgi_module.html#fastcgi_temp_path)指令為給定位置設置的目錄。如果該值設置為`off`，則臨時文件將直接放在該高速緩存目錄中。
 
@@ -213,22 +227,24 @@
 
 示例配置：
 
-> fastcgi\_cache\_path /data/nginx/cache keys\_zone=cache\_zone:10m;
-> 
-> map $request\_method $purge\_method {
->     PURGE   1;
->     default 0;
-> }
-> 
-> server {
->     ...
->     location / {
->         fastcgi\_pass        backend;
->         fastcgi\_cache       cache\_zone;
->         fastcgi\_cache\_key   $uri;
->         fastcgi\_cache\_purge $purge\_method;
->     }
-> }
+```nginx
+fastcgi_cache_path /data/nginx/cache keys_zone=cache_zone:10m;
+
+map $request_method $purge_method {
+    PURGE   1;
+    default 0;
+}
+
+server {
+    ...
+    location / {
+        fastcgi_pass        backend;
+        fastcgi_cache       cache_zone;
+        fastcgi_cache_key   $uri;
+        fastcgi_cache_purge $purge_method;
+    }
+}
+```
 
 > >此功能是我們的[commercial subscription](https://www.f5.com/products/nginx)的一部分。
 
@@ -257,22 +273,28 @@
 
 為不同的響應代碼設置緩存時間。
 
-> fastcgi\_cache\_valid 200 302 10m;
-> fastcgi\_cache\_valid 404      1m;
+```nginx
+fastcgi_cache_valid 200 302 10m;
+fastcgi_cache_valid 404      1m;
+```
 
 對代碼為200和302的響應設置10分鐘的緩存，對代碼為404的響應設置1分鐘的緩存。
 
 如果僅指定緩存`*time*`
 
-> fastcgi\_cache\_valid 5m;
+```nginx
+fastcgi_cache_valid 5m;
+```
 
 則僅緩存200、301和302響應。
 
 此外，可以指定`any`參數來緩存任何響應：
 
-> fastcgi\_cache\_valid 200 302 10m;
-> fastcgi\_cache\_valid 301      1h;
-> fastcgi\_cache\_valid any      1m;
+```nginx
+fastcgi_cache_valid 200 302 10m;
+fastcgi_cache_valid 301      1h;
+fastcgi_cache_valid any      1m;
+```
 
 緩存參數也可以直接在響應標頭中設置。這比使用指令設置緩存時間的優先級更高。
 
@@ -287,12 +309,14 @@
 
 設置要在從FastCGI伺服器接收的響應的錯誤流中搜索的字符串。如果找到`*string*`，則認為FastCGI伺服器已返回[invalid response](https://nginx.org/en/docs/http/ngx_http_fastcgi_module.html#fastcgi_next_upstream)。這允許在nginx中處理應用程式錯誤，例如：
 
-> location /php/ {
->     fastcgi\_pass backend:9000;
->     ...
->     fastcgi\_catch\_stderr "PHP Fatal error";
->     fastcgi\_next\_upstream error timeout invalid\_header;
-> }
+```nginx
+location /php/ {
+    fastcgi_pass backend:9000;
+    ...
+    fastcgi_catch_stderr "PHP Fatal error";
+    fastcgi_next_upstream error timeout invalid_header;
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>fastcgi_connect_timeout</strong> <code><i>time</i></code>;</code><br></td></tr><tr><th>Default:</th><td><pre>fastcgi_connect_timeout 60s;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -328,8 +352,10 @@
 
 在`$fastcgi_script_name`變量的值中設置一個文件名，該文件名將附加在以斜槓結尾的URI之後。例如，使用以下設置
 
-> fastcgi\_index index.php;
-> fastcgi\_param SCRIPT\_FILENAME /home/www/scripts/php$fastcgi\_script\_name;
+```nginx
+fastcgi_index index.php;
+fastcgi_param SCRIPT_FILENAME /home/www/scripts/php$fastcgi_script_name;
+```
 
 對於「`/page.php`」請求，`SCRIPT_FILENAME`參數將等於「`/home/www/scripts/php/page.php`"，對於「`/`」請求，它將等於「`/home/www/scripts/php/index.php`"。
 
@@ -429,8 +455,10 @@
 
 定義響應不會保存到緩存的條件。如果字符串參數中至少有一個值不為空且不等於「0」，則不會保存響應：
 
-> fastcgi\_no\_cache $cookie\_nocache $arg\_nocache$arg\_comment;
-> fastcgi\_no\_cache $http\_pragma    $http\_authorization;
+```nginx
+fastcgi_no_cache $cookie_nocache $arg_nocache$arg_comment;
+fastcgi_no_cache $http_pragma    $http_authorization;
+```
 
 可與[fastcgi\_cache\_bypass](https://nginx.org/en/docs/http/ngx_http_fastcgi_module.html#fastcgi_cache_bypass)指令一起沿著使用。
 
@@ -440,34 +468,46 @@
 
 以下示例顯示PHP所需的最低設置：
 
-> fastcgi\_param SCRIPT\_FILENAME /home/www/scripts/php$fastcgi\_script\_name;
-> fastcgi\_param QUERY\_STRING    $query\_string;
+```nginx
+fastcgi_param SCRIPT_FILENAME /home/www/scripts/php$fastcgi_script_name;
+fastcgi_param QUERY_STRING    $query_string;
+```
 
 在PHP中，`SCRIPT_FILENAME`參數用於確定腳本名稱，`QUERY_STRING`參數用於傳遞請求參數。
 
 對於處理`POST`請求的腳本，還需要以下三個參數：
 
-> fastcgi\_param REQUEST\_METHOD  $request\_method;
-> fastcgi\_param CONTENT\_TYPE    $content\_type;
-> fastcgi\_param CONTENT\_LENGTH  $content\_length;
+```nginx
+fastcgi_param REQUEST_METHOD  $request_method;
+fastcgi_param CONTENT_TYPE    $content_type;
+fastcgi_param CONTENT_LENGTH  $content_length;
+```
 
 如果PHP是使用`--enable-force-cgi-redirect`配置參數構建的，則`REDIRECT_STATUS`參數也應該使用值「200」傳遞：
 
-> fastcgi\_param REDIRECT\_STATUS 200;
+```nginx
+fastcgi_param REDIRECT_STATUS 200;
+```
 
 如果指令是用`if_not_empty`（1.1.11）指定的，那麼只有當它的值不為空時，這樣的參數才會傳遞給伺服器：
 
-> fastcgi\_param HTTPS           $https if\_not\_empty;
+```nginx
+fastcgi_param HTTPS           $https if_not_empty;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>fastcgi_pass</strong> <code><i>address</i></code>;</code><br></td></tr><tr><th>Default:</th><td>—</td></tr><tr><th>Context:</th><td><code>location</code>, <code>if in location</code><br></td></tr></tbody></table>
 
 設置FastCGI伺服器的地址。地址可以指定為域名或IP位址以及埠：
 
-> fastcgi\_pass localhost:9000;
+```nginx
+fastcgi_pass localhost:9000;
+```
 
 或者作為UNIX域套接字路徑：
 
-> fastcgi\_pass unix:/tmp/fastcgi.socket;
+```nginx
+fastcgi_pass unix:/tmp/fastcgi.socket;
+```
 
 如果一個域名解析為多個地址，所有的地址都將以循環方式使用。此外，地址可以指定為[server group](https://nginx.org/en/docs/http/ngx_http_upstream_module.html)。
 
@@ -539,10 +579,12 @@
 
 定義捕獲`$fastcgi_path_info`變量值的正則表達式。正則表達式應具有兩個捕獲：第一個捕獲為`$fastcgi_script_name`變量的值，第二個捕獲為`$fastcgi_path_info`變量的值。例如，使用以下設置
 
-> location ~ ^(.+\\.php)(.\*)$ {
->     fastcgi\_split\_path\_info       ^(.+\\.php)(.\*)$;
->     fastcgi\_param SCRIPT\_FILENAME /path/to/php$fastcgi\_script\_name;
->     fastcgi\_param PATH\_INFO       $fastcgi\_path\_info;
+```nginx
+location ~ ^(.+\\.php)(.*)$ {
+    fastcgi_split_path_info       ^(.+\\.php)(.*)$;
+    fastcgi_param SCRIPT_FILENAME /path/to/php$fastcgi_script_name;
+    fastcgi_param PATH_INFO       $fastcgi_path_info;
+```
 
 而「`/show.php/article/0001`」請求，則`SCRIPT_FILENAME`參數將等於「`/path/to/php/show.php`"，`PATH_INFO`參數將等於「`/article/0001`"。
 
@@ -550,39 +592,47 @@
 
 允許將文件保存到磁碟。`on`參數使用與指令[alias](https://nginx.org/en/docs/http/ngx_http_core_module.html#alias)或[root](https://nginx.org/en/docs/http/ngx_http_core_module.html#root)對應的路徑保存文件。`off`參數禁止保存文件。此外，可以使用帶變量的`*string*`顯式設置文件名：
 
-> fastcgi\_store /data/www$original\_uri;
+```nginx
+fastcgi_store /data/www$original_uri;
+```
 
 文件的修改時間根據接收到的「Last-Modified」響應頭欄位設置，響應先寫入臨時文件，然後重命名文件。從0.8.9版本開始，臨時文件和持久存儲可以放在不同的文件系統上。但是，請注意，在這種情況下，文件是跨兩個文件系統複製的，而不是廉價的重命名操作。因此，建議對於任何給定的位置，保存的文件和保存臨時文件的目錄，由[fastcgi\_temp\_path](https://nginx.org/en/docs/http/ngx_http_fastcgi_module.html#fastcgi_temp_path)指令設置的所有文件都放在同一個文件系統上。
 
 此指令可用於創建靜態不可更改文件的本地複本，例如：
 
-> location /images/ {
->     root                 /data/www;
->     error\_page           404 = /fetch$uri;
-> }
-> 
-> location /fetch/ {
->     internal;
-> 
->     fastcgi\_pass         backend:9000;
->     ...
-> 
->     fastcgi\_store        on;
->     fastcgi\_store\_access user:rw group:rw all:r;
->     fastcgi\_temp\_path    /data/temp;
-> 
->     alias                /data/www/;
-> }
+```nginx
+location /images/ {
+    root                 /data/www;
+    error_page           404 = /fetch$uri;
+}
+
+location /fetch/ {
+    internal;
+
+    fastcgi_pass         backend:9000;
+    ...
+
+    fastcgi_store        on;
+    fastcgi_store_access user:rw group:rw all:r;
+    fastcgi_temp_path    /data/temp;
+
+    alias                /data/www/;
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>fastcgi_store_access</strong> <code><i>users</i></code>:<code><i>permissions</i></code> ...;</code><br></td></tr><tr><th>Default:</th><td><pre>fastcgi_store_access user:rw;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
 為新創建的文件和目錄設置訪問權限，例如：
 
-> fastcgi\_store\_access user:rw group:rw all:r;
+```nginx
+fastcgi_store_access user:rw group:rw all:r;
+```
 
 如果指定了任何`group`或`all`訪問權限，則可以省略`user`權限：
 
-> fastcgi\_store\_access group:rw all:r;
+```nginx
+fastcgi_store_access group:rw all:r;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>fastcgi_temp_file_write_size</strong> <code><i>size</i></code>;</code><br></td></tr><tr><th>Default:</th><td><pre>fastcgi_temp_file_write_size 8k|16k;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -592,11 +642,15 @@
 
 定義一個目錄，用於存儲包含從FastCGI伺服器接收到的數據的臨時文件。在指定目錄下最多可以使用三個級別的NTFS層次結構。例如，在以下配置中
 
-> fastcgi\_temp\_path /spool/nginx/fastcgi\_temp 1 2;
+```nginx
+fastcgi_temp_path /spool/nginx/fastcgi_temp 1 2;
+```
 
 臨時文件可能看起來像這樣：
 
-> /spool/nginx/fastcgi\_temp/**7**/**45**/00000123**457**
+```
+/spool/nginx/fastcgi_temp/**7**/**45**/00000123**457**
+```
 
 另請參見[fastcgi\_cache\_path](https://nginx.org/en/docs/http/ngx_http_fastcgi_module.html#fastcgi_cache_path)指令的`use_temp_path`參數。
 
@@ -612,8 +666,10 @@ HTTP請求標頭欄位作為參數傳遞給FastCGI伺服器。在作為FastCGI�
 
 request URI，或者如果URI以斜槓結尾，則請求URI的索引文件名由附加到它的[fastcgi\_index](https://nginx.org/en/docs/http/ngx_http_fastcgi_module.html#fastcgi_index)指令配置。此變量可用於設置在PHP中確定腳本名稱的`SCRIPT_FILENAME`和`PATH_TRANSLATED`參數。例如，對於具有以下指令的「`/info/`」請求
 
-> fastcgi\_index index.php;
-> fastcgi\_param SCRIPT\_FILENAME /home/www/scripts/php$fastcgi\_script\_name;
+```nginx
+fastcgi_index index.php;
+fastcgi_param SCRIPT_FILENAME /home/www/scripts/php$fastcgi_script_name;
+```
 
 `SCRIPT_FILENAME`參數將等於「`/home/www/scripts/php/info/index.php`"。
 

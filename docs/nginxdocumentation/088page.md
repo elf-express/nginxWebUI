@@ -22,11 +22,13 @@
 
 #### 配置示例
 
-> location / {
->     xml\_entities    /site/dtd/entities.dtd;
->     xslt\_stylesheet /site/xslt/one.xslt param=value;
->     xslt\_stylesheet /site/xslt/two.xslt;
-> }
+```nginx
+location / {
+    xml_entities    /site/dtd/entities.dtd;
+    xslt_stylesheet /site/xslt/one.xslt param=value;
+    xslt_stylesheet /site/xslt/two.xslt;
+}
+```
 
 #### Directives
 
@@ -34,7 +36,9 @@
 
 指定聲明字符實體的DTD文件。此文件在配置階段編譯。由於技術原因，模塊無法使用在處理的XML中聲明的外部子集，因此將忽略它，並使用專門定義的文件。此文件不應描述XML結構。只需聲明所需的字符實體即可，例如：
 
-> <!ENTITY nbsp "&#xa0;">
+```
+<!ENTITY nbsp "&#xa0;">
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>xml_external_entities</strong> <code>on</code> | <code>off</code>;</code><br></td></tr><tr><th>Default:</th><td><pre>xml_external_entities off;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -74,16 +78,20 @@
 
 參數可以單獨指定，也可以使用"`:`"引號組合在一行中。如果參數包含"`:`"字符，則應將其轉義為"`%3A`"。此外，`libxslt`要求將包含非字母數字字符的參數括在單引號或雙引號中，例如：
 
-> param1 ='http%3A//www.example.com '：param2 = value2
+```
+param1 ='http%3A//www.example.com '：param2 = value2
+```
 
 參數描述可以包含變量，例如，整行參數可以取自單個變量：
 
-> location / {
->     xslt\_stylesheet /site/xslt/one.xslt
->                     $arg\_xslt\_params
->                     param1 ='$value1'：param2=value2
->                     param3=value3;
-> }
+```nginx
+location / {
+    xslt_stylesheet /site/xslt/one.xslt
+                    $arg_xslt_params
+                    param1 ='$value1'：param2=value2
+                    param3=value3;
+}
+```
 
 可以指定多個樣式表。它們將按照指定的順序依次應用。
 

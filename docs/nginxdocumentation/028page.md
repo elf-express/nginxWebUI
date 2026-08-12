@@ -20,10 +20,12 @@
 
 #### 配置示例
 
-> location / {
->     auth\_basic           "closed site";
->     auth\_basic\_user\_file conf/htpasswd;
-> }
+```nginx
+location / {
+    auth_basic           "closed site";
+    auth_basic_user_file conf/htpasswd;
+}
+```
 
 #### Directives
 

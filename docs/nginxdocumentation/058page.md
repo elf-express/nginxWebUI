@@ -19,17 +19,19 @@
 
 #### 配置示例
 
-> server {
->     location / {
->         set            $memcached\_key "$uri?$args";
->         memcached\_pass host:11211;
->         error\_page     404 502 504 = @fallback;
->     }
-> 
->     location @fallback {
->         proxy\_pass     http://backend;
->     }
-> }
+```nginx
+server {
+    location / {
+        set            $memcached_key "$uri?$args";
+        memcached_pass host:11211;
+        error_page     404 502 504 = @fallback;
+    }
+
+    location @fallback {
+        proxy_pass     http://backend;
+    }
+}
+```
 
 #### Directives
 
@@ -39,20 +41,22 @@
 
 定義允許訪問memcached伺服器的條件或[denied](https://nginx.org/en/docs/http/ngx_http_memcached_module.html#denied)。如果所有字符串參數不為空且不等於「0」，則允許訪問。每次在建立到memcached伺服器的連接之前都會評估這些條件。參數值可以包含變量：
 
-> geo $upstream\_last\_addr $allow {
->     volatile;
->     10.10.0.0/24        1;
-> }
-> 
-> server {
->     listen 127.0.0.1:8080;
-> 
->     location / {
->         memcached\_pass           host:11211;
->         memcached\_allow\_upstream $allow;
->         ...
->     }
-> }
+```nginx
+geo $upstream_last_addr $allow {
+    volatile;
+    10.10.0.0/24        1;
+}
+
+server {
+    listen 127.0.0.1:8080;
+
+    location / {
+        memcached_pass           host:11211;
+        memcached_allow_upstream $allow;
+        ...
+    }
+}
+```
 
 > >此指令作為我們[commercial subscription](https://www.f5.com/products/nginx)的一部分提供。
 
@@ -64,7 +68,9 @@
 
 `transparent`參數（1.11.0）允許從非本地IP位址（例如，客戶端的真實的IP位址）發出到memcached伺服器的傳出連接：
 
-> memcached\_bind $remote\_addr transparent;
+```nginx
+memcached_bind $remote_addr transparent;
+```
 
 為了使這個參數生效，通常需要以[superuser](https://nginx.org/en/docs/ngx_core_module.html#user)特權運行nginx工作進程。在Linux上，不需要（1.13.8），因為如果指定了`transparent`參數，工作進程將從主進程繼承`CAP_NET_RAW`能力。還需要配置內核路由表以攔截來自memcached伺服器的網絡流量。
 
@@ -142,11 +148,15 @@
 
 設置memcached伺服器地址。地址可以指定為域名或IP位址以及埠：
 
-> memcached\_pass localhost:11211;
+```nginx
+memcached_pass localhost:11211;
+```
 
 或者作為UNIX域套接字路徑：
 
-> memcached\_pass unix:/tmp/memcached.socket;
+```nginx
+memcached_pass unix:/tmp/memcached.socket;
+```
 
 如果一個域名解析為多個地址，所有的地址都將以循環方式使用。此外，地址可以指定為[server group](https://nginx.org/en/docs/http/ngx_http_upstream_module.html)。
 

@@ -29,9 +29,11 @@
 
 為了使Perl在重新配置期間重新編譯修改後的模塊，應該使用`-Dusemultiplicity=yes`或`-Dusethreads=yes`參數來構建它。此外，為了使Perl在運行時泄漏更少的內存，應該使用`-Dusemymalloc=no`參數來構建它。要在已經構建的Perl中檢查這些參數的值（在示例中指定了首選值），請運行：
 
-> $ perl -V：usemultiplicity -V：usemymalloc
-> usemultiplicity='define';
-> usemymalloc='n';
+```nginx
+$ perl -V：usemultiplicity -V：usemymalloc
+usemultiplicity='define';
+usemymalloc='n';
+```
 
 請注意，在使用新的`-Dusemultiplicity=yes`或`-Dusethreads=yes`參數重建Perl之後，所有的二進位Perl模塊也必須重建-它們將停止使用新的Perl。
 
@@ -41,53 +43,57 @@
 
 #### 配置示例
 
-> http {
-> 
->     perl\_modules perl/lib;
->     perl\_require hello.pm;
-> 
->     perl\_set $msie6 '
-> 
->         sub {
->             my $r = shift;
->             my $ua = $r->header\_in("User-Agent");
-> 
->             return "" if $ua =~ /Opera/;
->             return "1" if $ua =~ / MSIE \[6-9\]\\.\\d+/;
->             return "";
->         }
-> 
->     ';
-> 
->     server {
->         location / {
->             perl hello::handler;
->         }
->     }
+```c
+http {
+
+    perl_modules perl/lib;
+    perl_require hello.pm;
+
+    perl_set $msie6 '
+
+        sub {
+            my $r = shift;
+            my $ua = $r->header_in("User-Agent");
+
+            return "" if $ua =~ /Opera/;
+            return "1" if $ua =~ / MSIE [6-9]\\.\\d+/;
+            return "";
+        }
+
+    ';
+
+    server {
+        location / {
+            perl hello::handler;
+        }
+    }
+```
 
 `perl/lib/hello.pm`模塊：
 
-> package hello;
-> 
-> use nginx;
-> 
-> sub handler {
->     my $r = shift;
-> 
->     $r->send\_http\_header("text/html");
->     return OK if $r->header\_only;
-> 
->     $r->print("hello!\\n<br/>");
-> 
->     if (-f $r->filename or -d \_) {
->         $r->print($r->uri, " exists!\\n");
->     }
-> 
->     return OK;
-> }
-> 
-> 1;
-> \_\_END\_\_
+```c
+package hello;
+
+use nginx;
+
+sub handler {
+    my $r = shift;
+
+    $r->send_http_header("text/html");
+    return OK if $r->header_only;
+
+    $r->print("hello!\\n<br/>");
+
+    if (-f $r->filename or -d _) {
+        $r->print($r->uri, " exists!\\n");
+    }
+
+    return OK;
+}
+
+1;
+__END__
+```
 
 #### Directives
 
@@ -128,38 +134,40 @@
 
 如果請求中沒有body，則返回0。如果有body，則為請求設置指定的handler並返回1。閱讀請求body後，nginx將調用指定的handler。注意handler函數應該通過引用傳遞。示例：
 
-> package hello;
-> 
-> use nginx;
-> 
-> sub handler {
->     my $r = shift;
-> 
->     if ($r->request\_method ne "POST") {
->         return DECLINED;
->     }
-> 
->     if ($r->has\_request\_body(**\\&post**)) {
->         return OK;
->     }
-> 
->     return HTTP\_BAD\_REQUEST;
-> }
-> 
-> sub **post** {
->     my $r = shift;
-> 
->     $r->send\_http\_header;
-> 
->     $r->print("request\_body: \\"", $r->request\_body, "\\"<br/>");
->     $r->print("request\_body\_file: \\"", $r->request\_body\_file, "\\"<br/>\\n");
-> 
->     return OK;
-> }
-> 
-> 1;
-> 
-> \_\_END\_\_
+```c
+package hello;
+
+use nginx;
+
+sub handler {
+    my $r = shift;
+
+    if ($r->request_method ne "POST") {
+        return DECLINED;
+    }
+
+    if ($r->has_request_body(**\\&post**)) {
+        return OK;
+    }
+
+    return HTTP_BAD_REQUEST;
+}
+
+sub **post** {
+    my $r = shift;
+
+    $r->send_http_header;
+
+    $r->print("request_body: \\"", $r->request_body, "\\"<br/>");
+    $r->print("request_body_file: \\"", $r->request_body_file, "\\"<br/>\\n");
+
+    return OK;
+}
+
+1;
+
+__END__
+```
 
 `$r->allow_ranges`
 
@@ -231,32 +239,34 @@
 
 設置指定的handler，並在指定的時間內停止處理請求。在此期間，nginx繼續處理其他請求。在指定的時間過去後，nginx將調用安裝的handler。注意handler函數應該通過引用傳遞。為了在handler之間傳遞數據，應該使用`$r->variable()`。示例：
 
-> package hello;
-> 
-> use nginx;
-> 
-> sub handler {
->     my $r = shift;
-> 
->     $r->discard\_request\_body;
->     $r->variable("var", "OK");
->     $r->sleep(1000, **\\&next**);
-> 
->     return OK;
-> }
-> 
-> sub **next** {
->     my $r = shift;
-> 
->     $r->send\_http\_header;
->     $r->print($r->variable("var"));
-> 
->     return OK;
-> }
-> 
-> 1;
-> 
-> \_\_END\_\_
+```c
+package hello;
+
+use nginx;
+
+sub handler {
+    my $r = shift;
+
+    $r->discard_request_body;
+    $r->variable("var", "OK");
+    $r->sleep(1000, **\\&next**);
+
+    return OK;
+}
+
+sub **next** {
+    my $r = shift;
+
+    $r->send_http_header;
+    $r->print($r->variable("var"));
+
+    return OK;
+}
+
+1;
+
+__END__
+```
 
 ``$r->unescape(`*text*`)``
 

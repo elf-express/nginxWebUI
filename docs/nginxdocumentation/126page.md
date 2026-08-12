@@ -18,11 +18,13 @@
 
 #### 配置示例
 
-> log\_format basic '$remote\_addr \[$time\_local\] '
->                  '$protocol $status $bytes\_sent$bytes\_received '
->                  '$session\_time';
-> 
-> access\_log /spool/logs/nginx-access.log basic buffer=32k;
+```nginx
+log_format basic '$remote_addr [$time_local] '
+                 '$protocol $status $bytes_sent$bytes_received '
+                 '$session_time';
+
+access_log /spool/logs/nginx-access.log basic buffer=32k;
+```
 
 #### Directives
 
@@ -44,7 +46,9 @@
 
 Example:
 
-> access\_log /path/to/log.gz basic gzip flush=5m;
+```nginx
+access_log /path/to/log.gz basic gzip flush=5m;
+```
 
 > >要使用gzip壓縮，nginx必須使用zlib庫構建。
 
@@ -60,10 +64,12 @@ Example:
 
 指定日誌格式，例如：
 
-> log\_format proxy '$remote\_addr \[$time\_local\] '
->                  '$protocol $status $bytes\_sent$bytes\_received '
->                  '$session\_time "$upstream\_addr" '
->                  '"$upstream\_bytes\_sent" "$upstream\_bytes\_received" "$upstream\_connect\_time"';
+```nginx
+log_format proxy '$remote_addr [$time_local] '
+                 '$protocol $status $bytes_sent$bytes_received '
+                 '$session_time "$upstream_addr" '
+                 '"$upstream_bytes_sent" "$upstream_bytes_received" "$upstream_connect_time"';
+```
 
 `escape`參數（1.11.8）允許在變量中設置`json`或`default`字符轉義，默認使用`default`轉義。`none`參數（1.13.10）禁止轉義。
 
@@ -97,4 +103,6 @@ Example:
 
 使用示例：
 
-> open\_log\_file\_cache max=1000 inactive=20s valid=1m min\_uses=2;
+```nginx
+open_log_file_cache max=1000 inactive=20s valid=1m min_uses=2;
+```

@@ -24,63 +24,67 @@
 
 最小配置：
 
-> http {
->     ...
-> 
->     upstream backend {
->        server backend1.example.com:8080;
->        server backend2.example.com:8081;
-> 
->        粘性學習
->               create=$upstream\_cookie\_examplecookie
->               lookup=$cookie\_examplecookie
->               zone=client\_sessions:1m **sync**;
->     }
-> 
->     ...
-> }
-> 
-> stream {
->     ...
-> 
-> 
->     server {
->         zone\_sync;
-> 
->         listen 127.0.0.1:12345;
-> 
->         # 2個節點的集群
->         zone\_sync\_server a.example.com:12345;
->         zone\_sync\_server b.example.com:12345;
-> 
->     }
+```nginx
+http {
+    ...
+
+    upstream backend {
+       server backend1.example.com:8080;
+       server backend2.example.com:8081;
+
+       粘性學習
+              create=$upstream_cookie_examplecookie
+              lookup=$cookie_examplecookie
+              zone=client_sessions:1m **sync**;
+    }
+
+    ...
+}
+
+stream {
+    ...
+
+
+    server {
+        zone_sync;
+
+        listen 127.0.0.1:12345;
+
+        # 2個節點的集群
+        zone_sync_server a.example.com:12345;
+        zone_sync_server b.example.com:12345;
+
+    }
+```
 
 一個更複雜的配置，啟用了SSL，並由DNS定義了集群成員：
 
-> ...
-> 
-> stream {
->     ...
-> 
->     resolver 127.0.0.1 valid=10s;
-> 
->     server {
->         zone\_sync;
-> 
->         # 名稱解析為對應於群集節點的多個地址
->         zone\_sync\_server cluster.example.com:12345 resolve;
-> 
->         listen 127.0.0.1:4433 ssl;
-> 
->         ssl\_certificate     localhost.crt;
->         ssl\_certificate\_key localhost.key;
-> 
->         zone\_sync\_ssl on;
-> 
->         zone\_sync\_ssl\_certificate     localhost.crt;
->         zone\_sync\_ssl\_certificate\_key localhost.key;
->     }
-> }
+```nginx
+...
+
+stream {
+    ...
+
+    resolver 127.0.0.1 valid=10s;
+
+    server {
+        zone_sync;
+
+        # 名稱解析為對應於群集節點的多個地址
+        zone_sync_server cluster.example.com:12345 resolve;
+
+        listen 127.0.0.1:4433 ssl;
+
+        ssl_certificate     localhost.crt;
+        ssl_certificate_key localhost.key;
+
+        zone_sync_ssl on;
+
+        zone_sync_ssl_certificate     localhost.crt;
+        zone_sync_ssl_certificate_key localhost.key;
+    }
+}
+```
 
 #### Directives
 
@@ -124,15 +128,17 @@
 
 為了使`resolve`參數起作用，必須在[stream](https://nginx.org/en/docs/stream/ngx_stream_core_module.html#stream)塊中指定[resolver](https://nginx.org/en/docs/stream/ngx_stream_core_module.html#resolver)指令。示例：
 
-> stream {
->     resolver 10.0.0.1;
-> 
->     server {
->         zone\_sync;
->         zone\_sync\_server cluster.example.com:12345 resolve;
->         ...
->     }
-> }
+```nginx
+stream {
+    resolver 10.0.0.1;
+
+    server {
+        zone_sync;
+        zone_sync_server cluster.example.com:12345 resolve;
+        ...
+    }
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>zone_sync_ssl</strong> <code>on</code> | <code>off</code>;</code><br></td></tr><tr><th>Default:</th><td><pre>zone_sync_ssl off;</pre></td></tr><tr><th>Context:</th><td><code>stream</code>, <code>server</code><br></td></tr></tbody></table>
 

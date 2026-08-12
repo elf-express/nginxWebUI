@@ -28,10 +28,12 @@
 
 #### 配置示例
 
-> server {
->     listen 12345 proxy\_protocol;
->     return $proxy\_protocol\_tlv\_gcp\_conn\_id;
-> }
+```nginx
+server {
+    listen 12345 proxy_protocol;
+    return $proxy_protocol_tlv_gcp_conn_id;
+}
+```
 
 #### 嵌入變量
 

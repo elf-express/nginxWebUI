@@ -20,11 +20,13 @@
 
 #### 配置示例
 
-> location / {
->     sub\_filter '<a href="http://127.0.0.1:8080/'  '<a href="https://$host/';
->     sub\_filter '<img src="http://127.0.0.1:8080/' '<img src="https://$host/';
->     sub\_filter\_once on;
-> }
+```nginx
+location / {
+    sub_filter '<a href="http://127.0.0.1:8080/'  '<a href="https://$host/';
+    sub_filter '<img src="http://127.0.0.1:8080/' '<img src="https://$host/';
+    sub_filter_once on;
+}
+```
 
 #### Directives
 

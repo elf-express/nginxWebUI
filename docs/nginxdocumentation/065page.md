@@ -28,13 +28,15 @@
 
 #### 配置示例
 
-> proxy\_set\_header X-Conn-ID $proxy\_protocol\_tlv\_gcp\_conn\_id;
-> 
-> server {
->     listen 80   proxy\_protocol;
->     listen 443  ssl proxy\_protocol;
->     ...
-> }
+```nginx
+proxy_set_header X-Conn-ID $proxy_protocol_tlv_gcp_conn_id;
+
+server {
+    listen 80   proxy_protocol;
+    listen 443  ssl proxy_protocol;
+    ...
+}
+```
 
 #### 嵌入變量
 

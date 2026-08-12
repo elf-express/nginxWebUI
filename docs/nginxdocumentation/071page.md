@@ -44,27 +44,31 @@
 
 Example:
 
-> location /s/ {
->     secure\_link $arg\_md5,$arg\_expires;
->     secure\_link\_md5 "$secure\_link\_expires$uri$remote\_addr secret";
-> 
->     if ($secure\_link = "") {
->         return 403;
->     }
-> 
->     if ($secure\_link = "0") {
->         return 410;
->     }
-> 
->     ...
-> }
+```nginx
+location /s/ {
+    secure_link $arg_md5,$arg_expires;
+    secure_link_md5 "$secure_link_expires$uri$remote_addr secret";
+
+    if ($secure_link = "") {
+        return 403;
+    }
+
+    if ($secure_link = "0") {
+        return 410;
+    }
+
+    ...
+}
+```
 
 「`/s/link?md5=_e4Nc3iduzkWRm01TBBNYw&expires=2147483647`」連結限制IP位址為127.0.0.1的客戶端訪問「`/s/link`」。該連結的生存期也有限，直到2038年1月19日（GMT）。
 
 在UNIX上，`*md5*`request參數值可以通過以下方式獲得：
 
-> echo -n '2147483647/s/link127.0.0.1 secret'| \\
->     openssl md5 -binary| openssl base64| tr +/ -\_|tr -d =
+```
+echo -n '2147483647/s/link127.0.0.1 secret'| \\
+    openssl md5 -binary| openssl base64| tr +/ -_|tr -d =
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>secure_link_secret</strong> <code><i>word</i></code>;</code><br></td></tr><tr><th>Default:</th><td>—</td></tr><tr><th>Context:</th><td><code>location</code><br></td></tr></tbody></table>
 
@@ -72,7 +76,9 @@ Example:
 
 請求的連結的完整URI如下所示：
 
-> /`*prefix*`/`*hash*`/`*link*`
+```
+/`*prefix*`/`*hash*`/`*link*`
+```
 
 其中，`*hash*`是為連結和秘密字的連接計算的MD5哈希的十六進位表示，`*prefix*`是不帶斜槓的任意字符串。
 
@@ -80,25 +86,29 @@ Example:
 
 Example:
 
-> location /p/ {
->     secure\_link\_secret secret;
-> 
->     if ($secure\_link = "") {
->         return 403;
->     }
-> 
->     rewrite ^ /secure/$secure\_link;
-> }
-> 
-> location /secure/ {
->     internal;
-> }
+```nginx
+location /p/ {
+    secure_link_secret secret;
+
+    if ($secure_link = "") {
+        return 403;
+    }
+
+    rewrite ^ /secure/$secure_link;
+}
+
+location /secure/ {
+    internal;
+}
+```
 
 「`/p/5e814704a28d9bc1914ff19fa0c4a00a/link`」的請求將在內部重定向到「`/secure/link`"。
 
 在UNIX上，此示例的散列值可以通過以下方式獲得：
 
-> echo -n 'linksecret'| openssl md5 -hex
+```
+echo -n 'linksecret'| openssl md5 -hex
+```
 
 #### 嵌入變量
 

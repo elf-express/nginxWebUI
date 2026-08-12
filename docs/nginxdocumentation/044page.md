@@ -20,10 +20,12 @@
 
 #### 配置示例
 
-> location /storage/ {
->     gunzip on;
->     ...
-> }
+```nginx
+location /storage/ {
+    gunzip on;
+    ...
+}
+```
 
 #### Directives
 

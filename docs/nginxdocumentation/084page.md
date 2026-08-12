@@ -19,12 +19,14 @@
 
 #### 配置示例
 
-> userid         on;
-> userid\_name    uid;
-> userid\_domain  example.com;
-> userid\_path    /;
-> userid\_expires 365d;
-> userid\_p3p     'policyref="/w3c/p3p.xml", CP="CUR ADM OUR NOR STA NID"';
+```nginx
+userid         on;
+userid_name    uid;
+userid_domain  example.com;
+userid_path    /;
+userid_expires 365d;
+userid_p3p     'policyref="/w3c/p3p.xml", CP="CUR ADM OUR NOR STA NID"';
+```
 
 #### Directives
 

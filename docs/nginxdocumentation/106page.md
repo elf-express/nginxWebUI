@@ -24,28 +24,30 @@ The module is also available in a prebuilt `nginx-module-otel` [package](https:/
 
 #### Example Configuration
 
-> load\_module modules/ngx\_otel\_module.so;
-> 
-> events {
-> }
-> 
-> http {
-> 
->     otel\_exporter {
->         endpoint localhost:4317;
->     }
-> 
->     server {
->         listen 127.0.0.1:8080;
-> 
->         location / {
->             otel\_trace         on;
->             otel\_trace\_context inject;
-> 
->             proxy\_pass http://backend;
->         }
->     }
-> }
+```nginx
+load_module modules/ngx_otel_module.so;
+
+events {
+}
+
+http {
+
+    otel_exporter {
+        endpoint localhost:4317;
+    }
+
+    server {
+        listen 127.0.0.1:8080;
+
+        location / {
+            otel_trace         on;
+            otel_trace_context inject;
+
+            proxy_pass http://backend;
+        }
+    }
+}
+```
 
 #### Directives
 
@@ -79,11 +81,13 @@ the number of pending batches per worker, spans exceeding the limit are dropped,
 
 Example:
 
-> otel\_exporter {
->     endpoint https://otel-example.nginx.com:4317;
-> 
->     header X-API-Token "my-token-value";
-> }
+```nginx
+otel_exporter {
+    endpoint https://otel-example.nginx.com:4317;
+
+    header X-API-Token "my-token-value";
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>otel_service_name</strong> <code><i>name</i></code>;</code><br></td></tr><tr><th>Default:</th><td><pre>otel_service_name unknown_service:nginx;</pre></td></tr><tr><th>Context:</th><td><code>http</code><br></td></tr></tbody></table>
 
@@ -99,18 +103,20 @@ Sets a custom OTel resource attribute.
 
 Enables or disables OpenTelemetry tracing. The directive can also be enabled by specifying a variable:
 
-> split\_clients "$otel\_trace\_id" $ratio\_sampler {
->               10%              on;
->               \*                off;
-> }
-> 
-> server {
->     location / {
->         otel\_trace         $ratio\_sampler;
->         otel\_trace\_context inject;
->         proxy\_pass         http://backend;
->     }
-> }
+```nginx
+split_clients "$otel_trace_id" $ratio_sampler {
+              10%              on;
+              *                off;
+}
+
+server {
+    location / {
+        otel_trace         $ratio_sampler;
+        otel_trace_context inject;
+        proxy_pass         http://backend;
+    }
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>otel_trace_context</strong> <code>extract</code> | <code>inject</code> | <code>propagate</code> | <code>ignore</code>;</code><br></td></tr><tr><th>Default:</th><td><pre>otel_trace_context ignore;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 

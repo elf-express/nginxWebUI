@@ -23,111 +23,115 @@ Download and install instructions are available [here](https://nginx.org/en/docs
 
 The example works since [0.4.0](https://nginx.org/en/docs/njs/changes.html#njs0.4.0).
 
-> http {
->     # since 0.9.1
->     js\_engine qjs;
-> 
->     js\_import http.js;
-> 
->     js\_set $foo     http.foo;
->     js\_set $summary http.summary;
->     js\_set $hash    http.hash;
-> 
->     resolver 10.0.0.1;
-> 
->     server {
->         listen 8000;
-> 
->         location / {
->             add\_header X-Foo $foo;
->             js\_content http.baz;
->         }
-> 
->         location = /summary {
->             return 200 $summary;
->         }
-> 
->         location = /hello {
->             js\_content http.hello;
->         }
-> 
->         # since 0.7.0
->         location = /fetch {
->             js\_content                   http.fetch;
->             js\_fetch\_trusted\_certificate /path/to/ISRG\_Root\_X1.pem;
->         }
-> 
->         # since 0.7.0
->         location = /crypto {
->             add\_header Hash $hash;
->             return     200;
->         }
->     }
-> }
+```nginx
+http {
+    # since 0.9.1
+    js_engine qjs;
+
+    js_import http.js;
+
+    js_set $foo     http.foo;
+    js_set $summary http.summary;
+    js_set $hash    http.hash;
+
+    resolver 10.0.0.1;
+
+    server {
+        listen 8000;
+
+        location / {
+            add_header X-Foo $foo;
+            js_content http.baz;
+        }
+
+        location = /summary {
+            return 200 $summary;
+        }
+
+        location = /hello {
+            js_content http.hello;
+        }
+
+        # since 0.7.0
+        location = /fetch {
+            js_content                   http.fetch;
+            js_fetch_trusted_certificate /path/to/ISRG_Root_X1.pem;
+        }
+
+        # since 0.7.0
+        location = /crypto {
+            add_header Hash $hash;
+            return     200;
+        }
+    }
+}
+```
 
 The `http.js` file:
 
-> function foo(r) {
->     r.log("hello from foo() handler");
->     return "foo";
-> }
-> 
-> function summary(r) {
->     var a, s, h;
-> 
->     s = "JS summary\\n\\n";
-> 
->     s += "Method: " + r.method + "\\n";
->     s += "HTTP version: " + r.httpVersion + "\\n";
->     s += "Host: " + r.headersIn.host + "\\n";
->     s += "Remote Address: " + r.remoteAddress + "\\n";
->     s += "URI: " + r.uri + "\\n";
-> 
->     s += "Headers:\\n";
->     for (h in r.headersIn) {
->         s += "  header '" + h + "' is '" + r.headersIn\[h\] + "'\\n";
->     }
-> 
->     s += "Args:\\n";
->     for (a in r.args) {
->         s += "  arg '" + a + "' is '" + r.args\[a\] + "'\\n";
->     }
-> 
->     return s;
-> }
-> 
-> function baz(r) {
->     r.status = 200;
->     r.headersOut.foo = 1234;
->     r.headersOut\['Content-Type'\] = "text/plain; charset=utf-8";
->     r.headersOut\['Content-Length'\] = 15;
->     r.sendHeader();
->     r.send("nginx");
->     r.send("java");
->     r.send("script");
-> 
->     r.finish();
-> }
-> 
-> function hello(r) {
->     r.return(200, "Hello world!");
-> }
-> 
-> // since 0.7.0
-> async function fetch(r) {
->     let results = await Promise.all(\[ngx.fetch('https://nginx.org/'),
->                                      ngx.fetch('https://nginx.org/en/')\]);
-> 
->     r.return(200, JSON.stringify(results, undefined, 4));
-> }
-> 
-> // since 0.7.0
-> async function hash(r) {
->     let hash = await crypto.subtle.digest('SHA-512', r.headersIn.host);
->     r.setReturnValue(Buffer.from(hash).toString('hex'));
-> }
-> 
-> export default {foo, summary, baz, hello, fetch, hash};
+```javascript
+function foo(r) {
+    r.log("hello from foo() handler");
+    return "foo";
+}
+
+function summary(r) {
+    var a, s, h;
+
+    s = "JS summary\\n\\n";
+
+    s += "Method: " + r.method + "\\n";
+    s += "HTTP version: " + r.httpVersion + "\\n";
+    s += "Host: " + r.headersIn.host + "\\n";
+    s += "Remote Address: " + r.remoteAddress + "\\n";
+    s += "URI: " + r.uri + "\\n";
+
+    s += "Headers:\\n";
+    for (h in r.headersIn) {
+        s += "  header '" + h + "' is '" + r.headersIn[h] + "'\\n";
+    }
+
+    s += "Args:\\n";
+    for (a in r.args) {
+        s += "  arg '" + a + "' is '" + r.args[a] + "'\\n";
+    }
+
+    return s;
+}
+
+function baz(r) {
+    r.status = 200;
+    r.headersOut.foo = 1234;
+    r.headersOut['Content-Type'] = "text/plain; charset=utf-8";
+    r.headersOut['Content-Length'] = 15;
+    r.sendHeader();
+    r.send("nginx");
+    r.send("java");
+    r.send("script");
+
+    r.finish();
+}
+
+function hello(r) {
+    r.return(200, "Hello world!");
+}
+
+// since 0.7.0
+async function fetch(r) {
+    let results = await Promise.all([ngx.fetch('https://nginx.org/'),
+                                     ngx.fetch('https://nginx.org/en/')]);
+
+    r.return(200, JSON.stringify(results, undefined, 4));
+}
+
+// since 0.7.0
+async function hash(r) {
+    let hash = await crypto.subtle.digest('SHA-512', r.headersIn.host);
+    r.setReturnValue(Buffer.from(hash).toString('hex'));
+}
+
+export default {foo, summary, baz, hello, fetch, hash};
+```
 
 #### Directives
 
@@ -155,32 +159,38 @@ a boolean value, true if data is a last buffer.
 
 The filter function can pass its own modified version of the input data chunk to the next body filter by calling [`r.sendBuffer()`](https://nginx.org/en/docs/njs/reference.html#r_sendbuffer). For example, to transform all the lowercase letters in the response body:
 
-> function filter(r, data, flags) {
->     r.sendBuffer(data.toLowerCase(), flags);
-> }
+```javascript
+function filter(r, data, flags) {
+    r.sendBuffer(data.toLowerCase(), flags);
+}
+```
 
 If the filter function changes the length of the response body, the “Content-Length” response header (if present) should be cleared in [`js_header_filter`](https://nginx.org/en/docs/http/ngx_http_js_module.html#js_header_filter) to enforce chunked transfer encoding:
 
-> example.conf:
->  location /foo {
->      # proxy\_pass http://localhost:8080;
-> 
->     js\_header\_filter main.clear\_content\_length;
->     js\_body\_filter   main.filter;
->  }
-> 
-> example.js:
->  function clear\_content\_length(r) {
->      delete r.headersOut\['Content-Length'\];
->  }
+```javascript
+example.conf:
+ location /foo {
+     # proxy_pass http://localhost:8080;
+
+    js_header_filter main.clear_content_length;
+    js_body_filter   main.filter;
+ }
+
+example.js:
+ function clear_content_length(r) {
+     delete r.headersOut['Content-Length'];
+ }
+```
 
 To stop filtering and pass the data chunks to the client without calling `js_body_filter`, [`r.done()`](https://nginx.org/en/docs/njs/reference.html#r_done) can be used. For example, to prepend some data to the response body:
 
-> function prepend(r, data, flags) {
->     r.sendBuffer("XXX");
->     r.sendBuffer(data, flags);
->     r.done();
-> }
+```javascript
+function prepend(r, data, flags) {
+    r.sendBuffer("XXX");
+    r.sendBuffer(data, flags);
+    r.done();
+}
+```
 
 > As the `js_body_filter` handler returns its result immediately, it supports only synchronous operations. Thus, asynchronous operations such as [r.subrequest()](https://nginx.org/en/docs/njs/reference.html#r_subrequest) or [setTimeout()](https://nginx.org/en/docs/njs/reference.html#settimeout) are not supported.
 
@@ -196,25 +206,27 @@ A handler that returns without calling [`r.return()`](https://nginx.org/en/docs/
 
 For example:
 
-> example.conf:
->  location /protected/ {
->      js\_access  main.auth;
->      proxy\_pass http://upstream;
->  }
-> 
-> example.js:
->  async function auth(r) {
->      let reply = await ngx.fetch('http://authsvc/check', {
->          headers: {Authorization: r.headersIn.Authorization}
->      });
-> 
->      if (reply.status != 200) {
->          r.return(401);
->          return;
->      }
->  }
-> 
->  export default {auth};
+```javascript
+example.conf:
+ location /protected/ {
+     js_access  main.auth;
+     proxy_pass http://upstream;
+ }
+
+example.js:
+ async function auth(r) {
+     let reply = await ngx.fetch('http://authsvc/check', {
+         headers: {Authorization: r.headersIn.Authorization}
+     });
+
+     if (reply.status != 200) {
+         r.return(401);
+         return;
+     }
+ }
+
+ export default {auth};
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>js_content</strong> <code><i>module.function</i></code>;</code><br></td></tr><tr><th>Default:</th><td>—</td></tr><tr><th>Context:</th><td><code>location</code>, <code>if in location</code>, <code>limit_except</code><br></td></tr></tbody></table>
 
@@ -294,10 +306,12 @@ Configures a forward proxy URL with [Fetch API](https://nginx.org/en/docs/njs/re
 
 Example:
 
-> location /fetch {
->     js\_fetch\_proxy http://user:pass@proxy.example.com:3128;
->     js\_content main.fetch\_handler;
-> }
+```nginx
+location /fetch {
+    js_fetch_proxy http://user:pass@proxy.example.com:3128;
+    js_content main.fetch_handler;
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>js_fetch_keepalive</strong> <code><i>connections</i></code>;</code><br></td></tr><tr><th>Default:</th><td><pre>js_fetch_keepalive 0;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -313,11 +327,13 @@ When enabled, keepalive assumes that destination servers send valid HTTP respons
 
 Example:
 
-> location /fetch {
->     js\_fetch\_keepalive 32;
->     js\_fetch\_trusted\_certificate /path/to/ISRG\_Root\_X1.pem;
->     js\_content main.fetch\_handler;
-> }
+```nginx
+location /fetch {
+    js_fetch_keepalive 32;
+    js_fetch_trusted_certificate /path/to/ISRG_Root_X1.pem;
+    js_content main.fetch_handler;
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>js_fetch_keepalive_requests</strong> <code><i>number</i></code>;</code><br></td></tr><tr><th>Default:</th><td><pre>js_fetch_keepalive_requests 1000;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -355,7 +371,9 @@ This directive appeared in version 0.4.0.
 
 Imports a module that implements location and variable handlers in njs. The `export_name` is used as a namespace to access module functions. If the `export_name` is not specified, the module name will be used as a namespace.
 
-> js\_import http.js;
+```nginx
+js_import http.js;
+```
 
 Here, the module name `http` is used as a namespace while accessing exports. If the imported module exports `foo()`, `http.foo` is used to refer to it.
 
@@ -369,16 +387,18 @@ When `js_import` is specified inside a [location](https://nginx.org/en/docs/http
 
 Specifies a file that implements location and variable handlers in njs:
 
-> nginx.conf:
-> js\_include http.js;
-> location   /version {
->     js\_content version;
-> }
-> 
-> http.js:
-> function version(r) {
->     r.return(200, njs.version);
-> }
+```javascript
+nginx.conf:
+js_include http.js;
+location   /version {
+    js_content version;
+}
+
+http.js:
+function version(r) {
+    r.return(200, njs.version);
+}
+```
 
 The directive was made obsolete in version [0.4.0](https://nginx.org/en/docs/njs/changes.html#njs0.4.0) and was removed in version [0.7.1](https://nginx.org/en/docs/njs/changes.html#njs0.7.1). The [js\_import](https://nginx.org/en/docs/http/ngx_http_js_module.html#js_import) directive should be used instead.
 
@@ -392,24 +412,28 @@ The `*path*` parameter specifies the absolute path to the shared library file. T
 
 Example:
 
-> js\_load\_http\_native\_module /path/to/mylib.so;
-> js\_load\_http\_native\_module /path/to/other.so as myalias;
-> 
-> http {
->     js\_import main.js;
->     # ... rest of http configuration
-> }
+```nginx
+js_load_http_native_module /path/to/mylib.so;
+js_load_http_native_module /path/to/other.so as myalias;
+
+http {
+    js_import main.js;
+    # ... rest of http configuration
+}
+```
 
 In JavaScript code:
 
-> // Import by filename
-> import \* as mylib from 'mylib.so';
-> 
-> // Import by alias
-> import \* as myalias from 'myalias';
-> 
-> // Use exported functions
-> let result = mylib.add(5, 10);
+```javascript
+// Import by filename
+import * as mylib from 'mylib.so';
+
+// Import by alias
+import * as myalias from 'myalias';
+
+// Use exported functions
+let result = mylib.add(5, 10);
+```
 
 > For security reasons, this directive is only allowed in the `main` configuration context. Native modules run with full process privileges; use absolute paths and ensure proper code review.
 
@@ -435,30 +459,32 @@ By default, the `js_handler` is executed on worker process 0. The optional `work
 
 Example:
 
-> example.conf:
-> 
-> location @periodics {
->     # to be run at 1 minute intervals in worker process 0
->     js\_periodic main.handler interval=60s;
-> 
->     # to be run at 1 minute intervals in all worker processes
->     js\_periodic main.handler interval=60s worker\_affinity=all;
-> 
->     # to be run at 1 minute intervals in worker processes 1 and 3
->     js\_periodic main.handler interval=60s worker\_affinity=0101;
-> 
->     resolver 10.0.0.1;
->     js\_fetch\_trusted\_certificate /path/to/ISRG\_Root\_X1.pem;
-> }
-> 
-> example.js:
-> 
-> async function handler(s) {
->     let reply = await ngx.fetch('https://nginx.org/en/docs/njs/');
->     let body = await reply.text();
-> 
->     ngx.log(ngx.INFO, body);
-> }
+```javascript
+example.conf:
+
+location @periodics {
+    # to be run at 1 minute intervals in worker process 0
+    js_periodic main.handler interval=60s;
+
+    # to be run at 1 minute intervals in all worker processes
+    js_periodic main.handler interval=60s worker_affinity=all;
+
+    # to be run at 1 minute intervals in worker processes 1 and 3
+    js_periodic main.handler interval=60s worker_affinity=0101;
+
+    resolver 10.0.0.1;
+    js_fetch_trusted_certificate /path/to/ISRG_Root_X1.pem;
+}
+
+example.js:
+
+async function handler(s) {
+    let reply = await ngx.fetch('https://nginx.org/en/docs/njs/');
+    let body = await reply.text();
+
+    ngx.log(ngx.INFO, body);
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>js_preload_object</strong> <code><i>name.json</i></code> | <code><i>name</i></code> from <code><i>file.json</i></code>;</code><br></td></tr><tr><th>Default:</th><td>—</td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -466,7 +492,9 @@ This directive appeared in version 0.7.8.
 
 Preloads an [immutable object](https://nginx.org/en/docs/njs/preload_objects.html) at configure time. The `name` is used as a name of the global variable though which the object is available in njs code. If the `name` is not specified, the file name will be used instead.
 
-> js\_preload\_object map.json;
+```nginx
+js_preload_object map.json;
+```
 
 Here, the `map` is used as a name while accessing the preloaded object.
 
@@ -500,37 +528,39 @@ The optional `state` parameter specifies a `*file*` that keeps the shared dictio
 
 Example:
 
-> example.conf:
->     # Creates a 1Mb dictionary with string values,
->     # removes key-value pairs after 60 seconds of inactivity:
->     js\_shared\_dict\_zone zone=foo:1M timeout=60s;
-> 
->     # Creates a 512Kb dictionary with string values,
->     # forcibly removes oldest key-value pairs when the zone is exhausted:
->     js\_shared\_dict\_zone zone=bar:512K timeout=30s evict;
-> 
->     # Creates a 32Kb permanent dictionary with number values:
->     js\_shared\_dict\_zone zone=num:32k type=number;
-> 
->     # Creates a 1Mb dictionary with string values and persistent state:
->     js\_shared\_dict\_zone zone=persistent:1M state=/tmp/dict.json;
-> 
-> example.js:
->     function get(r) {
->         r.return(200, ngx.shared.foo.get(r.args.key));
->     }
-> 
->     function set(r) {
->         r.return(200, ngx.shared.foo.set(r.args.key, r.args.value));
->     }
-> 
->     function del(r) {
->         r.return(200, ngx.shared.bar.delete(r.args.key));
->     }
-> 
->     function increment(r) {
->         r.return(200, ngx.shared.num.incr(r.args.key, 2));
->     }
+```javascript
+example.conf:
+    # Creates a 1Mb dictionary with string values,
+    # removes key-value pairs after 60 seconds of inactivity:
+    js_shared_dict_zone zone=foo:1M timeout=60s;
+
+    # Creates a 512Kb dictionary with string values,
+    # forcibly removes oldest key-value pairs when the zone is exhausted:
+    js_shared_dict_zone zone=bar:512K timeout=30s evict;
+
+    # Creates a 32Kb permanent dictionary with number values:
+    js_shared_dict_zone zone=num:32k type=number;
+
+    # Creates a 1Mb dictionary with string values and persistent state:
+    js_shared_dict_zone zone=persistent:1M state=/tmp/dict.json;
+
+example.js:
+    function get(r) {
+        r.return(200, ngx.shared.foo.get(r.args.key));
+    }
+
+    function set(r) {
+        r.return(200, ngx.shared.foo.set(r.args.key, r.args.value));
+    }
+
+    function del(r) {
+        r.return(200, ngx.shared.bar.delete(r.args.key));
+    }
+
+    function increment(r) {
+        r.return(200, ngx.shared.num.incr(r.args.key, 2));
+    }
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>js_var</strong> <code><i>$variable</i></code> [<code><i>value</i></code>];</code><br></td></tr><tr><th>Default:</th><td>—</td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 

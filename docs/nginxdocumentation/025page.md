@@ -23,38 +23,40 @@
 
 #### 配置示例
 
-> resolver 127.0.0.1:53;
-> 
-> acme\_issuer example {
->     uri         https://acme.example.com/directory;
->     contact     admin@example.test;
->     state\_path  /var/cache/nginx/acme-example;
->     accept\_terms\_of\_service;
-> }
-> 
-> acme\_shared\_zone zone=ngx\_acme\_shared:1M;
-> 
-> server {
->     listen 443 ssl;
->     server\_name  .example.test;
-> 
->     acme\_certificate example;
-> 
->     ssl\_certificate       $acme\_certificate;
->     ssl\_certificate\_key   $acme\_certificate\_key;
-> 
->     # 不要在每次請求時解析證書
->     ssl\_certificate\_cache max=2;
-> }
-> 
-> server {
->     # 埠80上的偵聽器需要處理ACME HTTP-01質詢
->     listen 80;
-> 
->     location / {
->         return 404;
->     }
-> }
+```nginx
+resolver 127.0.0.1:53;
+
+acme_issuer example {
+    uri         https://acme.example.com/directory;
+    contact     admin@example.test;
+    state_path  /var/cache/nginx/acme-example;
+    accept_terms_of_service;
+}
+
+acme_shared_zone zone=ngx_acme_shared:1M;
+
+server {
+    listen 443 ssl;
+    server_name  .example.test;
+
+    acme_certificate example;
+
+    ssl_certificate       $acme_certificate;
+    ssl_certificate_key   $acme_certificate_key;
+
+    # 不要在每次請求時解析證書
+    ssl_certificate_cache max=2;
+}
+
+server {
+    # 埠80上的偵聽器需要處理ACME HTTP-01質詢
+    listen 80;
+
+    location / {
+        return 404;
+    }
+}
+```
 
 #### Directives
 

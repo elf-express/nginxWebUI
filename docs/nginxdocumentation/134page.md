@@ -21,11 +21,13 @@
 
 #### 配置示例
 
-> listen 12345 proxy\_protocol;
-> 
-> set\_real\_ip\_from  192.168.1.0/24;
-> set\_real\_ip\_from  192.168.2.1;
-> set\_real\_ip\_from  2001:0db8::/32;
+```nginx
+listen 12345 proxy_protocol;
+
+set_real_ip_from  192.168.1.0/24;
+set_real_ip_from  192.168.2.1;
+set_real_ip_from  2001:0db8::/32;
+```
 
 #### Directives
 

@@ -19,11 +19,13 @@ The `ngx_http_proxy_module` module allows passing requests to another server.
 
 #### Example Configuration
 
-> location / {
->     proxy\_pass       http://localhost:8000;
->     proxy\_set\_header Host      $host;
->     proxy\_set\_header X-Real-IP $remote\_addr;
-> }
+```nginx
+location / {
+    proxy_pass       http://localhost:8000;
+    proxy_set_header Host      $host;
+    proxy_set_header X-Real-IP $remote_addr;
+}
+```
 
 #### Directives
 
@@ -33,20 +35,22 @@ This directive appeared in version 1.29.3.
 
 Defines conditions under which access to a proxied server is allowed or [denied](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#denied). If all string parameters are not empty and not equal to “0” then the access is allowed. The conditions are evaluated each time before a connection to a proxied server is established. Parameter values can contain variables:
 
-> geo $upstream\_last\_addr $allow {
->     volatile;
->     10.10.0.0/24        1;
-> }
-> 
-> server {
->     listen 127.0.0.1:8080;
-> 
->     location / {
->         proxy\_pass           localhost:8000;
->         proxy\_allow\_upstream $allow;
->         ...
->     }
-> }
+```nginx
+geo $upstream_last_addr $allow {
+    volatile;
+    10.10.0.0/24        1;
+}
+
+server {
+    listen 127.0.0.1:8080;
+
+    location / {
+        proxy_pass           localhost:8000;
+        proxy_allow_upstream $allow;
+        ...
+    }
+}
+```
 
 > This directive is available as part of our [commercial subscription](https://www.f5.com/products/nginx).
 
@@ -58,7 +62,9 @@ Makes outgoing connections to a proxied server originate from the specified loca
 
 The `transparent` parameter (1.11.0) allows outgoing connections to a proxied server originate from a non-local IP address, for example, from a real IP address of a client:
 
-> proxy\_bind $remote\_addr transparent;
+```nginx
+proxy_bind $remote_addr transparent;
+```
 
 In order for this parameter to work, it is usually necessary to run nginx worker processes with the [superuser](https://nginx.org/en/docs/ngx_core_module.html#user) privileges. On Linux it is not required (1.13.8) as if the `transparent` parameter is specified, worker processes inherit the `CAP_NET_RAW` capability from the master process. It is also necessary to configure kernel routing table to intercept network traffic from the proxied server.
 
@@ -106,8 +112,10 @@ Allows starting a background subrequest to update an expired cache item, while a
 
 Defines conditions under which the response will not be taken from a cache. If at least one value of the string parameters is not empty and is not equal to “0” then the response will not be taken from the cache:
 
-> proxy\_cache\_bypass $cookie\_nocache $arg\_nocache$arg\_comment;
-> proxy\_cache\_bypass $http\_pragma    $http\_authorization;
+```nginx
+proxy_cache_bypass $cookie_nocache $arg_nocache$arg_comment;
+proxy_cache_bypass $http_pragma    $http_authorization;
+```
 
 Can be used along with the [proxy\_no\_cache](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_no_cache) directive.
 
@@ -121,11 +129,15 @@ Enables or disables the conversion of the “`HEAD`” method to “`GET`” for
 
 Defines a key for caching, for example
 
-> proxy\_cache\_key "$host$request\_uri $cookie\_user";
+```nginx
+proxy_cache_key "$host$request_uri $cookie_user";
+```
 
 By default, the directive’s value is close to the string
 
-> proxy\_cache\_key $scheme$proxy\_host$uri$is\_args$args;
+```nginx
+proxy_cache_key $scheme$proxy_host$uri$is_args$args;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>proxy_cache_lock</strong> <code>on</code> | <code>off</code>;</code><br></td></tr><tr><th>Default:</th><td><pre>proxy_cache_lock off;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -167,11 +179,15 @@ Sets the `*number*` of requests after which the response will be cached.
 
 Sets the path and other parameters of a cache. Cache data are stored in files. The file name in a cache is a result of applying the MD5 function to the [cache key](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_cache_key). The `levels` parameter defines hierarchy levels of a cache: from 1 to 3, each level accepts values 1 or 2. For example, in the following configuration
 
-> proxy\_cache\_path /data/nginx/cache levels=1:2 keys\_zone=one:10m;
+```nginx
+proxy_cache_path /data/nginx/cache levels=1:2 keys_zone=one:10m;
+```
 
 file names in a cache will look like this:
 
-> /data/nginx/cache/**c**/**29**/b7f54b2df7773722d382f4809d650**29c**
+```
+/data/nginx/cache/**c**/**29**/b7f54b2df7773722d382f4809d650**29c**
+```
 
 A cached response is first written to a temporary file, and then the file is renamed. Starting from version 0.8.9, temporary files and the cache can be put on different file systems. However, be aware that in this case a file is copied across two file systems instead of the cheap renaming operation. It is thus recommended that for any given location both cache and a directory holding temporary files are put on the same file system. The directory for temporary files is set based on the `use_temp_path` parameter (1.7.10). If this parameter is omitted or set to the value `on`, the directory set by the [proxy\_temp\_path](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_temp_path) directive for the given location will be used. If the value is set to `off`, temporary files will be put directly in the cache directory.
 
@@ -215,22 +231,24 @@ If the [cache key](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#pro
 
 Example configuration:
 
-> proxy\_cache\_path /data/nginx/cache keys\_zone=cache\_zone:10m;
-> 
-> map $request\_method $purge\_method {
->     PURGE   1;
->     default 0;
-> }
-> 
-> server {
->     ...
->     location / {
->         proxy\_pass http://backend;
->         proxy\_cache cache\_zone;
->         proxy\_cache\_key $uri;
->         proxy\_cache\_purge $purge\_method;
->     }
-> }
+```nginx
+proxy_cache_path /data/nginx/cache keys_zone=cache_zone:10m;
+
+map $request_method $purge_method {
+    PURGE   1;
+    default 0;
+}
+
+server {
+    ...
+    location / {
+        proxy_pass http://backend;
+        proxy_cache cache_zone;
+        proxy_cache_key $uri;
+        proxy_cache_purge $purge_method;
+    }
+}
+```
 
 > This functionality is available as part of our [commercial subscription](https://www.f5.com/products/nginx).
 
@@ -259,22 +277,28 @@ To minimize the number of accesses to proxied servers when populating a new cach
 
 Sets caching time for different response codes. For example, the following directives
 
-> proxy\_cache\_valid 200 302 10m;
-> proxy\_cache\_valid 404      1m;
+```nginx
+proxy_cache_valid 200 302 10m;
+proxy_cache_valid 404      1m;
+```
 
 set 10 minutes of caching for responses with codes 200 and 302 and 1 minute for responses with code 404.
 
 If only caching `*time*` is specified
 
-> proxy\_cache\_valid 5m;
+```nginx
+proxy_cache_valid 5m;
+```
 
 then only 200, 301, and 302 responses are cached.
 
 In addition, the `any` parameter can be specified to cache any responses:
 
-> proxy\_cache\_valid 200 302 10m;
-> proxy\_cache\_valid 301      1h;
-> proxy\_cache\_valid any      1m;
+```nginx
+proxy_cache_valid 200 302 10m;
+proxy_cache_valid 301      1h;
+proxy_cache_valid any      1m;
+```
 
 Parameters of caching can also be set directly in the response header. This has higher priority than setting of caching time using the directive.
 
@@ -295,7 +319,9 @@ This directive appeared in version 1.1.15.
 
 Sets a text that should be changed in the `domain` attribute of the “Set-Cookie” header fields of a proxied server response. Suppose a proxied server returned the “Set-Cookie” header field with the attribute “`domain=localhost`”. The directive
 
-> proxy\_cookie\_domain localhost example.org;
+```nginx
+proxy_cookie_domain localhost example.org;
+```
 
 will rewrite this attribute to “`domain=example.org`”.
 
@@ -303,16 +329,22 @@ A dot at the beginning of the `*domain*` and `*replacement*` strings and the `do
 
 The `*domain*` and `*replacement*` strings can contain variables:
 
-> proxy\_cookie\_domain www.$host $host;
+```nginx
+proxy_cookie_domain www.$host $host;
+```
 
 The directive can also be specified using regular expressions. In this case, `*domain*` should start from the “`~`” symbol. A regular expression can contain named and positional captures, and `*replacement*` can reference them:
 
-> proxy\_cookie\_domain ~\\.(?P<sl\_domain>\[-0-9a-z\]+\\.\[a-z\]+)$ $sl\_domain;
+```nginx
+proxy_cookie_domain ~\\.(?P<sl_domain>[-0-9a-z]+\\.[a-z]+)$ $sl_domain;
+```
 
 Several `proxy_cookie_domain` directives can be specified on the same level:
 
-> proxy\_cookie\_domain localhost example.org;
-> proxy\_cookie\_domain ~\\.(\[a-z\]+\\.\[a-z\]+)$ $1;
+```nginx
+proxy_cookie_domain localhost example.org;
+proxy_cookie_domain ~\\.([a-z]+\\.[a-z]+)$ $1;
+```
 
 If several directives can be applied to the cookie, the first matching directive will be chosen.
 
@@ -328,8 +360,10 @@ The cookie can also be specified using regular expressions. In this case, `*cook
 
 Several `proxy_cookie_flags` directives can be specified on the same configuration level:
 
-> proxy\_cookie\_flags one httponly;
-> proxy\_cookie\_flags ~ nosecure samesite=strict;
+```nginx
+proxy_cookie_flags one httponly;
+proxy_cookie_flags ~ nosecure samesite=strict;
+```
 
 If several directives can be applied to the cookie, the first matching directive will be chosen. In the example, the `httponly` flag is added to the cookie `one`, for all other cookies the `samesite=strict` flag is added and the `secure` flag is deleted.
 
@@ -341,22 +375,30 @@ This directive appeared in version 1.1.15.
 
 Sets a text that should be changed in the `path` attribute of the “Set-Cookie” header fields of a proxied server response. Suppose a proxied server returned the “Set-Cookie” header field with the attribute “`path=/two/some/uri/`”. The directive
 
-> proxy\_cookie\_path /two/ /;
+```nginx
+proxy_cookie_path /two/ /;
+```
 
 will rewrite this attribute to “`path=/some/uri/`”.
 
 The `*path*` and `*replacement*` strings can contain variables:
 
-> proxy\_cookie\_path $uri /some$uri;
+```nginx
+proxy_cookie_path $uri /some$uri;
+```
 
 The directive can also be specified using regular expressions. In this case, `*path*` should either start from the “`~`” symbol for a case-sensitive matching, or from the “`~*`” symbols for case-insensitive matching. The regular expression can contain named and positional captures, and `*replacement*` can reference them:
 
-> proxy\_cookie\_path ~\*^/user/(\[^/\]+) /u/$1;
+```nginx
+proxy_cookie_path ~*^/user/([^/]+) /u/$1;
+```
 
 Several `proxy_cookie_path` directives can be specified on the same level:
 
-> proxy\_cookie\_path /one/ /;
-> proxy\_cookie\_path / /two/;
+```nginx
+proxy_cookie_path /one/ /;
+proxy_cookie_path / /two/;
+```
 
 If several directives can be applied to the cookie, the first matching directive will be chosen.
 
@@ -506,8 +548,10 @@ Limits the number of possible tries for passing a request to the [next server](h
 
 Defines conditions under which the response will not be saved to a cache. If at least one value of the string parameters is not empty and is not equal to “0” then the response will not be saved:
 
-> proxy\_no\_cache $cookie\_nocache $arg\_nocache$arg\_comment;
-> proxy\_no\_cache $http\_pragma    $http\_authorization;
+```nginx
+proxy_no_cache $cookie_nocache $arg_nocache$arg_comment;
+proxy_no_cache $http_pragma    $http_authorization;
+```
 
 Can be used along with the [proxy\_cache\_bypass](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_cache_bypass) directive.
 
@@ -515,11 +559,15 @@ Can be used along with the [proxy\_cache\_bypass](https://nginx.org/en/docs/http
 
 Sets the protocol and address of a proxied server and an optional URI to which a location should be mapped. As a protocol, “`http`” or “`https`” can be specified. The address can be specified as a domain name or IP address, and an optional port:
 
-> proxy\_pass http://localhost:8000/uri/;
+```nginx
+proxy_pass http://localhost:8000/uri/;
+```
 
 or as a UNIX-domain socket path specified after the word “`unix`” and enclosed in colons:
 
-> proxy\_pass http://unix:/tmp/backend.socket:/uri/;
+```nginx
+proxy_pass http://unix:/tmp/backend.socket:/uri/;
+```
 
 If a domain name resolves to several addresses, all of them will be used in a round-robin fashion. In addition, an address can be specified as a [server group](https://nginx.org/en/docs/http/ngx_http_upstream_module.html).
 
@@ -529,15 +577,19 @@ A request URI is passed to the server as follows:
 
 -   If the `proxy_pass` directive is specified with a URI, then when a request is passed to the server, the part of a [normalized](https://nginx.org/en/docs/http/ngx_http_core_module.html#location) request URI matching the location is replaced by a URI specified in the directive:
     
-    > location /name/ {
-    >     proxy\_pass http://127.0.0.1/remote/;
-    > }
+    ```nginx
+    location /name/ {
+        proxy_pass http://127.0.0.1/remote/;
+    }
+    ```
     
 -   If `proxy_pass` is specified without a URI, the request URI is passed to the server in the same form as sent by a client when the original request is processed, or the full normalized request URI is passed when processing the changed URI:
     
-    > location /some/path/ {
-    >     proxy\_pass http://127.0.0.1;
-    > }
+    ```nginx
+    location /some/path/ {
+        proxy_pass http://127.0.0.1;
+    }
+    ```
     
     > Before version 1.1.12, if `proxy_pass` is specified without a URI, the original request URI might be passed instead of the changed URI in some cases.
     
@@ -550,18 +602,22 @@ In some cases, the part of a request URI to be replaced cannot be determined:
     
 -   When the URI is changed inside a proxied location using the [rewrite](https://nginx.org/en/docs/http/ngx_http_rewrite_module.html#rewrite) directive, and this same configuration will be used to process a request (`break`):
     
-    > location /name/ {
-    >     rewrite    /name/(\[^/\]+) /users?name=$1 break;
-    >     proxy\_pass http://127.0.0.1;
-    > }
+    ```nginx
+    location /name/ {
+        rewrite    /name/([^/]+) /users?name=$1 break;
+        proxy_pass http://127.0.0.1;
+    }
+    ```
     
     In this case, the URI specified in the directive is ignored and the full changed request URI is passed to the server.
     
 -   When variables are used in `proxy_pass`:
     
-    > location /name/ {
-    >     proxy\_pass http://127.0.0.1$request\_uri;
-    > }
+    ```nginx
+    location /name/ {
+        proxy_pass http://127.0.0.1$request_uri;
+    }
+    ```
     
     In this case, if URI is specified in the directive, it is passed to the server as is, replacing the original request URI.
 
@@ -575,13 +631,15 @@ Permits passing [otherwise disabled](https://nginx.org/en/docs/http/ngx_http_pro
 
 Indicates whether the original request body is passed to the proxied server.
 
-> location /x-accel-redirect-here/ {
->     proxy\_method GET;
->     proxy\_pass\_request\_body off;
->     proxy\_set\_header Content-Length "";
-> 
->     proxy\_pass ...
-> }
+```nginx
+location /x-accel-redirect-here/ {
+    proxy_method GET;
+    proxy_pass_request_body off;
+    proxy_set_header Content-Length "";
+
+    proxy_pass ...
+}
+```
 
 See also the [proxy\_set\_header](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_set_header) and [proxy\_pass\_request\_headers](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_pass_request_headers) directives.
 
@@ -589,13 +647,15 @@ See also the [proxy\_set\_header](https://nginx.org/en/docs/http/ngx_http_proxy_
 
 Indicates whether the header fields of the original request are passed to the proxied server.
 
-> location /x-accel-redirect-here/ {
->     proxy\_method GET;
->     proxy\_pass\_request\_headers off;
->     proxy\_pass\_request\_body off;
-> 
->     proxy\_pass ...
-> }
+```nginx
+location /x-accel-redirect-here/ {
+    proxy_method GET;
+    proxy_pass_request_headers off;
+    proxy_pass_request_body off;
+
+    proxy_pass ...
+}
+```
 
 See also the [proxy\_set\_header](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_set_header) and [proxy\_pass\_request\_body](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_pass_request_body) directives.
 
@@ -607,14 +667,16 @@ Permits passing trailer fields from a proxied server to a client.
 
 > A trailer section should be [explicitly enabled](https://datatracker.ietf.org/doc/html/rfc9110#section-6.5.1):
 
-> location / {
->     # proxy\_http\_version 1.1;  #for versions before 1.29.7
->     proxy\_set\_header     Connection "te";
->     proxy\_set\_header     TE "trailers";
->     proxy\_pass\_trailers  on;
-> 
->     proxy\_pass ...
-> }
+```nginx
+location / {
+    # proxy_http_version 1.1;  #for versions before 1.29.7
+    proxy_set_header     Connection "te";
+    proxy_set_header     TE "trailers";
+    proxy_pass_trailers  on;
+
+    proxy_pass ...
+}
+```
 
 > Trailer fields received from an upstream server are passed to a client as is, without interpretation.
 
@@ -626,46 +688,62 @@ Defines a timeout for reading a response from the proxied server. The timeout is
 
 Sets the text that should be changed in the “Location” and “Refresh” header fields of a proxied server response. Suppose a proxied server returned the header field “`Location: http://localhost:8000/two/some/uri/`”. The directive
 
-> proxy\_redirect http://localhost:8000/two/ http://frontend/one/;
+```nginx
+proxy_redirect http://localhost:8000/two/ http://frontend/one/;
+```
 
 will rewrite this string to “`Location: http://frontend/one/some/uri/`”.
 
 A server name may be omitted in the `*replacement*` string:
 
-> proxy\_redirect http://localhost:8000/two/ /;
+```nginx
+proxy_redirect http://localhost:8000/two/ /;
+```
 
 then the primary server’s name and port, if different from 80, will be inserted.
 
 The default replacement specified by the `default` parameter uses the parameters of the [location](https://nginx.org/en/docs/http/ngx_http_core_module.html#location) and [proxy\_pass](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_pass) directives. Hence, the two configurations below are equivalent:
 
-> location /one/ {
->     proxy\_pass     http://upstream:port/two/;
->     proxy\_redirect default;
+```nginx
+location /one/ {
+    proxy_pass     http://upstream:port/two/;
+    proxy_redirect default;
+```
 
-> location /one/ {
->     proxy\_pass     http://upstream:port/two/;
->     proxy\_redirect http://upstream:port/two/ /one/;
+```nginx
+location /one/ {
+    proxy_pass     http://upstream:port/two/;
+    proxy_redirect http://upstream:port/two/ /one/;
+```
 
 The `default` parameter is not permitted if [proxy\_pass](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_pass) is specified using variables.
 
 A `*replacement*` string can contain variables:
 
-> proxy\_redirect http://localhost:8000/ http://$host:$server\_port/;
+```nginx
+proxy_redirect http://localhost:8000/ http://$host:$server_port/;
+```
 
 A `*redirect*` can also contain (1.1.11) variables:
 
-> proxy\_redirect http://$proxy\_host:8000/ /;
+```nginx
+proxy_redirect http://$proxy_host:8000/ /;
+```
 
 The directive can be specified (1.1.11) using regular expressions. In this case, `*redirect*` should either start with the “`~`” symbol for a case-sensitive matching, or with the “`~*`” symbols for case-insensitive matching. The regular expression can contain named and positional captures, and `*replacement*` can reference them:
 
-> proxy\_redirect ~^(http://\[^:\]+):\\d+(/.+)$ $1$2;
-> proxy\_redirect ~\*/user/(\[^/\]+)/(.+)$      http://$1.example.com/$2;
+```nginx
+proxy_redirect ~^(http://[^:]+):\\d+(/.+)$ $1$2;
+proxy_redirect ~*/user/([^/]+)/(.+)$      http://$1.example.com/$2;
+```
 
 Several `proxy_redirect` directives can be specified on the same level:
 
-> proxy\_redirect default;
-> proxy\_redirect http://localhost:8000/  /;
-> proxy\_redirect http://www.example.com/ /;
+```nginx
+proxy_redirect default;
+proxy_redirect http://localhost:8000/  /;
+proxy_redirect http://www.example.com/ /;
+```
 
 If several directives can be applied to the header fields of a proxied server response, the first matching directive will be chosen.
 
@@ -673,7 +751,9 @@ The `off` parameter cancels the effect of the `proxy_redirect` directives inheri
 
 Using this directive, it is also possible to add host names to relative redirects issued by a proxied server:
 
-> proxy\_redirect / /;
+```nginx
+proxy_redirect / /;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>proxy_request_buffering</strong> <code>on</code> | <code>off</code>;</code><br></td></tr><tr><th>Default:</th><td><pre>proxy_request_buffering on;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -693,8 +773,10 @@ This directive appeared in version 1.29.3.
 
 Enables or disables creation of a separate request instance for each proxied server. By default, a single request is used for all proxied servers. If enabled, a separate request instance is created, allowing per-server request customization. For example, the server-specific “Host” request header field can be set:
 
-> proxy\_request\_dynamic on;
-> proxy\_set\_header      Host $upstream\_last\_server\_name;
+```nginx
+proxy_request_dynamic on;
+proxy_set_header      Host $upstream_last_server_name;
+```
 
 > This directive is available as part of our [commercial subscription](https://www.f5.com/products/nginx).
 
@@ -718,8 +800,10 @@ Allows redefining or appending fields to the request header [passed](https://ngi
 
 By default, the header fields “Host” and “Connection” from the original request are not passed to the proxied server. If HTTP/1.0 or HTTP/1.1 is [enabled](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_http_version) for proxying, these fields are redefined:
 
-> proxy\_set\_header Host       $proxy\_host;
-> proxy\_set\_header Connection close;
+```nginx
+proxy_set_header Host       $proxy_host;
+proxy_set_header Connection close;
+```
 
 For HTTP/2, the “:authority” pseudo-header field with the `*$proxy_host*` value is sent by default, unless it is replaced with an explicit “Host” header field.
 
@@ -727,19 +811,27 @@ If caching is enabled, the header fields “If-Modified-Since”, “If-Unmodifi
 
 An unchanged “Host” request header field can be passed like this:
 
-> proxy\_set\_header Host       $http\_host;
+```nginx
+proxy_set_header Host       $http_host;
+```
 
 However, if this field is not present in a client request header then nothing will be passed. In such a case it is better to use the `$host` variable - its value equals the server name in the “Host” request header field or the primary server name if this field is not present:
 
-> proxy\_set\_header Host       $host;
+```nginx
+proxy_set_header Host       $host;
+```
 
 In addition, the server name can be passed together with the port of the proxied server:
 
-> proxy\_set\_header Host       $host:$proxy\_port;
+```nginx
+proxy_set_header Host       $host:$proxy_port;
+```
 
 If the value of a header field is an empty string then this field will not be passed to a proxied server:
 
-> proxy\_set\_header Accept-Encoding "";
+```nginx
+proxy_set_header Accept-Encoding "";
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>proxy_socket_keepalive</strong> <code>on</code> | <code>off</code>;</code><br></td></tr><tr><th>Default:</th><td><pre>proxy_socket_keepalive off;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -793,9 +885,11 @@ disables the cache.
 
 Example:
 
-> proxy\_ssl\_certificate       $proxy\_ssl\_server\_name.crt;
-> proxy\_ssl\_certificate\_key   $proxy\_ssl\_server\_name.key;
-> proxy\_ssl\_certificate\_cache max=1000 inactive=20s valid=1m;
+```nginx
+proxy_ssl_certificate       $proxy_ssl_server_name.crt;
+proxy_ssl_certificate_key   $proxy_ssl_server_name.key;
+proxy_ssl_certificate_cache max=1000 inactive=20s valid=1m;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>proxy_ssl_certificate_key</strong> <code><i>file</i></code>;</code><br></td></tr><tr><th>Default:</th><td>—</td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -897,55 +991,65 @@ Sets the verification depth in the proxied HTTPS server certificates chain.
 
 Enables saving of files to a disk. The `on` parameter saves files with paths corresponding to the directives [alias](https://nginx.org/en/docs/http/ngx_http_core_module.html#alias) or [root](https://nginx.org/en/docs/http/ngx_http_core_module.html#root). The `off` parameter disables saving of files. In addition, the file name can be set explicitly using the `*string*` with variables:
 
-> proxy\_store /data/www$original\_uri;
+```nginx
+proxy_store /data/www$original_uri;
+```
 
 The modification time of files is set according to the received “Last-Modified” response header field. The response is first written to a temporary file, and then the file is renamed. Starting from version 0.8.9, temporary files and the persistent store can be put on different file systems. However, be aware that in this case a file is copied across two file systems instead of the cheap renaming operation. It is thus recommended that for any given location both saved files and a directory holding temporary files, set by the [proxy\_temp\_path](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_temp_path) directive, are put on the same file system.
 
 This directive can be used to create local copies of static unchangeable files, e.g.:
 
-> location /images/ {
->     root               /data/www;
->     error\_page         404 = /fetch$uri;
-> }
-> 
-> location /fetch/ {
->     internal;
-> 
->     proxy\_pass         http://backend/;
->     proxy\_store        on;
->     proxy\_store\_access user:rw group:rw all:r;
->     proxy\_temp\_path    /data/temp;
-> 
->     alias              /data/www/;
-> }
+```nginx
+location /images/ {
+    root               /data/www;
+    error_page         404 = /fetch$uri;
+}
+
+location /fetch/ {
+    internal;
+
+    proxy_pass         http://backend/;
+    proxy_store        on;
+    proxy_store_access user:rw group:rw all:r;
+    proxy_temp_path    /data/temp;
+
+    alias              /data/www/;
+}
+```
 
 or like this:
 
-> location /images/ {
->     root               /data/www;
->     error\_page         404 = @fetch;
-> }
-> 
-> location @fetch {
->     internal;
-> 
->     proxy\_pass         http://backend;
->     proxy\_store        on;
->     proxy\_store\_access user:rw group:rw all:r;
->     proxy\_temp\_path    /data/temp;
-> 
->     root               /data/www;
-> }
+```nginx
+location /images/ {
+    root               /data/www;
+    error_page         404 = @fetch;
+}
+
+location @fetch {
+    internal;
+
+    proxy_pass         http://backend;
+    proxy_store        on;
+    proxy_store_access user:rw group:rw all:r;
+    proxy_temp_path    /data/temp;
+
+    root               /data/www;
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>proxy_store_access</strong> <code><i>users</i></code>:<code><i>permissions</i></code> ...;</code><br></td></tr><tr><th>Default:</th><td><pre>proxy_store_access user:rw;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
 Sets access permissions for newly created files and directories, e.g.:
 
-> proxy\_store\_access user:rw group:rw all:r;
+```nginx
+proxy_store_access user:rw group:rw all:r;
+```
 
 If any `group` or `all` access permissions are specified then `user` permissions may be omitted:
 
-> proxy\_store\_access group:rw all:r;
+```nginx
+proxy_store_access group:rw all:r;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>proxy_temp_file_write_size</strong> <code><i>size</i></code>;</code><br></td></tr><tr><th>Default:</th><td><pre>proxy_temp_file_write_size 8k|16k;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -955,11 +1059,15 @@ Limits the `*size*` of data written to a temporary file at a time, when bufferin
 
 Defines a directory for storing temporary files with data received from proxied servers. Up to three-level subdirectory hierarchy can be used underneath the specified directory. For example, in the following configuration
 
-> proxy\_temp\_path /spool/nginx/proxy\_temp 1 2;
+```nginx
+proxy_temp_path /spool/nginx/proxy_temp 1 2;
+```
 
 a temporary file might look like this:
 
-> /spool/nginx/proxy\_temp/**7**/**45**/00000123**457**
+```
+/spool/nginx/proxy_temp/**7**/**45**/00000123**457**
+```
 
 See also the `use_temp_path` parameter of the [proxy\_cache\_path](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_cache_path) directive.
 

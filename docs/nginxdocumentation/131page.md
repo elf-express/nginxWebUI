@@ -22,28 +22,30 @@ http {
     server {
         listen 8000;
 
-> ```
->     location / {
->         root html;
->     }
-> }
-> ```
->
-> }
->
-> stream {
->     server {
->         listen 12345 ssl;
->
-> ```
->     ssl\_certificate     domain.crt;
->     ssl\_certificate\_key domain.key;
->
->     pass 127.0.0.1:8000;
-> }
-> ```
->
-> }
+````nginx
+```
+    location / {
+        root html;
+    }
+}
+```
+
+}
+
+stream {
+    server {
+        listen 12345 ssl;
+
+```
+    ssl_certificate     domain.crt;
+    ssl_certificate_key domain.key;
+
+    pass 127.0.0.1:8000;
+}
+```
+
+}
+````
 
 在示例中，在`stream`模塊中終止SSL/TLS後，連接將傳遞到`http`模塊。
 
@@ -53,13 +55,19 @@ http {
 
 設置要將客戶端連接傳遞到的伺服器地址。該地址可以指定為IP位址和埠：
 
-> pass 127.0.0.1:12345;
+```nginx
+pass 127.0.0.1:12345;
+```
 
 或者作為UNIX域套接字路徑：
 
-> pass unix:/tmp/stream.socket;
+```nginx
+pass unix:/tmp/stream.socket;
+```
 
 地址也可以使用變量指定：
 
-> pass $upstream;
+```nginx
+pass $upstream;
+```
 

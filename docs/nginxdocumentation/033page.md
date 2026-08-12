@@ -32,31 +32,35 @@
 
 選擇索引文件：
 
-> modern\_browser\_value "modern.";
-> 
-> modern\_browser msie      5.5;
-> modern\_browser gecko     1.0.0;
-> modern\_browser opera     9.0;
-> modern\_browser safari    413;
-> modern\_browser konqueror 3.0;
-> 
-> index index.${modern\_browser}html index.html;
+```nginx
+modern_browser_value "modern.";
+
+modern_browser msie      5.5;
+modern_browser gecko     1.0.0;
+modern_browser opera     9.0;
+modern_browser safari    413;
+modern_browser konqueror 3.0;
+
+index index.${modern_browser}html index.html;
+```
 
 舊瀏覽器的重定向：
 
-> modern\_browser msie      5.0;
-> modern\_browser gecko     0.9.1;
-> modern\_browser opera     8.0;
-> modern\_browser safari    413;
-> modern\_browser konqueror 3.0;
-> 
-> modern\_browser unlisted;
-> 
-> ancient\_browser Links Lynx netscape4;
-> 
-> if ($ancient\_browser) {
->     rewrite ^ /ancient.html;
-> }
+```nginx
+modern_browser msie      5.0;
+modern_browser gecko     0.9.1;
+modern_browser opera     8.0;
+modern_browser safari    413;
+modern_browser konqueror 3.0;
+
+modern_browser unlisted;
+
+ancient_browser Links Lynx netscape4;
+
+if ($ancient_browser) {
+    rewrite ^ /ancient.html;
+}
+```
 
 #### Directives
 

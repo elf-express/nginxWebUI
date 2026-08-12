@@ -27,77 +27,81 @@ When using the `PATCH` or `POST` methods, make sure that the payload does not ex
 
 #### Example Configuration
 
-> http {
->     upstream backend {
->         zone http\_backend 64k;
-> 
->         server backend1.example.com weight=5;
->         server backend2.example.com;
->     }
-> 
->     proxy\_cache\_path /data/nginx/cache\_backend keys\_zone=cache\_backend:10m;
-> 
->     server {
->         server\_name backend.example.com;
-> 
->         location / {
->             proxy\_pass  http://backend;
->             proxy\_cache cache\_backend;
-> 
->             health\_check;
->         }
-> 
->         status\_zone server\_backend;
->     }
-> 
->     keyval\_zone zone=one:32k state=one.keyval;
->     keyval $arg\_text $text zone=one;
-> 
->     server {
->         listen 127.0.0.1;
-> 
->         location /api {
->             **api** write=on;
->             allow 127.0.0.1;
->             deny all;
->         }
->     }
-> }
-> 
-> stream {
->     upstream backend {
->         zone stream\_backend 64k;
-> 
->         server backend1.example.com:12345 weight=5;
->         server backend2.example.com:12345;
->     }
-> 
->     server {
->         listen      127.0.0.1:12345;
->         proxy\_pass  backend;
->         status\_zone server\_backend;
->         health\_check;
->     }
-> }
+```nginx
+http {
+    upstream backend {
+        zone http_backend 64k;
+
+        server backend1.example.com weight=5;
+        server backend2.example.com;
+    }
+
+    proxy_cache_path /data/nginx/cache_backend keys_zone=cache_backend:10m;
+
+    server {
+        server_name backend.example.com;
+
+        location / {
+            proxy_pass  http://backend;
+            proxy_cache cache_backend;
+
+            health_check;
+        }
+
+        status_zone server_backend;
+    }
+
+    keyval_zone zone=one:32k state=one.keyval;
+    keyval $arg_text $text zone=one;
+
+    server {
+        listen 127.0.0.1;
+
+        location /api {
+            **api** write=on;
+            allow 127.0.0.1;
+            deny all;
+        }
+    }
+}
+
+stream {
+    upstream backend {
+        zone stream_backend 64k;
+
+        server backend1.example.com:12345 weight=5;
+        server backend2.example.com:12345;
+    }
+
+    server {
+        listen      127.0.0.1:12345;
+        proxy_pass  backend;
+        status_zone server_backend;
+        health_check;
+    }
+}
+```
 
 All API requests include a supported API [version](https://nginx.org/en/docs/http/ngx_http_api_module.html#api_version) in the URI. Examples of API requests with this configuration:
 
-> http://127.0.0.1/api/9/
-> http://127.0.0.1/api/9/nginx
-> http://127.0.0.1/api/9/connections
-> http://127.0.0.1/api/9/workers
-> http://127.0.0.1/api/9/http/requests
-> http://127.0.0.1/api/9/http/server\_zones/server\_backend
-> http://127.0.0.1/api/9/http/caches/cache\_backend
-> http://127.0.0.1/api/9/http/upstreams/backend
-> http://127.0.0.1/api/9/http/upstreams/backend/servers/
-> http://127.0.0.1/api/9/http/upstreams/backend/servers/1
-> http://127.0.0.1/api/9/http/keyvals/one?key=arg1
-> http://127.0.0.1/api/9/stream/
-> http://127.0.0.1/api/9/stream/server\_zones/server\_backend
-> http://127.0.0.1/api/9/stream/upstreams/
-> http://127.0.0.1/api/9/stream/upstreams/backend
-> http://127.0.0.1/api/9/stream/upstreams/backend/servers/1
+```nginx
+http://127.0.0.1/api/9/
+http://127.0.0.1/api/9/nginx
+http://127.0.0.1/api/9/connections
+http://127.0.0.1/api/9/workers
+http://127.0.0.1/api/9/http/requests
+http://127.0.0.1/api/9/http/server_zones/server_backend
+http://127.0.0.1/api/9/http/caches/cache_backend
+http://127.0.0.1/api/9/http/upstreams/backend
+http://127.0.0.1/api/9/http/upstreams/backend/servers/
+http://127.0.0.1/api/9/http/upstreams/backend/servers/1
+http://127.0.0.1/api/9/http/keyvals/one?key=arg1
+http://127.0.0.1/api/9/stream/
+http://127.0.0.1/api/9/stream/server_zones/server_backend
+http://127.0.0.1/api/9/stream/upstreams/
+http://127.0.0.1/api/9/stream/upstreams/backend
+http://127.0.0.1/api/9/stream/upstreams/backend/servers/1
+```
 
 #### Directives
 
@@ -111,7 +115,9 @@ All API requests should contain a supported API version in the URI. If the reque
 
 The optional “`fields`” argument in the request line specifies which fields of the requested objects will be output:
 
-> http://127.0.0.1/api/9/nginx?fields=version,build
+```nginx
+http://127.0.0.1/api/9/nginx?fields=version,build
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>status_zone</strong> <code><i>zone</i></code>;</code><br></td></tr><tr><th>Default:</th><td>—</td></tr><tr><th>Context:</th><td><code>server</code>, <code>location</code>, <code>if in location</code><br></td></tr></tbody></table>
 
@@ -1378,18 +1384,20 @@ Supported methods:
     
     Example:
     
-    > {
-    >   "nginx" : {
-    >     "version" : "1.21.6",
-    >     "build" : "nginx-plus-r27",
-    >     "address" : "206.251.255.64",
-    >     "generation" : 6,
-    >     "load\_timestamp" : "2022-06-28T11:15:44.467Z",
-    >     "timestamp" : "2022-06-28T09:26:07.305Z",
-    >     "pid" : 32212,
-    >     "ppid" : 32210
-    >   }
-    > }
+    ```json
+    {
+      "nginx" : {
+        "version" : "1.21.6",
+        "build" : "nginx-plus-r27",
+        "address" : "206.251.255.64",
+        "generation" : 6,
+        "load_timestamp" : "2022-06-28T11:15:44.467Z",
+        "timestamp" : "2022-06-28T09:26:07.305Z",
+        "pid" : 32212,
+        "ppid" : 32210
+      }
+    }
+    ```
     
 -   Processes:
     
@@ -1399,9 +1407,11 @@ Supported methods:
     
     Example:
     
-    > {
-    >   "respawned" : 0
-    > }
+    ```json
+    {
+      "respawned" : 0
+    }
+    ```
     
 -   Connections:
     
@@ -1425,12 +1435,14 @@ Supported methods:
     
     Example:
     
-    > {
-    >   "accepted" : 4968119,
-    >   "dropped" : 0,
-    >   "active" : 5,
-    >   "idle" : 117
-    > }
+    ```json
+    {
+      "accepted" : 4968119,
+      "dropped" : 0,
+      "active" : 5,
+      "idle" : 117
+    }
+    ```
     
 -   SSL:
     
@@ -1488,22 +1500,24 @@ Supported methods:
     
     Example:
     
-    > {
-    >   "handshakes" : 79572,
-    >   "handshakes\_failed" : 21025,
-    >   "session\_reuses" : 15762,
-    >   "no\_common\_protocol" : 4,
-    >   "no\_common\_cipher" : 2,
-    >   "handshake\_timeout" : 0,
-    >   "peer\_rejected\_cert" : 0,
-    >   "verify\_failures" : {
-    >     "no\_cert" : 0,
-    >     "expired\_cert" : 2,
-    >     "revoked\_cert" : 1,
-    >     "hostname\_mismatch" : 2,
-    >     "other" : 1
-    >   }
-    > }
+    ```json
+    {
+      "handshakes" : 79572,
+      "handshakes_failed" : 21025,
+      "session_reuses" : 15762,
+      "no_common_protocol" : 4,
+      "no_common_cipher" : 2,
+      "handshake_timeout" : 0,
+      "peer_rejected_cert" : 0,
+      "verify_failures" : {
+        "no_cert" : 0,
+        "expired_cert" : 2,
+        "revoked_cert" : 1,
+        "hostname_mismatch" : 2,
+        "other" : 1
+      }
+    }
+    ```
     
 -   Shared memory zone with slab allocator:
     
@@ -1529,50 +1543,52 @@ Supported methods:
     
     Example:
     
-    > {
-    >   "pages" : {
-    >     "used" : 1143,
-    >     "free" : 2928
-    >   },
-    >   "slots" : {
-    >     "8" : {
-    >       "used" : 0,
-    >       "free" : 0,
-    >       "reqs" : 0,
-    >       "fails" : 0
-    >     },
-    >     "16" : {
-    >       "used" : 0,
-    >       "free" : 0,
-    >       "reqs" : 0,
-    >       "fails" : 0
-    >     },
-    >     "32" : {
-    >       "used" : 0,
-    >       "free" : 0,
-    >       "reqs" : 0,
-    >       "fails" : 0
-    >     },
-    >     "64" : {
-    >       "used" : 1,
-    >       "free" : 63,
-    >       "reqs" : 1,
-    >       "fails" : 0
-    >     },
-    >     "128" : {
-    >       "used" : 0,
-    >       "free" : 0,
-    >       "reqs" : 0,
-    >       "fails" : 0
-    >     },
-    >     "256" : {
-    >       "used" : 18078,
-    >       "free" : 178,
-    >       "reqs" : 1635736,
-    >       "fails" : 0
-    >     }
-    >   }
-    > }
+    ```json
+    {
+      "pages" : {
+        "used" : 1143,
+        "free" : 2928
+      },
+      "slots" : {
+        "8" : {
+          "used" : 0,
+          "free" : 0,
+          "reqs" : 0,
+          "fails" : 0
+        },
+        "16" : {
+          "used" : 0,
+          "free" : 0,
+          "reqs" : 0,
+          "fails" : 0
+        },
+        "32" : {
+          "used" : 0,
+          "free" : 0,
+          "reqs" : 0,
+          "fails" : 0
+        },
+        "64" : {
+          "used" : 1,
+          "free" : 63,
+          "reqs" : 1,
+          "fails" : 0
+        },
+        "128" : {
+          "used" : 0,
+          "free" : 0,
+          "reqs" : 0,
+          "fails" : 0
+        },
+        "256" : {
+          "used" : 18078,
+          "free" : 178,
+          "reqs" : 1635736,
+          "fails" : 0
+        }
+      }
+    }
+    ```
     
 -   Memory Slot:
     
@@ -1604,10 +1620,12 @@ Supported methods:
     
     Example:
     
-    > {
-    >   "total" : 10624511,
-    >   "current" : 4
-    > }
+    ```json
+    {
+      "total" : 10624511,
+      "current" : 4
+    }
+    ```
     
 -   HTTP Server Zone:
     
@@ -1719,42 +1737,44 @@ Supported methods:
     
     Example:
     
-    > {
-    >   "processing" : 1,
-    >   "requests" : 706690,
-    >   "responses" : {
-    >     "1xx" : 0,
-    >     "2xx" : 699482,
-    >     "3xx" : 4522,
-    >     "4xx" : 907,
-    >     "5xx" : 266,
-    >     "codes" : {
-    >       "200" : 699482,
-    >       "301" : 4522,
-    >       "404" : 907,
-    >       "503" : 266
-    >     },
-    >     "total" : 705177
-    >   },
-    >   "discarded" : 1513,
-    >   "received" : 172711587,
-    >   "sent" : 19415530115,
-    >   "ssl" : {
-    >     "handshakes" : 104303,
-    >     "handshakes\_failed" : 1421,
-    >     "session\_reuses" : 54645,
-    >     "no\_common\_protocol" : 4,
-    >     "no\_common\_cipher" : 2,
-    >     "handshake\_timeout" : 0,
-    >     "peer\_rejected\_cert" : 0,
-    >     "verify\_failures" : {
-    >       "no\_cert" : 0,
-    >       "expired\_cert" : 2,
-    >       "revoked\_cert" : 1,
-    >       "other" : 1
-    >     }
-    >   }
-    > }
+    ```json
+    {
+      "processing" : 1,
+      "requests" : 706690,
+      "responses" : {
+        "1xx" : 0,
+        "2xx" : 699482,
+        "3xx" : 4522,
+        "4xx" : 907,
+        "5xx" : 266,
+        "codes" : {
+          "200" : 699482,
+          "301" : 4522,
+          "404" : 907,
+          "503" : 266
+        },
+        "total" : 705177
+      },
+      "discarded" : 1513,
+      "received" : 172711587,
+      "sent" : 19415530115,
+      "ssl" : {
+        "handshakes" : 104303,
+        "handshakes_failed" : 1421,
+        "session_reuses" : 54645,
+        "no_common_protocol" : 4,
+        "no_common_cipher" : 2,
+        "handshake_timeout" : 0,
+        "peer_rejected_cert" : 0,
+        "verify_failures" : {
+          "no_cert" : 0,
+          "expired_cert" : 2,
+          "revoked_cert" : 1,
+          "other" : 1
+        }
+      }
+    }
+    ```
     
 -   HTTP Location Zone:
     
@@ -1812,26 +1832,28 @@ Supported methods:
     
     Example:
     
-    > {
-    >   "requests" : 706690,
-    >   "responses" : {
-    >     "1xx" : 0,
-    >     "2xx" : 699482,
-    >     "3xx" : 4522,
-    >     "4xx" : 907,
-    >     "5xx" : 266,
-    >     "codes" : {
-    >       "200" : 112674,
-    >       "301" : 4522,
-    >       "404" : 2504,
-    >       "503" : 266
-    >     },
-    >     "total" : 705177
-    >   },
-    >   "discarded" : 1513,
-    >   "received" : 172711587,
-    >   "sent" : 19415530115
-    > }
+    ```json
+    {
+      "requests" : 706690,
+      "responses" : {
+        "1xx" : 0,
+        "2xx" : 699482,
+        "3xx" : 4522,
+        "4xx" : 907,
+        "5xx" : 266,
+        "codes" : {
+          "200" : 112674,
+          "301" : 4522,
+          "404" : 2504,
+          "503" : 266
+        },
+        "total" : 705177
+      },
+      "discarded" : 1513,
+      "received" : 172711587,
+      "sent" : 19415530115
+    }
+    ```
     
 -   HTTP Cache:
     
@@ -1943,43 +1965,45 @@ Supported methods:
     
     Example:
     
-    > {
-    >   "size" : 530915328,
-    >   "max\_size" : 536870912,
-    >   "cold" : false,
-    >   "hit" : {
-    >     "responses" : 254032,
-    >     "bytes" : 6685627875
-    >   },
-    >   "stale" : {
-    >     "responses" : 0,
-    >     "bytes" : 0
-    >   },
-    >   "updating" : {
-    >     "responses" : 0,
-    >     "bytes" : 0
-    >   },
-    >   "revalidated" : {
-    >     "responses" : 0,
-    >     "bytes" : 0
-    >   },
-    >   "miss" : {
-    >     "responses" : 1619201,
-    >     "bytes" : 53841943822
-    >   },
-    >   "expired" : {
-    >     "responses" : 45859,
-    >     "bytes" : 1656847080,
-    >     "responses\_written" : 44992,
-    >     "bytes\_written" : 1641825173
-    >   },
-    >   "bypass" : {
-    >     "responses" : 200187,
-    >     "bytes" : 5510647548,
-    >     "responses\_written" : 200173,
-    >     "bytes\_written" : 44992
-    >   }
-    > }
+    ```json
+    {
+      "size" : 530915328,
+      "max_size" : 536870912,
+      "cold" : false,
+      "hit" : {
+        "responses" : 254032,
+        "bytes" : 6685627875
+      },
+      "stale" : {
+        "responses" : 0,
+        "bytes" : 0
+      },
+      "updating" : {
+        "responses" : 0,
+        "bytes" : 0
+      },
+      "revalidated" : {
+        "responses" : 0,
+        "bytes" : 0
+      },
+      "miss" : {
+        "responses" : 1619201,
+        "bytes" : 53841943822
+      },
+      "expired" : {
+        "responses" : 45859,
+        "bytes" : 1656847080,
+        "responses_written" : 44992,
+        "bytes_written" : 1641825173
+      },
+      "bypass" : {
+        "responses" : 200187,
+        "bytes" : 5510647548,
+        "responses_written" : 200173,
+        "bytes_written" : 44992
+      }
+    }
+    ```
     
 -   HTTP Connections Limiting:
     
@@ -1997,11 +2021,13 @@ Supported methods:
     
     Example:
     
-    > {
-    >   "passed" : 15,
-    >   "rejected" : 0,
-    >   "rejected\_dry\_run" : 2
-    > }
+    ```json
+    {
+      "passed" : 15,
+      "rejected" : 0,
+      "rejected_dry_run" : 2
+    }
+    ```
     
 -   HTTP Requests Rate Limiting:
     
@@ -2027,13 +2053,15 @@ Supported methods:
     
     Example:
     
-    > {
-    >   "passed" : 15,
-    >   "delayed" : 4,
-    >   "rejected" : 0,
-    >   "delayed\_dry\_run" : 1,
-    >   "rejected\_dry\_run" : 2
-    > }
+    ```json
+    {
+      "passed" : 15,
+      "delayed" : 4,
+      "rejected" : 0,
+      "delayed_dry_run" : 1,
+      "rejected_dry_run" : 2
+    }
+    ```
     
 -   HTTP Upstream:
     
@@ -2321,123 +2349,125 @@ Supported methods:
     
     Example:
     
-    > {
-    >   "upstream\_backend" : {
-    >     "peers" : \[
-    >       {
-    >         "id" : 0,
-    >         "server" : "10.0.0.1:8088",
-    >         "name" : "10.0.0.1:8088",
-    >         "backup" : false,
-    >         "weight" : 5,
-    >         "state" : "up",
-    >         "active" : 0,
-    >         "ssl" : {
-    >           "handshakes" : 620311,
-    >           "handshakes\_failed" : 3432,
-    >           "session\_reuses" : 36442,
-    >           "no\_common\_protocol" : 4,
-    >           "handshake\_timeout" : 0,
-    >           "peer\_rejected\_cert" : 0,
-    >           "verify\_failures" : {
-    >             "expired\_cert" : 2,
-    >             "revoked\_cert" : 1,
-    >             "hostname\_mismatch" : 2,
-    >             "other" : 1
-    >           }
-    >         },
-    >         "max\_conns" : 20,
-    >         "requests" : 667231,
-    >         "header\_time" : 20,
-    >         "response\_time" : 36,
-    >         "response\_time\_hist" : {
-    >           "count" : 9817,
-    >           "sum" : 57625,
-    >           "buckets" : {
-    >             "5" : 4428,
-    >             "10" : 4755,
-    >             "25" : 350,
-    >             "50" : 235,
-    >             "75" : 54,
-    >             "100" : 47,
-    >             "250" : 1,
-    >             "500" : 0,
-    >             "750" : 0,
-    >             "1000" : 0,
-    >             "2500" : 0,
-    >             "5000" : 0,
-    >             "7500" : 0,
-    >             "10000" : 0,
-    >             "inf" : 0
-    >           }
-    >         },
-    >         "responses" : {
-    >           "1xx" : 0,
-    >           "2xx" : 666310,
-    >           "3xx" : 0,
-    >           "4xx" : 915,
-    >           "5xx" : 6,
-    >           "codes" : {
-    >             "200" : 666310,
-    >             "404" : 915,
-    >             "503" : 6
-    >           },
-    >           "total" : 667231
-    >         },
-    >         "sent" : 251946292,
-    >         "received" : 19222475454,
-    >         "fails" : 0,
-    >         "unavail" : 0,
-    >         "health\_checks" : {
-    >           "checks" : 26214,
-    >           "fails" : 0,
-    >           "unhealthy" : 0,
-    >           "last\_passed" : true
-    >         },
-    >         "downtime" : 0,
-    >         "downstart" : "2022-06-28T11:09:21.602Z",
-    >         "selected" : "2022-06-28T15:01:25.000Z"
-    >       },
-    >       {
-    >         "id" : 1,
-    >         "server" : "10.0.0.1:8089",
-    >         "name" : "10.0.0.1:8089",
-    >         "backup" : true,
-    >         "weight" : 1,
-    >         "state" : "unhealthy",
-    >         "active" : 0,
-    >         "max\_conns" : 20,
-    >         "requests" : 0,
-    >         "responses" : {
-    >           "1xx" : 0,
-    >           "2xx" : 0,
-    >           "3xx" : 0,
-    >           "4xx" : 0,
-    >           "5xx" : 0,
-    >           "codes" : {
-    >           },
-    >           "total" : 0
-    >         },
-    >         "sent" : 0,
-    >         "received" : 0,
-    >         "fails" : 0,
-    >         "unavail" : 0,
-    >         "health\_checks" : {
-    >           "checks" : 26284,
-    >           "fails" : 26284,
-    >           "unhealthy" : 1,
-    >           "last\_passed" : false
-    >         },
-    >         "downtime" : 262925617,
-    >         "downstart" : "2022-06-28T11:09:21.602Z",
-    >         "selected" : "2022-06-28T15:01:25.000Z"
-    >       }
-    >     \],
-    >     "keepalive" : 0,
-    >     "zombies" : 0,
-    >     "zone" : "upstream\_backend"
-    >   }
-    > }
+    ```json
+    {
+      "upstream_backend" : {
+        "peers" : [
+          {
+            "id" : 0,
+            "server" : "10.0.0.1:8088",
+            "name" : "10.0.0.1:8088",
+            "backup" : false,
+            "weight" : 5,
+            "state" : "up",
+            "active" : 0,
+            "ssl" : {
+              "handshakes" : 620311,
+              "handshakes_failed" : 3432,
+              "session_reuses" : 36442,
+              "no_common_protocol" : 4,
+              "handshake_timeout" : 0,
+              "peer_rejected_cert" : 0,
+              "verify_failures" : {
+                "expired_cert" : 2,
+                "revoked_cert" : 1,
+                "hostname_mismatch" : 2,
+                "other" : 1
+              }
+            },
+            "max_conns" : 20,
+            "requests" : 667231,
+            "header_time" : 20,
+            "response_time" : 36,
+            "response_time_hist" : {
+              "count" : 9817,
+              "sum" : 57625,
+              "buckets" : {
+                "5" : 4428,
+                "10" : 4755,
+                "25" : 350,
+                "50" : 235,
+                "75" : 54,
+                "100" : 47,
+                "250" : 1,
+                "500" : 0,
+                "750" : 0,
+                "1000" : 0,
+                "2500" : 0,
+                "5000" : 0,
+                "7500" : 0,
+                "10000" : 0,
+                "inf" : 0
+              }
+            },
+            "responses" : {
+              "1xx" : 0,
+              "2xx" : 666310,
+              "3xx" : 0,
+              "4xx" : 915,
+              "5xx" : 6,
+              "codes" : {
+                "200" : 666310,
+                "404" : 915,
+                "503" : 6
+              },
+              "total" : 667231
+            },
+            "sent" : 251946292,
+            "received" : 19222475454,
+            "fails" : 0,
+            "unavail" : 0,
+            "health_checks" : {
+              "checks" : 26214,
+              "fails" : 0,
+              "unhealthy" : 0,
+              "last_passed" : true
+            },
+            "downtime" : 0,
+            "downstart" : "2022-06-28T11:09:21.602Z",
+            "selected" : "2022-06-28T15:01:25.000Z"
+          },
+          {
+            "id" : 1,
+            "server" : "10.0.0.1:8089",
+            "name" : "10.0.0.1:8089",
+            "backup" : true,
+            "weight" : 1,
+            "state" : "unhealthy",
+            "active" : 0,
+            "max_conns" : 20,
+            "requests" : 0,
+            "responses" : {
+              "1xx" : 0,
+              "2xx" : 0,
+              "3xx" : 0,
+              "4xx" : 0,
+              "5xx" : 0,
+              "codes" : {
+              },
+              "total" : 0
+            },
+            "sent" : 0,
+            "received" : 0,
+            "fails" : 0,
+            "unavail" : 0,
+            "health_checks" : {
+              "checks" : 26284,
+              "fails" : 26284,
+              "unhealthy" : 1,
+              "last_passed" : false
+            },
+            "downtime" : 262925617,
+            "downstart" : "2022-06-28T11:09:21.602Z",
+            "selected" : "2022-06-28T15:01:25.000Z"
+          }
+        ],
+        "keepalive" : 0,
+        "zombies" : 0,
+        "zone" : "upstream_backend"
+      }
+    }
+    ```
     
 -   HTTP Upstream Server:
     
@@ -2501,18 +2531,20 @@ Supported methods:
     
     Example:
     
-    > {
-    >   "id" : 1,
-    >   "server" : "10.0.0.1:8089",
-    >   "weight" : 4,
-    >   "max\_conns" : 0,
-    >   "max\_fails" : 0,
-    >   "fail\_timeout" : "10s",
-    >   "slow\_start" : "10s",
-    >   "route" : "",
-    >   "backup" : true,
-    >   "down" : true
-    > }
+    ```json
+    {
+      "id" : 1,
+      "server" : "10.0.0.1:8089",
+      "weight" : 4,
+      "max_conns" : 0,
+      "max_fails" : 0,
+      "fail_timeout" : "10s",
+      "slow_start" : "10s",
+      "route" : "",
+      "backup" : true,
+      "down" : true
+    }
+    ```
     
 -   HTTP Keyval Shared Memory Zone:
     
@@ -2520,11 +2552,13 @@ Supported methods:
     
     Example:
     
-    > {
-    >   "key1" : "value1",
-    >   "key2" : "value2",
-    >   "key3" : "value3"
-    > }
+    ```json
+    {
+      "key1" : "value1",
+      "key2" : "value2",
+      "key3" : "value3"
+    }
+    ```
     
 -   HTTP Keyval Shared Memory Zone:
     
@@ -2532,14 +2566,16 @@ Supported methods:
     
     Example:
     
-    > {
-    >   "key1" : "value1",
-    >   "key2" : "value2",
-    >   "key3" : {
-    >     "value" : "value3",
-    >     "expire" : 30000
-    >   }
-    > }
+    ```json
+    {
+      "key1" : "value1",
+      "key2" : "value2",
+      "key3" : {
+        "value" : "value3",
+        "expire" : 30000
+      }
+    }
+    ```
     
 -   Stream Server Zone:
     
@@ -2635,36 +2671,38 @@ Supported methods:
     
     Example:
     
-    > {
-    >   "dns" : {
-    >     "processing" : 1,
-    >     "connections" : 155569,
-    >     "sessions" : {
-    >       "2xx" : 155564,
-    >       "4xx" : 0,
-    >       "5xx" : 0,
-    >       "total" : 155569
-    >     },
-    >     "discarded" : 0,
-    >     "received" : 4200363,
-    >     "sent" : 20489184,
-    >     "ssl" : {
-    >       "handshakes" : 76455,
-    >       "handshakes\_failed" : 432,
-    >       "session\_reuses" : 28770,
-    >       "no\_common\_protocol" : 4,
-    >       "no\_common\_cipher" : 2,
-    >       "handshake\_timeout" : 0,
-    >       "peer\_rejected\_cert" : 0,
-    >       "verify\_failures" : {
-    >         "no\_cert" : 0,
-    >         "expired\_cert" : 2,
-    >         "revoked\_cert" : 1,
-    >         "other" : 1
-    >       }
-    >     }
-    >   }
-    > }
+    ```json
+    {
+      "dns" : {
+        "processing" : 1,
+        "connections" : 155569,
+        "sessions" : {
+          "2xx" : 155564,
+          "4xx" : 0,
+          "5xx" : 0,
+          "total" : 155569
+        },
+        "discarded" : 0,
+        "received" : 4200363,
+        "sent" : 20489184,
+        "ssl" : {
+          "handshakes" : 76455,
+          "handshakes_failed" : 432,
+          "session_reuses" : 28770,
+          "no_common_protocol" : 4,
+          "no_common_cipher" : 2,
+          "handshake_timeout" : 0,
+          "peer_rejected_cert" : 0,
+          "verify_failures" : {
+            "no_cert" : 0,
+            "expired_cert" : 2,
+            "revoked_cert" : 1,
+            "other" : 1
+          }
+        }
+      }
+    }
+    ```
     
 -   Stream Connections Limiting:
     
@@ -2682,11 +2720,13 @@ Supported methods:
     
     Example:
     
-    > {
-    >   "passed" : 15,
-    >   "rejected" : 0,
-    >   "rejected\_dry\_run" : 2
-    > }
+    ```json
+    {
+      "passed" : 15,
+      "rejected" : 0,
+      "rejected_dry_run" : 2
+    }
+    ```
     
 -   Stream Upstream:
     
@@ -2848,76 +2888,78 @@ Supported methods:
     
     Example:
     
-    > {
-    >   "dns" : {
-    >     "peers" : \[
-    >       {
-    >         "id" : 0,
-    >         "server" : "10.0.0.1:12347",
-    >         "name" : "10.0.0.1:12347",
-    >         "backup" : false,
-    >         "weight" : 5,
-    >         "state" : "up",
-    >         "active" : 0,
-    >         "ssl" : {
-    >           "handshakes" : 200,
-    >           "handshakes\_failed" : 4,
-    >           "session\_reuses" : 189,
-    >           "no\_common\_protocol" : 4,
-    >           "handshake\_timeout" : 0,
-    >           "peer\_rejected\_cert" : 0,
-    >           "verify\_failures" : {
-    >             "expired\_cert" : 2,
-    >             "revoked\_cert" : 1,
-    >             "hostname\_mismatch" : 2,
-    >             "other" : 1
-    >           }
-    >         },
-    >         "max\_conns" : 50,
-    >         "connections" : 667231,
-    >         "sent" : 251946292,
-    >         "received" : 19222475454,
-    >         "fails" : 0,
-    >         "unavail" : 0,
-    >         "health\_checks" : {
-    >           "checks" : 26214,
-    >           "fails" : 0,
-    >           "unhealthy" : 0,
-    >           "last\_passed" : true
-    >         },
-    >         "downtime" : 0,
-    >         "downstart" : "2022-06-28T11:09:21.602Z",
-    >         "selected" : "2022-06-28T15:01:25.000Z"
-    >       },
-    >       {
-    >         "id" : 1,
-    >         "server" : "10.0.0.1:12348",
-    >         "name" : "10.0.0.1:12348",
-    >         "backup" : true,
-    >         "weight" : 1,
-    >         "state" : "unhealthy",
-    >         "active" : 0,
-    >         "max\_conns" : 50,
-    >         "connections" : 0,
-    >         "sent" : 0,
-    >         "received" : 0,
-    >         "fails" : 0,
-    >         "unavail" : 0,
-    >         "health\_checks" : {
-    >           "checks" : 26284,
-    >           "fails" : 26284,
-    >           "unhealthy" : 1,
-    >           "last\_passed" : false
-    >         },
-    >         "downtime" : 262925617,
-    >         "downstart" : "2022-06-28T11:09:21.602Z",
-    >         "selected" : "2022-06-28T15:01:25.000Z"
-    >       }
-    >     \],
-    >     "zombies" : 0,
-    >     "zone" : "dns"
-    >   }
-    > }
+    ```json
+    {
+      "dns" : {
+        "peers" : [
+          {
+            "id" : 0,
+            "server" : "10.0.0.1:12347",
+            "name" : "10.0.0.1:12347",
+            "backup" : false,
+            "weight" : 5,
+            "state" : "up",
+            "active" : 0,
+            "ssl" : {
+              "handshakes" : 200,
+              "handshakes_failed" : 4,
+              "session_reuses" : 189,
+              "no_common_protocol" : 4,
+              "handshake_timeout" : 0,
+              "peer_rejected_cert" : 0,
+              "verify_failures" : {
+                "expired_cert" : 2,
+                "revoked_cert" : 1,
+                "hostname_mismatch" : 2,
+                "other" : 1
+              }
+            },
+            "max_conns" : 50,
+            "connections" : 667231,
+            "sent" : 251946292,
+            "received" : 19222475454,
+            "fails" : 0,
+            "unavail" : 0,
+            "health_checks" : {
+              "checks" : 26214,
+              "fails" : 0,
+              "unhealthy" : 0,
+              "last_passed" : true
+            },
+            "downtime" : 0,
+            "downstart" : "2022-06-28T11:09:21.602Z",
+            "selected" : "2022-06-28T15:01:25.000Z"
+          },
+          {
+            "id" : 1,
+            "server" : "10.0.0.1:12348",
+            "name" : "10.0.0.1:12348",
+            "backup" : true,
+            "weight" : 1,
+            "state" : "unhealthy",
+            "active" : 0,
+            "max_conns" : 50,
+            "connections" : 0,
+            "sent" : 0,
+            "received" : 0,
+            "fails" : 0,
+            "unavail" : 0,
+            "health_checks" : {
+              "checks" : 26284,
+              "fails" : 26284,
+              "unhealthy" : 1,
+              "last_passed" : false
+            },
+            "downtime" : 262925617,
+            "downstart" : "2022-06-28T11:09:21.602Z",
+            "selected" : "2022-06-28T15:01:25.000Z"
+          }
+        ],
+        "zombies" : 0,
+        "zone" : "dns"
+      }
+    }
+    ```
     
 -   Stream Upstream Server:
     
@@ -2973,17 +3015,19 @@ Supported methods:
     
     Example:
     
-    > {
-    >   "id" : 0,
-    >   "server" : "10.0.0.1:12348",
-    >   "weight" : 1,
-    >   "max\_conns" : 0,
-    >   "max\_fails" : 1,
-    >   "fail\_timeout" : "10s",
-    >   "slow\_start" : 0,
-    >   "backup" : false,
-    >   "down" : false
-    > }
+    ```json
+    {
+      "id" : 0,
+      "server" : "10.0.0.1:12348",
+      "weight" : 1,
+      "max_conns" : 0,
+      "max_fails" : 1,
+      "fail_timeout" : "10s",
+      "slow_start" : 0,
+      "backup" : false,
+      "down" : false
+    }
+    ```
     
 -   Stream Keyval Shared Memory Zone:
     
@@ -2991,11 +3035,13 @@ Supported methods:
     
     Example:
     
-    > {
-    >   "key1" : "value1",
-    >   "key2" : "value2",
-    >   "key3" : "value3"
-    > }
+    ```json
+    {
+      "key1" : "value1",
+      "key2" : "value2",
+      "key3" : "value3"
+    }
+    ```
     
 -   Stream Keyval Shared Memory Zone:
     
@@ -3003,14 +3049,16 @@ Supported methods:
     
     Example:
     
-    > {
-    >   "key1" : "value1",
-    >   "key2" : "value2",
-    >   "key3" : {
-    >     "value" : "value3",
-    >     "expire" : 30000
-    >   }
-    > }
+    ```json
+    {
+      "key1" : "value1",
+      "key2" : "value2",
+      "key3" : {
+        "value" : "value3",
+        "expire" : 30000
+      }
+    }
+    ```
     
 -   Stream Zone Sync Node:
     
@@ -3046,25 +3094,27 @@ Supported methods:
     
     Example:
     
-    > {
-    >   "zones" : {
-    >     "zone1" : {
-    >       "records\_pending" : 2061,
-    >       "records\_total" : 260575
-    >     },
-    >     "zone2" : {
-    >       "records\_pending" : 0,
-    >       "records\_total" : 14749
-    >     }
-    >   },
-    >   "status" : {
-    >     "bytes\_in" : 1364923761,
-    >     "msgs\_in" : 337236,
-    >     "msgs\_out" : 346717,
-    >     "bytes\_out" : 1402765472,
-    >     "nodes\_online" : 15
-    >   }
-    > }
+    ```json
+    {
+      "zones" : {
+        "zone1" : {
+          "records_pending" : 2061,
+          "records_total" : 260575
+        },
+        "zone2" : {
+          "records_pending" : 0,
+          "records_total" : 14749
+        }
+      },
+      "status" : {
+        "bytes_in" : 1364923761,
+        "msgs_in" : 337236,
+        "msgs_out" : 346717,
+        "bytes_out" : 1402765472,
+        "nodes_online" : 15
+      }
+    }
+    ```
     
 -   Sync Zone:
     
@@ -3132,25 +3182,27 @@ Supported methods:
     
     Example:
     
-    > {
-    >   "resolver\_zone1" : {
-    >     "requests" : {
-    >       "name" : 25460,
-    >       "srv" : 130,
-    >       "addr" : 2580
-    >     },
-    >     "responses" : {
-    >       "noerror" : 26499,
-    >       "formerr" : 0,
-    >       "servfail" : 3,
-    >       "nxdomain" : 0,
-    >       "notimp" : 0,
-    >       "refused" : 0,
-    >       "timedout" : 243,
-    >       "unknown" : 478
-    >     }
-    >   }
-    > }
+    ```json
+    {
+      "resolver_zone1" : {
+        "requests" : {
+          "name" : 25460,
+          "srv" : 130,
+          "addr" : 2580
+        },
+        "responses" : {
+          "noerror" : 26499,
+          "formerr" : 0,
+          "servfail" : 3,
+          "nxdomain" : 0,
+          "notimp" : 0,
+          "refused" : 0,
+          "timedout" : 243,
+          "unknown" : 478
+        }
+      }
+    }
+    ```
     
 -   License:
     
@@ -3184,16 +3236,18 @@ Supported methods:
     
     Example:
     
-    > {
-    >   "eval" : false,
-    >   "active\_till" : 1749268757,
-    >   "reporting" : {
-    >     "healthy" : true,
-    >     "fails" : 2,
-    >     "grace" : 15551961,
-    >     "uuid" : "13754cba-29fb-53e5-c32e-a6cf57c84b01"
-    >   }
-    > }
+    ```json
+    {
+      "eval" : false,
+      "active_till" : 1749268757,
+      "reporting" : {
+        "healthy" : true,
+        "fails" : 2,
+        "grace" : 15551961,
+        "uuid" : "13754cba-29fb-53e5-c32e-a6cf57c84b01"
+      }
+    }
+    ```
     
 -   Worker process:
     
@@ -3243,22 +3297,24 @@ Supported methods:
     
     Example:
     
-    > {
-    >   "id" : 0,
-    >   "pid" : 32212,
-    >   "connections" : {
-    >     "accepted" : 1,
-    >     "dropped" : 0,
-    >     "active" : 1,
-    >     "idle" : 0
-    >   },
-    >   "http" : {
-    >     "requests" : {
-    >       "total" : 15,
-    >       "current" : 1
-    >     }
-    >   }
-    > }
+    ```json
+    {
+      "id" : 0,
+      "pid" : 32212,
+      "connections" : {
+        "accepted" : 1,
+        "dropped" : 0,
+        "active" : 1,
+        "idle" : 0
+      },
+      "http" : {
+        "requests" : {
+          "total" : 15,
+          "current" : 1
+        }
+      }
+    }
+    ```
     
 -   Error:
     

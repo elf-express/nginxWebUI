@@ -18,10 +18,12 @@
 
 #### 配置示例
 
-> location / {
->     include   scgi\_params;
->     scgi\_pass localhost:9000;
-> }
+```nginx
+location / {
+    include   scgi_params;
+    scgi_pass localhost:9000;
+}
+```
 
 #### Directives
 
@@ -31,20 +33,22 @@
 
 定義允許訪問SCGI伺服器的條件或[denied](https://nginx.org/en/docs/http/ngx_http_scgi_module.html#denied)。如果所有字符串參數不為空且不等於「0」，則允許訪問。每次建立到SCGI伺服器的連接之前，都會評估這些條件。參數值可以包含變量：
 
-> geo $upstream\_last\_addr $allow {
->     volatile;
->     10.10.0.0/24        1;
-> }
-> 
-> server {
->     listen 127.0.0.1:8080;
-> 
->     location / {
->         scgi\_pass           localhost:9000;
->         scgi\_allow\_upstream $allow;
->         ...
->     }
-> }
+```nginx
+geo $upstream_last_addr $allow {
+    volatile;
+    10.10.0.0/24        1;
+}
+
+server {
+    listen 127.0.0.1:8080;
+
+    location / {
+        scgi_pass           localhost:9000;
+        scgi_allow_upstream $allow;
+        ...
+    }
+}
+```
 
 > >此指令作為我們[commercial subscription](https://www.f5.com/products/nginx)的一部分提供。
 
@@ -54,7 +58,9 @@
 
 `transparent`參數（1.11.0）允許從非本地IP位址（例如，從客戶端的真實的IP位址）發起到SCGI伺服器的傳出連接：
 
-> scgi\_bind $remote\_addr transparent;
+```nginx
+scgi_bind $remote_addr transparent;
+```
 
 為了使此參數生效，通常需要使用[superuser](https://nginx.org/en/docs/ngx_core_module.html#user)特權運行nginx工作進程。在Linux上，不需要（1.13.8），因為如果指定了`transparent`參數，工作進程將從主進程繼承`CAP_NET_RAW`功能。還需要配置內核路由表以攔截來自SCGI伺服器的網絡流量。
 
@@ -102,8 +108,10 @@
 
 定義不從緩存中獲取響應的條件。如果字符串參數中至少有一個值不為空且不等於「0」，則不從該高速緩存中獲取響應：
 
-> scgi\_cache\_bypass $cookie\_nocache $arg\_nocache$arg\_comment;
-> scgi\_cache\_bypass $http\_pragma    $http\_authorization;
+```nginx
+scgi_cache_bypass $cookie_nocache $arg_nocache$arg_comment;
+scgi_cache_bypass $http_pragma    $http_authorization;
+```
 
 可與[scgi\_no\_cache](https://nginx.org/en/docs/http/ngx_http_scgi_module.html#scgi_no_cache)指令一起沿著使用。
 
@@ -111,7 +119,9 @@
 
 定義用於緩存的鍵，例如
 
-> scgi\_cache\_key localhost:9000$request\_uri;
+```nginx
+scgi_cache_key localhost:9000$request_uri;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>scgi_cache_lock</strong> <code>on</code> | <code>off</code>;</code><br></td></tr><tr><th>Default:</th><td><pre>scgi_cache_lock off;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -151,11 +161,15 @@
 
 設置緩存的路徑和其他參數。緩存數據存儲在文件中。緩存中的文件名是對[cache key](https://nginx.org/en/docs/http/ngx_http_scgi_module.html#scgi_cache_key)應用MD5函數的結果。`levels`參數定義緩存的層次結構級別：從1到3，每個級別接受值1或2。例如，在以下配置中
 
-> scgi\_cache\_path /data/nginx/cache levels=1:2 keys\_zone=one:10m;
+```nginx
+scgi_cache_path /data/nginx/cache levels=1:2 keys_zone=one:10m;
+```
 
 緩存中的文件名如下所示：
 
-> /data/nginx/cache/**c**/**29**/b7f54b2df7773722d382f4809d650**29c**
+```
+/data/nginx/cache/**c**/**29**/b7f54b2df7773722d382f4809d650**29c**
+```
 
 一個緩存的響應先寫到一個臨時文件，然後文件重命名，從0. 8. 9版本開始，臨時文件和該高速緩存可以放在不同的文件系統上，但是，請注意，在這種情況下，文件是跨兩個文件系統複製的，而不是廉價的重命名操作。因此，建議對於任何給定的位置，都啟用緩存和保存臨時文件的目錄相同的文件系統。臨時文件的目錄是根據`use_temp_path`參數（1.7.10）設置的。如果該參數被省略或設置為值`on`，則將使用[scgi\_temp\_path](https://nginx.org/en/docs/http/ngx_http_scgi_module.html#scgi_temp_path)指令為給定位置設置的目錄。如果該值設置為`off`，則臨時文件將直接放在該高速緩存目錄中。
 
@@ -199,22 +213,24 @@
 
 示例配置：
 
-> scgi\_cache\_path /data/nginx/cache keys\_zone=cache\_zone:10m;
-> 
-> map $request\_method $purge\_method {
->     PURGE   1;
->     default 0;
-> }
-> 
-> server {
->     ...
->     location / {
->         scgi\_pass        backend;
->         scgi\_cache       cache\_zone;
->         scgi\_cache\_key   $uri;
->         scgi\_cache\_purge $purge\_method;
->     }
-> }
+```nginx
+scgi_cache_path /data/nginx/cache keys_zone=cache_zone:10m;
+
+map $request_method $purge_method {
+    PURGE   1;
+    default 0;
+}
+
+server {
+    ...
+    location / {
+        scgi_pass        backend;
+        scgi_cache       cache_zone;
+        scgi_cache_key   $uri;
+        scgi_cache_purge $purge_method;
+    }
+}
+```
 
 > >此功能是我們的[commercial subscription](https://www.f5.com/products/nginx)的一部分。
 
@@ -243,22 +259,28 @@
 
 為不同的響應代碼設置緩存時間。
 
-> scgi\_cache\_valid 200 302 10m;
-> scgi\_cache\_valid 404      1m;
+```nginx
+scgi_cache_valid 200 302 10m;
+scgi_cache_valid 404      1m;
+```
 
 對代碼為200和302的響應設置10分鐘的緩存，對代碼為404的響應設置1分鐘的緩存。
 
 如果僅指定緩存`*time*`
 
-> scgi\_cache\_valid 5m;
+```nginx
+scgi_cache_valid 5m;
+```
 
 則僅緩存200、301和302響應。
 
 此外，可以指定`any`參數來緩存任何響應：
 
-> scgi\_cache\_valid 200 302 10m;
-> scgi\_cache\_valid 301      1h;
-> scgi\_cache\_valid any      1m;
+```nginx
+scgi_cache_valid 200 302 10m;
+scgi_cache_valid 301      1h;
+scgi_cache_valid any      1m;
+```
 
 緩存的參數也可以直接在響應頭中設置。這比使用指令設置緩存時間具有更高的優先級。
 
@@ -389,8 +411,10 @@
 
 定義響應不會保存到緩存的條件。如果字符串參數中至少有一個值不為空且不等於「0」，則不會保存響應：
 
-> scgi\_no\_cache $cookie\_nocache $arg\_nocache$arg\_comment;
-> scgi\_no\_cache $http\_pragma    $http\_authorization;
+```nginx
+scgi_no_cache $cookie_nocache $arg_nocache$arg_comment;
+scgi_no_cache $http_pragma    $http_authorization;
+```
 
 可與[scgi\_cache\_bypass](https://nginx.org/en/docs/http/ngx_http_scgi_module.html#scgi_cache_bypass)指令一起沿著使用。
 
@@ -400,24 +424,32 @@
 
 標準[CGI environment variables](https://datatracker.ietf.org/doc/html/rfc3875#section-4.1)應作為SCGI標頭提供，請參閱分發版中提供的`scgi_params`文件：
 
-> location / {
->     include scgi\_params;
->     ...
-> }
+```nginx
+location / {
+    include scgi_params;
+    ...
+}
+```
 
 如果指令是用`if_not_empty`（1.1.11）指定的，那麼只有當它的值不為空時，這樣的參數才會傳遞給伺服器：
 
-> scgi\_param HTTPS $https if\_not\_empty;
+```nginx
+scgi_param HTTPS $https if_not_empty;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>scgi_pass</strong> <code><i>address</i></code>;</code><br></td></tr><tr><th>Default:</th><td>—</td></tr><tr><th>Context:</th><td><code>location</code>, <code>if in location</code><br></td></tr></tbody></table>
 
 設置SCGI伺服器的地址。該地址可以指定為域名或IP位址以及埠：
 
-> scgi\_pass localhost:9000;
+```nginx
+scgi_pass localhost:9000;
+```
 
 或者作為UNIX域套接字路徑：
 
-> scgi\_pass unix:/tmp/scgi.socket;
+```nginx
+scgi_pass unix:/tmp/scgi.socket;
+```
 
 如果一個域名解析為多個地址，所有的地址都將以循環方式使用。此外，地址可以指定為[server group](https://nginx.org/en/docs/http/ngx_http_upstream_module.html)。
 
@@ -485,39 +517,47 @@
 
 允許將文件保存到磁碟。`on`參數使用與指令[alias](https://nginx.org/en/docs/http/ngx_http_core_module.html#alias)或[root](https://nginx.org/en/docs/http/ngx_http_core_module.html#root)對應的路徑保存文件。`off`參數禁止保存文件。此外，可以使用帶變量的`*string*`顯式設置文件名：
 
-> scgi\_store /data/www$original\_uri;
+```nginx
+scgi_store /data/www$original_uri;
+```
 
 文件的修改時間根據接收到的"Last-Modified"響應頭欄位設置，響應先寫入臨時文件，然後重命名文件。從0.8.9版本開始，臨時文件和持久存儲可以放在不同的文件系統上。但是，請注意，在這種情況下，文件是跨兩個文件系統複製的，而不是廉價的重命名操作。因此，建議對於任何給定的位置，保存的文件和保存臨時文件的目錄，由[scgi\_temp\_path](https://nginx.org/en/docs/http/ngx_http_scgi_module.html#scgi_temp_path)指令設置的所有文件都放在同一個文件系統上。
 
 此指令可用於創建靜態不可更改文件的本地複本，例如：
 
-> location /images/ {
->     root              /data/www;
->     error\_page        404 = /fetch$uri;
-> }
-> 
-> location /fetch/ {
->     internal;
-> 
->     scgi\_pass         backend:9000;
->     ...
-> 
->     scgi\_store        on;
->     scgi\_store\_access user:rw group:rw all:r;
->     scgi\_temp\_path    /data/temp;
-> 
->     alias             /data/www/;
-> }
+```nginx
+location /images/ {
+    root              /data/www;
+    error_page        404 = /fetch$uri;
+}
+
+location /fetch/ {
+    internal;
+
+    scgi_pass         backend:9000;
+    ...
+
+    scgi_store        on;
+    scgi_store_access user:rw group:rw all:r;
+    scgi_temp_path    /data/temp;
+
+    alias             /data/www/;
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>scgi_store_access</strong> <code><i>users</i></code>:<code><i>permissions</i></code> ...;</code><br></td></tr><tr><th>Default:</th><td><pre>scgi_store_access user:rw;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
 為新創建的文件和目錄設置訪問權限，例如：
 
-> scgi\_store\_access user:rw group:rw all:r;
+```nginx
+scgi_store_access user:rw group:rw all:r;
+```
 
 如果指定了任何`group`或`all`訪問權限，則可以省略`user`權限：
 
-> scgi\_store\_access group:rw all:r;
+```nginx
+scgi_store_access group:rw all:r;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>scgi_temp_file_write_size</strong> <code><i>size</i></code>;</code><br></td></tr><tr><th>Default:</th><td><pre>scgi_temp_file_write_size 8k|16k;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -527,7 +567,9 @@
 
 定義一個目錄，用於存儲包含從SCGI伺服器接收到的數據的臨時文件。在指定目錄下最多可以使用三個級別的XML層次結構。例如，在以下配置中
 
-> scgi\_temp\_path /spool/nginx/scgi\_temp 1 2;
+```nginx
+scgi_temp_path /spool/nginx/scgi_temp 1 2;
+```
 
 臨時文件可能看起來像這樣：
 

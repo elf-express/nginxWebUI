@@ -18,10 +18,12 @@
 
 #### 配置示例
 
-> server {
->     listen 12345;
->     set    $true 1;
-> }
+```nginx
+server {
+    listen 12345;
+    set    $true 1;
+}
+```
 
 #### Directives
 

@@ -22,21 +22,23 @@
 
 #### 配置示例
 
-> location / {
->     root                  /data/www;
-> 
->     client\_body\_temp\_path /data/client\_temp;
-> 
->     dav\_methods PUT DELETE MKCOL COPY MOVE;
-> 
->     create\_full\_put\_path  on;
->     dav\_access            group:rw  all:r;
-> 
->     limit\_except GET {
->         allow 192.168.1.0/32;
->         deny  all;
->     }
-> }
+```nginx
+location / {
+    root                  /data/www;
+
+    client_body_temp_path /data/client_temp;
+
+    dav_methods PUT DELETE MKCOL COPY MOVE;
+
+    create_full_put_path  on;
+    dav_access            group:rw  all:r;
+
+    limit_except GET {
+        allow 192.168.1.0/32;
+        deny  all;
+    }
+}
+```
 
 #### Directives
 
@@ -48,11 +50,15 @@ WebDAV規範只允許在已經存在的目錄中創建文件。此指令允許�
 
 為新創建的文件和目錄設置訪問權限，例如：
 
-> dav\_access user:rw group:rw all:r;
+```nginx
+dav_access user:rw group:rw all:r;
+```
 
 如果指定了任何`group`或`all`訪問權限，則可以省略`user`權限：
 
-> dav\_access group:rw all:r;
+```nginx
+dav_access group:rw all:r;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>dav_methods</strong> <code>off</code> | <code><i>method</i></code> ...;</code><br></td></tr><tr><th>Default:</th><td><pre>dav_methods off;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -66,7 +72,9 @@ WebDAV規範只允許在已經存在的目錄中創建文件。此指令允許�
 
 如果請求路徑中的元素數量不小於指定的數量，則允許review方法刪除文件。
 
-> min\_delete\_depth 4;
+```nginx
+min_delete_depth 4;
+```
 
 允許根據請求刪除文件
 
@@ -76,4 +84,6 @@ WebDAV規範只允許在已經存在的目錄中創建文件。此指令允許�
 
 並否認
 
-> /users/00/00
+```
+/users/00/00
+```

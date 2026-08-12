@@ -18,9 +18,11 @@
 
 #### 配置示例
 
-> location / {
->     autoindex on;
-> }
+```nginx
+location / {
+    autoindex on;
+}
+```
 
 #### Directives
 

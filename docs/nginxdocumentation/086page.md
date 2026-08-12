@@ -28,14 +28,16 @@
 
 #### 配置示例
 
-> server {
->     listen 443 ssl;
-> 
->     http2 on;
-> 
->     ssl\_certificate server.crt;
->     ssl\_certificate\_key server.key;
-> }
+```nginx
+server {
+    listen 443 ssl;
+
+    http2 on;
+
+    ssl_certificate server.crt;
+    ssl_certificate_key server.key;
+}
+```
 
 請注意，通過TLS接受HTTP/2連接需要"應用層協議協商"（ALPN）TLS擴展支持，該支持從[OpenSSL](http://www.openssl.org/)版本1.0.2開始提供。
 
@@ -107,7 +109,9 @@
 
 先向指定的`*uri*`發送（[pushes](https://datatracker.ietf.org/doc/html/rfc9113#section-8.4)）請求，同時沿著對原始請求的響應。只處理具有絕對路徑的相對URI，例如：
 
-> http2\_push /static/css/main.css;
+```nginx
+http2_push /static/css/main.css;
+```
 
 `*uri*`值可以包含變量。
 

@@ -21,55 +21,61 @@
 
 根據伺服器名稱選擇上游：
 
-> map $ssl\_preread\_server\_name $name {
->     backend.example.com      backend;
->     default                  backend2;
-> }
-> 
-> upstream backend {
->     server 192.168.0.1:12345;
->     server 192.168.0.2:12345;
-> }
-> 
-> upstream backend2 {
->     server 192.168.0.3:12345;
->     server 192.168.0.4:12345;
-> }
-> 
-> server {
->     listen      12346;
->     proxy\_pass  $name;
->     ssl\_preread on;
-> }
+```nginx
+map $ssl_preread_server_name $name {
+    backend.example.com      backend;
+    default                  backend2;
+}
+
+upstream backend {
+    server 192.168.0.1:12345;
+    server 192.168.0.2:12345;
+}
+
+upstream backend2 {
+    server 192.168.0.3:12345;
+    server 192.168.0.4:12345;
+}
+
+server {
+    listen      12346;
+    proxy_pass  $name;
+    ssl_preread on;
+}
+```
 
 根據協議選擇上游：
 
-> map $ssl\_preread\_alpn\_protocols $proxy {
->     ~\\bh2\\b           127.0.0.1:8001;
->     ~\\bhttp/1.1\\b     127.0.0.1:8002;
->     ~\\bxmpp-client\\b  127.0.0.1:8003;
-> }
-> 
-> server {
->     listen      9000;
->     proxy\_pass  $proxy;
->     ssl\_preread on;
-> }
+```nginx
+map $ssl_preread_alpn_protocols $proxy {
+    ~\\bh2\\b           127.0.0.1:8001;
+    ~\\bhttp/1.1\\b     127.0.0.1:8002;
+    ~\\bxmpp-client\\b  127.0.0.1:8003;
+}
+
+server {
+    listen      9000;
+    proxy_pass  $proxy;
+    ssl_preread on;
+}
+```
 
 根據SSL協議版本選擇上游：
 
-> map $ssl\_preread\_protocol $upstream {
->     ""        ssh.example.com:22;
->     "TLSv1.2" new.example.com:443;
->     default   tls.example.com:443;
-> }
-> 
-> # ssh和https在同一個埠上
-> server {
->     listen      192.168.0.1:443;
->     proxy\_pass  $upstream;
->     ssl\_preread on;
-> }
+```nginx
+map $ssl_preread_protocol $upstream {
+    ""        ssh.example.com:22;
+    "TLSv1.2" new.example.com:443;
+    default   tls.example.com:443;
+}
+
+# ssh和https在同一個埠上
+server {
+    listen      192.168.0.1:443;
+    proxy_pass  $upstream;
+    ssl_preread on;
+}
+```
 
 #### Directives
 

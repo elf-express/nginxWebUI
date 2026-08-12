@@ -40,24 +40,28 @@ njs為其[API](https://nginx.org/en/docs/njs/reference.html)提供了TypeScript�
 
 `test.js`:
 
-> /// <reference path="ngx\_http\_js\_module.d.ts" />
-> /\*\*
->  \* @param {NginxHTTPRequest} r
->  \* \*/
-> function content\_handler(r) {
->     r.headersOut\['content-type'\] = 'text/plain';
->     r.return(200, "Hello");
-> }
+```javascript
+/// <reference path="ngx_http_js_module.d.ts" />
+/**
+ * @param {NginxHTTPRequest} r
+ * */
+function content_handler(r) {
+    r.headersOut['content-type'] = 'text/plain';
+    r.return(200, "Hello");
+}
+```
 
 #### 編寫njs類型安全代碼
 
 `test.ts`:
 
-> /// <reference path="ngx\_http\_js\_module.d.ts" />
-> function content\_handler(r: NginxHTTPRequest) {
->     r.headersOut\['content-type'\] = 'text/plain';
->     r.return(200, "Hello from TypeScript");
-> }
+```javascript
+/// <reference path="ngx_http_js_module.d.ts" />
+function content_handler(r: NginxHTTPRequest) {
+    r.headersOut['content-type'] = 'text/plain';
+    r.return(200, "Hello from TypeScript");
+}
+```
 
 TypeScript安裝：
 

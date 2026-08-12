@@ -23,13 +23,15 @@
 
 以下配置設置會話日誌，並根據請求客戶端地址和「User-Agent」請求頭欄位將請求映射到會話：
 
->     session\_log\_zone /path/to/log format=組合
->                      區域= 1：1 m超時= 30 s
->                      md5=$binary\_remote\_addr$http\_user\_agent;
-> 
->     location /media/ {
->         session\_log one;
->     }
+```nginx
+    session_log_zone /path/to/log format=組合
+                     區域= 1：1 m超時= 30 s
+                     md5=$binary_remote_addr$http_user_agent;
+
+    location /media/ {
+        session_log one;
+    }
+```
 
 #### Directives
 

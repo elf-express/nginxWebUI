@@ -71,23 +71,31 @@ The query string is returned as an object. Since [0.7.6](https://nginx.org/en/do
 
 For example, the query string
 
-> 'a=1&b=%32&A=3&b=4&B=two%20words'
+```
+'a=1&b=%32&A=3&b=4&B=two%20words'
+```
 
 is converted to `r.args` as:
 
-> {a: "1", b: \["2", "4"\], A: "3", B: "two words"}
+```nginx
+{a: "1", b: ["2", "4"], A: "3", B: "two words"}
+```
 
 More advanced parsing scenarios can be achieved with the [Query String](https://nginx.org/en/docs/njs/reference.html#querystring) module and with the [`$args`](https://nginx.org/en/docs/http/ngx_http_core_module.html#var_args) variable, for example:
 
-> import qs from 'querystring';
-> 
-> function args(r) {
->     return qs.parse(r.variables.args);
-> }
+```javascript
+import qs from 'querystring';
+
+function args(r) {
+    return qs.parse(r.variables.args);
+}
+```
 
 The argument object is evaluated at the first access to `r.args`. If only a single argument is needed, for example `foo`, [nginx variables](https://nginx.org/en/docs/varindex.html) can be used:
 
-> r.variables.arg\_foo
+```
+r.variables.arg_foo
+```
 
 Here, [nginx variables object](https://nginx.org/en/docs/njs/reference.html#r_variables) returns the first value for a given key, case-insensitive, without percent-decoding.
 
@@ -134,12 +142,16 @@ Outgoing headers should be set before a response header is sent to a client, oth
 
 Field values of multi-value response headers ([0.4.0](https://nginx.org/en/docs/njs/changes.html#njs0.4.0)) can be set with the syntax:
 
-> r.headersOut\['Foo'\] = \['a', 'b'\]
+```
+r.headersOut['Foo'] = ['a', 'b']
+```
 
 where the output will be:
 
-> Foo: a
-> Foo: b
+```
+Foo: a
+Foo: b
+```
 
 All previous field values of the “Foo” response header will be deleted.
 
@@ -249,25 +261,33 @@ returns an array of key-value pairs exactly as they were received from the clien
 
 For example, with the following request headers:
 
-> Host: localhost
-> Foo:  bar
-> foo:  bar2
+```
+Host: localhost
+Foo:  bar
+foo:  bar2
+```
 
 the output of `r.rawHeadersIn` will be:
 
-> \[
->     \['Host', 'localhost'\],
->     \['Foo', 'bar'\],
->     \['foo', 'bar2'\]
-> \]
+```
+[
+    ['Host', 'localhost'],
+    ['Foo', 'bar'],
+    ['foo', 'bar2']
+]
+```
 
 All `foo` headers can be collected with the syntax:
 
-> r.rawHeadersIn.filter(v=>v\[0\].toLowerCase() == 'foo').map(v=>v\[1\])
+```javascript
+r.rawHeadersIn.filter(v=>v[0].toLowerCase() == 'foo').map(v=>v[1])
+```
 
 the output will be:
 
-> \['bar', 'bar2'\]
+```
+['bar', 'bar2']
+```
 
 Header field names are not converted to lower case, duplicate field values are not merged.
 
@@ -323,10 +343,12 @@ sends the HTTP headers to the client
 
 sets the return value of the [js\_set](https://nginx.org/en/docs/http/ngx_http_js_module.html#js_set) handler ([0.7.0](https://nginx.org/en/docs/njs/changes.html#njs0.7.0)). Unlike an ordinary return statement, this method should be used when the handler is JS async function. For example:
 
-> async function js\_set(r) {
->     const digest = await crypto.subtle.digest('SHA-256', r.headersIn.host);
->     r.setReturnValue(digest);
-> }
+```javascript
+async function js_set(r) {
+    const digest = await crypto.subtle.digest('SHA-256', r.headersIn.host);
+    r.setReturnValue(digest);
+}
+```
 
 `r.status`
 
@@ -362,15 +384,17 @@ Since [0.3.8](https://nginx.org/en/docs/njs/changes.html#njs0.3.8), if a `callba
 
 For example, to view all response headers in the subrequest:
 
-> async function handler(r) {
->     const reply = await r.subrequest('/path');
-> 
->     for (const h in reply.headersOut) {
->         r.log(\`${h}: ${reply.headersOut\[h\]}\`);
->     }
-> 
->     r.return(200);
-> }
+```javascript
+async function handler(r) {
+    const reply = await r.subrequest('/path');
+
+    for (const h in reply.headersOut) {
+        r.log(`${h}: ${reply.headersOut[h]}`);
+    }
+
+    r.return(200);
+}
+```
 
 `r.uri`
 
@@ -390,17 +414,23 @@ returns a new array of names of nginx variables declared with the [js\_var](http
 
 For example, to get the `$foo` variable, one of the following syntax can be used:
 
-> r.variables\['foo'\]
-> r.variables.foo
+```
+r.variables['foo']
+r.variables.foo
+```
 
 Since [0.8.6](https://nginx.org/en/docs/njs/changes.html#njs0.8.6), regular expression captures can be accessed using the following syntax:
 
-> r.variables\['1'\]
-> r.variables\[1\]
+```
+r.variables['1']
+r.variables[1]
+```
 
 nginx treats variables referenced in `nginx.conf` and unreferenced variables differently. When a variable is referenced, it may be cacheable, but when it is unreferenced it is always uncacheable. For example, when the [$request\_id](https://nginx.org/en/docs/http/ngx_http_core_module.html#var_request_id) variable is only accessed from njs, it has a new value every time it is evaluated. But, when the [$request\_id](https://nginx.org/en/docs/http/ngx_http_core_module.html#var_request_id) is referenced, for example:
 
-> proxy\_set\_header X-Request-Id $request\_id;
+```nginx
+proxy_set_header X-Request-Id $request_id;
+```
 
 the `r.variables.request_id` returns the same value every time.
 
@@ -533,10 +563,12 @@ session status code, an alias to the [`$status`](https://nginx.org/en/docs/strea
 
 sets the return value of the [js\_set](https://nginx.org/en/docs/stream/ngx_stream_js_module.html#js_set) handler ([0.7.0](https://nginx.org/en/docs/njs/changes.html#njs0.7.0)). Unlike an ordinary return statement, this method should be used when the handler is JS async function. For example:
 
-> async function js\_set(r) {
->     const digest = await crypto.subtle.digest('SHA-256', r.headersIn.host);
->     r.setReturnValue(digest);
-> }
+```javascript
+async function js_set(r) {
+    const digest = await crypto.subtle.digest('SHA-256', r.headersIn.host);
+    r.setReturnValue(digest);
+}
+```
 
 `s.variables{}`
 
@@ -788,10 +820,12 @@ enables or disables verification of the HTTPS server certificate, by default is 
 
 Example:
 
-> let reply = await ngx.fetch('http://nginx.org/');
-> let body = await reply.text();
-> 
-> r.return(200, body);
+```javascript
+let reply = await ngx.fetch('http://nginx.org/');
+let body = await reply.text();
+
+r.return(200, body);
+```
 
 `ngx.log`(`*level*`, `*message*`)
 
@@ -964,7 +998,9 @@ an object that specifies the algorithm to be used and any extra parameters if re
 -   for `RSA-OAEP`, pass the object with the following keys:
     -   `name` is a string, should be set to `RSA-OAEP`:
         
-        > crypto.subtle.encrypt({name: "RSA-OAEP"}, key, data)
+        ```
+        crypto.subtle.encrypt({name: "RSA-OAEP"}, key, data)
+        ```
         
 -   for `AES-CTR`, pass the object with the following keys:
     -   `name` is a string, should be set to `AES-CTR`
@@ -998,7 +1034,9 @@ an object that specifies the algorithm to be used, and any extra parameters as r
 -   for `RSA-OAEP`, pass the object with the following keys:
     -   `name` is a string, should be set to `RSA-OAEP`:
         
-        > crypto.subtle.encrypt({name: "RSA-OAEP"}, key, data)
+        ```
+        crypto.subtle.encrypt({name: "RSA-OAEP"}, key, data)
+        ```
         
 -   for `AES-CTR`, pass the object with the following keys:
     -   `name` is a string, should be set to `AES-CTR`
@@ -1647,13 +1685,17 @@ By default all strings in njs are Unicode strings. They correspond to ECMAScript
 
 Byte strings contain a sequence of bytes and are used to serialize Unicode strings to external data and deserialize from external sources. For example, the [toUTF8()](https://nginx.org/en/docs/njs/reference.html#string_toutf8) method serializes a Unicode string to a byte string using UTF-8 encoding:
 
-> \>> '£'.toUTF8().toString('hex')
-> 'c2a3'  /\* C2 A3 is the UTF-8 representation of 00A3 ('£') code point \*/
+```
+\>> '£'.toUTF8().toString('hex')
+'c2a3'  /* C2 A3 is the UTF-8 representation of 00A3 ('£') code point */
+```
 
 The [toBytes()](https://nginx.org/en/docs/njs/reference.html#string_tobytes) method serializes a Unicode string with code points up to 255 into a byte string, otherwise, `null` is returned:
 
-> \>> '£'.toBytes().toString('hex')
-> 'a3'  /\* a3 is a byte equal to 00A3 ('£') code point  \*/
+```
+\>> '£'.toBytes().toString('hex')
+'a3'  /* a3 is a byte equal to 00A3 ('£') code point  */
+```
 
 ``String.bytesFrom(`*array*` | `*string*`, `*encoding*`)``
 
@@ -1683,13 +1725,17 @@ the property was made obsolete in [0.7.7](https://nginx.org/en/docs/njs/changes.
 
 the property was made obsolete in [0.7.7](https://nginx.org/en/docs/njs/changes.html#njs0.7.7) and was removed in [0.8.0](https://nginx.org/en/docs/njs/changes.html#njs0.8.0). Before [0.7.7](https://nginx.org/en/docs/njs/changes.html#njs0.7.7), encoded a string to `hex`, `base64`, or `base64url`:
 
-> \>>  'αβγδ'.toString('base64url')
-> 'zrHOss6zzrQ'
+```
+\>>  'αβγδ'.toString('base64url')
+'zrHOss6zzrQ'
+```
 
 Before version [0.4.3](https://nginx.org/en/docs/njs/changes.html#njs0.4.3), only a [byte string](https://nginx.org/en/docs/njs/reference.html#string_tobytes) could be encoded:
 
-> \>>  'αβγδ'.toUTF8().toString('base64url')
-> 'zrHOss6zzrQ'
+```
+\>>  'αβγδ'.toUTF8().toString('base64url')
+'zrHOss6zzrQ'
+```
 
 ``String.prototype.toUTF8(`*start*`[, `*end*`])``
 
@@ -1734,8 +1780,10 @@ Returns a string with the text decoded from the `buffer` by [`TextDecoder()`](ht
 
 boolean flag indicating if additional data will follow in subsequent calls to `decode()`: `true` if processing the data in chunks, and `false` for the final chunk or if the data is not chunked. By default is `false`.
 
-> \>> (new TextDecoder()).decode(new Uint8Array(\[206,177,206,178\]))
-> αβ
+```
+\>> (new TextDecoder()).decode(new Uint8Array([206,177,206,178]))
+αβ
+```
 
 #### Text Encoder
 
@@ -1771,16 +1819,18 @@ Cancels a `timeout` object created by [`setTimeout()`](https://nginx.org/en/docs
 
 Calls a `function` after a specified number of `milliseconds`. One or more optional `arguments` can be passed to the specified function. Returns a `timeout` object.
 
-> function handler(v)
-> {
->     // ...
-> }
-> 
-> t = setTimeout(handler, 12);
-> 
-> // ...
-> 
-> clearTimeout(t);
+```javascript
+function handler(v)
+{
+    // ...
+}
+
+t = setTimeout(handler, 12);
+
+// ...
+
+clearTimeout(t);
+```
 
 #### Global functions
 
@@ -1790,8 +1840,10 @@ Decodes a string of data which has been encoded using `Base64` encoding. The `en
 
 The similar [`btoa()`](https://nginx.org/en/docs/njs/reference.html#btoa) method can be used to encode and transmit data which may otherwise cause communication problems, then transmit it and use the `atob()` method to decode the data again. For example, you can encode, transmit, and decode control characters such as ASCII values `0` through `31`.
 
-> const encodedData = btoa("text to encode"); // encode a string
-> const decodedData = atob(encodedData); // decode the string
+```javascript
+const encodedData = btoa("text to encode"); // encode a string
+const decodedData = atob(encodedData); // decode the string
+```
 
 ``btoa(`*stringToEncode*`)``
 
@@ -1799,8 +1851,10 @@ Creates a Base64-encoded ASCII string from a binary string. The `stringToEncode`
 
 The method can be used to encode data which may otherwise cause communication problems, transmit it, then use the [`atob()`](https://nginx.org/en/docs/njs/reference.html#atob) method to decode the data again. For example, you can encode control characters such as ASCII values `0` through `31`.
 
-> const encodedData = btoa("text to encode"); // encode a string
-> const decodedData = atob(encodedData); // decode the string
+```javascript
+const encodedData = btoa("text to encode"); // encode a string
+const decodedData = atob(encodedData); // decode the string
+```
 
 #### built-in modules
 
@@ -2046,10 +2100,12 @@ Calculates the digest of all of the data passed using `hash.update()`. The encod
 
 Makes a copy of the current state of the hash (since [0.7.12](https://nginx.org/en/docs/njs/changes.html#njs0.7.12)).
 
-> import crypto from 'crypto';
-> 
-> crypto.createHash('sha1').update('A').update('B').digest('base64url');
-> /\* BtlFlCqiamG-GMPiK\_GbvKjdK10 \*/
+```javascript
+import crypto from 'crypto';
+
+crypto.createHash('sha1').update('A').update('B').digest('base64url');
+/* BtlFlCqiamG-GMPiK_GbvKjdK10 */
+```
 
 #### HMAC
 
@@ -2063,10 +2119,12 @@ Calculates the HMAC digest of all of the data passed using `hmac.update()`. The 
 
 > Before version [0.4.4](https://nginx.org/en/docs/njs/changes.html#njs0.4.4), a byte string was returned instead of a Buffer object.
 
-> import crypto from 'crypto';
-> 
-> crypto.createHmac('sha1', 'secret.key').update('AB').digest('base64url');
-> /\* Oglm93xn23\_MkiaEq\_e9u8zk374 \*/
+```javascript
+import crypto from 'crypto';
+
+crypto.createHmac('sha1', 'secret.key').update('AB').digest('base64url');
+/* Oglm93xn23_MkiaEq_e9u8zk374 */
+```
 
 #### File System
 
@@ -2074,11 +2132,13 @@ The File System module provides operations with files.
 
 The module object is imported using `import fs from 'fs'`. Since [0.3.9](https://nginx.org/en/docs/njs/changes.html#njs0.3.9), promissified versions of file system methods are available through `fs.promises` object after importing with `import fs from 'fs'`:
 
-> import fs from 'fs';
-> 
-> fs.promises.readFile("/file/path").then((data) => {
->     /\* <file data> \*/
-> });
+```javascript
+import fs from 'fs';
+
+fs.promises.readFile("/file/path").then((data) => {
+    /* <file data> */
+});
+```
 
 ``accessSync(`*path*`[, `*mode*`])``
 
@@ -2088,12 +2148,14 @@ Synchronously tests permissions for a file or directory specified in the `path` 
 
 an optional integer that specifies the accessibility checks to be performed, by default is [`fs.constants.F_OK`](https://nginx.org/en/docs/njs/reference.html#access_const)
 
-> try {
->     fs.accessSync('/file/path', fs.constants.R\_OK | fs.constants.W\_OK);
->     console.log('has access');
-> } catch (e) {
->     console.log('no access');)
-> }
+```nginx
+try {
+    fs.accessSync('/file/path', fs.constants.R_OK | fs.constants.W_OK);
+    console.log('has access');
+} catch (e) {
+    console.log('no access');)
+}
+```
 
 ``appendFileSync(`*filename*`, `*data*`[, `*options*`])``
 
@@ -2187,10 +2249,12 @@ encoding, by default is not specified. The encoding can be `utf8`, `hex` ([0.4.4
 
 file system [flag](https://nginx.org/en/docs/njs/reference.html#njs_api_fs_flags), by default is `r`
 
-> import fs from 'fs';
-> 
-> var file = fs.readFileSync('/file/path.tar.gz');
-> console.log(file.slice(0,2).toString('hex')) /\* '1f8b' \*/
+```javascript
+import fs from 'fs';
+
+var file = fs.readFileSync('/file/path.tar.gz');
+console.log(file.slice(0,2).toString('hex')) /* '1f8b' */
+```
 
 ``readlinkSync(`*path*`[, `*options*`])``
 
@@ -2224,9 +2288,11 @@ Synchronously computes the canonical pathname by resolving `.`, `..` and symboli
 
 Synchronously changes the name or location of a file from `oldPath` to `newPath` ([0.3.4](https://nginx.org/en/docs/njs/changes.html#njs0.3.4)).
 
-> import fs from 'fs';
-> 
-> fs.renameSync('hello.txt', 'HelloWorld.txt');
+```javascript
+import fs from 'fs';
+
+fs.renameSync('hello.txt', 'HelloWorld.txt');
+```
 
 ``rmdirSync(`*path*`)``
 
@@ -2260,9 +2326,11 @@ mode option, by default is `0o666`
 
 file system [flag](https://nginx.org/en/docs/njs/reference.html#njs_api_fs_flags), by default is `w`
 
-> import fs from 'fs';
-> 
-> fs.writeFileSync('hello.txt', 'Hello world');
+```javascript
+import fs from 'fs';
+
+fs.writeFileSync('hello.txt', 'Hello world');
+```
 
 ``writeSync(`*fd*`, `*buffer*`, `*offset*`[, `*length*`[, `*position*`]])``
 
@@ -2513,14 +2581,18 @@ By default, percent-encoded characters within the query string are assumed to us
 
 For example, for the following query string
 
-> 'foo=bar&abc=xyz&abc=123'
+```
+'foo=bar&abc=xyz&abc=123'
+```
 
 the output will be:
 
-> {
->   foo: 'bar',
->   abc: \['xyz', '123'\]
-> }
+```nginx
+{
+  foo: 'bar',
+  abc: ['xyz', '123']
+}
+```
 
 ``querystring.stringify(`*object*`[, `*separator*`[, `*equal*`[, `*options*`]]])``
 
@@ -2540,11 +2612,15 @@ By default, characters that require percent-encoding within the query string are
 
 For example, for the following command
 
-> querystring.stringify({ foo: 'bar', baz: \['qux', 'quux'\], 123: '' });
+```nginx
+querystring.stringify({ foo: 'bar', baz: ['qux', 'quux'], 123: '' });
+```
 
 the query string will be:
 
-> 'foo=bar&baz=qux&baz=quux&123='
+```
+'foo=bar&baz=qux&baz=quux&123='
+```
 
 ``querystring.unescape(`*string*`)``
 
@@ -2556,24 +2632,26 @@ The XML module allows working with XML documents (since [0.7.10](https://nginx.o
 
 Example:
 
-> import xml from 'xml';
-> 
-> let data = \`<note><to b="bar" a= "foo" >Tove</to><from>Jani</from></note>\`;
-> let doc = xml.parse(data);
-> 
-> console.log(doc.note.to.$text) /\* 'Tove' \*/
-> console.log(doc.note.to.$attr$b) /\* 'bar' \*/
-> console.log(doc.note.$tags\[1\].$text) /\* 'Jani' \*/
-> 
-> let dec = new TextDecoder();
-> let c14n = dec.decode(xml.exclusiveC14n(doc.note));
-> console.log(c14n) /\* '<note><to a="foo" b="bar">Tove</to><from>Jani</from></note>' \*/
-> 
-> c14n = dec.decode(xml.exclusiveC14n(doc.note.to));
-> console.log(c14n) /\* '<to a="foo" b="bar">Tove</to>' \*/
-> 
-> c14n = dec.decode(xml.exclusiveC14n(doc.note, doc.note.to /\* excluding 'to' \*/));
-> console.log(c14n) /\* '<note><from>Jani</from></note>' \*/
+```javascript
+import xml from 'xml';
+
+let data = `<note><to b="bar" a= "foo" >Tove</to><from>Jani</from></note>`;
+let doc = xml.parse(data);
+
+console.log(doc.note.to.$text) /* 'Tove' */
+console.log(doc.note.to.$attr$b) /* 'bar' */
+console.log(doc.note.$tags[1].$text) /* 'Jani' */
+
+let dec = new TextDecoder();
+let c14n = dec.decode(xml.exclusiveC14n(doc.note));
+console.log(c14n) /* '<note><to a="foo" b="bar">Tove</to><from>Jani</from></note>' */
+
+c14n = dec.decode(xml.exclusiveC14n(doc.note.to));
+console.log(c14n) /* '<to a="foo" b="bar">Tove</to>' */
+
+c14n = dec.decode(xml.exclusiveC14n(doc.note, doc.note.to /* excluding 'to' */));
+console.log(c14n) /* '<note><from>Jani</from></note>' */
+```
 
 ``parse(`*string*` | `*Buffer*`)``
 

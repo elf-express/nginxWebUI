@@ -24,16 +24,18 @@
 
 #### 配置示例
 
-> location /img/ {
->     proxy\_pass   http://backend;
->     image\_filter resize 150 100;
->     image\_filter rotate 90;
->     error\_page   415 = /empty;
-> }
-> 
-> location = /empty {
->     empty\_gif;
-> }
+```nginx
+location /img/ {
+    proxy_pass   http://backend;
+    image_filter resize 150 100;
+    image_filter rotate 90;
+    error_page   415 = /empty;
+}
+
+location = /empty {
+    empty_gif;
+}
+```
 
 #### Directives
 
@@ -53,11 +55,15 @@
 
 以JSON格式輸出有關圖像的信息，例如：
 
-> { "img" : { "width": 100, "height": 100, "type": "gif" } }
+```json
+{ "img" : { "width": 100, "height": 100, "type": "gif" } }
+```
 
 如果出現錯誤，輸出如下：
 
-> {}
+```nginx
+{}
+```
 
 `rotate` `90`|`180`|`270`
 

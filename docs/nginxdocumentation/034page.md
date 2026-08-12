@@ -22,10 +22,12 @@
 
 #### 配置示例
 
-> include        conf/koi-win;
-> 
-> charset        windows-1251;
-> source\_charset koi8-r;
+```nginx
+include        conf/koi-win;
+
+charset        windows-1251;
+source_charset koi8-r;
+```
 
 #### Directives
 
@@ -37,11 +39,15 @@
 
 一個字符集可以用一個變量來定義：
 
-> charset $charset;
+```nginx
+charset $charset;
+```
 
 在這種情況下，變量的所有可能值都需要以[charset\_map](https://nginx.org/en/docs/http/ngx_http_charset_module.html#charset_map)、[charset](https://nginx.org/en/docs/http/ngx_http_charset_module.html#charset)或[source\_charset](https://nginx.org/en/docs/http/ngx_http_charset_module.html#source_charset)指令的形式在配置中至少出現一次。對於`utf-8`、`windows-1251`和`koi8-r`字符集，將文件`conf/koi-win`、`conf/koi-utf`和`conf/win-utf`包含到配置中就足夠了。對於其他字符集，只需創建一個虛構的轉換表即可，例如：
 
-> charset\_map iso-8859-5 \_ { }
+```nginx
+charset_map iso-8859-5 _ { }
+```
 
 此外，可以在「X-Accel-Charset」響應頭欄位中設置字符集。可以使用[proxy\_ignore\_headers](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_ignore_headers)、[fastcgi\_ignore\_headers](https://nginx.org/en/docs/http/ngx_http_fastcgi_module.html#fastcgi_ignore_headers)、[uwsgi\_ignore\_headers](https://nginx.org/en/docs/http/ngx_http_uwsgi_module.html#uwsgi_ignore_headers)、[scgi\_ignore\_headers](https://nginx.org/en/docs/http/ngx_http_scgi_module.html#scgi_ignore_headers)和[grpc\_ignore\_headers](https://nginx.org/en/docs/http/ngx_http_grpc_module.html#grpc_ignore_headers)指令禁用此功能。
 
@@ -51,23 +57,27 @@
 
 Example:
 
-> charset\_map koi8-r windows-1251 {
->     C0 FE ; # small yu
->     C1 E0 ; # small a
->     C2 E1 ; # small b
->     C3 F6 ; # small ts
->     ...
-> }
+```nginx
+charset_map koi8-r windows-1251 {
+    C0 FE ; # small yu
+    C1 E0 ; # small a
+    C2 E1 ; # small b
+    C3 F6 ; # small ts
+    ...
+}
+```
 
 當描述一個UTF-8轉換表時，UTF-8字符集的代碼應該在第二列中給出，例如：
 
-> charset\_map koi8-r utf-8 {
->     C0 D18E ; # small yu
->     C1 D0B0 ; # small a
->     C2 D0B1 ; # small b
->     C3 D186 ; # small ts
->     ...
-> }
+```nginx
+charset_map koi8-r utf-8 {
+    C0 D18E ; # small yu
+    C1 D0B0 ; # small a
+    C2 D0B1 ; # small b
+    C3 D186 ; # small ts
+    ...
+}
+```
 
 從`koi8-r`到`windows-1251`以及從`koi8-r`和`windows-1251`到`utf-8`的完整轉換表在分發文件`conf/koi-win`、`conf/koi-utf`和`conf/win-utf`中提供。
 

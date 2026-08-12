@@ -25,15 +25,21 @@
 
 -   按名稱訪問屬性：
     
-    > preloaded\_object.prop\_name
-    > preloaded\_object\[prop\_name\]
+    ```
+    preloaded_object.prop_name
+    preloaded_object[prop_name]
+    ```
     
 -   枚舉屬性：
     
-    > for (i in preloaded\_object\_name) {
-    >     ...
-    > }
+    ```nginx
+    for (i in preloaded_object_name) {
+        ...
+    }
+    ```
     
 -   使用`call()`應用非修改內置方法：
     
-    > Array.prototype.filter.call（preloaded\_object\_name，...）
+    ```
+    Array.prototype.filter.call（preloaded_object_name，...）
+    ```

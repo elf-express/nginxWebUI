@@ -20,23 +20,25 @@
 
 #### 配置示例
 
-> limit\_req\_zone $jwt\_claim\_sub zone=jwt\_sub:10m rate=1r/s;
-> 
-> server {
->     location / {
->         auth\_jwt          "realm";
->         auth\_jwt\_key\_file key.jwk;
-> 
->         internal\_redirect @rate\_limited;
->     }
-> 
->     location @rate\_limited {
->         internal;
-> 
->         limit\_req  zone=jwt\_sub burst=10;
->         proxy\_pass http://backend;
->     }
-> }
+```nginx
+limit_req_zone $jwt_claim_sub zone=jwt_sub:10m rate=1r/s;
+
+server {
+    location / {
+        auth_jwt          "realm";
+        auth_jwt_key_file key.jwk;
+
+        internal_redirect @rate_limited;
+    }
+
+    location @rate_limited {
+        internal;
+
+        limit_req  zone=jwt_sub burst=10;
+        proxy_pass http://backend;
+    }
+}
+```
 
 該示例實現了[per-user](https://datatracker.ietf.org/doc/html/rfc7519#section-4.1.2)[rate limiting](https://nginx.org/en/docs/http/ngx_http_limit_req_module.html)。沒有[internal\_redirect](https://nginx.org/en/docs/http/ngx_http_internal_redirect_module.html#internal_redirect)的實現容易受到未簽名JWT的DoS攻擊，因為通常會在[before](https://nginx.org/en/docs/dev/development_guide.html#http_phases)[auth\_jwt](https://nginx.org/en/docs/http/ngx_http_auth_jwt_module.html#auth_jwt)檢查中執行[limit\_req](https://nginx.org/en/docs/http/ngx_http_limit_req_module.html#limit_req)檢查。使用[internal\_redirect](https://nginx.org/en/docs/http/ngx_http_internal_redirect_module.html#internal_redirect)允許重新排序這些檢查。
 

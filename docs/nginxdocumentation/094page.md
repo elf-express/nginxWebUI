@@ -24,7 +24,9 @@
 
 將指定的標頭附加到發送到驗證伺服器的請求。此標頭可用作共享機密，以驗證請求是否來自nginx。例如：
 
-> auth\_http\_header X-Auth-Key "secret\_string";
+```nginx
+auth_http_header X-Auth-Key "secret_string";
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>auth_http_pass_client_cert</strong> <code>on</code> | <code>off</code>;</code><br></td></tr><tr><th>Default:</th><td><pre>auth_http_pass_client_cert off;</pre></td></tr><tr><th>Context:</th><td><code>mail</code>, <code>server</code><br></td></tr></tbody></table>
 
@@ -63,9 +65,11 @@ Request:
 
 不良反應：
 
-> HTTP/1.0 200 OK
-> Auth-Status：登錄名或密碼無效
-> Auth-Wait：3
+```
+HTTP/1.0 200 OK
+Auth-Status：登錄名或密碼無效
+Auth-Wait：3
+```
 
 如果沒有「Auth-Wait」標頭，將返回錯誤並關閉連接。當前實現為每次身份驗證嘗試分配內存。內存僅在會話結束時釋放。因此，必須限制單個會話中無效身份驗證嘗試的次數-伺服器必須在10-20次嘗試後不使用「Auth-Wait」報頭進行響應（嘗試次數在「Auth-Login-Attempt」頭中傳遞）。
 
@@ -103,7 +107,9 @@ Request:
 
 則SMTP客戶端將收到錯誤
 
-> 451 4.3.0伺服器暫時出現問題，請稍後再試
+```
+451 4.3.0伺服器暫時出現問題，請稍後再試
+```
 
 如果驗證SMTP不需要身份驗證，則請求將如下所示：
 

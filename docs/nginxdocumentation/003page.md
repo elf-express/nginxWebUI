@@ -531,12 +531,14 @@
 
 參數使用範例（所有這些都需要在一行中輸入）：
 
-> ./配置
-> --sbin-path=/usr/local/nginx/nginx
-> --conf-path=/usr/local/nginx/nginx.conf
-> --pid-path=/usr/local/nginx/nginx.pid
-> --with-http\_ssl\_module
-> --with-pcre=../pcre2-10.39
-> --with-zlib=../zlib-1.3
+```
+./配置
+--sbin-path=/usr/local/nginx/nginx
+--conf-path=/usr/local/nginx/nginx.conf
+--pid-path=/usr/local/nginx/nginx.pid
+--with-http_ssl_module
+--with-pcre=../pcre2-10.39
+--with-zlib=../zlib-1.3
+```
 
 配置完成後，使用`make`編譯並安裝nginx。

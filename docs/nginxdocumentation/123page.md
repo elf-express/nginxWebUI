@@ -23,94 +23,98 @@ Download and install instructions are available [here](https://nginx.org/en/docs
 
 The example works since [0.4.0](https://nginx.org/en/docs/njs/changes.html#njs0.4.0).
 
-> stream {
->     # since 0.9.1
->     js\_engine qjs;
-> 
->     js\_import stream.js;
-> 
->     js\_set $bar stream.bar;
->     js\_set $req\_line stream.req\_line;
-> 
->     server {
->         listen 12345;
-> 
->         js\_preread stream.preread;
->         return     $req\_line;
->     }
-> 
->     server {
->         listen 12346;
-> 
->         js\_access  stream.access;
->         proxy\_pass 127.0.0.1:8000;
->         js\_filter  stream.header\_inject;
->     }
-> }
-> 
-> http {
->     server {
->         listen 8000;
->         location / {
->             return 200 $http\_foo\\n;
->         }
->     }
-> }
+```nginx
+stream {
+    # since 0.9.1
+    js_engine qjs;
+
+    js_import stream.js;
+
+    js_set $bar stream.bar;
+    js_set $req_line stream.req_line;
+
+    server {
+        listen 12345;
+
+        js_preread stream.preread;
+        return     $req_line;
+    }
+
+    server {
+        listen 12346;
+
+        js_access  stream.access;
+        proxy_pass 127.0.0.1:8000;
+        js_filter  stream.header_inject;
+    }
+}
+
+http {
+    server {
+        listen 8000;
+        location / {
+            return 200 $http_foo\\n;
+        }
+    }
+}
+```
 
 The `stream.js` file:
 
-> var line = '';
-> 
-> function bar(s) {
->     var v = s.variables;
->     s.log("hello from bar() handler!");
->     return "bar-var" + v.remote\_port + "; pid=" + v.pid;
-> }
-> 
-> function preread(s) {
->     s.on('upload', function (data, flags) {
->         var n = data.indexOf('\\n');
->         if (n != -1) {
->             line = data.substr(0, n);
->             s.done();
->         }
->     });
-> }
-> 
-> function req\_line(s) {
->     return line;
-> }
-> 
-> // Read HTTP request line.
-> // Collect bytes in 'req' until
-> // request line is read.
-> // Injects HTTP header into a client's request
-> 
-> var my\_header =  'Foo: foo';
-> function header\_inject(s) {
->     var req = '';
->     s.on('upload', function(data, flags) {
->         req += data;
->         var n = req.search('\\n');
->         if (n != -1) {
->             var rest = req.substr(n + 1);
->             req = req.substr(0, n + 1);
->             s.send(req + my\_header + '\\r\\n' + rest, flags);
->             s.off('upload');
->         }
->     });
-> }
-> 
-> function access(s) {
->     if (s.remoteAddress.match('^192.\*')) {
->         s.deny();
->         return;
->     }
-> 
->     s.allow();
-> }
-> 
-> export default {bar, preread, req\_line, header\_inject, access};
+```javascript
+var line = '';
+
+function bar(s) {
+    var v = s.variables;
+    s.log("hello from bar() handler!");
+    return "bar-var" + v.remote_port + "; pid=" + v.pid;
+}
+
+function preread(s) {
+    s.on('upload', function (data, flags) {
+        var n = data.indexOf('\\n');
+        if (n != -1) {
+            line = data.substr(0, n);
+            s.done();
+        }
+    });
+}
+
+function req_line(s) {
+    return line;
+}
+
+// Read HTTP request line.
+// Collect bytes in 'req' until
+// request line is read.
+// Injects HTTP header into a client's request
+
+var my_header =  'Foo: foo';
+function header_inject(s) {
+    var req = '';
+    s.on('upload', function(data, flags) {
+        req += data;
+        var n = req.search('\\n');
+        if (n != -1) {
+            var rest = req.substr(n + 1);
+            req = req.substr(0, n + 1);
+            s.send(req + my_header + '\\r\\n' + rest, flags);
+            s.off('upload');
+        }
+    });
+}
+
+function access(s) {
+    if (s.remoteAddress.match('^192.*')) {
+        s.deny();
+        return;
+    }
+
+    s.allow();
+}
+
+export default {bar, preread, req_line, header_inject, access};
+```
 
 #### Directives
 
@@ -198,11 +202,13 @@ Configures a forward proxy URL with [Fetch API](https://nginx.org/en/docs/njs/re
 
 Example:
 
-> server {
->     listen 12345;
->     js\_fetch\_proxy http://user:pass@proxy.example.com:3128;
->     js\_preread main.fetch\_handler;
-> }
+```nginx
+server {
+    listen 12345;
+    js_fetch_proxy http://user:pass@proxy.example.com:3128;
+    js_preread main.fetch_handler;
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>js_fetch_keepalive</strong> <code><i>connections</i></code>;</code><br></td></tr><tr><th>Default:</th><td><pre>js_fetch_keepalive 0;</pre></td></tr><tr><th>Context:</th><td><code>stream</code>, <code>server</code><br></td></tr></tbody></table>
 
@@ -218,12 +224,14 @@ When enabled, keepalive assumes that destination servers send valid HTTP respons
 
 Example:
 
-> server {
->     listen 12345;
->     js\_fetch\_keepalive 32;
->     js\_fetch\_trusted\_certificate /path/to/ISRG\_Root\_X1.pem;
->     js\_preread main.fetch\_handler;
-> }
+```nginx
+server {
+    listen 12345;
+    js_fetch_keepalive 32;
+    js_fetch_trusted_certificate /path/to/ISRG_Root_X1.pem;
+    js_preread main.fetch_handler;
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>js_fetch_keepalive_requests</strong> <code><i>number</i></code>;</code><br></td></tr><tr><th>Default:</th><td><pre>js_fetch_keepalive_requests 1000;</pre></td></tr><tr><th>Context:</th><td><code>stream</code>, <code>server</code><br></td></tr></tbody></table>
 
@@ -265,7 +273,9 @@ This directive appeared in version 0.4.0.
 
 Imports a module that implements location and variable handlers in njs. The `export_name` is used as a namespace to access module functions. If the `export_name` is not specified, the module name will be used as a namespace.
 
-> js\_import stream.js;
+```nginx
+js_import stream.js;
+```
 
 Here, the module name `stream` is used as a namespace while accessing exports. If the imported module exports `foo()`, `stream.foo` is used to refer to it.
 
@@ -277,18 +287,20 @@ Several `js_import` directives can be specified.
 
 Specifies a file that implements server and variable handlers in njs:
 
-> nginx.conf:
-> js\_include stream.js;
-> js\_set     $js\_addr address;
-> server {
->     listen 127.0.0.1:12345;
->     return $js\_addr;
-> }
-> 
-> stream.js:
-> function address(s) {
->     return s.remoteAddress;
-> }
+```javascript
+nginx.conf:
+js_include stream.js;
+js_set     $js_addr address;
+server {
+    listen 127.0.0.1:12345;
+    return $js_addr;
+}
+
+stream.js:
+function address(s) {
+    return s.remoteAddress;
+}
+```
 
 The directive was made obsolete in version [0.4.0](https://nginx.org/en/docs/njs/changes.html#njs0.4.0) and was removed in version [0.7.1](https://nginx.org/en/docs/njs/changes.html#njs0.7.1). The [js\_import](https://nginx.org/en/docs/stream/ngx_stream_js_module.html#js_import) directive should be used instead.
 
@@ -302,24 +314,28 @@ The `*path*` parameter specifies the absolute path to the shared library file. T
 
 Example:
 
-> js\_load\_stream\_native\_module /path/to/mylib.so;
-> js\_load\_stream\_native\_module /path/to/other.so as myalias;
-> 
-> stream {
->     js\_import main.js;
->     # ... rest of stream configuration
-> }
+```nginx
+js_load_stream_native_module /path/to/mylib.so;
+js_load_stream_native_module /path/to/other.so as myalias;
+
+stream {
+    js_import main.js;
+    # ... rest of stream configuration
+}
+```
 
 In JavaScript code:
 
-> // Import by filename
-> import \* as mylib from 'mylib.so';
-> 
-> // Import by alias
-> import \* as myalias from 'myalias';
-> 
-> // Use exported functions
-> let result = mylib.add(5, 10);
+```javascript
+// Import by filename
+import * as mylib from 'mylib.so';
+
+// Import by alias
+import * as myalias from 'myalias';
+
+// Use exported functions
+let result = mylib.add(5, 10);
+```
 
 > For security reasons, this directive is only allowed in the `main` configuration context. Native modules run with full process privileges; use absolute paths and ensure proper code review.
 
@@ -345,30 +361,32 @@ By default, the `js_handler` is executed on worker process 0. The optional `work
 
 Example:
 
-> example.conf:
-> 
-> location @periodics {
->     # to be run at 1 minute intervals in worker process 0
->     js\_periodic main.handler interval=60s;
-> 
->     # to be run at 1 minute intervals in all worker processes
->     js\_periodic main.handler interval=60s worker\_affinity=all;
-> 
->     # to be run at 1 minute intervals in worker processes 1 and 3
->     js\_periodic main.handler interval=60s worker\_affinity=0101;
-> 
->     resolver 10.0.0.1;
->     js\_fetch\_trusted\_certificate /path/to/ISRG\_Root\_X1.pem;
-> }
-> 
-> example.js:
-> 
-> async function handler(s) {
->     let reply = await ngx.fetch('https://nginx.org/en/docs/njs/');
->     let body = await reply.text();
-> 
->     ngx.log(ngx.INFO, body);
-> }
+```javascript
+example.conf:
+
+location @periodics {
+    # to be run at 1 minute intervals in worker process 0
+    js_periodic main.handler interval=60s;
+
+    # to be run at 1 minute intervals in all worker processes
+    js_periodic main.handler interval=60s worker_affinity=all;
+
+    # to be run at 1 minute intervals in worker processes 1 and 3
+    js_periodic main.handler interval=60s worker_affinity=0101;
+
+    resolver 10.0.0.1;
+    js_fetch_trusted_certificate /path/to/ISRG_Root_X1.pem;
+}
+
+example.js:
+
+async function handler(s) {
+    let reply = await ngx.fetch('https://nginx.org/en/docs/njs/');
+    let body = await reply.text();
+
+    ngx.log(ngx.INFO, body);
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>js_preload_object</strong> <code><i>name.json</i></code> | <code><i>name</i></code> from <code><i>file.json</i></code>;</code><br></td></tr><tr><th>Default:</th><td>—</td></tr><tr><th>Context:</th><td><code>stream</code>, <code>server</code><br></td></tr></tbody></table>
 
@@ -376,7 +394,9 @@ This directive appeared in version 0.7.8.
 
 Preloads an [immutable object](https://nginx.org/en/docs/njs/preload_objects.html) at configure time. The `name` is used as a name of the global variable though which the object is available in njs code. If the `name` is not specified, the file name will be used instead.
 
-> js\_preload\_object map.json;
+```nginx
+js_preload_object map.json;
+```
 
 Here, the `map` is used as a name while accessing the preloaded object.
 
@@ -424,37 +444,39 @@ The optional `state` parameter specifies a `*file*` that keeps the shared dictio
 
 Example:
 
-> example.conf:
->     # Creates a 1Mb dictionary with string values,
->     # removes key-value pairs after 60 seconds of inactivity:
->     js\_shared\_dict\_zone zone=foo:1M timeout=60s;
-> 
->     # Creates a 512Kb dictionary with string values,
->     # forcibly removes oldest key-value pairs when the zone is exhausted:
->     js\_shared\_dict\_zone zone=bar:512K timeout=30s evict;
-> 
->     # Creates a 32Kb permanent dictionary with number values:
->     js\_shared\_dict\_zone zone=num:32k type=number;
-> 
->     # Creates a 1Mb dictionary with string values and persistent state:
->     js\_shared\_dict\_zone zone=persistent:1M state=/tmp/dict.json;
-> 
-> example.js:
->     function get(r) {
->         r.return(200, ngx.shared.foo.get(r.args.key));
->     }
-> 
->     function set(r) {
->         r.return(200, ngx.shared.foo.set(r.args.key, r.args.value));
->     }
-> 
->     function del(r) {
->         r.return(200, ngx.shared.bar.delete(r.args.key));
->     }
-> 
->     function increment(r) {
->         r.return(200, ngx.shared.num.incr(r.args.key, 2));
->     }
+```javascript
+example.conf:
+    # Creates a 1Mb dictionary with string values,
+    # removes key-value pairs after 60 seconds of inactivity:
+    js_shared_dict_zone zone=foo:1M timeout=60s;
+
+    # Creates a 512Kb dictionary with string values,
+    # forcibly removes oldest key-value pairs when the zone is exhausted:
+    js_shared_dict_zone zone=bar:512K timeout=30s evict;
+
+    # Creates a 32Kb permanent dictionary with number values:
+    js_shared_dict_zone zone=num:32k type=number;
+
+    # Creates a 1Mb dictionary with string values and persistent state:
+    js_shared_dict_zone zone=persistent:1M state=/tmp/dict.json;
+
+example.js:
+    function get(r) {
+        r.return(200, ngx.shared.foo.get(r.args.key));
+    }
+
+    function set(r) {
+        r.return(200, ngx.shared.foo.set(r.args.key, r.args.value));
+    }
+
+    function del(r) {
+        r.return(200, ngx.shared.bar.delete(r.args.key));
+    }
+
+    function increment(r) {
+        r.return(200, ngx.shared.num.incr(r.args.key, 2));
+    }
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>js_var</strong> <code><i>$variable</i></code> [<code><i>value</i></code>];</code><br></td></tr><tr><th>Default:</th><td>—</td></tr><tr><th>Context:</th><td><code>stream</code>, <code>server</code><br></td></tr></tbody></table>
 

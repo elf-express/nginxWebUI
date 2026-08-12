@@ -18,10 +18,12 @@
 
 #### 配置示例
 
-> server {
->     listen 12345;
->     return $time\_iso8601;
-> }
+```nginx
+server {
+    listen 12345;
+    return $time_iso8601;
+}
+```
 
 #### Directives
 

@@ -24,18 +24,20 @@
 
 #### 配置示例
 
-> stream {
->     geoip\_country         GeoIP.dat;
->     geoip\_city            GeoLiteCity.dat;
-> 
->     map $geoip\_city\_continent\_code $nearest\_server {
->         default        example.com;
->         EU          eu.example.com;
->         NA          na.example.com;
->         AS          as.example.com;
->     }
->    ...
-> }
+```nginx
+stream {
+    geoip_country         GeoIP.dat;
+    geoip_city            GeoLiteCity.dat;
+
+    map $geoip_city_continent_code $nearest_server {
+        default        example.com;
+        EU          eu.example.com;
+        NA          na.example.com;
+        AS          as.example.com;
+    }
+   ...
+}
+```
 
 #### Directives
 

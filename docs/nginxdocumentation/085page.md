@@ -18,10 +18,12 @@ The `ngx_http_uwsgi_module` module allows passing requests to a uwsgi server.
 
 #### Example Configuration
 
-> location / {
->     include    uwsgi\_params;
->     uwsgi\_pass localhost:9000;
-> }
+```nginx
+location / {
+    include    uwsgi_params;
+    uwsgi_pass localhost:9000;
+}
+```
 
 #### Directives
 
@@ -31,20 +33,22 @@ This directive appeared in version 1.29.3.
 
 Defines conditions under which access to a uwsgi server is allowed or [denied](https://nginx.org/en/docs/http/ngx_http_uwsgi_module.html#denied). If all string parameters are not empty and not equal to “0” then the access is allowed. The conditions are evaluated each time before a connection to a uwsgi server is established. Parameter values can contain variables:
 
-> geo $upstream\_last\_addr $allow {
->     volatile;
->     10.10.0.0/24        1;
-> }
-> 
-> server {
->     listen 127.0.0.1:8080;
-> 
->     location / {
->         uwsgi\_pass           localhost:9000;
->         uwsgi\_allow\_upstream $allow;
->         ...
->     }
-> }
+```nginx
+geo $upstream_last_addr $allow {
+    volatile;
+    10.10.0.0/24        1;
+}
+
+server {
+    listen 127.0.0.1:8080;
+
+    location / {
+        uwsgi_pass           localhost:9000;
+        uwsgi_allow_upstream $allow;
+        ...
+    }
+}
+```
 
 > This directive is available as part of our [commercial subscription](https://www.f5.com/products/nginx).
 
@@ -54,7 +58,9 @@ Makes outgoing connections to a uwsgi server originate from the specified local 
 
 The `transparent` parameter (1.11.0) allows outgoing connections to a uwsgi server originate from a non-local IP address, for example, from a real IP address of a client:
 
-> uwsgi\_bind $remote\_addr transparent;
+```nginx
+uwsgi_bind $remote_addr transparent;
+```
 
 In order for this parameter to work, it is usually necessary to run nginx worker processes with the [superuser](https://nginx.org/en/docs/ngx_core_module.html#user) privileges. On Linux it is not required (1.13.8) as if the `transparent` parameter is specified, worker processes inherit the `CAP_NET_RAW` capability from the master process. It is also necessary to configure kernel routing table to intercept network traffic from the uwsgi server.
 
@@ -102,8 +108,10 @@ Allows starting a background subrequest to update an expired cache item, while a
 
 Defines conditions under which the response will not be taken from a cache. If at least one value of the string parameters is not empty and is not equal to “0” then the response will not be taken from the cache:
 
-> uwsgi\_cache\_bypass $cookie\_nocache $arg\_nocache$arg\_comment;
-> uwsgi\_cache\_bypass $http\_pragma    $http\_authorization;
+```nginx
+uwsgi_cache_bypass $cookie_nocache $arg_nocache$arg_comment;
+uwsgi_cache_bypass $http_pragma    $http_authorization;
+```
 
 Can be used along with the [uwsgi\_no\_cache](https://nginx.org/en/docs/http/ngx_http_uwsgi_module.html#uwsgi_no_cache) directive.
 
@@ -111,7 +119,9 @@ Can be used along with the [uwsgi\_no\_cache](https://nginx.org/en/docs/http/ngx
 
 Defines a key for caching, for example
 
-> uwsgi\_cache\_key localhost:9000$request\_uri;
+```nginx
+uwsgi_cache_key localhost:9000$request_uri;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>uwsgi_cache_lock</strong> <code>on</code> | <code>off</code>;</code><br></td></tr><tr><th>Default:</th><td><pre>uwsgi_cache_lock off;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -151,11 +161,15 @@ Sets the `*number*` of requests after which the response will be cached.
 
 Sets the path and other parameters of a cache. Cache data are stored in files. The file name in a cache is a result of applying the MD5 function to the [cache key](https://nginx.org/en/docs/http/ngx_http_uwsgi_module.html#uwsgi_cache_key). The `levels` parameter defines hierarchy levels of a cache: from 1 to 3, each level accepts values 1 or 2. For example, in the following configuration
 
-> uwsgi\_cache\_path /data/nginx/cache levels=1:2 keys\_zone=one:10m;
+```nginx
+uwsgi_cache_path /data/nginx/cache levels=1:2 keys_zone=one:10m;
+```
 
 file names in a cache will look like this:
 
-> /data/nginx/cache/**c**/**29**/b7f54b2df7773722d382f4809d650**29c**
+```
+/data/nginx/cache/**c**/**29**/b7f54b2df7773722d382f4809d650**29c**
+```
 
 A cached response is first written to a temporary file, and then the file is renamed. Starting from version 0.8.9, temporary files and the cache can be put on different file systems. However, be aware that in this case a file is copied across two file systems instead of the cheap renaming operation. It is thus recommended that for any given location both cache and a directory holding temporary files are put on the same file system. A directory for temporary files is set based on the `use_temp_path` parameter (1.7.10). If this parameter is omitted or set to the value `on`, the directory set by the [uwsgi\_temp\_path](https://nginx.org/en/docs/http/ngx_http_uwsgi_module.html#uwsgi_temp_path) directive for the given location will be used. If the value is set to `off`, temporary files will be put directly in the cache directory.
 
@@ -199,22 +213,24 @@ If the [cache key](https://nginx.org/en/docs/http/ngx_http_uwsgi_module.html#uws
 
 Example configuration:
 
-> uwsgi\_cache\_path /data/nginx/cache keys\_zone=cache\_zone:10m;
-> 
-> map $request\_method $purge\_method {
->     PURGE   1;
->     default 0;
-> }
-> 
-> server {
->     ...
->     location / {
->         uwsgi\_pass        backend;
->         uwsgi\_cache       cache\_zone;
->         uwsgi\_cache\_key   $uri;
->         uwsgi\_cache\_purge $purge\_method;
->     }
-> }
+```nginx
+uwsgi_cache_path /data/nginx/cache keys_zone=cache_zone:10m;
+
+map $request_method $purge_method {
+    PURGE   1;
+    default 0;
+}
+
+server {
+    ...
+    location / {
+        uwsgi_pass        backend;
+        uwsgi_cache       cache_zone;
+        uwsgi_cache_key   $uri;
+        uwsgi_cache_purge $purge_method;
+    }
+}
+```
 
 > This functionality is available as part of our [commercial subscription](https://www.f5.com/products/nginx).
 
@@ -243,22 +259,28 @@ To minimize the number of accesses to uwsgi servers when populating a new cache 
 
 Sets caching time for different response codes. For example, the following directives
 
-> uwsgi\_cache\_valid 200 302 10m;
-> uwsgi\_cache\_valid 404      1m;
+```nginx
+uwsgi_cache_valid 200 302 10m;
+uwsgi_cache_valid 404      1m;
+```
 
 set 10 minutes of caching for responses with codes 200 and 302 and 1 minute for responses with code 404.
 
 If only caching `*time*` is specified
 
-> uwsgi\_cache\_valid 5m;
+```nginx
+uwsgi_cache_valid 5m;
+```
 
 then only 200, 301, and 302 responses are cached.
 
 In addition, the `any` parameter can be specified to cache any responses:
 
-> uwsgi\_cache\_valid 200 302 10m;
-> uwsgi\_cache\_valid 301      1h;
-> uwsgi\_cache\_valid any      1m;
+```nginx
+uwsgi_cache_valid 200 302 10m;
+uwsgi_cache_valid 301      1h;
+uwsgi_cache_valid any      1m;
+```
 
 Parameters of caching can also be set directly in the response header. This has higher priority than setting of caching time using the directive.
 
@@ -397,8 +419,10 @@ Limits the number of possible tries for passing a request to the [next server](h
 
 Defines conditions under which the response will not be saved to a cache. If at least one value of the string parameters is not empty and is not equal to “0” then the response will not be saved:
 
-> uwsgi\_no\_cache $cookie\_nocache $arg\_nocache$arg\_comment;
-> uwsgi\_no\_cache $http\_pragma    $http\_authorization;
+```nginx
+uwsgi_no_cache $cookie_nocache $arg_nocache$arg_comment;
+uwsgi_no_cache $http_pragma    $http_authorization;
+```
 
 Can be used along with the [uwsgi\_cache\_bypass](https://nginx.org/en/docs/http/ngx_http_uwsgi_module.html#uwsgi_cache_bypass) directive.
 
@@ -408,26 +432,34 @@ Sets a `*parameter*` that should be passed to the uwsgi server. The `*value*` ca
 
 Standard [CGI environment variables](https://datatracker.ietf.org/doc/html/rfc3875#section-4.1) should be provided as uwsgi headers, see the `uwsgi_params` file provided in the distribution:
 
-> location / {
->     include uwsgi\_params;
->     ...
-> }
+```nginx
+location / {
+    include uwsgi_params;
+    ...
+}
+```
 
 If the directive is specified with `if_not_empty` (1.1.11) then such a parameter will be passed to the server only if its value is not empty:
 
-> uwsgi\_param HTTPS $https if\_not\_empty;
+```nginx
+uwsgi_param HTTPS $https if_not_empty;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>uwsgi_pass</strong> [<code><i>protocol</i></code>://]<code><i>address</i></code>;</code><br></td></tr><tr><th>Default:</th><td>—</td></tr><tr><th>Context:</th><td><code>location</code>, <code>if in location</code><br></td></tr></tbody></table>
 
 Sets the protocol and address of a uwsgi server. As a `*protocol*`, “`uwsgi`” or “`suwsgi`” (secured uwsgi, uwsgi over SSL) can be specified. The address can be specified as a domain name or IP address, and a port:
 
-> uwsgi\_pass localhost:9000;
-> uwsgi\_pass uwsgi://localhost:9000;
-> uwsgi\_pass suwsgi://\[2001:db8::1\]:9090;
+```nginx
+uwsgi_pass localhost:9000;
+uwsgi_pass uwsgi://localhost:9000;
+uwsgi_pass suwsgi://[2001:db8::1]:9090;
+```
 
 or as a UNIX-domain socket path:
 
-> uwsgi\_pass unix:/tmp/uwsgi.socket;
+```nginx
+uwsgi_pass unix:/tmp/uwsgi.socket;
+```
 
 If a domain name resolves to several addresses, all of them will be used in a round-robin fashion. In addition, an address can be specified as a [server group](https://nginx.org/en/docs/http/ngx_http_upstream_module.html).
 
@@ -527,9 +559,11 @@ disables the cache.
 
 Example:
 
-> uwsgi\_ssl\_certificate       $uwsgi\_ssl\_server\_name.crt;
-> uwsgi\_ssl\_certificate\_key   $uwsgi\_ssl\_server\_name.key;
-> uwsgi\_ssl\_certificate\_cache max=1000 inactive=20s valid=1m;
+```nginx
+uwsgi_ssl_certificate       $uwsgi_ssl_server_name.crt;
+uwsgi_ssl_certificate_key   $uwsgi_ssl_server_name.key;
+uwsgi_ssl_certificate_cache max=1000 inactive=20s valid=1m;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>uwsgi_ssl_certificate_key</strong> <code><i>file</i></code>;</code><br></td></tr><tr><th>Default:</th><td>—</td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -633,39 +667,47 @@ Sets the verification depth in the secured uwsgi server certificates chain.
 
 Enables saving of files to a disk. The `on` parameter saves files with paths corresponding to the directives [alias](https://nginx.org/en/docs/http/ngx_http_core_module.html#alias) or [root](https://nginx.org/en/docs/http/ngx_http_core_module.html#root). The `off` parameter disables saving of files. In addition, the file name can be set explicitly using the `*string*` with variables:
 
-> uwsgi\_store /data/www$original\_uri;
+```nginx
+uwsgi_store /data/www$original_uri;
+```
 
 The modification time of files is set according to the received “Last-Modified” response header field. The response is first written to a temporary file, and then the file is renamed. Starting from version 0.8.9, temporary files and the persistent store can be put on different file systems. However, be aware that in this case a file is copied across two file systems instead of the cheap renaming operation. It is thus recommended that for any given location both saved files and a directory holding temporary files, set by the [uwsgi\_temp\_path](https://nginx.org/en/docs/http/ngx_http_uwsgi_module.html#uwsgi_temp_path) directive, are put on the same file system.
 
 This directive can be used to create local copies of static unchangeable files, e.g.:
 
-> location /images/ {
->     root               /data/www;
->     error\_page         404 = /fetch$uri;
-> }
-> 
-> location /fetch/ {
->     internal;
-> 
->     uwsgi\_pass         backend:9000;
->     ...
-> 
->     uwsgi\_store        on;
->     uwsgi\_store\_access user:rw group:rw all:r;
->     uwsgi\_temp\_path    /data/temp;
-> 
->     alias              /data/www/;
-> }
+```nginx
+location /images/ {
+    root               /data/www;
+    error_page         404 = /fetch$uri;
+}
+
+location /fetch/ {
+    internal;
+
+    uwsgi_pass         backend:9000;
+    ...
+
+    uwsgi_store        on;
+    uwsgi_store_access user:rw group:rw all:r;
+    uwsgi_temp_path    /data/temp;
+
+    alias              /data/www/;
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>uwsgi_store_access</strong> <code><i>users</i></code>:<code><i>permissions</i></code> ...;</code><br></td></tr><tr><th>Default:</th><td><pre>uwsgi_store_access user:rw;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
 Sets access permissions for newly created files and directories, e.g.:
 
-> uwsgi\_store\_access user:rw group:rw all:r;
+```nginx
+uwsgi_store_access user:rw group:rw all:r;
+```
 
 If any `group` or `all` access permissions are specified then `user` permissions may be omitted:
 
-> uwsgi\_store\_access group:rw all:r;
+```nginx
+uwsgi_store_access group:rw all:r;
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>uwsgi_temp_file_write_size</strong> <code><i>size</i></code>;</code><br></td></tr><tr><th>Default:</th><td><pre>uwsgi_temp_file_write_size 8k|16k;</pre></td></tr><tr><th>Context:</th><td><code>http</code>, <code>server</code>, <code>location</code><br></td></tr></tbody></table>
 
@@ -675,10 +717,14 @@ Limits the `*size*` of data written to a temporary file at a time, when bufferin
 
 Defines a directory for storing temporary files with data received from uwsgi servers. Up to three-level subdirectory hierarchy can be used underneath the specified directory. For example, in the following configuration
 
-> uwsgi\_temp\_path /spool/nginx/uwsgi\_temp 1 2;
+```nginx
+uwsgi_temp_path /spool/nginx/uwsgi_temp 1 2;
+```
 
 a temporary file might look like this:
 
-> /spool/nginx/uwsgi\_temp/**7**/**45**/00000123**457**
+```
+/spool/nginx/uwsgi_temp/**7**/**45**/00000123**457**
+```
 
 See also the `use_temp_path` parameter of the [uwsgi\_cache\_path](https://nginx.org/en/docs/http/ngx_http_uwsgi_module.html#uwsgi_cache_path) directive.

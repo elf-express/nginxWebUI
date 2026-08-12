@@ -28,13 +28,15 @@
 
 #### 配置示例
 
-> mgmt {
->     # 如果需要自定義路徑
->     license\_token custom/file/path/license.jwt;
-> 
->     # 在向NGINX實例管理器報告時
->     usage\_report endpoint=NIM\_FQDN;
-> }
+```nginx
+mgmt {
+    # 如果需要自定義路徑
+    license_token custom/file/path/license.jwt;
+
+    # 在向NGINX實例管理器報告時
+    usage_report endpoint=NIM_FQDN;
+}
+```
 
 #### Directives
 
@@ -76,23 +78,25 @@
 
 密碼默認不加密發送，如果代理支持TLS，可以使用[stream](https://nginx.org/en/docs/stream/ngx_stream_proxy_module.html)模塊保護到代理的連接：
 
-> mgmt {
->     proxy          127.0.0.1:8080;
->     proxy\_username <name>;
->     proxy\_password <password>;
-> }
-> 
-> stream {
->     server {
->         listen 127.0.0.1:8080;
->         
->         proxy\_ssl                     on;
->         proxy\_ssl\_verify              on;
->         proxy\_ssl\_trusted\_certificate <proxy\_ca\_file>;
-> 
->         proxy\_pass <proxy\_host>:<proxy\_port>;
->     }
-> }
+```nginx
+mgmt {
+    proxy          127.0.0.1:8080;
+    proxy_username <name>;
+    proxy_password <password>;
+}
+
+stream {
+    server {
+        listen 127.0.0.1:8080;
+        
+        proxy_ssl                     on;
+        proxy_ssl_verify              on;
+        proxy_ssl_trusted_certificate <proxy_ca_file>;
+
+        proxy_pass <proxy_host>:<proxy_port>;
+    }
+}
+```
 
 <table cellspacing="0"><tbody><tr><th>Syntax:</th><td><code><strong>resolver</strong> <code><i>address</i></code> ... [<code>valid</code>=<code><i>time</i></code>] [<code>ipv4</code>=<code>on</code>|<code>off</code>] [<code>ipv6</code>=<code>on</code>|<code>off</code>] [<code>status_zone</code>=<code><i>zone</i></code>];</code><br></td></tr><tr><th>Default:</th><td>—</td></tr><tr><th>Context:</th><td><code>mgmt</code><br></td></tr></tbody></table>
 

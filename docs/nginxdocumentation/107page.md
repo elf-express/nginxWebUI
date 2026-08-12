@@ -736,7 +736,9 @@ nginx modules:
     
 -   Improvement: added compile-time options to disable njs modules. For example, to disable libxslt-related code:
     
-    > NJS\_LIBXSLT=NO ./configure  .. --add-module=/path/to/njs/module
+    ```
+    NJS_LIBXSLT=NO ./configure  .. --add-module=/path/to/njs/module
+    ```
     
 -   Bugfix: fixed [`r.status`](https://nginx.org/en/docs/njs/reference.html#r_status) setter when filtering in [`http`](https://nginx.org/en/docs/http/ngx_http_js_module.html) module.
     

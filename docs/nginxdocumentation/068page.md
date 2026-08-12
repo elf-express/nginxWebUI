@@ -19,13 +19,15 @@
 
 #### 配置示例
 
-> >valid\_referers沒有阻止server\_names
->                \*. example.com example.\* www.example.com
->                ~\\.google\\.;
-> 
-> if ($invalid\_referer) {
->     return 403;
-> }
+```nginx
+>valid_referers沒有阻止server_names
+               *. example.com example.* www.example.com
+               ~\\.google\\.;
+
+if ($invalid_referer) {
+    return 403;
+}
+```
 
 #### Directives
 
@@ -69,9 +71,11 @@
 
 Example:
 
-> >valid\_referers沒有阻止server\_names
->                \*. example.com example.\* www.example.com
->                ~\\.google\\.;
+```nginx
+>valid_referers沒有阻止server_names
+               *. example.com example.* www.example.com
+               ~\\.google\\.;
+```
 
 #### 嵌入變量
 

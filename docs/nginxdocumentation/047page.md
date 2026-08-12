@@ -18,14 +18,16 @@
 
 #### 配置示例
 
-> expires    24h;
-> expires    modified +24h;
-> expires    @24h;
-> expires    0;
-> expires    -1;
-> expires    epoch;
-> expires    $expires;
-> add\_header Cache-Control private;
+```nginx
+expires    24h;
+expires    modified +24h;
+expires    @24h;
+expires    0;
+expires    -1;
+expires    epoch;
+expires    $expires;
+add_header Cache-Control private;
+```
 
 #### Directives
 
@@ -79,7 +81,9 @@
 
 In addition, it is possible to specify a time of day using the “`@`” prefix (0.7.9, 0.6.34):
 
-> expires @15h30m;
+```nginx
+expires @15h30m;
+```
 
 「Cache-Control」欄位的內容取決於指定時間的符號：
 
@@ -94,10 +98,12 @@ In addition, it is possible to specify a time of day using the “`@`” prefix 
 
 最後一個參數值可以包含變量（1.7.9）：
 
-> map $sent\_http\_content\_type $expires {
->     default         off;
->     application/pdf 42d;
->     ~image/         max;
-> }
-> 
-> expires $expires;
+```nginx
+map $sent_http_content_type $expires {
+    default         off;
+    application/pdf 42d;
+    ~image/         max;
+}
+
+expires $expires;
+```

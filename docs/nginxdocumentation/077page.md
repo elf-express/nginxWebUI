@@ -22,75 +22,79 @@
 
 #### 配置示例
 
-> http {
->     upstream **backend** {
->         **zone** http\_backend 64k;
-> 
->         server backend1.example.com weight=5;
->         server backend2.example.com;
->     }
-> 
->     proxy\_cache\_path /data/nginx/cache\_backend keys\_zone=**cache\_backend**:10m;
-> 
->     server {
->         server\_name backend.example.com;
-> 
->         location / {
->             proxy\_pass  http://backend;
->             proxy\_cache cache\_backend;
-> 
->             health\_check;
->         }
-> 
->         **status\_zone server\_backend;**
->     }
-> 
->     server {
->         listen 127.0.0.1;
-> 
->         location /upstream\_conf {
->             upstream\_conf;
->         }
-> 
->         location /status {
->             status;
->         }
-> 
->         location = /status.html {
->         }
->     }
-> }
-> 
-> stream {
->     upstream **backend** {
->         **zone** stream\_backend 64k;
-> 
->         server backend1.example.com:12345 weight=5;
->         server backend2.example.com:12345;
->     }
-> 
->     server {
->         listen      127.0.0.1:12345;
->         proxy\_pass  backend;
->         **status\_zone server\_backend;**
->         health\_check;
->     }
-> }
+```nginx
+http {
+    upstream **backend** {
+        **zone** http_backend 64k;
+
+        server backend1.example.com weight=5;
+        server backend2.example.com;
+    }
+
+    proxy_cache_path /data/nginx/cache_backend keys_zone=**cache_backend**:10m;
+
+    server {
+        server_name backend.example.com;
+
+        location / {
+            proxy_pass  http://backend;
+            proxy_cache cache_backend;
+
+            health_check;
+        }
+
+        **status_zone server_backend;**
+    }
+
+    server {
+        listen 127.0.0.1;
+
+        location /upstream_conf {
+            upstream_conf;
+        }
+
+        location /status {
+            status;
+        }
+
+        location = /status.html {
+        }
+    }
+}
+
+stream {
+    upstream **backend** {
+        **zone** stream_backend 64k;
+
+        server backend1.example.com:12345 weight=5;
+        server backend2.example.com:12345;
+    }
+
+    server {
+        listen      127.0.0.1:12345;
+        proxy_pass  backend;
+        **status_zone server_backend;**
+        health_check;
+    }
+}
+```
 
 使用此配置的狀態請求示例：
 
-> http://127.0.0.1/status
-> http://127.0.0.1/status/nginx\_version
-> http://127.0.0.1/status/caches/cache\_backend
-> http://127.0.0.1/status/upstreams
-> http://127.0.0.1/status/upstreams/backend
-> http://127.0.0.1/status/upstreams/backend/peers/1
-> http://127.0.0.1/status/upstreams/backend/peers/1/weight
-> http://127.0.0.1/status/stream
-> http://127.0.0.1/status/stream/upstreams
-> http://127.0.0.1/status/stream/upstreams/backend
-> http://127.0.0.1/status/stream/upstreams/backend/peers/1
-> http://127.0.0.1/status/stream/upstreams/backend/peers/1/weight
+```nginx
+http://127.0.0.1/status
+http://127.0.0.1/status/nginx_version
+http://127.0.0.1/status/caches/cache_backend
+http://127.0.0.1/status/upstreams
+http://127.0.0.1/status/upstreams/backend
+http://127.0.0.1/status/upstreams/backend/peers/1
+http://127.0.0.1/status/upstreams/backend/peers/1/weight
+http://127.0.0.1/status/stream
+http://127.0.0.1/status/stream/upstreams
+http://127.0.0.1/status/stream/upstreams/backend
+http://127.0.0.1/status/stream/upstreams/backend/peers/1
+http://127.0.0.1/status/stream/upstreams/backend/peers/1/weight
+```
 
 此發行版附帶了簡單監視頁面，在默認配置中可作為「`/status.html`」訪問。它需要如上所示配置位置「`/status`」和「`/status.html`」。
 

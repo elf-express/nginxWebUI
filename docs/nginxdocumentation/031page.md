@@ -20,23 +20,25 @@
 
 #### 配置示例
 
-> http {
->     oidc\_provider my\_idp {
->         ...
->     }
-> 
->     map $oidc\_claim\_role $admin\_role {
->         "admin" 1;
->     }
-> 
->     server {
->         auth\_oidc my\_idp;
-> 
->         location /admin {
->             auth\_require $admin\_role;
->         }
->     }
-> }
+```nginx
+http {
+    oidc_provider my_idp {
+        ...
+    }
+
+    map $oidc_claim_role $admin_role {
+        "admin" 1;
+    }
+
+    server {
+        auth_oidc my_idp;
+
+        location /admin {
+            auth_require $admin_role;
+        }
+    }
+}
+```
 
 #### Directives
 
