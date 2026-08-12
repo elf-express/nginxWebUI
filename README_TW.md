@@ -99,9 +99,12 @@ docker compose up -d          # image 預設拉 :latest，永遠跟最新 releas
 - 反向代理 modal 單欄向左對齊、不蓋 top header
 - **shadcn-vue 風格** template picker（Vue 3 + 自製 Combobox）
 
-### 🚀 開發流程
+### AI 助理整合
 
 - **nginx 文件 MCP 服務** — 969 條官方指令定義以 MCP 提供：精準查詢、全文搜尋、context 反查、拿設定草稿對照文件檢查。預設關閉，以 `--mcp.token` opt-in 啟用（見 [nginx 文件 MCP 服務](#nginx-文件-mcp-服務)）
+
+### 🚀 開發流程
+
 - **dev / master 雙分支模型**：日常開發在 dev、master = 最近一次 release 快照（發版走 `release/*` 分支 PR → master）
 - **`scripts/release.sh`** 自動化 pom bump + commit（tag 由 CI 在 master push 時自動打）
 - **GitHub Actions** push master → 版本閘控 build image (linux/amd64) → push ghcr.io，並自動打 `v*` tag + 建 Release
@@ -217,6 +220,23 @@ java -jar -Dfile.encoding=UTF-8 \
 
 啟用之後，打 `/mcp` 必須帶 header `Authorization: Bearer <token>`；沒帶或帶錯一律 `401`。
 傳輸走 streamable-stateless HTTP，所以裸 `POST` 直接回純 JSON —— 不需要 session 握手，也沒有 SSE 包裝。
+
+要確認有沒有起來，跟它要一次工具清單：
+
+```bash
+curl -s -X POST http://localhost:8080/mcp \
+     -H 'Accept: application/json, text/event-stream' \
+     -H 'Content-Type: application/json' \
+     -H 'Authorization: Bearer REPLACE_WITH_YOUR_TOKEN' \
+     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+端點正常的話會回一個列出五個工具的 JSON 物件。
+
+> **`Accept` 這個 header 是必要的，而且兩種型態都要列。** MCP streamable 規格要求 client 必須同時接受
+> `application/json` **與** `text/event-stream`；不帶這個 header、或只寫 `application/json`，
+> 請求會被擋成 **`400` 且 body 完全是空的** —— 不會告訴你原因。MCP client 自己會帶對，
+> 所以這個坑只有在用 curl 手動測試時才會踩到。
 
 ### client 端怎麼設定
 

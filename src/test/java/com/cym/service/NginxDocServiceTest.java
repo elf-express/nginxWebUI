@@ -5,20 +5,23 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import com.cym.model.NginxDirective;
+import com.cym.utils.NginxDocParser;
 
 public class NginxDocServiceTest {
 
 	private static NginxDocService svc;
+	private static final List<String> pages = new ArrayList<>();
 
 	@BeforeAll
 	public static void setUp() throws Exception {
-		List<String> pages = new ArrayList<>();
 		// 依檔名排序,對齊 loadFromClasspath 的 001→200 順序:122 個指令名同時存在於多個模組
 		// (proxy_pass 在 http 與 stream 都有),索引是先到先贏,而 Files.list 的順序在 Linux 上不保證。
 		try (var paths = Files.list(Path.of("docs/nginxdocumentation"))) {
@@ -183,6 +186,37 @@ public class NginxDocServiceTest {
 		// 而 byContext 是 MCP 反查「這一層能用什麼指令」的入口,多一個假 context 就是多一個假答案。
 		assertTrue(svc.byContext("1.17.6").isEmpty());
 		assertTrue(svc.knownContexts().stream().noneMatch(c -> c.matches("[0-9].*")), svc.knownContexts().toString());
+	}
+
+	@Test
+	public void 語料統計與README引用的數字一致() {
+		// README / README_TW / CLAUDE.md 都寫「969 條指令 / 803 個相異名稱 / 99 個模組 / 15 個 context」。
+		// 969 有 NginxDocParserTest 守著,另外三個原本沒有任何測試 —— 語料一改動,
+		// 只有文件會默默過時,而文件正是使用者判斷「這個索引完不完整」的唯一依據。
+		//
+		// 這裡從同一份公開 parser API 重算(計數規則對齊 NginxDocService.load:module 為空的不計入),
+		// 最後再與 service 自己的公開統計交叉核對,確保重算沒有偏離 load() 的實際行為。
+		Set<String> names = new HashSet<>();
+		Set<String> modules = new HashSet<>();
+		Set<String> contexts = new HashSet<>();
+		int total = 0;
+		for (String md : pages) {
+			for (NginxDirective d : NginxDocParser.parsePage(md)) {
+				total++;
+				names.add(d.name());
+				contexts.addAll(d.contexts());
+				if (!d.module().isEmpty()) {
+					modules.add(d.module());
+				}
+			}
+		}
+		assertEquals(969, total, "指令總條數");
+		assertEquals(803, names.size(), "相異指令名稱");
+		assertEquals(99, modules.size(), "模組數");
+		assertEquals(15, contexts.size(), "context 數");
+
+		assertEquals(total, svc.size(), "重算的總條數必須與 service 一致");
+		assertEquals(contexts.size(), svc.knownContexts().size(), "重算的 context 數必須與 service 一致");
 	}
 
 	@Test

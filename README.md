@@ -99,9 +99,12 @@ Only the core two services start by default; CrowdSec is opt-in via the compose 
 - Reverse proxy modal single-column left-aligned, doesn't cover top header
 - **shadcn-vue style** template picker (Vue 3 + custom Combobox)
 
-### 🚀 Development
+### AI assistant integration
 
 - **nginx docs MCP server** — 969 official directive definitions served over MCP: exact lookup, full-text search, context reverse-lookup, and checking a config draft against the docs. Off by default; opt in with `--mcp.token` (see [nginx docs MCP server](#nginx-docs-mcp-server))
+
+### 🚀 Development
+
 - **dev / master dual-branch model**: daily dev on dev, master = last release snapshot (releases go via `release/*` branch PR → master)
 - **`scripts/release.sh`** automates pom bump + commit (CI auto-tags on master push)
 - **GitHub Actions** push to master → version-gated image build (linux/amd64) → ghcr.io, auto-tags `v*` + creates Release
@@ -218,6 +221,23 @@ java -jar -Dfile.encoding=UTF-8 \
 Once enabled, `/mcp` requires the header `Authorization: Bearer <token>`; a missing or wrong token gets
 `401`. The transport is streamable-stateless HTTP, so a plain `POST` returns plain JSON — there is no
 session handshake and no SSE framing.
+
+To confirm it came up, ask it for its tool list:
+
+```bash
+curl -s -X POST http://localhost:8080/mcp \
+     -H 'Accept: application/json, text/event-stream' \
+     -H 'Content-Type: application/json' \
+     -H 'Authorization: Bearer REPLACE_WITH_YOUR_TOKEN' \
+     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+A working endpoint answers with a JSON object listing the five tools.
+
+> **The `Accept` header is mandatory and must name both types.** The MCP streamable spec requires a client
+> to accept `application/json` *and* `text/event-stream`; omit the header, or send only `application/json`,
+> and the request is rejected with **`400` and a completely empty body** — no message explaining why. An MCP
+> client sends the right header on its own, so this only bites when you are testing by hand with curl.
 
 ### Pointing a client at it
 

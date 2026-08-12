@@ -67,15 +67,24 @@ function toolText(json) {
 	return (json.result.content || []).map((c) => c.text).join('\n');
 }
 
-test.describe.serial('MCP 端點', () => {
+// 這裡刻意不用 describe.serial:config 已是 workers: 1 + retries: 0,同檔本來就依序跑,
+// 而 serial 的額外效果只有「第一條失敗後其餘全 skip」—— 共用 server 的 404 若回歸,
+// 報表會變成「1 failed, 7 skipped」,看不出認證與工具清單是不是也一起壞了。
+test.describe('MCP 端點', () => {
 	test.describe('未設定 token(共用測試 server)', () => {
-		test('POST /mcp 回 404', async ({ request, baseURL }) => {
+		test('POST /mcp 回 404,且 body 不吐旗標名', async ({ request, baseURL }) => {
 			const res = await request.post(new URL('/mcp', baseURL).toString(), {
 				headers: MCP_HEADERS,
 				data: { jsonrpc: '2.0', id: 1, method: 'tools/list' },
 				failOnStatusCode: false,
 			});
 			expect(res.status()).toBe(404);
+			// Task 5 最後一輪刻意把 body 從「…加上 --mcp.token 即可開啟」縮成「MCP 端點未啟用。」:
+			// 匿名一次 GET 就能問出「這台有什麼功能、旗標叫什麼」是不必要的資訊揭露。
+			// 那是安全決策,不能只靠有人記得。
+			const body = await res.text();
+			expect(body).not.toContain('mcp.token');
+			expect(body).not.toContain('--mcp');
 		});
 
 		test('GET /mcp 也回 404', async ({ request, baseURL }) => {
@@ -114,24 +123,36 @@ test.describe.serial('MCP 端點', () => {
 		});
 
 		test.afterAll(() => {
-			if (!mcpProcess) {
-				return;
-			}
-			if (process.platform === 'win32') {
-				try {
-					execFileSync('taskkill', ['/F', '/PID', String(mcpProcess.pid), '/T'], { stdio: 'ignore' });
-				} catch (e) {
-					// 已經自己結束了
+			if (mcpProcess) {
+				if (process.platform === 'win32') {
+					try {
+						execFileSync('taskkill', ['/F', '/PID', String(mcpProcess.pid), '/T'], { stdio: 'ignore' });
+					} catch (e) {
+						// 已經自己結束了
+					}
+				} else {
+					mcpProcess.kill('SIGTERM');
 				}
-			} else {
-				mcpProcess.kill('SIGTERM');
+				mcpProcess = null;
 			}
-			mcpProcess = null;
+			// 跑完就收掉,不要每次跑都在工作目錄留下一份 DB/log(雖然被 gitignore 蓋著)。
+			// maxRetries:Windows 上 taskkill 回來後 JVM 可能還握著 sqlite.db 的 handle。
+			// 清不掉不該讓整個 suite 紅 —— 這是善後,不是被測行為。
+			try {
+				fs.rmSync(MCP_DATA_DIR, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+			} catch (e) {
+				console.warn(`清除 ${MCP_DATA_DIR} 失敗(不影響測試結果):${e.message}`);
+			}
 		});
 
-		test('不帶 Authorization 回 401', async ({ request }) => {
+		test('不帶 Authorization 回 401,body 說明帶法但不吐旗標名', async ({ request }) => {
 			const res = await rpc(request, { jsonrpc: '2.0', id: 1, method: 'tools/list' }, null);
 			expect(res.status()).toBe(401);
+			// 401 與 404 的取捨不同:走到這裡的人已經知道端點存在,告訴他該帶什麼 header 是標準做法
+			// (空 body 的 401 極難查)。但設定鍵本身仍然不該出現 —— 那是「怎麼開啟」而不是「怎麼認證」。
+			const body = await res.text();
+			expect(body).toContain('Bearer');
+			expect(body).not.toContain('mcp.token');
 		});
 
 		test('token 錯誤回 401', async ({ request }) => {
