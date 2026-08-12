@@ -1,21 +1,29 @@
 package com.cym.service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.noear.solon.annotation.Component;
 import org.noear.solon.annotation.Inject;
 
 import com.cym.model.AsBlockIntent;
+import com.cym.sqlhelper.utils.ConditionAndWrapper;
 import com.cym.sqlhelper.utils.SqlHelper;
+import com.cym.utils.AsnSourceUrls;
 
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.http.HttpRequest;
+import cn.hutool.http.HttpResponse;
 
 /**
- * ASN big-block ban intents: protection profile gates, reasonTag, intent CRUD.
- * CrowdSec push is Task 5; this service only prepares gates + intents.
+ * ASN big-block ban intents: protection profile gates, reasonTag, intent CRUD,
+ * prefix fetch via ipverse as-ip-blocks, CrowdSec range ban push/revoke.
  */
 @Component
 public class AsnBlockService {
+
+	/** CrowdSec decision reason prefix for all nginxWebUI ASN bans. */
+	public static final String WEBUI_ASN_REASON_PREFIX = "nginxwebui:as-ban:AS";
 
 	public static final String SETTING_PROFILE = "protection.profile";
 	public static final String PROFILE_LIGHT = "light";
@@ -26,6 +34,8 @@ public class AsnBlockService {
 	SqlHelper sqlHelper;
 	@Inject
 	SettingService settingService;
+	@Inject
+	CrowdSecClient crowdSecClient;
 
 	// ── pure static helpers (unit-testable without DB) ─────────────────
 
@@ -63,7 +73,7 @@ public class AsnBlockService {
 		if (!a.matches("\\d+")) {
 			throw new IllegalArgumentException("invalid asn");
 		}
-		return "nginxwebui:as-ban:AS" + a;
+		return WEBUI_ASN_REASON_PREFIX + a;
 	}
 
 	// ── profile settings ───────────────────────────────────────────────
@@ -88,19 +98,16 @@ public class AsnBlockService {
 
 	/**
 	 * Push allowed when profile is manual|strict and CrowdSec LAPI is configured.
-	 * (Does not depend on CrowdSecClient yet — Task 4; checks setting keys directly.)
 	 */
 	public boolean canPush() {
 		return canCreateIntentForProfile(getProfile()) && isCrowdSecConfigured();
 	}
 
 	/**
-	 * CrowdSec configured = both URL and API key present.
-	 * Matches CrowdSecController alerts/decisions gate.
+	 * CrowdSec configured = LAPI URL + API key present ({@link CrowdSecClient#isConfigured()}).
 	 */
 	public boolean isCrowdSecConfigured() {
-		return StrUtil.isNotBlank(settingService.get("crowdsecUrl"))
-				&& StrUtil.isNotBlank(settingService.get("crowdsecApiKey"));
+		return crowdSecClient != null && crowdSecClient.isConfigured();
 	}
 
 	// ── intent CRUD ────────────────────────────────────────────────────
@@ -136,5 +143,141 @@ public class AsnBlockService {
 
 	public List<AsBlockIntent> listIntents() {
 		return sqlHelper.findAll(AsBlockIntent.class);
+	}
+
+	// ── prefix fetch (ipverse as-ip-blocks only) ───────────────────────
+
+	/**
+	 * Fetch aggregated IPv4 + IPv6 CIDRs for an ASN from ipverse as-ip-blocks.
+	 * Uses {@link AsnSourceUrls#prefixIpv4Url} / {@link AsnSourceUrls#prefixIpv6Url} only
+	 * — never hardcode hosts/paths, never legacy asn-ip.
+	 *
+	 * @param asn digits or AS-prefixed (normalized by AsnSourceUrls)
+	 * @return list of CIDR lines (may be empty if both sources fail or empty)
+	 */
+	List<String> fetchAggregatedCidrs(String asn) {
+		List<String> out = new ArrayList<>();
+		// MUST use AsnSourceUrls — exact hosts/paths from plan Source URLs table
+		String[] urls = new String[] {
+				AsnSourceUrls.prefixIpv4Url(asn),
+				AsnSourceUrls.prefixIpv6Url(asn)
+		};
+		for (String url : urls) {
+			try {
+				HttpResponse resp = HttpRequest.get(url)
+						.timeout(30_000)
+						.header("User-Agent", "nginxWebUI/AsnBlock")
+						.setMaxRedirectCount(5)
+						.execute();
+				if (!resp.isOk()) {
+					continue;
+				}
+				String body = resp.body();
+				if (body == null) {
+					continue;
+				}
+				for (String line : body.split("\r?\n")) {
+					String s = line.trim();
+					if (s.isEmpty() || s.startsWith("#")) {
+						continue;
+					}
+					out.add(s);
+				}
+			} catch (Exception e) {
+				// one family fail must not block the other
+			}
+		}
+		return out;
+	}
+
+	// ── push / revoke ──────────────────────────────────────────────────
+
+	/**
+	 * Fetch prefixes for the intent's ASN and ban each range on CrowdSec LAPI.
+	 * Profile must be manual|strict; CrowdSec must be configured.
+	 *
+	 * @throws IllegalStateException profile_disallows_push | crowdsec_not_configured
+	 * @throws IllegalArgumentException intent_not_found
+	 */
+	public void pushIntent(String intentId) {
+		if (!canCreateIntentForProfile(getProfile())) {
+			throw new IllegalStateException("profile_disallows_push");
+		}
+		if (!crowdSecClient.isConfigured()) {
+			throw new IllegalStateException("crowdsec_not_configured");
+		}
+		AsBlockIntent intent = sqlHelper.findById(intentId, AsBlockIntent.class);
+		if (intent == null) {
+			throw new IllegalArgumentException("intent_not_found");
+		}
+		intent.setStatus(AsBlockIntent.STATUS_PENDING);
+		intent.setLastError(null);
+		sqlHelper.updateById(intent);
+
+		String batchId = String.valueOf(System.currentTimeMillis());
+		List<String> cidrs = fetchAggregatedCidrs(intent.getAsn());
+		if (cidrs.isEmpty()) {
+			intent.setStatus(AsBlockIntent.STATUS_FAILED);
+			intent.setLastError("no_prefixes");
+			sqlHelper.updateById(intent);
+			return;
+		}
+		String reason = intent.getReasonTag();
+		int ok = 0;
+		String lastErr = null;
+		for (String cidr : cidrs) {
+			try {
+				crowdSecClient.banRange(cidr, intent.getDuration(), reason);
+				ok++;
+			} catch (Exception e) {
+				lastErr = e.getMessage();
+			}
+		}
+		intent.setPushBatchId(batchId);
+		intent.setLastPushAt(System.currentTimeMillis());
+		if (ok == 0) {
+			intent.setStatus(AsBlockIntent.STATUS_FAILED);
+			intent.setLastError(lastErr);
+		} else {
+			intent.setStatus(AsBlockIntent.STATUS_ACTIVE);
+			intent.setLastError(ok < cidrs.size()
+					? "partial:" + ok + "/" + cidrs.size() + " " + lastErr
+					: null);
+		}
+		sqlHelper.updateById(intent);
+	}
+
+	/**
+	 * Delete CrowdSec decisions with exact {@code reasonTag}, mark matching intents revoked.
+	 *
+	 * @return number of decisions deleted on LAPI
+	 */
+	public int revokeByReasonTag(String reasonTag) {
+		int n = crowdSecClient.deleteDecisionsByReasonEquals(reasonTag);
+		List<AsBlockIntent> list = sqlHelper.findListByQuery(
+				new ConditionAndWrapper().eq("reasonTag", reasonTag), AsBlockIntent.class);
+		for (AsBlockIntent i : list) {
+			i.setStatus(AsBlockIntent.STATUS_REVOKED);
+			sqlHelper.updateById(i);
+		}
+		return n;
+	}
+
+	/**
+	 * Delete all CrowdSec decisions whose reason starts with
+	 * {@code nginxwebui:as-ban:AS}, and mark all matching local intents revoked.
+	 *
+	 * @return number of decisions deleted on LAPI
+	 */
+	public int revokeAllWebuiAsnBans() {
+		int n = crowdSecClient.deleteDecisionsByReasonPrefix(WEBUI_ASN_REASON_PREFIX);
+		List<AsBlockIntent> list = sqlHelper.findAll(AsBlockIntent.class);
+		for (AsBlockIntent i : list) {
+			if (i.getReasonTag() != null && i.getReasonTag().startsWith(WEBUI_ASN_REASON_PREFIX)) {
+				i.setStatus(AsBlockIntent.STATUS_REVOKED);
+				sqlHelper.updateById(i);
+			}
+		}
+		return n;
 	}
 }
