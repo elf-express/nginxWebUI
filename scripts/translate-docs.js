@@ -26,6 +26,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { fenceScan } = require('./fence-code-blocks.js');
 
 const USAGE = `
 translate-docs.js — 保護程式碼的 markdown 批次翻譯工具
@@ -43,6 +44,8 @@ translate-docs.js — 保護程式碼的 markdown 批次翻譯工具
   --limit <n>        最多處理 n 個檔案（試跑用）
   --concurrency <n>  同時處理幾個檔案，預設 2
   --repair           不翻譯，只用備份把被吃掉的行首標記補回來（零 API 呼叫）
+  --strip-nav        不翻譯，只移除頁首的 <table width="100%"> 導覽表格
+                     （指令語法表格是 <table cellspacing="0">，不會被碰到）
   --force            連手動校對過的檔案也重翻（預設會自動跳過保護）
   --dry-run          只統計不呼叫 API、不寫檔
   --print <n>        搭配 --dry-run，印出前 n 行實際送翻的遮罩結果
@@ -92,6 +95,10 @@ function parseArgs(argv) {
 // 實測過的存活率：@0@ / %0% / [[0]] / {0} / #0# 在騰訊與 Google 都能原樣返回；
 // <x0/> 會被騰訊吃掉，⟦0⟧ 會被改寫成「0」。選 @ 是因為它不跟 markdown 連結、
 // nginx 大括號或標題語法相撞。
+// 注意左右分隔符是同一個字元：行內程式碼本身含 @（例如 `user@example.com`）時，
+// protect() 的 `m.includes(PH_L)` 會誤以為那段已經是佔位符而跳過保護。這條路徑靠
+// restore() 的殘留檢查兜底 —— 還原後文字裡還看得到 @ 就整行判失敗、退回原文，
+// 所以結果是不翻，不是翻壞。要動 restore 的殘留檢查前，先知道你拆掉的是這道網。
 const PH_L = '@';
 const PH_R = '@';
 const ph = (n) => `${PH_L}${n}${PH_R}`;
@@ -161,11 +168,11 @@ const CJK_RE = /[㐀-鿿]/;
 // 引用塊裡看起來像設定／命令的行 —— 這正是 001~006 出事的地方
 const CODEISH_RE = /[{};]|^\s*>\s*(?:\.\/|nginx\b|kill\b|service\b|systemctl\b|ps\b|curl\b|sudo\b|make\b|configure\b)/;
 
-function isTranslatable(line, inFence) {
-  if (inFence) return false;
+// fence 內外由 collectTargets 決定，這裡只看單行本身的形態。
+function isTranslatable(line) {
   const t = line.trim();
   if (!t) return false;
-  if (t.startsWith('```') || t.startsWith('~~~')) return false;
+  if (t.startsWith('```') || t.startsWith('~~~')) return false;   // fence 標記本身
   if (t === '---' || /^[-=*_]{3,}$/.test(t)) return false;
   if (/^#+\s*page$/i.test(t)) return false;                        // 抓取工具的模板標題
   if (t.startsWith('|')) return false;                             // markdown 表格
@@ -180,11 +187,40 @@ function isTranslatable(line, inFence) {
   return true;
 }
 
+// 挑出要送翻的行號。fence 的判定借用 fence-code-blocks.js 的 fenceScan（CommonMark 收尾規則），
+// 不自己寫「看到反引號就翻轉狀態」的版本：那種掃描器碰到四反引號 fence 內含 ``` 的內容
+// （131page.md:25 形態）會被內層標記提早關掉 fence，於是 `location / {`、`root html;`
+// 這些行被當成 fence 外的散文送去翻 —— 正是 001~006 被毀掉的那種災情。
+//
+// fenceScan 只認反引號 fence，不認 ~~~。isTranslatable 仍會擋下 ~~~ 標記行本身，
+// 但 ~~~ 區塊的內容不會被視為 fence 內（這批語料一個 ~~~ 都沒有）。
+// 真要支援波浪號 fence，該改的是 fenceScan —— fence 語意只准有一份。
+function collectTargets(lines) {
+  const { states } = fenceScan(lines);
+  const targets = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (states[i]) continue;                       // 'marker' 是 fence 標記、'in' 是 fence 內容，都不送翻
+    if (isTranslatable(lines[i])) targets.push(i);
+  }
+  return targets;
+}
+
 // ── 翻譯引擎（移植自 auto-translate.js）──────────────────────────────
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // 這些端點都是給瀏覽器用的，裸 fetch 不帶 UA 會被擋（Microsoft 那支甚至直接 404）
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
+// 批次引擎的結果是「照順序對回輸入」的，長度對不上就代表從這裡開始整批錯位：
+// 第 k 行會拿到第 k+1 行的譯文，一路歪到檔尾。這種錯位下游一道都攔不住——
+// lineIsSafe 數的是反引號與方括號，散文換散文完全平衡；sanityCheck 數的是全檔總量，
+// 一樣平衡。檔案會被安安靜靜地寫成一份內容錯置的譯文。
+// 丟錯讓呼叫端的 catch 接住，整批當失敗、那些行保留原文。
+function assertSameLength(got, chunk) {
+  if (!Array.isArray(got) || got.length !== chunk.length) {
+    throw new Error(`回傳 ${Array.isArray(got) ? got.length : '非陣列'} 筆，與送出的 ${chunk.length} 筆對不上，整批作廢`);
+  }
+}
 
 async function httpJson(url, init = {}) {
   const r = await fetch(url, { ...init, headers: { 'User-Agent': UA, ...(init.headers || {}) } });
@@ -244,7 +280,10 @@ const Engine = {
               body: JSON.stringify(chunk.map((t) => ({ Text: t }))),
             },
           );
-          for (const item of data) out.push(item.translations[0].text);
+          assertSameLength(data, chunk);
+          // 先整批取出再 push：中途取值失敗的話，catch 補的 null 數量會跟已 push 的重疊，
+          // 一樣會錯位。任何失敗都必須在動到 out 之前發生。
+          out.push(...data.map((item) => item.translations[0].text));
         } catch (e) {
           console.warn(`    ! microsoft 這批 ${chunk.length} 行失敗（${e.message}），保留原文`);
           for (let i = 0; i < chunk.length; i++) out.push(null);
@@ -280,6 +319,7 @@ const Engine = {
               source: { lang: 'auto', text_list: chunk }, target: { lang: to },
             }),
           });
+          assertSameLength(data.auto_translation, chunk);
           out.push(...data.auto_translation);
         } catch (e) {
           console.warn(`    ! tencent 這批 ${chunk.length} 行失敗（${e.message}），保留原文`);
@@ -362,13 +402,7 @@ async function translateFile(file, opt, engine) {
   const original = fs.readFileSync(source, 'utf8');
 
   const lines = original.split('\n');
-  const targets = [];
-  let inFence = false;
-  for (let i = 0; i < lines.length; i++) {
-    const t = lines[i].trim();
-    if (t.startsWith('```') || t.startsWith('~~~')) { inFence = !inFence; continue; }
-    if (isTranslatable(lines[i], inFence)) targets.push(i);
-  }
+  const targets = collectTargets(lines);
 
   if (opt.dryRun) {
     if (opt.print > 0) {
@@ -463,19 +497,56 @@ function repairFile(file) {
 // 那是文件核心，絕對不能碰 —— 兩者只差屬性，比對必須精確。
 const NAV_TABLE_RE = /^<table\s+width="100%">.*<\/table>$/;
 
-function stripNav(file) {
-  const text = fs.readFileSync(file, 'utf8');
+// 純函式：刪掉導覽表格行，並且只在真的刪掉東西的接縫壓空行。
+//
+// 舊版是刪完之後對整份檔案跑 /\n{3,}/g → '\n\n'。那條全檔規則跟 code fence 撞在一起：
+// fence-code-blocks.js 的 toFence 刻意保住區塊中間的空行（「區塊中間的空行是內容」），
+// 全檔壓縮會把 fence 裡的連續空行一起吃掉——那是程式碼內容，不是排版留白。
+// 所以只處理接縫：跨越刪除點的那段連續空行併成一個，其他地方（包含原本就存在的
+// 連續空行）一律不碰。
+function stripNavText(text) {
   const lines = text.split('\n');
-  const kept = lines.filter((l) => !NAV_TABLE_RE.test(l.trim()));
-  if (kept.length === lines.length) return { file, removed: 0 };
+  const out = [];
+  let removed = 0;
+  let seam = false;   // 剛剛刪掉一行，接下來的空行可能是接縫留下的
+  for (const line of lines) {
+    if (NAV_TABLE_RE.test(line.trim())) { removed++; seam = true; continue; }
+    if (!line.trim()) {
+      // 接縫兩側都是空行才壓：輸出尾端已經有一個空行了，這個是多出來的那個
+      if (seam && out.length && !out[out.length - 1].trim()) continue;
+      out.push(line);
+      continue;
+    }
+    seam = false;   // 有內容的行把接縫關掉，後面的空行跟這次刪除無關
+    out.push(line);
+  }
+  return { text: out.join('\n'), removed };
+}
 
-  // 刪行後可能留下連續空行，壓成一個
-  const out = kept.join('\n').replace(/\n{3,}/g, '\n\n');
+// 備份用 .pre-nav 後綴，刻意不共用 translateFile 的 .translate-backup/<name>：
+// 那一份是翻譯的「原文來源」（translateFile 會從它重讀以維持冪等），
+// 把刪過導覽表格的內容寫進去，等於讓下一次翻譯把導覽表格又帶回來。
+function navBackupPath(file) {
+  return path.join(path.dirname(file), '.translate-backup', `${path.basename(file)}.pre-nav`);
+}
+
+// opt 刻意沒有預設值：漏傳的話 opt.dryRun 會當場丟 TypeError，
+// 而不是默默地走進寫檔那一邊——這支函式先前就是因為看不到 --dry-run 才會無聲蓋檔。
+function stripNav(file, opt) {
+  const original = fs.readFileSync(file, 'utf8');
+  const { text: out, removed } = stripNavText(original);
+  if (removed === 0) return { file, removed: 0 };
+  if (opt.dryRun) return { file, removed, dryRun: true };
+
+  const backup = navBackupPath(file);
+  fs.mkdirSync(path.dirname(backup), { recursive: true });
+  // 備份只寫第一次：重跑時手上的「原文」已經是刪過的內容，覆蓋下去就再也回不去了
+  if (!fs.existsSync(backup)) fs.writeFileSync(backup, original, 'utf8');
   fs.writeFileSync(file, out, 'utf8');
 
   const stamp = path.join(path.dirname(file), '.translate-backup', `${path.basename(file)}.out`);
   if (fs.existsSync(stamp)) fs.writeFileSync(stamp, out, 'utf8');
-  return { file, removed: lines.length - kept.length };
+  return { file, removed };
 }
 
 // ── 主流程 ────────────────────────────────────────────────────────────
@@ -521,10 +592,12 @@ async function main() {
     let total = 0;
     let touched = 0;
     for (const f of selectFiles(opt).slice(0, opt.limit)) {
-      const r = stripNav(f);
+      const r = stripNav(f, opt);
       if (r.removed > 0) { touched++; total += r.removed; }
     }
-    console.log(`移除導覽表格：${touched} 檔 / ${total} 行（語法表格未動）`);
+    console.log(`${opt.dryRun ? 'DRY RUN · 會移除' : '已移除'}導覽表格：${touched} 檔 / ${total} 行（語法表格未動）`);
+    if (opt.dryRun) console.log('拿掉 --dry-run 才會寫檔');
+    else if (touched) console.log('原文備份為 .translate-backup/<name>.pre-nav（該目錄未進版控，真正能還原的是 git）');
     return;
   }
 
@@ -586,4 +659,13 @@ async function main() {
   }
 }
 
-main().catch((e) => { console.error(`錯誤：${e.message}`); process.exit(1); });
+// 沒有這道守衛的話，require 這支檔案就會直接開跑（而且沒有參數會當場丟錯退出），
+// 所以在它加上之前這裡一條單元測試都掛不上。
+if (require.main === module) {
+  main().catch((e) => { console.error(`錯誤：${e.message}`); process.exit(1); });
+}
+
+module.exports = {
+  parseArgs, protect, restore, hasSubstance, isTranslatable, collectTargets,
+  lineIsSafe, sanityCheck, stripNavText, stripNav, navBackupPath, Engine,
+};

@@ -45,7 +45,8 @@ function unescapeMd(s) {
 }
 
 // 引用行 → 內容行。只剝一層 "> " 是刻意的：巢狀 `> >` 的內層 > 屬於內容本身
-// （curl -v 的輸出前綴、diff 的 ---），剝兩層會吃掉程式碼字元。
+// （curl -v 的輸出前綴；diff 的 `--- a/...` 被抓取工具存成 `> >- a/...`，那個內層 >
+// 是三個連字號的殘骸，不是引用標記），剝兩層會吃掉程式碼字元。
 // 三個呼叫端共用這一層；要不要濾掉空行由呼叫端自己決定（toFence 必須留住中間空行）。
 function bodyLines(blockLines) {
   return blockLines.map((l) => unescapeMd(stripQuote(l)));
@@ -91,11 +92,14 @@ function detectLanguage(blockLines) {
 
   if (bodies.some((b) => /^@@ -\d+/.test(b.trim()))) return 'diff';
   if (bodies.some((b) => /^#include\b/.test(b.trim()))) return 'c';
-  // -> 但不是 SSI 註解的 -->；var 後面必須跟識別字，否則 /var/run/nginx.sock 會被當成 JS
+  // -> 但不是 SSI 註解的 -->，否則 <!--# include ... --> 會被當成 C 的箭號
   if (/\bngx_[a-z_]+_t\b|\bstatic\s+ngx_|\bu_char\b|(?<!-)->|\bngx_[a-z_]+\s*\(/.test(joined)) return 'c';
 
-  // njs（nginx 內嵌的 JavaScript）。語料有 38 塊，否則會被 rule 6 的 [{};]$ 誤標成 nginx。
+  // njs（nginx 內嵌的 JavaScript）。全語料實測 40 塊命中這條規則；拿掉它的話
+  // 其中 37 塊會掉進 rule 6 的 [{};]$ 兜底被誤標成 nginx，另外 3 塊會變成沒有標註。
   // 排在 C 之後：njs 用 r.foo 而非 r->foo，C 規則搶不走它。
+  // var 後面必須跟識別字：放寬回 \bvar\b 的話 /var/run/nginx.sock 這類路徑會被當成 JS
+  // （實測誤標 18 塊）。
   if (/\b(?:function|import|export|await|async|const|let)\b|\bvar\s+[A-Za-z_$]|=>/.test(joined)) return 'javascript';
 
   // JSON API 回應（status API）。整塊以 { 或 [ 起頭，且含 "key": 形式。
@@ -114,7 +118,9 @@ function fenceMarker(bodies) {
 }
 
 // 把一個區塊換成 code fence。這是整個腳本唯一產出檔案內容的地方，
-// 也是內容不變量的落點：除了剝一層引用前綴與還原 markdown 跳脫，不動任何字元。
+// 也是內容不變量的落點：除了剝一層引用前綴、還原 markdown 跳脫，以及丟掉區塊尾端的空行，
+// 不動任何字元。尾端空行是唯一的例外，而且指紋把所有空白壓掉、驗不出這個差異——
+// 它只靠這行註解與下面那行程式碼記著。
 function toFence(blockLines, lang) {
   const bodies = bodyLines(blockLines);  // 不濾空行：區塊中間的空行是內容
   // 去掉區塊尾端的空行，但保留中間的
@@ -371,7 +377,7 @@ function main() {
   console.log(`\n${opt.apply ? '已套用' : 'DRY RUN'}：掃描 ${names.length} 檔，其中 ${changed} 檔有變動，放棄 ${bad} 檔`);
   console.log(`區塊：轉換 ${totalConv} 個 / 保留散文 ${totalSkip} 個 / 既有 fence 內濾除 ${totalExcl} 個`);
   console.log('（「濾除」只含落在既有 fence 裡的引用塊；檔頭 Source／翻譯標注在切分階段就排除了，不進任何計數。放棄的檔案不計入區塊數。）');
-  if (!opt.apply) console.log('確認無誤後加 --apply 才會寫檔，原文備份為 .translate-backup/<name>.pre-fence');
+  if (!opt.apply) console.log('確認無誤後加 --apply 才會寫檔，原文備份為 .translate-backup/<name>.pre-fence（該目錄未進版控、也不會跟著 worktree 走，真正能還原的是 git）');
 }
 
 if (require.main === module) {
@@ -386,4 +392,7 @@ if (require.main === module) {
 module.exports = {
   splitBlocks, isCodeBlock, detectLanguage, toFence, stripQuote, unescapeMd, convertFile,
   parseArgs, selectFiles,
+  // 匯出給 translate-docs.js 用：那邊原本自己用「看到反引號就翻轉」的掃描器，
+  // 正是這裡刻意不用的那一種。fence 語意只准有一份。
+  fenceScan,
 };
