@@ -1,0 +1,19 @@
+pom.xml
+  s_0f42d4541db339::t_283939dc460f2a 68,149
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "e5feb7b5b87028389796dfc9423302ac607bfd0a",
+  "prompts": {},
+  "sessions": {
+    "s_0f42d4541db339": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d4847da6-26e6-485d-a0ba-31c84ff39992",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
