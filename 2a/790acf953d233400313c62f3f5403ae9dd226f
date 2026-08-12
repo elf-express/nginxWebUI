@@ -1,0 +1,23 @@
+docs/superpowers/plans/2026-08-12-nginx-doc-mcp-plan.md
+  s_492e18725e3eaa::t_1472baf6d2b730 215-219
+  s_492e18725e3eaa::t_4788fa40570a45 105-112
+  s_492e18725e3eaa::t_525b683b5ea0eb 1-104,113-214,220-257,259-260,277-1042,1053-1228
+  s_492e18725e3eaa::t_ca30b2f9a2b552 258,261-276
+  s_492e18725e3eaa::t_4735c698393b16 1043-1052
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "2a790acf953d233400313c62f3f5403ae9dd226f",
+  "prompts": {},
+  "sessions": {
+    "s_492e18725e3eaa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0393758c-a272-4bb9-a97c-c1ed6354bc61",
+        "model": "claude-opus-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
