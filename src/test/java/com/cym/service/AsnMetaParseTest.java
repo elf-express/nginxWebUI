@@ -9,6 +9,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import com.cym.service.AsnMetaService.AsMetaRow;
+import com.cym.sqlhelper.bean.Page;
 
 import cn.hutool.core.io.IoUtil;
 
@@ -54,5 +55,18 @@ public class AsnMetaParseTest {
 		assertNull(rows.get(0).handle);
 		assertNull(rows.get(0).category);
 		assertEquals("2026-01-01", rows.get(0).lastAnnounced);
+	}
+
+	@Test
+	public void normalizeCatalogPage_clampsLimitAndCurr() {
+		Page p = new Page();
+		p.setCurr(0);
+		p.setLimit(9999);
+		AsnMetaService.normalizeCatalogPage(p);
+		assertEquals(1, p.getCurr());
+		assertEquals(AsnMetaService.MAX_CATALOG_LIMIT, p.getLimit());
+		p.setLimit(null);
+		AsnMetaService.normalizeCatalogPage(p);
+		assertEquals(10, p.getLimit());
 	}
 }

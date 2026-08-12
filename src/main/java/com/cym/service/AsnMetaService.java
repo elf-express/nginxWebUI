@@ -2,6 +2,7 @@ package com.cym.service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.noear.solon.annotation.Component;
 import org.noear.solon.annotation.Inject;
@@ -25,16 +26,53 @@ import cn.hutool.json.JSONUtil;
 /**
  * AS metadata catalog (ipverse as-metadata as.json): parse, remote sync, search.
  * Full AsMeta only — no prefix catalog dual-storage.
+ * <p>
+ * Phase 1 (Light + catalog): shared single-flight sync for manual + schedule.
+ * Streaming/batch upsert remains post-merge hardening for very large heaps.
  */
 @Component
 public class AsnMetaService {
 
 	private static final Logger logger = LoggerFactory.getLogger(AsnMetaService.class);
 
+	/** Catalog page size hard cap (UI/API). */
+	public static final int MAX_CATALOG_LIMIT = 100;
+
+	/** Shared by ScheduleTask and AsnController so concurrent syncs never stack. */
+	private final AtomicBoolean syncing = new AtomicBoolean(false);
+
 	@Inject
 	SqlHelper sqlHelper;
 	@Inject
 	SettingService settingService;
+
+	/** @return true if this caller acquired the lock and must call {@link #endSync()}. */
+	public boolean tryBeginSync() {
+		return syncing.compareAndSet(false, true);
+	}
+
+	public void endSync() {
+		syncing.set(false);
+	}
+
+	public boolean isSyncing() {
+		return syncing.get();
+	}
+
+	/** Clamp page.limit into 1..MAX_CATALOG_LIMIT; fix curr if missing. */
+	public static void normalizeCatalogPage(Page page) {
+		if (page == null) {
+			return;
+		}
+		if (page.getCurr() == null || page.getCurr() < 1) {
+			page.setCurr(1);
+		}
+		if (page.getLimit() == null || page.getLimit() < 1) {
+			page.setLimit(10);
+		} else if (page.getLimit() > MAX_CATALOG_LIMIT) {
+			page.setLimit(MAX_CATALOG_LIMIT);
+		}
+	}
 
 	/**
 	 * Parse ipverse as-metadata JSON array into flat rows.

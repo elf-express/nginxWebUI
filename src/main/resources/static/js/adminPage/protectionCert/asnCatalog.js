@@ -71,6 +71,13 @@ var asnCatalogNS = (function () {
 			$('#asnCrowdsecBanner').hide();
 		}
 
+		// Manual/Strict: warn bulk range push is not production-hardened (phase-1)
+		if (profile === 'manual' || profile === 'strict') {
+			$('#asnBulkWarnBanner').show();
+		} else {
+			$('#asnBulkWarnBanner').hide();
+		}
+
 		var tipFn = PROFILE_TIPS[profile];
 		$('#asnProfileTip').text(tipFn ? tipFn() : '');
 
@@ -409,9 +416,13 @@ var asnCatalogNS = (function () {
 			layer.close(idx);
 			$.post(ctx + '/adminPage/asn/suggestCandidates', { category: 'hosting' }, function (res) {
 				if (res.success) {
-					var n = res.obj != null ? res.obj : 0;
-					var tpl = asnStr.suggestAdded || 'Added {0} candidates';
-					layer.msg(tpl.replace('{0}', n));
+					var obj = res.obj;
+					var n = (obj != null && typeof obj === 'object' && obj.added != null) ? obj.added : (obj != null ? obj : 0);
+					var msg = String(asnStr.suggestAdded || 'Added {0} candidates').replace('{0}', n);
+					if (obj && obj.capped) {
+						msg += ' ' + (asnStr.suggestCapped || '(capped for safety)');
+					}
+					layer.msg(msg);
 					loadIntents();
 				} else {
 					layer.msg(res.msg || 'error');

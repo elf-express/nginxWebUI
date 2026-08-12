@@ -10,6 +10,14 @@
 
 **Spec:** `docs/superpowers/specs/2026-08-12-ipverse-asn-crowdsec-design.md`
 
+## Implementation status (Phase 1 closed 2026-08-12)
+
+| Scope | Status |
+|-------|--------|
+| Light + AsMeta catalog/API + profiles + Z + CS client + UI + E2E smoke | **Done — mergeable** |
+| Manual single-ASN push | Experimental (warn banner) |
+| Strict bulk / production-grade range push | **Post-merge** — see `docs/superpowers/specs/2026-08-12-ipverse-asn-phase1-closure.md` |
+
 ## Global Constraints
 
 - **Do not** implement dual primary engines (`$blocked_asn` map + CrowdSec range) as the product default.

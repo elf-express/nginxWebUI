@@ -158,9 +158,7 @@ public class ScheduleTask {
 	}
 
 	// AsMeta (ipverse as-metadata) daily sync at asn.meta.syncTime (default 04:15).
-	// Background thread + single-flight so a slow catalog download never stacks.
-	private final java.util.concurrent.atomic.AtomicBoolean asMetaSyncing = new java.util.concurrent.atomic.AtomicBoolean(false);
-
+	// Single-flight shared with AsnController via AsnMetaService.tryBeginSync().
 	@Scheduled(cron = "0 * * * * ?")
 	public void syncAsMeta() {
 		String fetchTime = settingService.get("asn.meta.syncTime");
@@ -171,7 +169,7 @@ public class ScheduleTask {
 		if (!nowHHmm.equals(fetchTime)) {
 			return;
 		}
-		if (!asMetaSyncing.compareAndSet(false, true)) {
+		if (!asnMetaService.tryBeginSync()) {
 			return;
 		}
 		new Thread(() -> {
@@ -180,7 +178,7 @@ public class ScheduleTask {
 			} catch (Exception e) {
 				logger.error("AsMeta sync failed", e);
 			} finally {
-				asMetaSyncing.set(false);
+				asnMetaService.endSync();
 			}
 		}, "as-meta-sync").start();
 	}

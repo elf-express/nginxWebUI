@@ -269,9 +269,19 @@
 				<!-- ==================== Tab 5: ASN Block ==================== -->
 				<div class="layui-tab-item" id="asnTabContent">
 
+					<!-- Phase-1 scope: Light + catalog ready; Strict bulk post-merge -->
+					<div id="asnPhaseBanner" class="layui-bg-blue" style="padding:10px 14px;margin-bottom:12px;border-radius:4px;color:#fff;">
+						<i class="layui-icon layui-icon-tips"></i> ${asnStr.phase1Banner}
+					</div>
+
 					<!-- CrowdSec not configured banner -->
 					<div id="asnCrowdsecBanner" class="layui-bg-orange" style="display:none;padding:10px 14px;margin-bottom:12px;border-radius:4px;color:#fff;">
 						<i class="layui-icon layui-icon-about"></i> ${asnStr.crowdsecRequired}
+					</div>
+
+					<!-- Manual/Strict bulk push not production-hardened yet -->
+					<div id="asnBulkWarnBanner" class="layui-bg-orange" style="display:none;padding:10px 14px;margin-bottom:12px;border-radius:4px;color:#fff;">
+						<i class="layui-icon layui-icon-about"></i> ${asnStr.bulkPushWarn}
 					</div>
 
 					<!-- Profile control -->

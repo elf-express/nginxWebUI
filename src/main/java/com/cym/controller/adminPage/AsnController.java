@@ -3,7 +3,6 @@ package com.cym.controller.adminPage;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.noear.solon.annotation.Controller;
 import org.noear.solon.annotation.Inject;
@@ -28,13 +27,13 @@ import cn.hutool.core.util.StrUtil;
 public class AsnController extends BaseController {
 	Logger logger = LoggerFactory.getLogger(this.getClass());
 
+	/** Strict suggestCandidates hard cap (phase-1 safety; bulk Strict post-merge). */
+	public static final int MAX_SUGGEST_CANDIDATES = 50;
+
 	@Inject
 	AsnMetaService asnMetaService;
 	@Inject
 	AsnBlockService asnBlockService;
-
-	/** Manual catalog sync single-flight (optional; schedule has its own flag). */
-	private final AtomicBoolean metaSyncing = new AtomicBoolean(false);
 
 	// ── legacy AsnRule CRUD (deprecated; nginx map only if asn.nginxMapEnabled=true) ──
 	// Primary ASN big-block path = AsBlockIntent → CrowdSec. Soft-disable: list/del remain
@@ -104,21 +103,16 @@ public class AsnController extends BaseController {
 		if (page == null) {
 			page = new Page();
 		}
-		if (page.getCurr() == null || page.getCurr() < 1) {
-			page.setCurr(1);
-		}
-		if (page.getLimit() == null || page.getLimit() < 1) {
-			page.setLimit(10);
-		}
+		AsnMetaService.normalizeCatalogPage(page);
 		return renderSuccess(asnMetaService.search(page, q, category, countryCode));
 	}
 
 	/**
-	 * Manual AsMeta sync (async thread + single-flight).
+	 * Manual AsMeta sync (async thread + shared single-flight with schedule).
 	 */
 	@Mapping("syncMeta")
 	public JsonResult syncMeta() {
-		if (!metaSyncing.compareAndSet(false, true)) {
+		if (!asnMetaService.tryBeginSync()) {
 			return renderError(msgOr("asnStr.syncInProgress", "sync_in_progress"));
 		}
 		new Thread(() -> {
@@ -127,7 +121,7 @@ public class AsnController extends BaseController {
 			} catch (Exception e) {
 				logger.error("AsMeta manual sync failed", e);
 			} finally {
-				metaSyncing.set(false);
+				asnMetaService.endSync();
 			}
 		}, "as-meta-sync-manual").start();
 		return renderSuccess();
@@ -165,18 +159,19 @@ public class AsnController extends BaseController {
 			return renderError(mapServiceError("crowdsec_not_configured"));
 		}
 
-		asnBlockService.setProfile(next);
-
+		// Revoke first, then switch profile — avoids light + leftover bans / desync
 		if (wantRevoke) {
 			try {
 				int n = asnBlockService.revokeAllWebuiAsnBans();
+				asnBlockService.setProfile(next);
 				return renderSuccess(n);
 			} catch (Exception e) {
 				logger.error("revoke on setProfile light failed", e);
-				// profile already light — client must loadProfile() to resync
+				// profile unchanged (still previous)
 				return renderError(StrUtil.blankToDefault(e.getMessage(), "revoke_failed"));
 			}
 		}
+		asnBlockService.setProfile(next);
 		return renderSuccess();
 	}
 
@@ -260,18 +255,26 @@ public class AsnController extends BaseController {
 		if (StrUtil.isBlank(category)) {
 			category = "hosting";
 		}
+		// Phase-1 safety: do not load unbounded category lists for bulk Strict
 		List<AsMeta> metas = sqlHelper.findListByQuery(
 				new ConditionAndWrapper().eq("category", category), AsMeta.class);
 		String profile = asnBlockService.getProfile();
 		int added = 0;
+		int scanned = 0;
+		boolean capped = false;
 		for (AsMeta meta : metas) {
 			if (meta == null || StrUtil.isBlank(meta.getAsn())) {
 				continue;
 			}
+			scanned++;
 			AsBlockIntent existing = sqlHelper.findOneByQuery(
 					new ConditionAndWrapper().eq("asn", meta.getAsn()), AsBlockIntent.class);
 			if (existing != null) {
 				continue;
+			}
+			if (added >= MAX_SUGGEST_CANDIDATES) {
+				capped = true;
+				break;
 			}
 			try {
 				AsBlockIntent i = new AsBlockIntent();
@@ -287,7 +290,12 @@ public class AsnController extends BaseController {
 				logger.warn("suggestCandidates skip asn={}: {}", meta.getAsn(), e.getMessage());
 			}
 		}
-		return renderSuccess(added);
+		Map<String, Object> out = new HashMap<>();
+		out.put("added", added);
+		out.put("scanned", scanned);
+		out.put("capped", capped);
+		out.put("max", MAX_SUGGEST_CANDIDATES);
+		return renderSuccess(out);
 	}
 
 	// ── error helpers ──────────────────────────────────────────────────
