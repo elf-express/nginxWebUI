@@ -25,6 +25,12 @@
 			<artifactId>solon-web</artifactId>
 		</dependency>
 
+		<!-- MCP server（nginx 官方文件端點）。版本由 solon-parent 管理，不要寫死。 -->
+		<dependency>
+			<groupId>org.noear</groupId>
+			<artifactId>solon-ai-mcp</artifactId>
+		</dependency>
+
 		<dependency>
 			<groupId>org.noear</groupId>
 			<artifactId>solon-view-freemarker</artifactId>

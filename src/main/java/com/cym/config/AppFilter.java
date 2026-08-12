@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
+import org.noear.solon.Solon;
 import org.noear.solon.annotation.Component;
 import org.noear.solon.annotation.Inject;
 import org.noear.solon.core.exception.StatusException;
@@ -85,6 +86,27 @@ public class AppFilter implements Filter {
 
 	private void doFilterDo(Context ctx, FilterChain chain) throws Throwable {
 		String path = ctx.path().toLowerCase();
+
+		// MCP 端點:未設定 --mcp.token 一律 404(opt-in,既有部署升級後行為不變);
+		// 設定了則檢查 Authorization: Bearer <token>。
+		//
+		// 擺在最前面而不是跟在 api 過濾器後面:下面的 frontInterceptor 會讀 DB(setting/geoip)
+		// 並組出整份 i18n 訊息表,那是給 Freemarker 頁面用的,JSON-RPC 請求一個都用不到。
+		// 放在它之前,未通過認證的請求連一次 DB 都不會碰。只攔 /mcp,其他路徑行為完全不變。
+		if (path.startsWith("/mcp")) {
+			String expected = Solon.cfg().get("mcp.token");
+			if (StrUtil.isEmpty(expected)) {
+				ctx.status(404);
+				ctx.setHandled(true);
+				return;
+			}
+			String auth = ctx.header("Authorization");
+			if (auth == null || !auth.equals("Bearer " + expected)) {
+				ctx.status(401);
+				ctx.setHandled(true);
+				return;
+			}
+		}
 
 		// 全局过滤器
 		if (!path.contains("/lib/") //

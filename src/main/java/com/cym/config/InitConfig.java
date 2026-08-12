@@ -30,6 +30,7 @@ import com.cym.service.BasicService;
 import com.cym.service.ConfService;
 import com.cym.service.DenyAllowService;
 import com.cym.service.GeoipService;
+import com.cym.service.NginxDocService;
 import com.cym.service.NginxService;
 import com.cym.service.SettingService;
 import com.cym.service.TemplateService;
@@ -85,6 +86,8 @@ public class InitConfig {
 	DenyAllowService denyAllowService;
 	@Inject
 	GeoipService geoipService;
+	@Inject
+	NginxDocService nginxDocService;
 	@Inject
 	DataSourceEmbed dataSourceEmbed;
 	@Inject("${project.beanPackage}")
@@ -446,6 +449,11 @@ public class InitConfig {
 				}
 
 			});
+		}
+
+		// nginx 文件索引:只在啟用 MCP 時才載入,避免沒用到卻付出解析 150 頁 markdown 的成本
+		if (StrUtil.isNotEmpty(org.noear.solon.Solon.cfg().get("mcp.token"))) {
+			nginxDocService.loadFromClasspath();
 		}
 
 		// 展示logo
