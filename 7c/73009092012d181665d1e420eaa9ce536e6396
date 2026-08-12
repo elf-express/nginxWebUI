@@ -1,0 +1,31 @@
+src/main/java/com/cym/config/InitConfig.java
+  s_492e18725e3eaa::t_b3af27688b53cf 21-22,31,183-184,398-409,1158-1201
+src/main/java/com/cym/controller/adminPage/AsnController.java
+  s_492e18725e3eaa::t_995d08066589ce 39-42,50-52,84-86
+src/main/java/com/cym/service/ConfService.java
+  s_3614430df4b554::t_33e196de8f23b0 213-235
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "7c73009092012d181665d1e420eaa9ce536e6396",
+  "prompts": {},
+  "sessions": {
+    "s_3614430df4b554": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-aimpl-task2-119d0f9eedc49c5e",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    },
+    "s_492e18725e3eaa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0393758c-a272-4bb9-a97c-c1ed6354bc61",
+        "model": "claude-opus-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
