@@ -1,0 +1,43 @@
+src/main/java/com/cym/controller/adminPage/AsnController.java
+  s_492e18725e3eaa::t_7791763fb134af 240,279-284,286,296,299,305,346-347
+src/main/java/com/cym/service/AsnBlockService.java
+  s_492e18725e3eaa::t_ff2555ba2523e8 8-9,28-29,267,277-279,286,289-290
+src/main/java/com/cym/service/CrowdSecClient.java
+  s_492e18725e3eaa::t_872eeee57a4f6c 179-183,190-195
+src/main/java/com/cym/utils/NetGuard.java
+  s_492e18725e3eaa::t_31fbfa43f5abb5 40-43,90-94
+src/main/resources/messages.properties
+  s_492e18725e3eaa::t_fa658379864af7 876
+src/main/resources/messages_en_US.properties
+  s_492e18725e3eaa::t_702a69079cea78 876
+src/main/resources/messages_zh_TW.properties
+  s_492e18725e3eaa::t_57b4281e2559ec 876
+src/test/java/com/cym/service/CrowdSecClientTest.java
+  s_bc1d7b083057af::t_c01c5eed01ad6f 67-80
+src/test/java/com/cym/utils/NetGuardTest.java
+  s_bc1d7b083057af::t_38c9a12ff4440f 22-24,45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "70a60c9f528325a75de08d026f1d5d2bfca62207",
+  "prompts": {},
+  "sessions": {
+    "s_492e18725e3eaa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0393758c-a272-4bb9-a97c-c1ed6354bc61",
+        "model": "claude-opus-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    },
+    "s_bc1d7b083057af": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-amcp-premerge-fix-e09ff9d43e9008d7",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
