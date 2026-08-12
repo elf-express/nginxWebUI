@@ -181,17 +181,42 @@ function reindent(lines, indent) {
   return lines.map((l) => (l.trim() ? indent + l : l));  // 空行不補，免得留下行尾空白
 }
 
+// 整個區塊共用的容器縮排；縮排不一致時回 null（null 只代表這一件事）。
+//
+// 只看有內容的行：空引用行不會被 reindent 碰（見上），它的縮排差異影響不到任何字元，
+// 算進來只會平白退掉好檔案。反過來說，有內容的行縮排不一致就沒有正確答案可挑——
+// reindent 是把「某一行的縮排」套到每一行，而指紋把所有空白壓掉、驗不出縮排錯位，
+// 猜錯了會是一次無聲的破壞。這是全腳本唯一沒有機器檢查兜底的推定，所以寧可退回。
+function blockIndent(blockLines) {
+  const indents = blockLines
+    .filter((l) => stripQuote(l).trim())
+    .map((l) => INDENT_RE.exec(l)[1]);  // 區塊每一行都是引用行，必定匹配
+  if (!indents.length) return '';  // 整塊都是空行；isCodeBlock 早就擋掉了，這裡只是不讓它變成 null
+  return indents.every((s) => s === indents[0]) ? indents[0] : null;
+}
+
 function convertFile(text) {
   const lines = text.split('\n');
-  const { states } = fenceScan(lines);
-  const blocks = splitBlocks(lines).filter((b) => !states[b.start]);
+  const inputScan = fenceScan(lines);
+  const seen = splitBlocks(lines);
+  const blocks = seen.filter((b) => !inputScan.states[b.start]);
 
   let converted = 0;
   let skipped = 0;
+  // 落在既有 fence 裡而被濾掉的區塊。converted + skipped 不等於區塊總數，
+  // 沒有這個數字，讀報告的人分不出「這裡沒東西要轉」跟「有 N 塊被默默丟掉」。
+  // 注意它只涵蓋這一層濾掉的：檔頭 Source／翻譯標注在 splitBlocks 裡就排除了，
+  // 根本不會回傳到這裡，任何計數都看不到它們。
+  const excluded = seen.length - blocks.length;
+  const problems = [];
   const replacements = [];
   for (const b of blocks) {
     if (!isCodeBlock(b.lines)) { skipped++; continue; }
-    const indent = INDENT_RE.exec(b.lines[0])[1];  // 區塊每一行都是引用行，必定匹配
+    const indent = blockIndent(b.lines);
+    if (indent === null) {
+      problems.push(`第 ${b.start + 1} 行起的區塊縮排不一致，無法判斷容器縮排`);
+      continue;
+    }
     replacements.push({ b, out: reindent(toFence(b.lines, detectLanguage(b.lines)), indent) });
     converted++;
   }
@@ -203,14 +228,162 @@ function convertFile(text) {
   }
   const result = out.join('\n');
 
-  const problems = [];
   if (contentFingerprint(result) !== contentFingerprint(text)) {
     problems.push('內容指紋不符，轉換改動了程式碼字元');
   }
+  // 跟輸入比對過才知道該怪誰：原檔本來就帶著沒閉合的 fence 標記時，
+  // 只看輸出會把它寫成轉換的錯，讀報告的人就無從判斷這檔能不能套用。
   if (fenceScan(result.split('\n')).unclosed) {
-    problems.push('fence 標記未正確閉合');
+    problems.push(inputScan.unclosed
+      ? '原檔的 fence 標記本來就沒閉合，不是這次轉換造成的'
+      : '轉換後 fence 標記未正確閉合');
   }
-  return { text: result, converted, skipped, problems };
+  return { text: result, converted, skipped, excluded, problems };
 }
 
-module.exports = { splitBlocks, isCodeBlock, detectLanguage, toFence, stripQuote, unescapeMd, convertFile };
+// ---- CLI ----
+
+const USAGE = 'node scripts/fence-code-blocks.js --dir <path> [--dry-run|--apply] [--files N-M] [--limit N] [--sample N]';
+
+function intArg(name, raw) {
+  const n = Number(raw);
+  // NaN 一路傳下去只會讓 slice(0, NaN) 靜靜地變成「零個檔案」——
+  // 看起來跑完了，其實一個檔都沒掃。寧可當場丟錯。
+  if (!Number.isInteger(n) || n < 0) throw new Error(`${name} 應為非負整數，收到：${raw}`);
+  return n;
+}
+
+// 預設乾跑。要寫檔必須明確打 --apply，而且後面再出現的 --dry-run 收得回來——
+// 這條旗標背後是 152 個檔案，安全的那一邊必須是不用特別做對就會發生的那一邊。
+function parseArgs(argv) {
+  const opt = { dir: null, apply: false, files: 'all', limit: Infinity, sample: 0 };
+  for (let i = 2; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--apply') opt.apply = true;
+    else if (a === '--dry-run') opt.apply = false;
+    else if (a === '--dir') opt.dir = argv[++i];
+    else if (a === '--files') opt.files = argv[++i];
+    else if (a === '--limit') opt.limit = intArg('--limit', argv[++i]);
+    else if (a === '--sample') opt.sample = intArg('--sample', argv[++i]);
+    else throw new Error(`未知參數：${a}`);
+  }
+  if (!opt.dir) throw new Error('--dir 是必填的');
+  return opt;
+}
+
+// 依 --files 編號範圍與 --limit 篩檔名。抽成純函式是因為範圍邊界錯了不會有任何
+// 錯誤訊息——少掃一個檔的乾跑報告，長得跟掃完的一模一樣。
+function selectFiles(names, files, limit) {
+  let out = names.slice().sort();
+  if (files !== 'all') {
+    const m = /^(\d+)-(\d+)$/.exec(files);
+    if (!m) throw new Error('--files 格式應為 all 或 7-149');
+    out = out.filter((n) => {
+      const d = /^(\d+)/.exec(n);
+      return d && +d[1] >= +m[1] && +d[1] <= +m[2];
+    });
+  }
+  return out.slice(0, limit);
+}
+
+// 第一個相異行的索引，沒有差異回 -1。
+// 樣本要照出「轉換真的改了什麼」，所以直接比對輸入與輸出；找「檔案裡第一個 ```」
+// 會挑到本來就存在的 fence，那種樣本什麼都證明不了。
+function firstDiff(before, after) {
+  const n = Math.min(before.length, after.length);
+  for (let i = 0; i < n; i++) if (before[i] !== after[i]) return i;
+  return before.length === after.length ? -1 : n;
+}
+
+const CLOSING_RE = /^\s*`{3,}\s*$/;
+
+// 從 start 取一段輸出，收在 fence 的收尾標記或 max 行。
+function sampleAt(lines, start, max) {
+  const out = [];
+  for (let i = start; i < lines.length && out.length < max; i++) {
+    out.push(lines[i]);
+    if (out.length > 1 && CLOSING_RE.test(lines[i])) break;
+  }
+  return out;
+}
+
+function main() {
+  const fs = require('fs');
+  const path = require('path');
+  const opt = parseArgs(process.argv);
+
+  const names = selectFiles(
+    fs.readdirSync(opt.dir).filter((f) => /\.md$/i.test(f)),
+    opt.files,
+    opt.limit,
+  );
+
+  let totalConv = 0;
+  let totalSkip = 0;
+  let totalExcl = 0;
+  let changed = 0;
+  let bad = 0;
+  let shown = 0;
+  for (const name of names) {
+    const file = path.join(opt.dir, name);
+    const src = fs.readFileSync(file, 'utf8');
+    const r = convertFile(src);
+
+    if (r.problems.length) {
+      bad++;
+      console.log(`  x ${name} 放棄：${r.problems.join('；')}`);
+      continue;
+    }
+
+    // 計數擺在「這檔有沒有要轉」之前：零轉換的檔案裡的散文區塊照樣是語料的一部分，
+    // 漏掉它們，報告的總數就跟實際掃到的東西對不起來。
+    totalConv += r.converted;
+    totalSkip += r.skipped;
+    totalExcl += r.excluded;
+    if (r.converted === 0) continue;
+    changed++;
+
+    const after = r.text.split('\n');
+    if (opt.sample && shown < opt.sample) {
+      const at = firstDiff(src.split('\n'), after);
+      if (at >= 0) {
+        shown++;
+        // 第一個相異行之前兩邊逐行相同，所以這個行號在原檔與輸出是同一個位置，
+        // 讀報告的人可以直接拿去對原檔。
+        const win = sampleAt(after, at, 12);
+        console.log(`\n--- ${name} 轉換樣本（第 ${at + 1} 行）---`);
+        console.log(win.join('\n'));
+        if (!CLOSING_RE.test(win[win.length - 1])) console.log('…（樣本截斷，區塊未完）');
+      }
+    }
+
+    if (opt.apply) {
+      const bk = path.join(opt.dir, '.translate-backup');
+      fs.mkdirSync(bk, { recursive: true });
+      const pre = path.join(bk, `${name}.pre-fence`);
+      // 備份只寫第一次：重跑時手上的「原文」已經是轉換後的內容，
+      // 覆蓋下去就再也回不到真正的原文了。
+      if (!fs.existsSync(pre)) fs.writeFileSync(pre, src, 'utf8');
+      fs.writeFileSync(file, r.text, 'utf8');
+    }
+  }
+
+  console.log(`\n${opt.apply ? '已套用' : 'DRY RUN'}：掃描 ${names.length} 檔，其中 ${changed} 檔有變動，放棄 ${bad} 檔`);
+  console.log(`區塊：轉換 ${totalConv} 個 / 保留散文 ${totalSkip} 個 / 既有 fence 內濾除 ${totalExcl} 個`);
+  console.log('（「濾除」只含落在既有 fence 裡的引用塊；檔頭 Source／翻譯標注在切分階段就排除了，不進任何計數。放棄的檔案不計入區塊數。）');
+  if (!opt.apply) console.log('確認無誤後加 --apply 才會寫檔，原文備份為 .translate-backup/<name>.pre-fence');
+}
+
+if (require.main === module) {
+  try {
+    main();
+  } catch (e) {
+    console.error(`錯誤：${e.message}\n用法：${USAGE}`);
+    process.exit(1);
+  }
+}
+
+module.exports = {
+  splitBlocks, isCodeBlock, detectLanguage, toFence, stripQuote, unescapeMd, convertFile,
+  parseArgs, selectFiles,
+};

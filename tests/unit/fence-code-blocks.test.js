@@ -1,8 +1,15 @@
 const test = require('node:test');
 const assert = require('node:assert');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 const {
   splitBlocks, isCodeBlock, detectLanguage, toFence, stripQuote, convertFile,
+  parseArgs, selectFiles,
 } = require('../../scripts/fence-code-blocks.js');
+
+const CLI = path.join(__dirname, '..', '..', 'scripts', 'fence-code-blocks.js');
 
 test('splitBlocks 以空行切開連續引用行', () => {
   const lines = [
@@ -351,6 +358,77 @@ test('convertFile 撐得住內容自帶 ``` 的區塊', () => {
   ]);
 });
 
+test('convertFile 縮排不一致時回報問題，不猜著轉', () => {
+  // reindent 拿第一行的縮排套到每一行，指紋又把所有空白壓掉——縮排不一致的區塊
+  // 會被無聲改壞而 problems 仍是空的。這條是那個猜測的唯一機器檢查。
+  const src = [
+    '-   範例：',
+    '',
+    '    > location / {',
+    '  >     aio on;',
+    '    > }',
+    '',
+  ].join('\n');
+  const r = convertFile(src);
+  assert.strictEqual(r.converted, 0);
+  assert.strictEqual(r.problems.length, 1);
+  assert.match(r.problems[0], /縮排不一致/);
+  assert.match(r.problems[0], /第 3 行/);
+  assert.strictEqual(r.text, src);  // 有疑慮就整段不動
+});
+
+test('convertFile 空引用行的縮排不算不一致，縮排取自第一行有內容的行', () => {
+  // 空行不會被重新縮排（reindent 跳過它），所以它的縮排差異影響不到任何字元。
+  // 把空行算進去只會平白退掉好檔案。
+  const src = ['  >', '    > server {', '  >', '    > }'].join('\n');
+  const r = convertFile(src);
+  assert.strictEqual(r.converted, 1);
+  assert.deepStrictEqual(r.problems, []);
+  assert.deepStrictEqual(r.text.split('\n'), [
+    '    ```nginx',
+    '',
+    '    server {',
+    '',
+    '    }',
+    '    ```',
+  ]);
+});
+
+test('convertFile 數出被既有 fence 濾掉的區塊', () => {
+  // converted + skipped 不等於看到的區塊總數：落在既有 fence 裡的引用行
+  // 兩邊都不算。少了這個計數，讀報告的人分不出「這裡沒東西要轉」跟「有 N 塊被默默丟掉」。
+  const src = [
+    '```nginx',
+    'server {',
+    '> 這行在 fence 裡，是內容不是引用塊',
+    '}',
+    '```',
+    '',
+    '> server {',
+    '> }',
+  ].join('\n');
+  const r = convertFile(src);
+  assert.strictEqual(r.converted, 1);
+  assert.strictEqual(r.skipped, 0);
+  assert.strictEqual(r.excluded, 1);
+  assert.deepStrictEqual(r.problems, []);
+});
+
+test('convertFile 分辨原檔就沒閉合的 fence', () => {
+  // unclosed 只看輸出的話，原檔本來就壞掉的 fence 會被寫成轉換的錯。
+  const src = ['```nginx', 'server {', '}', '', '> aio on;'].join('\n');
+  const r = convertFile(src);
+  assert.deepStrictEqual(r.problems, ['原檔的 fence 標記本來就沒閉合，不是這次轉換造成的']);
+});
+
+test('convertFile 分辨轉換自己弄壞的 fence', () => {
+  // 內容自帶四個反引號：fenceMarker 只升到四個，收尾標記被內容提早關掉。
+  // 這個極端情況會被擋下（整檔退回），重點是訊息要指向轉換、不能誣賴原檔。
+  const r = convertFile('> ````');
+  assert.ok(r.problems.includes('轉換後 fence 標記未正確閉合'));
+  assert.ok(!r.problems.some((p) => p.includes('原檔')));
+});
+
 test('convertFile 保留容器縮排，不讓區塊掉出清單項目', () => {
   // 115page.md:967 形態：程式碼區塊縮在清單項目裡，> 前面帶著容器縮排。
   // toFence 產出的是不帶縮排的行，直接貼回第 0 欄會炸掉文件結構。
@@ -375,4 +453,106 @@ test('convertFile 保留容器縮排，不讓區塊掉出清單項目', () => {
     '    ```',
     '',
   ]);
+});
+
+// ---- CLI ----
+
+test('parseArgs 預設乾跑，只有 --apply 能開啟寫檔', () => {
+  assert.strictEqual(parseArgs(['node', 's', '--dir', 'd']).apply, false);
+  assert.strictEqual(parseArgs(['node', 's', '--dir', 'd', '--dry-run']).apply, false);
+  assert.strictEqual(parseArgs(['node', 's', '--dir', 'd', '--apply']).apply, true);
+  // 後面的 --dry-run 要能收回前面的 --apply：安全的那個選項必須贏得了
+  assert.strictEqual(parseArgs(['node', 's', '--dir', 'd', '--apply', '--dry-run']).apply, false);
+});
+
+test('parseArgs 擋下缺參數與壞參數', () => {
+  assert.throws(() => parseArgs(['node', 's']), /--dir/);
+  assert.throws(() => parseArgs(['node', 's', '--dir']), /--dir/);
+  assert.throws(() => parseArgs(['node', 's', '--dir', 'd', '--wat']), /未知參數/);
+  // NaN 會讓 slice(0, NaN) 靜靜地變成「零個檔案」，看起來像跑完了其實什麼都沒掃
+  assert.throws(() => parseArgs(['node', 's', '--dir', 'd', '--limit', 'abc']), /--limit/);
+  assert.throws(() => parseArgs(['node', 's', '--dir', 'd', '--sample', '-1']), /--sample/);
+});
+
+test('selectFiles 依編號範圍與上限篩檔', () => {
+  const names = ['035page.md', '001page.md', '115page.md', '007page.md'];
+  assert.deepStrictEqual(selectFiles(names, '7-7', Infinity), ['007page.md']);
+  assert.deepStrictEqual(selectFiles(names, '7-35', Infinity), ['007page.md', '035page.md']);
+  assert.deepStrictEqual(selectFiles(names, 'all', 2), ['001page.md', '007page.md']);
+  assert.throws(() => selectFiles(names, '7', Infinity), /--files/);
+});
+
+function tmpCorpus(files) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fence-cli-'));
+  for (const [name, body] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), body, 'utf8');
+  return dir;
+}
+
+const SRC = ['Enables AIO:', '', '> location /video/ {', '>     aio on;', '> }', ''].join('\n');
+
+test('CLI 預設乾跑：不寫檔、不留備份', () => {
+  // 152 個檔案押在這條上——parseArgs 說 apply=false 還不夠，得看真的沒動到磁碟。
+  const dir = tmpCorpus({ '001page.md': SRC });
+  try {
+    const out = execFileSync(process.execPath, [CLI, '--dir', dir], { encoding: 'utf8' });
+    assert.match(out, /DRY RUN/);
+    assert.strictEqual(fs.readFileSync(path.join(dir, '001page.md'), 'utf8'), SRC);
+    assert.strictEqual(fs.existsSync(path.join(dir, '.translate-backup')), false);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('CLI --apply 寫檔並備份原文，重跑不覆蓋既有備份', () => {
+  const dir = tmpCorpus({ '001page.md': SRC });
+  const bk = path.join(dir, '.translate-backup', '001page.md.pre-fence');
+  try {
+    execFileSync(process.execPath, [CLI, '--dir', dir, '--apply'], { encoding: 'utf8' });
+    assert.match(fs.readFileSync(path.join(dir, '001page.md'), 'utf8'), /```nginx/);
+    assert.strictEqual(fs.readFileSync(bk, 'utf8'), SRC);
+
+    // 第二趟的「原文」已經是轉換後的內容；備份若被覆蓋就再也回不去原文了
+    execFileSync(process.execPath, [CLI, '--dir', dir, '--apply'], { encoding: 'utf8' });
+    assert.strictEqual(fs.readFileSync(bk, 'utf8'), SRC);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('CLI 樣本印的是轉換真的改掉的地方，不是檔案裡第一個 fence', () => {
+  // 找「檔案裡第一個 ```」會挑到本來就存在的 fence，樣本就證明不了任何事
+  const src = [
+    '```bash',
+    'nginx -s reload',
+    '```',
+    '',
+    '> location /video/ {',
+    '>     aio on;',
+    '> }',
+    '',
+  ].join('\n');
+  const dir = tmpCorpus({ '001page.md': src });
+  try {
+    const out = execFileSync(process.execPath, [CLI, '--dir', dir, '--sample', '1'], { encoding: 'utf8' });
+    assert.match(out, /```nginx/);
+    assert.match(out, /aio on;/);
+    assert.doesNotMatch(out, /nginx -s reload/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('CLI 報告的散文計數含 0 轉換的檔案', () => {
+  // 「這檔沒東西可轉」不等於「這檔沒有引用塊」；漏掉它們總數就對不起來
+  const dir = tmpCorpus({
+    '001page.md': SRC,
+    '002page.md': '> 此命令應以啟動 nginx 的同一使用者執行。\n',
+  });
+  try {
+    const out = execFileSync(process.execPath, [CLI, '--dir', dir], { encoding: 'utf8' });
+    assert.match(out, /轉換 1 /);
+    assert.match(out, /保留散文 1 /);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });
