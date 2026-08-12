@@ -172,6 +172,10 @@ public class InitConfig {
 			// Proxy Headers Hash（避免 warn）
 			https.add(new Http("proxy_headers_hash_max_size", "4096", seq++, "proxy"));
 
+			// GeoIP2 / map 變數多時避免 variables_hash 警告
+			https.add(new Http("variables_hash_max_size", "2048", seq++, "base"));
+			https.add(new Http("variables_hash_bucket_size", "128", seq++, "base"));
+
 			// ASN 封鎖清單改由 AsnRule 表 + ConfService 動態產生 map，不再寫入 Http 表
 
 			// 日誌格式（含真實 IP + GeoIP + ASN）
@@ -259,6 +263,24 @@ public class InitConfig {
 			if (added > 0) {
 				logger.info("Migration: added {} module catalog row(s)", added);
 			}
+		}
+
+		// 遷移：精簡模組集 — 刪除已下架模組列，並依 MODULE_CATALOG 重寫 seq（load_module 順序）
+		if (!"1".equals(settingService.get("moduleCatalogHardened20260812"))) {
+			int pruned = pruneModulesNotInCatalog();
+			resequenceModulesToCatalogOrder();
+			settingService.set("moduleCatalogHardened20260812", "1");
+			logger.info("Migration: pruned {} obsolete module row(s), resequenced catalog", pruned);
+		}
+
+		// 遷移：修正 def=stream 誤標（GeoIP 的 if / HTTP log_format 被自動注入 stream{} → nginx -t 失敗）
+		// 僅允許「Connection Limit (stream) 連線數限制 — stream 層」保留 def=stream（zone 宣告）
+		// stream server 的 limit_conn 用 def=server1；其餘模板 def 清空（手動套用）
+		if (!"1".equals(settingService.get("streamDefTemplatesSanitized20260812"))) {
+			int n = sanitizeStreamDefTemplates();
+			ensureVariablesHashHttpParams();
+			settingService.set("streamDefTemplatesSanitized20260812", "1");
+			logger.info("Migration: sanitized stream template def/params ({} row touch(es)), ensured variables_hash", n);
 		}
 
 		// 遷移：為已有 Http 記錄填充 groupName
@@ -702,6 +724,44 @@ public class InitConfig {
 		return added;
 	}
 
+	/** 刪除不在 MODULE_CATALOG 的 module 列（下架未維護／高風險模組）。 */
+	private int pruneModulesNotInCatalog() {
+		java.util.HashSet<String> keep = new java.util.HashSet<>();
+		for (String[] row : NginxService.MODULE_CATALOG) {
+			keep.add(row[0]);
+		}
+		int pruned = 0;
+		for (Module mod : sqlHelper.findAll(Module.class)) {
+			if (mod.getName() == null || !keep.contains(mod.getName())) {
+				sqlHelper.deleteById(mod.getId(), Module.class);
+				pruned++;
+			}
+		}
+		return pruned;
+	}
+
+	/** 依 MODULE_CATALOG 重寫 seq（0..n），保證 UI 與 load 序一致。 */
+	private void resequenceModulesToCatalogOrder() {
+		java.util.HashMap<String, Module> byName = new java.util.HashMap<>();
+		for (Module mod : sqlHelper.findAll(Module.class)) {
+			if (mod.getName() != null) {
+				byName.put(mod.getName(), mod);
+			}
+		}
+		long seq = 0;
+		for (String[] row : NginxService.MODULE_CATALOG) {
+			Module mod = byName.get(row[0]);
+			if (mod == null) {
+				continue;
+			}
+			mod.setSeq(seq++);
+			if (StrUtil.isNotEmpty(row[1])) {
+				mod.setDescrKey(row[1]);
+			}
+			sqlHelper.updateById(mod);
+		}
+	}
+
 	/**
 	 * 既有 DB 補 stream 連線限制模板。名稱已存在則跳過（不改參數、不覆蓋使用者改過的列）。
 	 * zone 必須用 s_conn_perip，不可重用 http 的 conn_limit。
@@ -726,6 +786,122 @@ public class InitConfig {
 		}
 		if (added > 0) {
 			logger.info("Migration: seeded {} stream connection-limit template(s)", added);
+		}
+	}
+
+	/**
+	 * 修正被誤標 def=stream / def=server 的模板，避免 ConfService / ParamService 自動注入非法指令。
+	 * stream{} 禁止 HTTP 的 if / return 403 / add_header 等。
+	 * @return 有改動的 template 列數（約）
+	 */
+	private int sanitizeStreamDefTemplates() {
+		int touched = 0;
+		String streamZoneHint = "Connection Limit (stream) (連線數限制 — stream 層)";
+		String streamServerHint = "Connection Limit (stream server) (連線數限制 — stream server 層)";
+
+		List<Template> all = sqlHelper.findAll(Template.class);
+		for (Template tpl : all) {
+			if (tpl.getName() == null) {
+				continue;
+			}
+			String name = tpl.getName();
+			boolean changed = false;
+
+			if (name.equals(streamZoneHint) || (name.startsWith("Connection Limit (stream)") && !name.contains("server"))) {
+				if (!"stream".equals(tpl.getDef())) {
+					tpl.setDef("stream");
+					changed = true;
+				}
+			} else if (name.equals(streamServerHint) || name.startsWith("Connection Limit (stream server)")) {
+				if (!"server1".equals(tpl.getDef())) {
+					tpl.setDef("server1");
+					changed = true;
+				}
+			} else if (StrUtil.isNotEmpty(tpl.getDef())) {
+				// 其餘（含 GeoIP / Rate Limit / Connection Limit http|server）一律手動套用
+				tpl.setDef("");
+				changed = true;
+			}
+
+			if (changed) {
+				sqlHelper.updateById(tpl);
+				touched++;
+			}
+
+			// GeoIP Allow：確保 if 本體為 HTTP 語法（僅手動套用到 server/location）
+			if (name.startsWith("GeoIP Allow TW Only")) {
+				List<Param> params = sqlHelper.findListByQuery(
+						new ConditionAndWrapper().eq(Param::getTemplateId, tpl.getId()), Param.class);
+				for (Param p : params) {
+					if ("if".equals(p.getName()) && p.getValue() != null
+							&& (p.getValue().contains("!~") || p.getValue().contains("stream"))) {
+						p.setValue("($geoip2_data_country_code != \"TW\") {\r\n        return 403;\r\n    }");
+						sqlHelper.updateById(p);
+						touched++;
+					}
+				}
+			}
+
+			// GeoIP Log：禁止用 HTTP 的 $request log_format 當 stream 參數；改回 add_header
+			if (name.startsWith("GeoIP Log Country")) {
+				List<Param> params = sqlHelper.findListByQuery(
+						new ConditionAndWrapper().eq(Param::getTemplateId, tpl.getId()), Param.class);
+				boolean hasLogFormat = false;
+				for (Param p : params) {
+					if ("log_format".equals(p.getName())) {
+						sqlHelper.deleteById(p.getId(), Param.class);
+						hasLogFormat = true;
+						touched++;
+					}
+				}
+				if (hasLogFormat || params.isEmpty()) {
+					boolean hasCountry = false;
+					boolean hasCity = false;
+					params = sqlHelper.findListByQuery(
+							new ConditionAndWrapper().eq(Param::getTemplateId, tpl.getId()), Param.class);
+					for (Param p : params) {
+						if ("add_header".equals(p.getName()) && p.getValue() != null) {
+							if (p.getValue().contains("X-Country")) {
+								hasCountry = true;
+							}
+							if (p.getValue().contains("X-City")) {
+								hasCity = true;
+							}
+						}
+					}
+					if (!hasCountry) {
+						Param p = new Param();
+						p.setTemplateId(tpl.getId());
+						p.setName("add_header");
+						p.setValue("X-Country $geoip2_data_country_code");
+						sqlHelper.insert(p);
+						touched++;
+					}
+					if (!hasCity) {
+						Param p = new Param();
+						p.setTemplateId(tpl.getId());
+						p.setName("add_header");
+						p.setValue("X-City $geoip2_data_city_name");
+						sqlHelper.insert(p);
+						touched++;
+					}
+				}
+			}
+		}
+		return touched;
+	}
+
+	/** geoip2 / map 變數多時避免 variables_hash 警告；已存在則不改。 */
+	private void ensureVariablesHashHttpParams() {
+		Http max = sqlHelper.findOneByQuery(
+				new ConditionAndWrapper().eq(Http::getName, "variables_hash_max_size"), Http.class);
+		if (max == null) {
+			sqlHelper.insert(new Http("variables_hash_max_size", "2048", -2L, "base"));
+		}
+		Http bucket = sqlHelper.findOneByQuery(
+				new ConditionAndWrapper().eq(Http::getName, "variables_hash_bucket_size"), Http.class);
+		if (bucket == null) {
+			sqlHelper.insert(new Http("variables_hash_bucket_size", "128", -1L, "base"));
 		}
 	}
 
@@ -825,17 +1001,11 @@ public class InitConfig {
 					{ "keyval", "$remote_addr $s_kv_val zone=s_kv" },
 				} });
 
-		// ── util ──
+		// ── util（已移除 echo / upload* 等未維護模組對應範本）──
 		list.add(new Object[] { "Set Misc Basics (set_misc 常用 — 建議 server/location / 需 NDK+set_misc)", "", "util",
 				new String[][] {
-					{ "set_real_ip_from", "0.0.0.0/0" },
 					{ "set_secure_random_alphanum", "$sid 32" },
 					{ "set_escape_uri", "$escaped $arg_q" },
-				} });
-		list.add(new Object[] { "Echo Debug (echo 除錯 — 建議 location / 需 echo 模組)", "", "util",
-				new String[][] {
-					{ "echo", "\"OK $remote_addr\"" },
-					{ "echo_duplicate", "1 $request_uri" },
 				} });
 		list.add(new Object[] { "Cookie Flag (Cookie 旗標 — 建議 location / 需 cookie_flag)", "", "util",
 				new String[][] {
@@ -863,13 +1033,6 @@ public class InitConfig {
 					{ "add_header", "Access-Control-Allow-Origin *" },
 				} });
 
-		// ── upload ──
-		list.add(new Object[] { "Upload Progress (上傳進度 — 建議 location / 需 upload_progress)", "", "upload",
-				new String[][] {
-					{ "upload_progress", "uploads 1m" },
-					{ "track_uploads", "uploads 30s" },
-				} });
-
 		// ── realtime：Nchan ──
 		list.add(new Object[] { "Nchan PubSub (Nchan 發訂 — 建議 location / 需 nchan)", "", "realtime",
 				new String[][] {
@@ -888,12 +1051,6 @@ public class InitConfig {
 					{ "CheckRule", "\"$RFI >= 8\" BLOCK" },
 					{ "CheckRule", "\"$TRAVERSAL >= 4\" BLOCK" },
 					{ "CheckRule", "\"$XSS >= 8\" BLOCK" },
-				} });
-
-		// ── upstream_ext ──
-		list.add(new Object[] { "Upstream Fair Hint (fair 提示 — 在 upstream 選 fair / 需 fair 模組)", "", "upstream_ext",
-				new String[][] {
-					{ "fair", "" },
 				} });
 
 		// ── mail（非 HTTP；僅範本庫）──

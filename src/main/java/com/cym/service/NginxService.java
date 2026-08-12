@@ -30,64 +30,49 @@ public class NginxService {
 
 	/**
 	 * 模組目錄：{ .so 檔名, i18n descrKey 後綴 }。
-	 * 順序 = load_module 建議依賴序（stream / NDK 靠前）。
-	 * Alpine 全量 nginx-mod 安裝後，磁碟有檔才會被 getAvailableModules / 後台列表採用。
+	 * 順序 = load_module 唯一真相（NDK/Lua → stream/mail/rtmp → geoip2 → njs/keyval → 壓縮 → 過濾 → 動態 upstream → 功能模組）。
+	 * 已排除：upstream_fair、legacy geoip、perl、upload*、zip、untar、slowfs、echo、dav、fancyindex、xslt、shibboleth、log_zmq、accounting、redis2。
 	 */
 	public static final String[][] MODULE_CATALOG = {
-		// stream 核心與 stream 附屬
-		{ "ngx_stream_module.so", "descrStream" },
-		{ "ngx_stream_geoip_module.so", "descrStreamGeoip" },
-		{ "ngx_stream_geoip2_module.so", "descrStreamGeoip2" },
-		{ "ngx_stream_js_module.so", "descrStreamJs" },
-		{ "ngx_stream_keyval_module.so", "descrStreamKeyval" },
-		// NDK + Lua 生態
+		// NDK + Lua 生態（必須最先）
 		{ "ndk_http_module.so", "descrNdk" },
 		{ "ngx_http_lua_module.so", "descrLua" },
 		{ "ngx_http_lua_upstream_module.so", "descrLuaUpstream" },
 		{ "ngx_http_set_misc_module.so", "descrSetMisc" },
 		{ "ngx_http_array_var_module.so", "descrArrayVar" },
 		{ "ngx_http_encrypted_session_module.so", "descrEncryptedSession" },
-		// GeoIP / 壓縮 / headers / cache
-		{ "ngx_http_geoip_module.so", "descrHttpGeoip" },
+		// 動態上下文核心
+		{ "ngx_stream_module.so", "descrStream" },
+		{ "ngx_mail_module.so", "descrMail" },
+		{ "ngx_rtmp_module.so", "descrRtmp" },
+		// GeoIP2（非 legacy .dat）
 		{ "ngx_http_geoip2_module.so", "descrHttpGeoip2" },
+		{ "ngx_stream_geoip2_module.so", "descrStreamGeoip2" },
+		// njs + keyval
+		{ "ngx_http_js_module.so", "descrHttpJs" },
+		{ "ngx_stream_js_module.so", "descrStreamJs" },
+		{ "ngx_http_keyval_module.so", "descrHttpKeyval" },
+		{ "ngx_stream_keyval_module.so", "descrStreamKeyval" },
+		// 壓縮
 		{ "ngx_http_brotli_filter_module.so", "descrBrotliFilter" },
 		{ "ngx_http_brotli_static_module.so", "descrBrotliStatic" },
 		{ "ngx_http_zstd_filter_module.so", "descrZstdFilter" },
 		{ "ngx_http_zstd_static_module.so", "descrZstdStatic" },
+		// headers / cache / filters
 		{ "ngx_http_headers_more_filter_module.so", "descrHeadersMore" },
 		{ "ngx_http_cache_purge_module.so", "descrCachePurge" },
-		// 通用 HTTP 擴充
-		{ "ngx_http_echo_module.so", "descrEcho" },
-		{ "ngx_http_js_module.so", "descrHttpJs" },
-		{ "ngx_http_keyval_module.so", "descrHttpKeyval" },
-		{ "ngx_http_upstream_fair_module.so", "descrUpstreamFair" },
-		{ "ngx_http_zip_module.so", "descrZip" },
-		{ "ngx_http_upload_module.so", "descrUpload" },
-		{ "ngx_http_uploadprogress_module.so", "descrUploadProgress" },
-		{ "ngx_http_perl_module.so", "descrPerl" },
 		{ "ngx_http_cookie_flag_filter_module.so", "descrCookieFlag" },
-		{ "ngx_http_dav_ext_module.so", "descrDavExt" },
-		{ "ngx_http_fancyindex_module.so", "descrFancyIndex" },
 		{ "ngx_http_image_filter_module.so", "descrImageFilter" },
-		{ "ngx_http_xslt_filter_module.so", "descrXsltFilter" },
-		// 安全 / 媒體 / 觀測 / 其他
-		{ "ngx_http_auth_jwt_module.so", "descrAuthJwt" },
-		{ "ngx_http_naxsi_module.so", "descrNaxsi" },
-		{ "ngx_nchan_module.so", "descrNchan" },
-		{ "ngx_http_vhost_traffic_status_module.so", "descrVts" },
-		{ "ngx_http_vod_module.so", "descrVod" },
-		{ "ngx_http_redis2_module.so", "descrRedis2" },
-		{ "ngx_http_log_zmq_module.so", "descrLogZmq" },
-		{ "ngx_http_accounting_module.so", "descrAccounting" },
-		{ "ngx_http_acme_module.so", "descrAcme" },
-		{ "ngx_http_shibboleth_module.so", "descrShibboleth" },
-		{ "ngx_http_slowfs_module.so", "descrSlowfsCache" },
-		{ "ngx_http_untar_module.so", "descrUntar" },
+		// 動態 upstream
 		{ "ngx_http_dynamic_upstream_module.so", "descrDynamicUpstream" },
 		{ "ngx_http_dynamic_healthcheck_module.so", "descrDynamicHealthcheck" },
-		// 非 HTTP 代理
-		{ "ngx_mail_module.so", "descrMail" },
-		{ "ngx_rtmp_module.so", "descrRtmp" },
+		// 功能模組
+		{ "ngx_http_auth_jwt_module.so", "descrAuthJwt" },
+		{ "ngx_http_naxsi_module.so", "descrNaxsi" },
+		{ "ngx_http_vhost_traffic_status_module.so", "descrVts" },
+		{ "ngx_nchan_module.so", "descrNchan" },
+		{ "ngx_http_vod_module.so", "descrVod" },
+		{ "ngx_http_acme_module.so", "descrAcme" },
 	};
 
 	/**
@@ -108,7 +93,6 @@ public class NginxService {
 
 	static {
 		DEPENDENCY_MAP.put("ngx_stream_geoip2_module.so", "ngx_stream_module.so");
-		DEPENDENCY_MAP.put("ngx_stream_geoip_module.so", "ngx_stream_module.so");
 		DEPENDENCY_MAP.put("ngx_stream_js_module.so", "ngx_stream_module.so");
 		DEPENDENCY_MAP.put("ngx_stream_keyval_module.so", "ngx_stream_module.so");
 		DEPENDENCY_MAP.put("ngx_http_lua_module.so", "ndk_http_module.so");
@@ -247,7 +231,8 @@ public class NginxService {
 	}
 
 	/**
-	 * 回傳資料庫中已啟用且磁碟上存在的模組完整路徑，按 seq 順序排列。
+	 * 回傳資料庫中已啟用且磁碟上存在的模組完整路徑。
+	 * 順序以 MODULE_CATALOG 為唯一真相（不依 DB seq，避免 migration 打亂 load_module 依賴序）。
 	 */
 	public List<String> getEnabledModulePaths() {
 		List<String> paths = new ArrayList<>();
@@ -268,11 +253,20 @@ public class NginxService {
 			}
 		}
 
-		// 從資料庫取得已啟用的模組，按 seq 排序（保證依賴順序）
-		List<Module> modules = sqlHelper.findAll(new Sort("seq", Direction.ASC), Module.class);
+		// 已啟用名稱集合
+		Set<String> enabledNames = new HashSet<>();
+		List<Module> modules = sqlHelper.findAll(Module.class);
 		for (Module module : modules) {
-			if (module.getEnable() != null && module.getEnable() && existingModules.contains(module.getName())) {
-				paths.add(MODULE_DIR + "/" + module.getName());
+			if (module.getEnable() != null && module.getEnable() && module.getName() != null) {
+				enabledNames.add(module.getName());
+			}
+		}
+
+		// 依 catalog 順序輸出（保證 NDK 先於 Lua、stream 先於 stream_* 等）
+		for (String[] row : MODULE_CATALOG) {
+			String name = row[0];
+			if (enabledNames.contains(name) && existingModules.contains(name)) {
+				paths.add(MODULE_DIR + "/" + name);
 			}
 		}
 

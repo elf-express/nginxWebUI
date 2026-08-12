@@ -3,13 +3,12 @@ ENV LANG=zh_TW.UTF-8 \
     TZ=Asia/Taipei \
     JVM_XMX=256m \
     PS1="\u@\h:\w \$ "
-# 盡量安裝 Alpine 官方倉庫全部 nginx 動態模組（runtime），供後台擴充參數 / load_module 使用。
-# 不含 nginx-mod-dev（僅編譯標頭，非 runtime）。
+# 精簡模組集：保留 NDK/Lua/njs/GeoIP2/壓縮/安全/觀測等，排除未維護或高風險模組
+# （upstream_fair、legacy geoip、perl、upload*、zip、untar、slowfs、echo、dav、fancyindex、xslt、shibboleth、log_zmq、accounting、redis2）
 RUN    apk add --update --no-cache \
        nginx \
        nginx-mod-devel-kit \
        nginx-mod-stream \
-       nginx-mod-stream-geoip \
        nginx-mod-stream-geoip2 \
        nginx-mod-stream-js \
        nginx-mod-stream-keyval \
@@ -24,35 +23,19 @@ RUN    apk add --update --no-cache \
        nginx-mod-http-lua-upstream \
        nginx-mod-http-brotli \
        nginx-mod-http-zstd \
-       nginx-mod-http-geoip \
        nginx-mod-http-geoip2 \
-       nginx-mod-http-zip \
-       nginx-mod-http-perl \
-       nginx-mod-http-upload \
-       nginx-mod-http-upload-progress \
-       nginx-mod-http-upstream-fair \
-       nginx-mod-http-echo \
        nginx-mod-http-cache-purge \
        nginx-mod-http-set-misc \
        nginx-mod-http-array-var \
        nginx-mod-http-encrypted-session \
        nginx-mod-http-cookie-flag \
-       nginx-mod-http-dav-ext \
-       nginx-mod-http-fancyindex \
        nginx-mod-http-image-filter \
-       nginx-mod-http-xslt-filter \
        nginx-mod-http-auth-jwt \
        nginx-mod-http-naxsi \
        nginx-mod-http-nchan \
        nginx-mod-http-vts \
        nginx-mod-http-vod \
-       nginx-mod-http-redis2 \
-       nginx-mod-http-log-zmq \
-       nginx-mod-http-accounting \
        nginx-mod-http-acme \
-       nginx-mod-http-shibboleth \
-       nginx-mod-http-slowfs-cache \
-       nginx-mod-http-untar \
        openjdk17-jre \
        net-tools \
        curl \

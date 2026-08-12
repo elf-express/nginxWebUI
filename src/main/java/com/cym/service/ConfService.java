@@ -142,6 +142,24 @@ public class ConfService {
 				hasHttp = true;
 			}
 
+			// 自動套用 def 含 http 的模板參數到 http{} 頂層（def 可多選）
+			for (Template tpl : sqlHelper.findAll(Template.class)) {
+				if (!com.cym.utils.TemplateDefUtils.contains(tpl.getDef(), "http")) {
+					continue;
+				}
+				List<Param> tplParams = sqlHelper.findListByQuery(
+						new ConditionAndWrapper().eq(Param::getTemplateId, tpl.getId()), Param.class);
+				for (Param p : tplParams) {
+					if (StrUtil.isEmpty(p.getName())) {
+						continue;
+					}
+					NgxParam ngxParam = new NgxParam();
+					ngxParam.addValue(p.getName().trim() + (StrUtil.isNotEmpty(p.getValue()) ? " " + p.getValue().trim() : ""));
+					ngxBlockHttp.addEntry(ngxParam);
+					hasHttp = true;
+				}
+			}
+
 			// 自動補齊缺失的 shared memory zone 定義
 			// 當 server/location 使用了 limit_conn 或 limit_req，但 http 區塊沒有對應的 zone 定義時自動注入
 			autoInjectMissingZones(httpList, ngxBlockHttp);
@@ -326,22 +344,34 @@ public class ConfService {
 				hasStream = true;
 			}
 
-			// 自動套用 def=stream 的模板參數到 stream{} 頂層（如 limit_conn_zone / limit_conn_log_level）
-			// 與 server/location 的 getListByTypeId 對稱；http 的 conn_limit zone 不可與此共用名稱
-			List<Template> streamDefTemplates = sqlHelper.findListByQuery(
-					new ConditionAndWrapper().eq(Template::getDef, "stream"), Template.class);
-			for (Template tpl : streamDefTemplates) {
+			// 自動套用 def 含 stream 的模板參數到 stream{} 頂層（def 可多選，逗號分隔）
+			// 僅允許 stream 合法頂層指令；禁止 if/add_header 等 HTTP 專用
+			// zone 類必須先於 limit_conn 輸出
+			List<Param> streamAutoParams = new ArrayList<>();
+			for (Template tpl : sqlHelper.findAll(Template.class)) {
+				if (!com.cym.utils.TemplateDefUtils.contains(tpl.getDef(), "stream")) {
+					continue;
+				}
 				List<Param> tplParams = sqlHelper.findListByQuery(
 						new ConditionAndWrapper().eq(Param::getTemplateId, tpl.getId()), Param.class);
 				for (Param p : tplParams) {
 					if (StrUtil.isEmpty(p.getName())) {
 						continue;
 					}
-					ngxParam = new NgxParam();
-					ngxParam.addValue(p.getName().trim() + (StrUtil.isNotEmpty(p.getValue()) ? " " + p.getValue().trim() : ""));
-					ngxBlockStream.addEntry(ngxParam);
-					hasStream = true;
+					if (!isSafeStreamTopLevelDirective(p.getName().trim())) {
+						logger.warn("skip auto stream template param (not valid in stream{{}}): {} from template {}",
+								p.getName(), tpl.getName());
+						continue;
+					}
+					streamAutoParams.add(p);
 				}
+			}
+			streamAutoParams.sort((a, b) -> Integer.compare(streamDirectiveOrder(a.getName()), streamDirectiveOrder(b.getName())));
+			for (Param p : streamAutoParams) {
+				ngxParam = new NgxParam();
+				ngxParam.addValue(p.getName().trim() + (StrUtil.isNotEmpty(p.getValue()) ? " " + p.getValue().trim() : ""));
+				ngxBlockStream.addEntry(ngxParam);
+				hasStream = true;
 			}
 
 			// 黑白名单(中央規則全站生效)
@@ -534,6 +564,68 @@ public class ConfService {
 				ngxBlockHttp.addEntry(ngxParam);
 			}
 		}
+	}
+
+	/**
+	 * stream{} 頂層允許自動注入的指令白名單（其餘多為 HTTP 專用，誤標 def=stream 時會讓 nginx -t 失敗）。
+	 */
+	private static boolean isSafeStreamTopLevelDirective(String name) {
+		if (name == null) {
+			return false;
+		}
+		String n = name.toLowerCase();
+		// 明確禁止
+		if ("if".equals(n) || "add_header".equals(n) || "auth_request".equals(n)
+				|| "auth_basic".equals(n) || "root".equals(n) || "index".equals(n)
+				|| "try_files".equals(n) || "rewrite".equals(n) || "proxy_set_header".equals(n)
+				|| "fastcgi_pass".equals(n) || "return".equals(n)) {
+			return false;
+		}
+		// 允許常見 stream 頂層 / 可出現在 stream 的宣告
+		return n.startsWith("limit_conn")
+				|| n.startsWith("log_format")
+				|| n.startsWith("access_log")
+				|| n.startsWith("error_log")
+				|| n.startsWith("proxy_")
+				|| n.startsWith("ssl_")
+				|| n.startsWith("geoip2")
+				|| n.startsWith("js_")
+				|| n.startsWith("keyval")
+				|| n.equals("map")
+				|| n.equals("geo")
+				|| n.equals("split_clients")
+				|| n.equals("resolver")
+				|| n.equals("resolver_timeout")
+				|| n.equals("variables_hash_max_size")
+				|| n.equals("variables_hash_bucket_size")
+				|| n.equals("preread_buffer_size")
+				|| n.equals("preread_timeout")
+				|| n.equals("tcp_nodelay")
+				|| n.equals("server") // 理論上不應出現在 template param name
+				|| n.equals("allow")
+				|| n.equals("deny")
+				|| n.equals("set")
+				|| n.equals("include");
+	}
+
+	/** 越小越先輸出：zone 宣告必須在 limit_conn 之前。 */
+	private static int streamDirectiveOrder(String name) {
+		if (name == null) {
+			return 100;
+		}
+		String n = name.toLowerCase();
+		if (n.equals("limit_conn_zone") || n.equals("map") || n.equals("geo") || n.startsWith("geoip2")
+				|| n.equals("keyval_zone") || n.equals("js_import") || n.equals("js_path")
+				|| n.equals("log_format") || n.startsWith("variables_hash")) {
+			return 10;
+		}
+		if (n.equals("limit_conn_log_level") || n.equals("limit_conn_status") || n.equals("limit_conn_dry_run")) {
+			return 20;
+		}
+		if (n.equals("limit_conn")) {
+			return 30;
+		}
+		return 50;
 	}
 
 	/**

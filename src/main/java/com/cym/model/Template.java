@@ -7,8 +7,12 @@ import com.cym.sqlhelper.config.Table;
 public class Template extends BaseModel{
 	String name;
 
-	// 自动套用目标: "" 仅手动; server/server1/server2/location/upstream 由 ParamService 注入实体;
-	// stream = 注入全域 stream{} (ConfService.buildConf)
+	/**
+	 * 自動套用層級（多選、小寫、逗號分隔）。
+	 * 合法：http,server,server1,server2,stream,location,upstream；空 = 僅手動選用。
+	 * server/server1/server2/location/upstream → ParamService 注入實體；
+	 * http / stream → ConfService 注入對應頂層區塊。
+	 */
 	String def;
 
 	String groupName;

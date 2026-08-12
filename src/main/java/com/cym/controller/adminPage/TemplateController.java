@@ -17,6 +17,7 @@ import com.cym.model.Template;
 import com.cym.service.TemplateService;
 import com.cym.utils.BaseController;
 import com.cym.utils.JsonResult;
+import com.cym.utils.TemplateDefUtils;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
@@ -147,9 +148,41 @@ public class TemplateController extends BaseController {
 
 		List<Param> params = JSONUtil.toList(JSONUtil.parseArray(paramJson), Param.class);
 
+		// def 多選：正規化 + 依參數剔除非法層級（不信前端勾選）
+		template.setDef(TemplateDefUtils.normalizeAndFilter(template.getDef(), params));
+
 		templateService.addOver(template, params);
 
 		return renderSuccess();
+	}
+
+	/**
+	 * 依目前參數名回傳允許的自動套用層級（供 UI 禁用非法 tag）。
+	 * body: { "names": ["if","add_header"] } 或 query names=if,add_header
+	 */
+	@Mapping("allowedDefs")
+	public JsonResult allowedDefs(String names, String paramJson) {
+		List<String> nameList = new ArrayList<>();
+		if (StrUtil.isNotEmpty(paramJson)) {
+			try {
+				List<Param> params = JSONUtil.toList(JSONUtil.parseArray(paramJson), Param.class);
+				for (Param p : params) {
+					if (p != null && StrUtil.isNotEmpty(p.getName())) {
+						nameList.add(p.getName());
+					}
+				}
+			} catch (Exception ignored) {
+				// fall through
+			}
+		}
+		if (nameList.isEmpty() && StrUtil.isNotEmpty(names)) {
+			for (String n : names.split("[,;\\s]+")) {
+				if (StrUtil.isNotEmpty(n)) {
+					nameList.add(n);
+				}
+			}
+		}
+		return renderSuccess(TemplateDefUtils.allowedContextsFromNames(nameList));
 	}
 
 	@Mapping("detail")
@@ -158,8 +191,11 @@ public class TemplateController extends BaseController {
 		TemplateExt templateExt = new TemplateExt();
 		templateExt.setTemplate(template);
 
-		templateExt.setParamList(templateService.getParamList(template.getId()));
-		templateExt.setCount(templateExt.getParamList().size());
+		List<Param> paramList = templateService.getParamList(template.getId());
+		templateExt.setParamList(paramList);
+		templateExt.setCount(paramList.size());
+		// 附帶允許層級，減少前端再猜
+		// 透過 map 包一層會破壞既有 detail 形狀；前端用參數自算即可。保留 detail 相容。
 
 		return renderSuccess(templateExt);
 	}

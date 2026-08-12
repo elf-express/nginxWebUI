@@ -10,6 +10,7 @@ import com.cym.model.Param;
 import com.cym.model.Template;
 import com.cym.sqlhelper.utils.ConditionAndWrapper;
 import com.cym.sqlhelper.utils.SqlHelper;
+import com.cym.utils.TemplateDefUtils;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
@@ -34,10 +35,15 @@ public class ParamService {
 
 	public List<Param> getListByTypeId(String id, String type) {
 		List<Param> list = new ArrayList<>();
-		// 默认配置的参数
-		List<Template> templateList = sqlHelper.findListByQuery(new ConditionAndWrapper().eq(Template::getDef, type), Template.class);
-		for (Template template : templateList) {
-			List<Param> addList = sqlHelper.findListByQuery(new ConditionAndWrapper().eq(Param::getTemplateId, template.getId()), Param.class);
+		// 自動套用：Template.def 可多選（逗號分隔），例 "server,location"
+		String matchType = type;
+		List<Template> allTemplates = sqlHelper.findAll(Template.class);
+		for (Template template : allTemplates) {
+			if (!TemplateDefUtils.contains(template.getDef(), matchType)) {
+				continue;
+			}
+			List<Param> addList = sqlHelper.findListByQuery(
+					new ConditionAndWrapper().eq(Param::getTemplateId, template.getId()), Param.class);
 			list.addAll(addList);
 		}
 

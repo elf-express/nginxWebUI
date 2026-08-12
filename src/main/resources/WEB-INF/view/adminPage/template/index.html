@@ -25,6 +25,94 @@ input[name='param']{
 	padding-bottom: 8px;
 	resize: vertical !important;
 }
+
+/* 自動套用層級：多選 tag */
+.def-tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: center;
+}
+.def-tag {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	margin: 0;
+	padding: 5px 12px;
+	border: 1px solid #d0d5dd;
+	border-radius: 16px;
+	background: #f8fafc;
+	font-size: 13px;
+	font-family: inherit;
+	color: #334155;
+	cursor: pointer;
+	user-select: none;
+	line-height: 1.4;
+	transition: border-color .15s, background .15s, color .15s;
+}
+.def-tag .def-tag-code {
+	font-family: Consolas, Monaco, "Courier New", monospace;
+	font-size: 11px;
+	color: #94a3b8;
+	font-weight: 400;
+}
+.def-tag:hover {
+	border-color: #16baaa;
+	background: #f0fdfa;
+}
+.def-tag.on,
+.def-tag:has(input:checked) {
+	border-color: #16baaa;
+	background: #e6fffb;
+	color: #0f766e;
+	font-weight: 600;
+}
+.def-tag.disabled,
+.def-tag:has(input:disabled) {
+	opacity: 0.45;
+	cursor: not-allowed;
+	background: #f1f5f9;
+	border-color: #e2e8f0;
+	color: #94a3b8;
+	font-weight: 400;
+}
+.def-tag.disabled:hover,
+.def-tag:has(input:disabled):hover {
+	border-color: #e2e8f0;
+	background: #f1f5f9;
+}
+.def-tag input {
+	margin: 0;
+	accent-color: #16baaa;
+	cursor: pointer;
+}
+.def-tag input:disabled {
+	cursor: not-allowed;
+}
+.def-tag-cell {
+	font-size: 12px;
+	line-height: 1.8;
+}
+.def-tag-chip {
+	display: inline-block;
+	margin: 1px 4px 1px 0;
+	padding: 2px 8px;
+	border-radius: 10px;
+	background: #e6fffb;
+	border: 1px solid #99f6e4;
+	color: #0f766e;
+	font-size: 12px;
+	white-space: nowrap;
+}
+.def-tag-legend {
+	margin-top: 8px;
+	padding: 8px 10px;
+	background: #f8fafc;
+	border-radius: 6px;
+	font-size: 12px;
+	color: #64748b;
+	line-height: 1.65;
+}
 </style>
 </head>
 <body class="layui-layout-body">
@@ -74,7 +162,7 @@ input[name='param']{
 									</th>
 									<th>${commonStr.name}</th>
 									<th style="width: 72px;">${templateStr.paramCount}</th>
-									<th style="width: 180px;">${templateStr.def}</th>
+									<th style="width: 240px;">${templateStr.def}</th>
 									<th style="width: 170px;">${commonStr.operation}</th>
 								</tr>
 							</thead>
@@ -86,14 +174,16 @@ input[name='param']{
 									</td>
 									<td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${ext.template.name?html}">${ext.template.name}</td>
 									<td style="text-align:center;">${ext.count}</td>
-									<td style="font-size:12px;color:#666;">
-										<#if ext.template.def?? && ext.template.def == "server">${templateStr.defServerHttp}
-										<#elseif ext.template.def?? && ext.template.def == "server1">${templateStr.defServerTcp}
-										<#elseif ext.template.def?? && ext.template.def == "server2">${templateStr.defServerUdp}
-										<#elseif ext.template.def?? && ext.template.def == "stream">${templateStr.defStream}
-										<#elseif ext.template.def?? && ext.template.def == "location">${templateStr.defLocation}
-										<#elseif ext.template.def?? && ext.template.def == "upstream">${templateStr.defUpstream}
-										<#else><span style="color:#bbb;">${templateStr.defNone}</span>
+									<td class="def-tag-cell">
+										<#if ext.template.def?? && ext.template.def != "">
+											<#list ext.template.def?split(",") as d>
+												<#if d?has_content>
+												<#assign dk = d?trim>
+												<span class="def-tag-chip" title="${dk?html}"><#if dk == "http">${templateStr.defHttpLabel}<#elseif dk == "server">${templateStr.defServerLabel}<#elseif dk == "server1">${templateStr.defServer1Label}<#elseif dk == "server2">${templateStr.defServer2Label}<#elseif dk == "stream">${templateStr.defStreamLabel}<#elseif dk == "location">${templateStr.defLocationLabel}<#elseif dk == "upstream">${templateStr.defUpstreamLabel}<#else>${dk?html}</#if></span>
+												</#if>
+											</#list>
+										<#else>
+											<span style="color:#bbb;">${templateStr.defNone}</span>
 										</#if>
 									</td>
 									<td>
@@ -151,15 +241,44 @@ input[name='param']{
 			<div class="layui-form-item">
 				<label class="layui-form-label" style="width:110px;">${templateStr.def}</label>
 				<div class="layui-input-block" style="margin-left:140px;">
-					<select name="def" id="def" style="width:100%;">
-						<option value="">${templateStr.defNone}</option>
-						<option value="server">${templateStr.defServerHttp}</option>
-						<option value="server1">${templateStr.defServerTcp}</option>
-						<option value="server2">${templateStr.defServerUdp}</option>
-						<option value="stream">${templateStr.defStream}</option>
-						<option value="location">${templateStr.defLocation}</option>
-						<option value="upstream">${templateStr.defUpstream}</option>
-					</select>
+					<div id="defTags" class="def-tags" role="group" aria-label="${templateStr.def}">
+						<label class="def-tag" title="${templateStr.defHttpTip}">
+							<input type="checkbox" name="defTag" value="http" lay-ignore>
+							${templateStr.defHttpLabel}
+							<span class="def-tag-code">http</span>
+						</label>
+						<label class="def-tag" title="${templateStr.defServerHttpTip}">
+							<input type="checkbox" name="defTag" value="server" lay-ignore>
+							${templateStr.defServerLabel}
+							<span class="def-tag-code">server</span>
+						</label>
+						<label class="def-tag" title="${templateStr.defServerTcpTip}">
+							<input type="checkbox" name="defTag" value="server1" lay-ignore>
+							${templateStr.defServer1Label}
+							<span class="def-tag-code">server1</span>
+						</label>
+						<label class="def-tag" title="${templateStr.defServerUdpTip}">
+							<input type="checkbox" name="defTag" value="server2" lay-ignore>
+							${templateStr.defServer2Label}
+							<span class="def-tag-code">server2</span>
+						</label>
+						<label class="def-tag" title="${templateStr.defStreamTip}">
+							<input type="checkbox" name="defTag" value="stream" lay-ignore>
+							${templateStr.defStreamLabel}
+							<span class="def-tag-code">stream</span>
+						</label>
+						<label class="def-tag" title="${templateStr.defLocationTip}">
+							<input type="checkbox" name="defTag" value="location" lay-ignore>
+							${templateStr.defLocationLabel}
+							<span class="def-tag-code">location</span>
+						</label>
+						<label class="def-tag" title="${templateStr.defUpstreamTip}">
+							<input type="checkbox" name="defTag" value="upstream" lay-ignore>
+							${templateStr.defUpstreamLabel}
+							<span class="def-tag-code">upstream</span>
+						</label>
+					</div>
+					<div class="def-tag-legend">${templateStr.defLegend}</div>
 					<div class="layui-form-mid layui-word-aux" style="margin-left:0;padding:6px 0 0;float:none;display:block;white-space:normal;line-height:1.5;">${templateStr.defTip}</div>
 				</div>
 			</div>

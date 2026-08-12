@@ -91,6 +91,27 @@ docs/               # design docs & plans
 - healthcheck + startup order required; `entrypoint.sh` must be LF (`.gitattributes` enforces).
 - **Two self-built images:** `nginxwebui` (root Dockerfile) + `nginxwebui-crowdsec` (`docker/crowdsec/Dockerfile` = official crowdsec base + baked config). CrowdSec is opt-in via compose **profile** `security`; default `docker compose up -d` starts only nginxwebui + postgres.
 - Container-side GeoIP refresh: [scripts/update-geoip-cf.sh](scripts/update-geoip-cf.sh) — downloads GeoLite2 Country/City/ASN mmdb + Cloudflare ips-v4/v6 into `/etc/nginx/geoip`（entrypoint 啟動跑一次 + crontab 每週三、六;7 天內已更新則跳過,避免每次 restart 重抓 ~80 MB）。
+- **nginx modules (slim set, ~31 `.so`):** root [Dockerfile](Dockerfile) installs a curated `nginx-mod-*` set. **Do not** re-add unmaintained/risky packages: `upstream_fair`, legacy `geoip`/`stream_geoip` (`.dat`), `perl`, `upload`/`uploadprogress`, `zip`/`untar`/`slowfs`, `echo`, `dav_ext`, `fancyindex`, `xslt`, `shibboleth`, `log_zmq`, `accounting`, `redis2`.
+- **`load_module` order** is owned by `NginxService.MODULE_CATALOG` (NDK→Lua ecosystem → stream/mail/rtmp → geoip2 → js/keyval → compress → filters → dynamic upstream → feature modules). `getEnabledModulePaths()` follows **catalog order**, not DB `seq` (avoids dependency breakage). Migration `moduleCatalogHardened20260812` prunes obsolete module rows + resequences.
+- **Do not use bare `nginx -t`** inside the image without `-c` — Alpine’s `/etc/nginx/nginx.conf` auto-includes package confs with a bad lua/lua_upstream order. Always test UI conf: `nginx -t -c /home/nginxWebUI/temp/nginx.conf -p /home/nginxWebUI/temp/`.
+
+### Parameter templates / 參數模板 (`Template.def`)
+- **Multi-select auto-apply contexts** stored in `Template.def` as lowercase comma-separated tags (normalized by `TemplateDefUtils`).
+- **UI:** tag chips on [adminPage/template](src/main/resources/WEB-INF/view/adminPage/template/index.html) — human labels + grey internal codes.
+- **Keys (internal → meaning):**
+  | key | meaning |
+  |-----|---------|
+  | `http` | global `http { }` (zones, map, log_format, geoip2…) — injected by `ConfService` |
+  | `server` | every **HTTP** `server { }` (site / reverse proxy) — `ParamService` |
+  | `server1` | every **TCP** stream `server { }` (L4, no location) — `ParamService` |
+  | `server2` | every **UDP** stream `server { }` — `ParamService` |
+  | `stream` | global `stream { }` (e.g. `limit_conn_zone`) — `ConfService` |
+  | `location` | every `location { }` — `ParamService` |
+  | `upstream` | every HTTP `upstream { }` — `ParamService` |
+- Empty `def` = manual apply only via「選擇參數模板」.
+- **Smart-ish tag lock (read-only disabled):** `TemplateDefUtils.allowedContexts(params)` uses a minimal HTTP-only / stream-only directive name list. Illegal contexts are **greyed + `disabled`** in the UI (hover tip); **save path** runs `normalizeAndFilter` so forged checkboxes cannot persist. Full directive→context matrix can replace `allowedContexts` later without UI redesign.
+- **stream safety:** ConfService skips HTTP-only directives (`if`, `add_header`, …) when auto-injecting into `stream{}`; emits `limit_conn_zone` before `limit_conn`. Migration `streamDefTemplatesSanitized20260812` clears mistaken `def=stream` on GeoIP/`if` templates; only Connection Limit (stream layer) keeps `def=stream`, stream-server limit uses `server1`.
+- **Do not** put HTTP `if` / `$request` log_format into stream templates. See [docs/nginx結構.md](docs/nginx結構.md).
 
 ## Architecture Flow
 A typical "user edits HTTP params" request crosses these layers:
@@ -204,15 +225,18 @@ docker manifest inspect ghcr.io/elf-express/nginxwebui:5.2.6   # 確認 image pu
 > `release.sh` 只改 pom.xml,不碰 README/README_TW/CLAUDE/.env — 部署文件刻意「不綁版本」(`:latest` + `master` raw URL + jar 萬用字元)。Hotfix:從 `master` 開 `hotfix/*`,同樣 `scripts/release.sh x.y.z` 後 `git push origin hotfix/xxx:master`。
 
 ## Feature Inventory
-**UI/UX:** batch param input · TLS default fix · conf indent + CodeMirror highlight · login password toggle · default http params/templates · HTTP param grouping (`HttpController.GROUP_DEFS`) · template grouping · IP/DenyAllow tag-ization · edit mode · conf error diagnosis · lang switch (flag SVG) · brand logo upload + header 200×60 align · HTTP param panel phase 2/3: tri-state enable mode + nginx module-availability filter (specs 28–31;5.2.7 起面板移至 http 參數配置頁 — 全域設定歸全域頁,server 精靈只留逐站步驟①Location ②server 參數).
+**UI/UX:** batch param input · TLS default fix · conf indent + CodeMirror highlight · login password toggle · default http params/templates · HTTP param grouping (`HttpController.GROUP_DEFS`) · template grouping · **template auto-apply multi-select tags** (`Template.def` via `TemplateDefUtils`: `http`/`server`/`server1`/`server2`/`stream`/`location`/`upstream`) · IP/DenyAllow tag-ization · edit mode · conf error diagnosis · lang switch (flag SVG) · brand logo upload + header 200×60 align · HTTP param panel phase 2/3: tri-state enable mode + nginx module-availability filter (specs 28–31;5.2.7 起面板移至 http 參數配置頁 — 全域設定歸全域頁,server 精靈只留逐站步驟①Location ②server 參數).
 **Accessibility (Wave 1/2 audit, ongoing):** site-wide pseudo-link `<a href="javascript:">` → `<button>` migration (header, sidebar, table actions, modals, captcha) · semantic landmarks (`<nav>` sidebar, `<h1>` on key pages) · icon button `aria-label`. Specs 27-a11y-buttons + crawler-style assertions guard this.
 **Security:** CrowdSec (IDS + bouncer) · GeoIP2 country block · ASN block · Protection Cert · Real-IP module · **DenyAllow black/white lists — 全站自動生效** (`type` deny/allow, `@InitValue("deny")`; seeded 6 malicious-IP feed rules + daily URL refresh + async first-fetch; rules auto-apply at http/stream level via `ConfService.buildDenyAllow` — allow before deny, default allow, **no per-server binding**(舊綁定 UI 已於 5.2.6 移除,Settings/欄位保留不讀); cross-type IP conflict rejected on save) · **firewall page = 6 tabs** (IP database / 黑名單 / 白名單 / GeoIP country / ASN / Protection Cert).
 **GeoIP DB module (v5.2.0+):** header shows Country/City/ASN/Cloudflare status in a 2×2 grid（4 列直排會撐破 60px header） (`GeoipService` via maxmind-db; build-date cache keyed by file mtime — 避免每 request 重讀 ~80MB mmdb) · ProtectionCert Tab-1 IP-database table (version / schedule / manual download / status cross-verify: `GeoipService.evaluateStatus` + `reverifyAll` + per-file stat/status fields) · **Cloudflare Real-IP auto-download** (`/adminPage/geoip/downloadCloudflare` → `realip.conf`, Cloudflare status row in the same table) · `GeoipController` `/adminPage/geoip/{versions,download,downloadCloudflare,…}` · Java/Hutool download (jar + Docker).
+**nginx modules (Docker slim):** ~31 dynamic modules; `MODULE_CATALOG` load order; pruned unmaintained/high-risk modules (fair, legacy geoip, perl, upload*, …). Stream connection-limit templates use zone name `s_conn_perip` (must not collide with HTTP `conn_limit`).
 **Monitoring/Ops:** nginx module auto-detect (`/adminPage/monitor/nginxInfo`) · Site Resource · connectivity test.
-**Deploy/Test:** test captcha · Compose stack (PG18 + CrowdSec) · **CrowdSec = self-built `nginxwebui-crowdsec` (official base + baked config)** · optional `security` profile · **master-triggered release: CI version-gated builds 2 images (nginxwebui + nginxwebui-crowdsec, amd64) + auto-tag + auto GitHub Release** · **geoip MMDB baked at build (offline-ready)** · `.gitattributes` LF · Playwright E2E suite (offline-CDN guard + a11y crawler) · `@claude` mention responder ([.github/workflows/claude.yml](.github/workflows/claude.yml)) · **save-path hardening (5.2.6):** `nginx -t` precheck 15s timeout + 無法執行/逾時→SKIPPED 不回滾(修死鎖) · realip.conf 啟動 placeholder · ORM 綁定正規化(Boolean→'1'/'0' + 啟動 migration) + DML SQLException 不再靜默.
+**Deploy/Test:** test captcha · Compose stack (PG18 + CrowdSec) · **CrowdSec = self-built `nginxwebui-crowdsec` (official base + baked config)** · optional `security` profile · **master-triggered release: CI version-gated builds 2 images (nginxwebui + nginxwebui-crowdsec, amd64) + auto-tag + auto GitHub Release** · **geoip MMDB baked at build (offline-ready)** · `.gitattributes` LF · Playwright E2E suite (offline-CDN guard + a11y crawler) · `@claude` mention responder ([.github/workflows/claude.yml](.github/workflows/claude.yml)) · **save-path hardening (5.2.6):** `nginx -t` precheck 15s timeout + 無法執行/逾時→SKIPPED 不回滾(修死鎖) · realip.conf 啟動 placeholder · ORM 綁定正規化(Boolean→'1'/'0' + 啟動 migration) + DML SQLException 不再靜默 · http `variables_hash_max_size`/`variables_hash_bucket_size` defaults when geoip2+map variables are many.
 
 ## Docs
 - **README:** `README.md`=英文(主) · `README_TW.md`=繁中;語言切換連結雙向,改內容須同步兩版。
+- [nginx 設定結構](docs/nginx結構.md) — 區塊樹、http vs stream 差異、zone 命名、宣告/使用配對（模板 `declares`/`requires` 設計依據）。
+- [nginx 官方文檔校對索引](docs/nginxdocumentation/README.md) · [翻譯規範](docs/nginxdocumentation/TRANSLATION.md) — 關鍵頁人工繁中；**勿**用 `scripts/auto-translate.js` 批次改 md（會誤翻 `nginx -s quit` 等字面值）。
 - [Improvement plans & reports](docs/superpowers/plans/)
 - [Playwright guide](docs/superpowers/plans/playwright-guide.md) · [Docker guide](docs/superpowers/plans/docker-guide.md) · [Docker standard](docs/superpowers/plans/docker-standard.md)
 - [Dev/release workflow](docs/superpowers/plans/2026-05-21-dev-release-workflow.md)
