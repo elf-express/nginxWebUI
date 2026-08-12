@@ -1,94 +1,110 @@
 # nginx 設定結構
 
-依保留的 31 個模組實際可用的區塊範圍。標註 `[模組]` 者為動態模組提供,模組未載入則該區塊不存在。
+教學用簡化結構樹。**指令可否出現在某一層，以 [nginx.org](https://nginx.org/en/docs/) 各模組文件的 Context 欄位為準**；本檔若與官網衝突，以官網為準。
+
+- 樹中**未標模組**者多為 nginx **本體**（`http` / `server` / `location` / `events` 等），不依賴動態 `.so`。
+- 標註 `[模組]` 者需 `load_module`（本專案清單見 `NginxService.MODULE_CATALOG`，約 31 個動態模組）。
+- 模組未載入則對應區塊／指令不存在。
 
 **官方文檔關鍵頁（繁中校對）：** [nginxdocumentation/README.md](nginxdocumentation/README.md)  
-（新手／控制訊號／負載平衡／HTTPS／limit\_\*／stream 等；規範見 [TRANSLATION.md](nginxdocumentation/TRANSLATION.md)）
+**翻譯規範：** [TRANSLATION.md](nginxdocumentation/TRANSLATION.md)（勿用瀏覽器 auto-translate 批次改 md）
+
+### 官網依據（Context 來源）
+
+| 主題 | 官方頁面 |
+|------|----------|
+| main / events / load_module | [ngx_core_module](https://nginx.org/en/docs/ngx_core_module.html) |
+| HTTP `proxy_pass` | [ngx_http_proxy_module](https://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_pass) → Context: `location`, `if in location`, `limit_except` |
+| HTTP `if` / `return` / `rewrite` | [ngx_http_rewrite_module](https://nginx.org/en/docs/http/ngx_http_rewrite_module.html) → `if`: `server`, `location` |
+| stream 區塊 / listen | [ngx_stream_core_module](https://nginx.org/en/docs/stream/ngx_stream_core_module.html) → `stream` Context: `main` |
+| stream `proxy_pass` | [ngx_stream_proxy_module](https://nginx.org/en/docs/stream/ngx_stream_proxy_module.html#proxy_pass) → Context: `server` |
+| stream `proxy_protocol`（對上游） | 同上 `#proxy_protocol` → `stream`, `server` |
+| stream listen `proxy_protocol`（收客戶端） | [listen](https://nginx.org/en/docs/stream/ngx_stream_core_module.html#listen) 參數 |
 
 ---
 
 ## 一、完整結構樹
 
 ```
-main（頂層,不包在任何區塊內）
-│   worker_processes / worker_rlimit_nofile / pid / user
-│   load_module
+main（頂層；Context: main 的指令寫在此）
+│   worker_processes / worker_rlimit_nofile / pid / user / include / env …
+│   load_module                         [動態模組 .so]
 │   error_log
 │
-├── events { }
+├── events { }                          [core]
 │       worker_connections / multi_accept / use
 │
-├── http {
+├── http { }                            [core http]
 │   │
-│   ├── 宣告型區塊（被其他設定依賴,單獨啟用無作用）
+│   ├── 宣告／定義（多在 http 層，與 server 並列；
+│   │   有的是 block { }，有的是單行 directive）
 │   │   ├── upstream { }
 │   │   ├── map { }
-│   │   ├── geo { }
+│   │   ├── geo { }                     （core；非 GeoIP2）
 │   │   ├── split_clients { }
 │   │   ├── geoip2 { }                  [ngx_http_geoip2]
-│   │   ├── keyval_zone                 [ngx_http_keyval]
-│   │   ├── lua_shared_dict             [ngx_http_lua]
-│   │   ├── js_import / js_path         [ngx_http_js]
-│   │   ├── proxy_cache_path
-│   │   ├── limit_conn_zone
-│   │   ├── limit_req_zone
-│   │   ├── log_format
+│   │   ├── keyval_zone …               [ngx_http_keyval]
+│   │   ├── lua_shared_dict …           [ngx_http_lua]
+│   │   ├── js_import / js_path …       [ngx_http_js]
+│   │   ├── proxy_cache_path …
+│   │   ├── limit_conn_zone …
+│   │   ├── limit_req_zone …
+│   │   ├── log_format …
 │   │   ├── types { }
 │   │   └── charset_map { }
 │   │
-│   └── server {
-│       │   listen / server_name / ssl_*
-│       │   error_page
+│   └── server { }                      （可多個；尚有大量 server 層指令，下圖只強調路由結構）
+│       │   listen / server_name / ssl_* / root / access_log / error_page …
 │       │
-│       ├── if { }
+│       ├── if { }                      [rewrite] Context: server, location
 │       │
 │       └── location {
-│           │   proxy_pass（http 層只能在此）
+│           │   proxy_pass              [http_proxy]
+│           │     Context: location | if in location | limit_except
+│           │     （不可寫在 http / server 頂層）
 │           │
 │           ├── location { }            可巢狀
-│           ├── if { }
-│           └── limit_except { }
+│           ├── if { }                  [rewrite]
+│           └── limit_except { }        （其內亦可 proxy_pass，見官網 Context）
 │           }
 │       }
-│   }
 │
-├── stream {                            [ngx_stream]
+├── stream { }                          [ngx_stream] Context: main
 │   │
-│   ├── 宣告型區塊
+│   ├── 宣告／定義
 │   │   ├── upstream { }
 │   │   ├── map { }
 │   │   ├── geo { }
 │   │   ├── split_clients { }
 │   │   ├── geoip2 { }                  [ngx_stream_geoip2]
-│   │   ├── keyval_zone                 [ngx_stream_keyval]
-│   │   ├── js_import / js_path         [ngx_stream_js]
-│   │   ├── limit_conn_zone
-│   │   └── log_format
+│   │   ├── keyval_zone …               [ngx_stream_keyval]
+│   │   ├── js_import / js_path …       [ngx_stream_js]
+│   │   ├── limit_conn_zone …
+│   │   └── log_format …
 │   │
 │   └── server {
-│           listen / proxy_pass
-│           無 location、無 if
+│           listen …                    （可含 udp / ssl / proxy_protocol 等參數）
+│           proxy_pass …                [stream_proxy] Context: server
+│           無 location
+│           無 HTTP rewrite 模組的 if
 │       }
-│   }
 │
-├── mail {                              [ngx_mail]
-│   │   auth_http（必填,nginx 自身不驗證帳密）
-│   │   proxy_pass_error_message
+├── mail { }                            [ngx_mail]
+│   │   auth_http …                     （mail 認證代理實務上幾乎必要）
+│   │   proxy_pass_error_message …
 │   │
 │   └── server {
 │           listen / protocol / starttls
 │       }
-│   }
 │
-└── rtmp {                              [ngx_rtmp]
-    │   server_names_hash_bucket_size
+└── rtmp { }                            [ngx_rtmp]
+    │   server_names_hash_bucket_size …
     │
     └── server {
         │   listen
         │
         └── application { }
         }
-    }
 ```
 
 ---
@@ -98,144 +114,162 @@ main（頂層,不包在任何區塊內）
 | | http | stream | mail | rtmp |
 |---|:--:|:--:|:--:|:--:|
 | `location` | 有 | **無** | 無 | 無 |
-| `if` | 有 | **無** | 無 | 無 |
+| `if`（rewrite 模組） | `server` / `location` | **無** | 無 | 無 |
 | `upstream` | 有 | 有 | 無 | 無 |
 | `map` / `geo` | 有 | 有 | 無 | 無 |
-| `proxy_pass` 位置 | location | server | 由 auth_http 決定 | — |
+| `proxy_pass` Context | `location` · `if in location` · `limit_except` | **`server` only** | 認證走 `auth_http` | — |
 | 變數集 | 完整 | 精簡 | 極少 | 專屬 |
-| nginxWebUI 支援 | 有 | 有 | **無** | **無** |
+| nginxWebUI 支援 | 有 | 有 | **無專頁**（可用自訂參數） | **無專頁** |
 
-`mail` 與 `rtmp` 需以自訂參數欄位或 `include` 方式配置。
+`mail` 與 `rtmp` 需以自訂參數或 `include` 配置。
 
 ---
 
 ## 三、變數不跨區塊
 
-http 宣告的 `$geoip2_data_country_code`,在 stream 中為未定義變數:
+http 宣告的 `$geoip2_data_country_code`，在 stream 中為未定義變數:
 
 ```
 nginx: [emerg] unknown "geoip2_data_country_code" variable
 ```
 
-stream 需在 `stream { }` 內重新宣告一次 geoip2 區塊。同一個 `.mmdb` 檔可被兩邊各自開啟,不衝突,但記憶體佔用為兩份。
+stream 需在 `stream { }` 內重新宣告一次 geoip2。同一個 `.mmdb` 可被兩邊各自開啟，不衝突，但記憶體約兩份。
 
 ---
 
-## 四、zone 名稱全域唯一
+## 四、zone 名稱與模組
 
-共享記憶體 zone 以 **name + 模組指標** 為唯一鍵。`ngx_http_limit_conn` 與 `ngx_stream_limit_conn` 為不同模組,同名將被判定為衝突:
+共享記憶體 zone 以 **名稱 + 所屬模組** 區分。`ngx_http_limit_conn` 與 `ngx_stream_limit_conn` 為不同模組，**同名**會衝突:
 
 ```
 nginx: [emerg] the shared memory zone "conn_limit" is already declared for a different use
 ```
 
-現有 http 層使用 `conn_limit` 與 `req_limit`,stream 層必須另取名稱。建議加 `s_` 前綴以利辨識。
+本專案 http 常用 `conn_limit` / `req_limit`；stream 請用獨立名（如 `s_conn_perip`）。
 
 ---
 
-## 五、指令層級對照
+## 五、指令層級對照（對齊官網 Context）
 
-### 5.1 同名但不同模組的指令
+### 5.1 同名但不同模組
 
-| 指令 | http | stream | 差異 |
-|---|:--:|:--:|---|
-| `proxy_pass` | location | server | http 可帶路徑,stream 僅位址且無 scheme |
-| `proxy_protocol` | listen 參數（**接收**） | 獨立指令（**送出**） | 語意相反,最易誤用 |
-| `proxy_timeout` | 無 | server / stream | http 拆為 read / send 兩個 |
-| `limit_conn` | http / server / location | stream / server | 相同 |
-| `limit_conn_status` | 有 | **無** | L4 無狀態碼 |
+| 指令 | http（官網 Context） | stream（官網 Context） | 差異 |
+|---|---|---|---|
+| `proxy_pass` | `location`, `if in location`, `limit_except` | **`server`** | http 可帶 URI 路徑；stream 為位址／upstream，無 `http://` scheme |
+| `proxy_protocol` | 多見於 `listen … proxy_protocol`（**收**客戶端 PROXY 頭） | ① `listen … proxy_protocol`（**收**）② `proxy_protocol on\|off` 指令（**送**給上游） | 收／送語意不同，最易誤用 |
+| 逾時 | `proxy_connect_timeout` / `proxy_send_timeout` / `proxy_read_timeout` 等 | `proxy_timeout`（`stream`, `server`）等 | 命名與拆分不同 |
+| `limit_conn` | `http` / `server` / `location` | `stream` / `server` | 語意相近 |
+| `limit_conn_status` | 有 | **無** | L4 無 HTTP 狀態碼 |
 | `limit_req*` | 有 | **無** | stream 無此模組 |
-| `add_header` | http / server / location | **無** | L4 無標頭 |
+| `add_header` | `http` / `server` / `location` | **無** | L4 無回應標頭 |
 | `ip_hash` | upstream | **無** | stream 用 `hash $remote_addr consistent` |
-| `keepalive` | upstream | **無** | 後端長連線池為 http 專屬 |
+| `keepalive` | upstream | **無** | 後端連線池為 http 專屬 |
 
-### 5.2 stream 專屬指令
+### 5.2 stream 常見專屬／常用
 
-| 指令 | 層級 | 說明 |
+| 指令 | Context（概要） | 說明 |
 |---|---|---|
-| `proxy_timeout` | stream / server | 雙向 idle,預設僅 10m |
-| `proxy_socket_keepalive` | stream / server | nginx → 後端的 keepalive |
-| `proxy_responses` | server | 僅 UDP |
-| `proxy_requests` | server | 僅 UDP |
-| `ssl_preread` | server | 讀取 SNI 但不終結 TLS |
-| `js_access` | server | njs 決定放行或拒絕 |
-| `js_preread` | server | 讀取前導位元組後再決定路由 |
+| `proxy_timeout` | stream / server | 雙向 idle |
+| `proxy_socket_keepalive` | stream / server | 對上游 socket keepalive |
+| `proxy_responses` / `proxy_requests` | stream / server | 多用於 UDP |
+| `ssl_preread` | server（ssl_preread 模組） | 讀 SNI 但不終結 TLS |
+| `js_access` / `js_preread` / `js_filter` | 見 stream_js 文件 | njs 存取／預讀／過濾 |
+| `preread_buffer_size` / `preread_timeout` | stream / server | preread 階段 |
 
 ---
 
-## 六、繼承規則（最易出錯處）
+## 六、繼承規則（最易出錯）
 
-以下指令的繼承方式為 **replace**:下層只要出現任何一個,上層的全部不繼承。
+以下為 **replace**（下層出現任一個，上層同名系列不繼承）:
 
 | 指令 | 影響 |
 |---|---|
-| `add_header` | server 或 location 出現任一個,http 層的安全標頭全部失效 |
-| `proxy_set_header` | location 出現任一個,server 層的 Host、X-Real-IP 全部遺失 |
+| `add_header` | server 或 location 出現任一個，http 層的安全標頭全部失效 |
+| `proxy_set_header` | location 出現任一個，server 層的 Host、X-Real-IP 等全部遺失 |
 
-此規則不會產生任何錯誤訊息,`nginx -t` 照樣通過,屬靜默失效。
+不會報錯，`nginx -t` 仍可能通過，屬靜默行為。
 
 ---
 
 ## 七、宣告與使用的配對
 
-以下功能橫跨兩個層級,缺任一半即失敗:
+橫跨兩層，缺一半會失敗或行為異常:
 
-| 宣告（層級） | 使用（層級） | 缺宣告時的錯誤 |
+| 宣告（層級） | 使用（層級） | 缺宣告時常見現象 |
 |---|---|---|
-| `map` → `$var` (http) | `if ($var)` (server) | `unknown "var" variable` |
-| `limit_conn_zone` (http) | `limit_conn` (server) | `unknown limit_conn_zone "..."` |
-| `limit_req_zone` (http) | `limit_req` (server) | `unknown limit_req_zone "..."` |
-| `geoip2` → `$var` (stream) | `map $var` (stream) | `unknown "..." variable` |
-| `log_format` (http/stream) | `access_log` (server) | `unknown log format "..."` |
-| `upstream` (http/stream) | `proxy_pass` (location/server) | `no resolver defined` 或 host not found |
-| `proxy_cache_path` (http) | `proxy_cache` (location) | `zone "..." is unknown` |
+| `map` → `$var` (http) | `if ($var)` 等 (server/location) | `unknown "var" variable` |
+| `limit_conn_zone` (http) | `limit_conn` (server/location) | `unknown limit_conn_zone "…"` |
+| `limit_req_zone` (http) | `limit_req` (server/location) | `unknown limit_req_zone "…"` |
+| `geoip2` → `$var` (stream) | `map $var` 等 (stream) | `unknown "…" variable` |
+| `log_format` (http/stream) | `access_log … format名` | `unknown log format "…"` |
+| `upstream` (http/stream) | `proxy_pass` (location / stream server) | upstream 不存在；若用變數當 host 且未 `resolver` 則可能 `no resolver defined` |
+| `proxy_cache_path` (http) | `proxy_cache` (location 等) | `zone "…" is unknown` |
 
-此為模板系統中 `declares` / `requires` 欄位的設計依據。樹狀結構無法表達此類關係。
+此為參數模板「宣告層 / 使用層」分開設計的依據；單一 tag 無法表達配對關係。
 
 ---
 
 ## 八、njs 補足的 stream 能力
 
-stream 無 `if`,原本需以 map 導向黑洞 upstream 的做法,njs 可直接處理:
+stream 無 HTTP rewrite 的 `if`。常見替代:
 
 | 需求 | 無 njs | 有 njs |
 |---|---|---|
-| 條件拒絕連線 | map 導向 `127.0.0.1:1` | `js_access` + `s.deny()` |
-| 依協定內容路由 | 不可能 | `js_preread` 讀取前導位元組 |
-| 動態黑名單 | 改設定 + reload | `js_access` + keyval,免 reload |
+| 條件拒絕連線 | map 導向黑洞 upstream | `js_access` + `s.deny()` |
+| 依協定內容路由 | 困難 | `js_preread` 讀前導位元組 |
+| 動態黑名單 | 改設定 + reload | `js_access` + keyval 等 |
 
-`js_preread` 為阻塞式,需設定 `preread_timeout`,否則會拖慢每一條連線建立。
+`js_preread` 偏阻塞，應設 `preread_timeout`。
 
 ---
 
-## 九、模組與區塊對應
+## 九、模組與區塊對應（本專案相關摘錄）
 
 | 模組 | 提供的區塊或指令 | 所屬層級 |
 |---|---|---|
-| `ngx_stream` | `stream { }` 及其全部子區塊 | 頂層 |
-| `ngx_mail` | `mail { }` | 頂層 |
-| `ngx_rtmp` | `rtmp { }` | 頂層 |
+| （core） | `events` / `http` / `server` / `location` | 本體 |
+| `ngx_stream` | `stream { }` | main |
+| `ngx_mail` | `mail { }` | main |
+| `ngx_rtmp` | `rtmp { }` | main |
 | `ngx_http_geoip2` | `geoip2 { }` | http |
 | `ngx_stream_geoip2` | `geoip2 { }` | stream |
-| `ngx_http_js` | `js_import` / `js_path` / `js_content` | http |
-| `ngx_stream_js` | `js_access` / `js_preread` / `js_filter` | stream |
+| `ngx_http_js` | `js_import` / `js_path` / `js_content` 等 | http |
+| `ngx_stream_js` | `js_access` / `js_preread` / `js_filter` 等 | stream |
 | `ngx_http_keyval` | `keyval_zone` / `keyval` | http |
 | `ngx_stream_keyval` | `keyval_zone` / `keyval` | stream |
-| `ngx_http_lua` | `lua_shared_dict` / `*_by_lua_block` | http |
-| `ngx_http_dynamic_healthcheck` | `check` | upstream |
-| `ngx_http_vhost_traffic_status` | `vhost_traffic_status_zone` | http |
-| `ngx_http_naxsi` | `SecRulesEnabled` / `DeniedUrl` | http / server / location |
+| `ngx_http_lua` | `lua_shared_dict` / `*_by_lua*` | http |
+| `ngx_http_dynamic_healthcheck` | `check` 等 | upstream |
+| `ngx_http_vhost_traffic_status` | `vhost_traffic_status_zone` 等 | http |
+| `ngx_http_naxsi` | `SecRulesEnabled` / `DeniedUrl` 等 | http / server / location |
 | `ngx_http_headers_more` | `more_set_headers` / `more_clear_headers` | http / server / location |
 | `ngx_http_cache_purge` | `proxy_cache_purge` | location |
-| `ngx_nchan` | `nchan_publisher` / `nchan_subscriber` | location |
-| `ngx_http_acme` | `acme_issuer` / `acme_certificate` | http / server |
+| `ngx_nchan` | `nchan_publisher` / `nchan_subscriber` 等 | location |
+| `ngx_http_acme` | `acme_issuer` / `acme_certificate` 等 | http / server |
+
+完整動態模組清單與 `load_module` 順序見 `NginxService.MODULE_CATALOG`。
 
 ---
 
-## 十、已知缺口
+## 十、已知缺口（產品）
 
 | 缺口 | 說明 |
 |---|---|
-| stream 流量監控 | VTS 僅支援 http。stream 的連線數與流量統計需另行編譯 `ngx_stream_server_traffic_status_module`(STS) |
-| mail / rtmp 設定產出 | nginxWebUI 僅產出 http 與 stream 兩個區塊 |
-| stream 速率限制 | 無 `limit_req` 模組。若需 L4 限流,僅能壓低 `limit_conn`,或於 OS 層以 iptables hashlimit 處理 |
+| stream 流量監控 | VTS 僅 http；stream 需 STS 等額外模組 |
+| mail / rtmp 設定產出 | nginxWebUI 主要產出 http + stream |
+| stream 速率限制 | 無 `limit_req`；L4 多靠 `limit_conn` 或 OS |
+
+---
+
+## 十一、與參數模板 tag 的對照
+
+| 模板 tag（內部碼） | 對應結構 |
+|---|---|
+| `http` | `http { }` 頂層宣告／定義 |
+| `server` | HTTP `server { }` |
+| `location` | HTTP `location { }` |
+| `upstream` | HTTP `upstream { }` |
+| `stream` | `stream { }` 頂層 |
+| `server1` | stream **TCP** `server { }` |
+| `server2` | stream **UDP** `server { }` |
+
+非法組合（如 HTTP `if` 勾 `stream`）由 `TemplateDefUtils` 禁用；細節見 `CLAUDE.md`「Parameter templates」。
