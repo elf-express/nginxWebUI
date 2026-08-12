@@ -74,3 +74,8 @@ test-home-param/
 *-lifecycle-table.html
 /specsnap-*.png
 /artifact-*.png
+
+### 文件工具的備份目錄 (added 2026-08-13) ###
+# scripts/translate-docs.js 與 scripts/fence-code-blocks.js 會在來源目錄旁寫 .translate-backup/。
+# 那不是還原用的真實來源 —— 語料已進版控,要回退用 git checkout。留著只會變成 git status 的雜訊。
+.translate-backup/
