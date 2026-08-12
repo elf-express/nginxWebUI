@@ -1,0 +1,77 @@
+docs/nginxdocumentation/007page.md
+  s_492e18725e3eaa::t_303c219c9a68e0 310,2101,3250-3251,3437
+docs/nginxdocumentation/010page.md
+  s_492e18725e3eaa::t_aa959300b8d84d 134,142
+docs/nginxdocumentation/020page.md
+  s_77c15db11ad67d::t_4f7faf30b4d423 55-73
+docs/nginxdocumentation/035page.md
+  s_492e18725e3eaa::t_6a252f1e4ebcc2 116,683,976,984,1004,1127,1170,1190
+docs/nginxdocumentation/039page.md
+  s_492e18725e3eaa::t_427afe04ed6861 583-584
+docs/nginxdocumentation/040page.md
+  s_492e18725e3eaa::t_cc7091e2495bb5 26
+docs/nginxdocumentation/052page.md
+  s_492e18725e3eaa::t_799cc065e15ac3 81,83-87,89,91,94,96
+docs/nginxdocumentation/063page.md
+  s_492e18725e3eaa::t_1abf9895c9093c 59,85,88,149,161-162,252
+docs/nginxdocumentation/064page.md
+  s_492e18725e3eaa::t_c3f272add82175 339,346,736
+docs/nginxdocumentation/068page.md
+  s_492e18725e3eaa::t_658e2a2b3baf92 25,77
+docs/nginxdocumentation/069page.md
+  s_492e18725e3eaa::t_c1f6bd325988ac 132-133,143-144,185,213,219
+docs/nginxdocumentation/071page.md
+  s_492e18725e3eaa::t_bb9f159ae923c2 69
+docs/nginxdocumentation/082page.md
+  s_492e18725e3eaa::t_02c9fe4faa7d21 204,214,222,230
+docs/nginxdocumentation/083page.md
+  s_492e18725e3eaa::t_116cebda88c3a3 528,532
+docs/nginxdocumentation/102page.md
+  s_492e18725e3eaa::t_486f85910a0665 40-41
+docs/nginxdocumentation/112page.md
+  s_492e18725e3eaa::t_72e0c416d5e384 71-72
+docs/nginxdocumentation/113page.md
+  s_77c15db11ad67d::t_ff1932d2e51ef2 70,314
+docs/nginxdocumentation/115page.md
+  s_492e18725e3eaa::t_1915c4f3225162 1689,1696,1729,1736,1784
+docs/nginxdocumentation/120page.md
+  s_492e18725e3eaa::t_5079414a915143 268,276,286
+docs/nginxdocumentation/123page.md
+  s_492e18725e3eaa::t_33ddbdaa5b6974 56,75,97,101
+docs/nginxdocumentation/139page.md
+  s_492e18725e3eaa::t_d935f2c05ddf3d 51-53
+docs/nginxdocumentation/140page.md
+  s_492e18725e3eaa::t_f852c6857a59f7 149
+docs/nginxdocumentation/150page.md
+  s_492e18725e3eaa::t_3006bc2ed61468 22,31
+docs/superpowers/plans/2026-08-12-fence-code-blocks.md
+  s_492e18725e3eaa::t_4d7dba6875964b 18-21
+scripts/fence-code-blocks.js
+  s_492e18725e3eaa::t_e562516ff949e6 43-46,48,163-164,166
+tests/unit/fence-code-blocks.test.js
+  s_492e18725e3eaa::t_0185a8b4a5ffab 8,12-15,253-288,300-305,308,310-311,352-353,356,360-377
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.21",
+  "base_commit_sha": "592c817db8362b974ae935a8abf0563b738408a9",
+  "prompts": {},
+  "sessions": {
+    "s_492e18725e3eaa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0393758c-a272-4bb9-a97c-c1ed6354bc61",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    },
+    "s_77c15db11ad67d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-aimpl-task7-d47fb0deb402d15d",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
