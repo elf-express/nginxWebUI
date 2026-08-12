@@ -285,6 +285,63 @@ public class NginxConfCheckerTest {
 	}
 
 	@Test
+	public void check_同一行開兩個區塊要推入兩層() {
+		// 只 push 一層的話,裡面每一行都少算一層 —— 這份完全合法的設定會吐出
+		// 「listen 不能用在 http」。那是誤報,和左大括號帶註解同一類,只是觸發窄。
+		String conf = """
+				http { server {
+				    listen 80;
+				}
+				}
+				""";
+		assertEquals(List.of(), NginxConfChecker.check(conf, svc));
+	}
+
+	@Test
+	public void check_正則裡的大括號不算開區塊() {
+		// location ~ ^/api/v[0-9]{1,2}/ { 的大括號在正則裡。數大括號會多推一層,
+		// 於是 worker_connections 落進看不懂的一層而靜音,錯反而報到後面的 listen 身上。
+		// 用一條真的放錯層的指令當探針:推錯層數時,則數看似仍是 1,但行號與內容會不一樣。
+		String conf = """
+				http {
+				    server {
+				        location ~ ^/api/v[0-9]{1,2}/ {
+				            worker_connections 1;
+				        }
+				        listen 80;
+				    }
+				}
+				""";
+		List<String> problems = NginxConfChecker.check(conf, svc);
+		assertEquals(1, problems.size(), "實際:" + problems);
+		assertTrue(problems.get(0).startsWith("第 4 行: worker_connections 不能用在 location"), problems.get(0));
+	}
+
+	@Test
+	public void check_同行推入不會弄丟資料區塊與家族判斷() {
+		// 逐段推入把「認不得就當 opaque」這段邏輯多寫了一份,也把最外層(家族判斷的依據)
+		// 從第一段決定。兩者任一寫錯,map 的對照資料會開始被當指令、stream 會退化成 http。
+		String dataBlock = """
+				http { map $http_upgrade $connection_upgrade {
+				    default upgrade;
+				    ''      close;
+				}
+				}
+				""";
+		assertEquals(List.of(), NginxConfChecker.check(dataBlock, svc));
+
+		String streamServer = """
+				stream { server {
+				    add_header X 1;
+				}
+				}
+				""";
+		List<String> problems = NginxConfChecker.check(streamServer, svc);
+		assertEquals(1, problems.size(), "實際:" + problems);
+		assertTrue(problems.get(0).startsWith("第 2 行: add_header 不能用在 stream 的 server"), problems.get(0));
+	}
+
+	@Test
 	public void check_行尾註解不會讓真錯誤消失() {
 		// 剝註解最省事的寫法是「含 # 的行整行跳過」,那會把這一類錯誤永久關掉,
 		// 而且照樣通過其他每一條測試 —— 所以正反兩面都要有人盯。

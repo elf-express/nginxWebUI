@@ -85,7 +85,7 @@ public class NginxConfChecker {
 			String first = line.split("[\\s{;]", 2)[0];
 
 			if (line.endsWith("{")) {
-				stack.addLast(DIRECTIVE_BLOCKS.contains(first) ? first : OPAQUE);
+				pushBlocks(stack, line, first);
 				continue;
 			}
 			if (!line.endsWith(";")) {
@@ -143,6 +143,40 @@ public class NginxConfChecker {
 			}
 		}
 		return problems;
+	}
+
+	/**
+	 * 推入這一行開啟的區塊。
+	 *
+	 * 同一行寫兩個區塊(http { server {)在手寫 conf 裡看得到,只推一層會讓裡面每一行都
+	 * 少算一層,一份合法設定因此吐出抱怨 —— 那是誤報,和左大括號帶註解同一類。
+	 *
+	 * 但不能無條件數大括號:location ~ ^/api/v[0-9]{1,2}/ { 的正則裡就有大括號。所以只在
+	 * 「整行沒有 }」且「切出來的每一段開頭都長得像區塊名」時才逐段推入,任一條不成立就
+	 * 退回單次推入 —— 退路就是原本的行為,最差情況等於現狀。
+	 */
+	private static void pushBlocks(Deque<String> stack, String line, String fallback) {
+		if (line.indexOf('}') < 0) {
+			List<String> names = new ArrayList<>();
+			for (String segment : line.split("\\{")) {
+				String name = segment.trim().split("[\\s;]", 2)[0];
+				if (!DIRECTIVE_NAME.matcher(name).matches()) {
+					names.clear();
+					break;
+				}
+				names.add(name);
+			}
+			if (!names.isEmpty()) {
+				names.forEach(name -> stack.addLast(blockContext(name)));
+				return;
+			}
+		}
+		stack.addLast(blockContext(fallback));
+	}
+
+	/** 區塊名 → 要推進堆疊的 context;認不得的(含 map 這類資料區塊)一律 opaque。 */
+	private static String blockContext(String name) {
+		return DIRECTIVE_BLOCKS.contains(name) ? name : OPAQUE;
 	}
 
 	/**
