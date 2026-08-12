@@ -331,6 +331,11 @@ git commit -m "feat(mcp): parse nginx directive definitions from the captured do
   - `NginxDocService.directivesOfModule(String module) -> List<NginxDirective>`
   - `NginxDocService.search(String query, int limit) -> List<String>` — 回「頁面標題 + 命中片段 + 來源連結」的格式化字串
 
+> **本節以下的程式碼是初版,已被實作超越。** 上方的介面條目是正確的（`directive()` 回 `List`）,
+> 但 Step 1／Step 3 的程式碼區塊仍寫著單一回傳、也還沒有 `Locale.ROOT`、`List.copyOf` 與空索引
+> error log。真實來源是 commit `a8631fde`。保留初版是為了讓 Task 1→2 的推導過程可讀,
+> 不是要人照抄 —— 詳細理由見 commit `5a4e22d8`。
+
 - [ ] **Step 1: 寫失敗測試**
 
 ```java
