@@ -1,6 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { splitBlocks, isCodeBlock, detectLanguage, toFence } = require('../../scripts/fence-code-blocks.js');
+const {
+  splitBlocks, isCodeBlock, detectLanguage, toFence, stripQuote, convertFile,
+} = require('../../scripts/fence-code-blocks.js');
 
 test('splitBlocks 以空行切開連續引用行', () => {
   const lines = [
@@ -253,4 +255,124 @@ test('toFence 內容不變量：剝除標記後與原文逐字相同', () => {
   const body = out.slice(1, -1).join('\n');
   const expected = src.map((l) => l.replace(/^\s*>\s?/, '').replace(/\\([_*[\]`])/g, '$1')).join('\n');
   assert.strictEqual(body, expected);
+});
+
+test('stripQuote 只剝一層引用前綴', () => {
+  // 巢狀的內層 > 屬於內容（curl -v 的輸出前綴、diff 的 ---），剝兩層就吃掉程式碼字元。
+  // 沒有這條，把 stripQuote 改成 /^(\s*>)+\s?/ 也不會有測試變紅。
+  assert.strictEqual(stripQuote('> > HTTP/1.1 200 OK'), '> HTTP/1.1 200 OK');
+  assert.strictEqual(stripQuote('> >note'), '>note');
+});
+
+test('convertFile 轉程式碼、留散文', () => {
+  const src = [
+    '> Source: https://nginx.org/en/docs/x.html',
+    '',
+    'Enables AIO:',
+    '',
+    '> location /video/ {',
+    '>     aio on;',
+    '> }',
+    '',
+    '> 此命令應以啟動 nginx 的同一使用者執行。',
+    '',
+  ].join('\n');
+  const r = convertFile(src);
+  assert.strictEqual(r.converted, 1);
+  assert.strictEqual(r.skipped, 1);
+  assert.ok(r.text.includes('```nginx'));
+  assert.ok(r.text.includes('> 此命令應以啟動 nginx 的同一使用者執行。'));
+  assert.ok(r.text.includes('> Source: https://nginx.org/en/docs/x.html'));
+  assert.deepStrictEqual(r.problems, []);
+});
+
+test('convertFile 跳過已有 fence 的區域', () => {
+  const src = ['```nginx', 'server {', '}', '```', '', '> server {', '> }'].join('\n');
+  const r = convertFile(src);
+  assert.strictEqual(r.converted, 1);
+  assert.strictEqual((r.text.match(/```/g) || []).length, 4);
+  assert.deepStrictEqual(r.problems, []);
+});
+
+test('convertFile 內容守恆：所有非空白字元不增不減', () => {
+  const src = ['> server {', '>     grpc\\_pass 127.0.0.1:9000;', '> }'].join('\n');
+  const r = convertFile(src);
+  const strip = (s) => s.replace(/```[a-z]*/g, '').replace(/^\s*>\s?/gm, '').replace(/\\([_*[\]`])/g, '$1').replace(/\s+/g, '');
+  assert.strictEqual(strip(r.text), strip(src));
+});
+
+test('convertFile 指紋不誤判巢狀引用：fence 內的 > 是內容不是引用標記', () => {
+  // curl -v 的輸出前綴。轉換後它落在 fence 裡，指紋若對 fence 內也剝一層 >，
+  // 前後就對不起來，好好的區塊會被誤判成「改動了程式碼字元」而整檔退回。
+  const src = [
+    '> curl -v http://example.com/',
+    '> > GET / HTTP/1.1',
+    '> > Host: example.com',
+  ].join('\n');
+  const r = convertFile(src);
+  assert.strictEqual(r.converted, 1);
+  assert.deepStrictEqual(r.problems, []);
+  // 內層 > 必須原封不動留在 fence 裡
+  assert.ok(r.text.includes('> GET / HTTP/1.1'));
+  assert.ok(r.text.includes('> Host: example.com'));
+});
+
+test('convertFile 不把全空白的引用塊變成空 fence', () => {
+  // toFence 沒有空區塊守衛，只有 isCodeBlock 點頭的區塊才准進去
+  const r = convertFile(['> ', '>  '].join('\n'));
+  assert.strictEqual(r.converted, 0);
+  assert.strictEqual(r.skipped, 1);
+  assert.ok(!r.text.includes('```'));
+  assert.deepStrictEqual(r.problems, []);
+});
+
+test('convertFile 撐得住內容自帶 ``` 的區塊', () => {
+  // 131page.md:25 形態：抓取工具把巢狀的程式碼樣本原樣塞進引用塊，內容裡就帶著 ```。
+  // toFence 會升級成四反引號；掃描器若「看到反引號就翻轉狀態」，內層的 ``` 會把 fence
+  // 提早關掉，後半份檔案整個被當成 fence 內，指紋隨即對不起來 —— 整檔被誤判退回。
+  const src = [
+    '> stream {',
+    '> ```',
+    '>     ssl\\_certificate domain.crt;',
+    '> ```',
+    '> }',
+  ].join('\n');
+  const r = convertFile(src);
+  assert.strictEqual(r.converted, 1);
+  assert.deepStrictEqual(r.problems, []);
+  assert.deepStrictEqual(r.text.split('\n'), [
+    '````nginx',
+    'stream {',
+    '```',
+    '    ssl_certificate domain.crt;',
+    '```',
+    '}',
+    '````',
+  ]);
+});
+
+test('convertFile 保留容器縮排，不讓區塊掉出清單項目', () => {
+  // 115page.md:967 形態：程式碼區塊縮在清單項目裡，> 前面帶著容器縮排。
+  // toFence 產出的是不帶縮排的行，直接貼回第 0 欄會炸掉文件結構。
+  const src = [
+    '-   `name` is a string:',
+    '',
+    '    > location / {',
+    '    >     aio on;',
+    '    > }',
+    '',
+  ].join('\n');
+  const r = convertFile(src);
+  assert.strictEqual(r.converted, 1);
+  assert.deepStrictEqual(r.problems, []);
+  assert.deepStrictEqual(r.text.split('\n'), [
+    '-   `name` is a string:',
+    '',
+    '    ```nginx',
+    '    location / {',
+    '        aio on;',
+    '    }',
+    '    ```',
+    '',
+  ]);
 });

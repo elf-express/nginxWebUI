@@ -123,4 +123,94 @@ function toFence(blockLines, lang) {
   return [marker + (lang || ''), ...bodies, marker];
 }
 
-module.exports = { splitBlocks, isCodeBlock, detectLanguage, toFence, stripQuote, unescapeMd };
+// ---- 檔案級轉換 ----
+
+const FENCE_RE = /^\s*(`{3,})(.*)$/;
+
+// 掃過整份檔案，標出每一行跟 fence 的關係：
+//   ''       fence 外
+//   'marker' fence 的起訖標記行
+//   'in'     fence 內的內容
+// 收尾標記至少要跟開頭一樣長且不帶其他字元（CommonMark 規則）——單純看到反引號就
+// 翻轉狀態的話，四反引號 fence 內含三反引號內容時會把後半份檔案整個誤判成 fence 內。
+function fenceScan(lines) {
+  const states = new Array(lines.length).fill('');
+  let open = 0;  // 目前 fence 開頭的反引號數量，0 表示不在 fence 內
+  for (let i = 0; i < lines.length; i++) {
+    const m = FENCE_RE.exec(lines[i]);
+    if (!open) {
+      if (m) { states[i] = 'marker'; open = m[1].length; }
+      continue;
+    }
+    if (m && m[1].length >= open && !m[2].trim()) { states[i] = 'marker'; open = 0; continue; }
+    states[i] = 'in';
+  }
+  return { states, unclosed: open > 0 };
+}
+
+// 指紋刻意自己寫一份剝除規則，不共用 stripQuote / unescapeMd：
+// 它是轉換的獨立對照組，共用同一份程式碼的話，剝除規則一起走錯也照樣對得起來。
+const FP_QUOTE_RE = /^\s*>\s?/;
+const FP_ESCAPE_RE = /\\([_*[\]`])/g;
+
+// 去掉所有標記與空白後的字元序列。轉換前後必須相同，
+// 這是「不動任何程式碼字元」這條約束的機器可驗形式。
+//
+// 只有 fence 外的行才剝引用前綴與還原跳脫——那正是轉換對它們做的事。fence 內的行
+// 是轉換的成品（或本來就在 fence 裡的既有程式碼），一個字元都不能再動：巢狀引用
+// `> > HTTP/1.1 200 OK` 的內層 > 是 curl 輸出的一部分，進了 fence 就是內容，
+// 若在這裡也剝一層，轉換前後必然對不起來，好好的檔案會被誤判退回。
+function contentFingerprint(text) {
+  const lines = text.split('\n');
+  const { states } = fenceScan(lines);
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (states[i] === 'marker') continue;  // fence 標記本身不是內容
+    out.push(states[i] === 'in' ? lines[i] : lines[i].replace(FP_QUOTE_RE, '').replace(FP_ESCAPE_RE, '$1'));
+  }
+  return out.join('\n').replace(/\s+/g, '');
+}
+
+// 區塊落在清單項目或巢狀容器裡時，> 前面那段空白是容器縮排而非內容。
+// stripQuote 會連它一起吃掉，toFence 也不管縮排，得在這一層補回去，
+// 否則縮排區塊會整個掉出所屬的清單項目（115page.md:967 形態，全庫 49 塊）。
+const INDENT_RE = /^(\s*)>/;
+
+function reindent(lines, indent) {
+  if (!indent) return lines;
+  return lines.map((l) => (l.trim() ? indent + l : l));  // 空行不補，免得留下行尾空白
+}
+
+function convertFile(text) {
+  const lines = text.split('\n');
+  const { states } = fenceScan(lines);
+  const blocks = splitBlocks(lines).filter((b) => !states[b.start]);
+
+  let converted = 0;
+  let skipped = 0;
+  const replacements = [];
+  for (const b of blocks) {
+    if (!isCodeBlock(b.lines)) { skipped++; continue; }
+    const indent = INDENT_RE.exec(b.lines[0])[1];  // 區塊每一行都是引用行，必定匹配
+    replacements.push({ b, out: reindent(toFence(b.lines, detectLanguage(b.lines)), indent) });
+    converted++;
+  }
+
+  // 由後往前替換，前面的行索引才不會位移
+  const out = lines.slice();
+  for (const { b, out: rep } of replacements.reverse()) {
+    out.splice(b.start, b.end - b.start + 1, ...rep);
+  }
+  const result = out.join('\n');
+
+  const problems = [];
+  if (contentFingerprint(result) !== contentFingerprint(text)) {
+    problems.push('內容指紋不符，轉換改動了程式碼字元');
+  }
+  if (fenceScan(result.split('\n')).unclosed) {
+    problems.push('fence 標記未正確閉合');
+  }
+  return { text: result, converted, skipped, problems };
+}
+
+module.exports = { splitBlocks, isCodeBlock, detectLanguage, toFence, stripQuote, unescapeMd, convertFile };
