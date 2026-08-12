@@ -47,6 +47,7 @@ public class NginxDocParser {
 	private static final Pattern BACKTICKED = Pattern.compile("`([^`]+)`");
 	private static final Pattern CONTEXT_BULLET = Pattern.compile("^-\\s*\\*\\*語境[：:]\\*\\*\\s*(.*)$", Pattern.MULTILINE);
 	private static final Pattern SYNTAX_BULLET = Pattern.compile("^-\\s*\\*\\*語法[：:]\\*\\*\\s*(.*)$", Pattern.MULTILINE);
+	private static final Pattern DEFAULT_BULLET = Pattern.compile("^-\\s*\\*\\*預設[：:]\\*\\*\\s*(.*)$", Pattern.MULTILINE);
 	/** 說明段落要跳過的中繼資料條列(語境／語法／預設),它們是欄位不是描述。 */
 	private static final Pattern META_BULLET = Pattern.compile("^-\\s*\\*\\*(語境|語法|預設)[：:]\\*\\*");
 	private static final Pattern FENCE_LINE = Pattern.compile("^\\s*```");
@@ -181,7 +182,7 @@ public class NginxDocParser {
 			result.add(new NginxDirective(
 					title.group(1),
 					syntaxOf(body),
-					null, // 摘要頁沒有 Default 欄;PROJECT_SUMMARY 的 null 代表「未列出」而非「無預設值」
+					defaultOf(body),
 					contexts,
 					module,
 					sourceUrl,
@@ -217,6 +218,22 @@ public class NginxDocParser {
 			return List.copyOf(out);
 		}
 		return List.of();
+	}
+
+	/**
+	 * 預設值只在語料明文寫出 - **預設：** 條列時才填,照抄不改寫。
+	 *
+	 * 沒寫就是 null —— 不從散文裡的「預設 `503`」推,那是臆測。null 搭配 PROJECT_SUMMARY
+	 * 的意思是「這頁沒列出」,與表格頁的「官方寫無預設值」由 origin 區分。
+	 */
+	private static String defaultOf(String body) {
+		Matcher bullet = DEFAULT_BULLET.matcher(body);
+		if (!bullet.find()) {
+			return null;
+		}
+		// 剝 backtick 後保留完整指令形式(real_ip_header X-Real-IP;),與表格頁的 Default 欄一致
+		String value = bullet.group(1).replace("`", "").trim();
+		return value.isEmpty() ? null : value;
 	}
 
 	/** 語法先看 - **語法：** 條列,沒有就取段落內第一個 fenced block 的第一行。 */

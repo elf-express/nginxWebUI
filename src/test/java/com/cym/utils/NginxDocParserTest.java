@@ -155,6 +155,34 @@ public class NginxDocParserTest {
 	}
 
 	@Test
+	public void parsePage_摘要頁明文寫出的預設值要照抄() throws Exception {
+		List<NginxDirective> realip = NginxDocParser.parsePage(page("067page.md"));
+		NginxDirective header = realip.stream().filter(x -> "real_ip_header".equals(x.name())).findFirst().orElseThrow();
+		// 照抄語料,不削成 X-Real-IP; —— nginx.org 的 Default 欄本來就印完整指令形式(aio off;),
+		// 摘要頁與 92 頁表格頁的 defaultValue 要長得一樣,呼叫端才不用分兩種格式處理。
+		assertEquals("real_ip_header X-Real-IP;", header.defaultValue());
+		assertEquals(NginxDirective.Origin.PROJECT_SUMMARY, header.origin());
+
+		NginxDirective recursive = realip.stream().filter(x -> "real_ip_recursive".equals(x.name())).findFirst().orElseThrow();
+		assertEquals("off", recursive.defaultValue());
+
+		NginxDirective authRequest = NginxDocParser.parsePage(page("030page.md")).stream()
+				.filter(x -> "auth_request".equals(x.name())).findFirst().orElseThrow();
+		assertEquals("off", authRequest.defaultValue());
+		// 預設值歸 defaultValue,說明要跳過那條 bullet 取真正的說明 —— 否則說明會變成「**預設：** off」
+		assertEquals("啟用並指定子請求 URI。", authRequest.description());
+	}
+
+	@Test
+	public void parsePage_摘要頁沒明文寫預設值的仍是null() throws Exception {
+		// 語料只在散文裡提到「預設 `503`」,沒有 - **預設：** 條列。不臆測 —— 維持 null,
+		// 由 origin=PROJECT_SUMMARY 表達「這是未列出」而不是「確實沒有預設值」。
+		NginxDirective d = NginxDocParser.parsePage(page("055page.md")).stream()
+				.filter(x -> "limit_req_status".equals(x.name())).findFirst().orElseThrow();
+		assertNull(d.defaultValue());
+	}
+
+	@Test
 	public void parsePage_摘要流程只在表格抽不到東西時才跑() throws Exception {
 		// 觸發條件是「有官方 Source 且表格流程抽出 0 條」,全語料 150 頁裡有 58 頁符合。
 		// 其餘 51 頁沒有 `#### `name`` 形態的標題,必須抽出 0 條 ——
