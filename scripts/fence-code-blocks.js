@@ -84,7 +84,16 @@ function detectLanguage(blockLines) {
 
   if (bodies.some((b) => /^@@ -\d+/.test(b.trim()))) return 'diff';
   if (bodies.some((b) => /^#include\b/.test(b.trim()))) return 'c';
-  if (/\bngx_[a-z_]+_t\b|\bstatic\s+ngx_|\bu_char\b/.test(joined)) return 'c';
+  if (/\bngx_[a-z_]+_t\b|\bstatic\s+ngx_|\bu_char\b|->|\bngx_[a-z_]+\s*\(/.test(joined)) return 'c';
+
+  // njs（nginx 內嵌的 JavaScript）。語料有 38 塊，否則會被 rule 6 的 [{};]$ 誤標成 nginx。
+  // 排在 C 之後：njs 用 r.foo 而非 r->foo，C 規則搶不走它。
+  if (/\b(?:function|import|export|await|async|const|let|var)\b|=>/.test(joined)) return 'javascript';
+
+  // JSON API 回應（status API）。整塊以 { 或 [ 起頭，且含 "key": 形式。
+  // 排在 JS 之後：JS 區塊可能內含 JSON 字面量，反之不然。
+  if (/^\s*[[{]/.test(bodies[0] || '') && /"[^"]+"\s*:/.test(joined)) return 'json';
+
   if (bodies.some((b) => /^(\.\/configure|nginx\s|kill\s|service\s|systemctl\s|ps\s|curl\s|sudo\s|make\b|kldload\s|apt\s|yum\s)/.test(b.trim()))) return 'bash';
   if (bodies.some((b) => NGINX_DIRECTIVES.test(b.trim()))) return 'nginx';
   if (bodies.some((b) => /[{};]\s*$/.test(b.trim()))) return 'nginx';

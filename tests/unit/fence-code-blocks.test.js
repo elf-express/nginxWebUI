@@ -165,3 +165,37 @@ test('detectLanguage 分辨 nginx / c / diff / bash', () => {
 test('detectLanguage 無法判斷時回傳空字串', () => {
   assert.strictEqual(detectLanguage(['> configure arguments: --with-debug ...']), '');
 });
+
+test('detectLanguage 認得 njs JavaScript，不讓它掉進 nginx 兜底', () => {
+  // 052page.md:70 —— 只靠 [{};]$ 兜底的話會被標成 nginx
+  assert.strictEqual(
+    detectLanguage(['> function foo(r) {', '>     r.log("hello from foo() handler");', '>     return "foo";', '> }']),
+    'javascript',
+  );
+  // 115page.md:82 —— import 形式，同樣不得落到 nginx
+  assert.strictEqual(
+    detectLanguage(['> import qs from \'querystring\';', '> ', '> function args(r) {', '>     return qs.parse(r.variables.args);', '> }']),
+    'javascript',
+  );
+});
+
+test('detectLanguage 認得 JSON API 回應', () => {
+  // 027page.md:1381 —— status API 的回應，整塊以 { 起頭
+  assert.strictEqual(
+    detectLanguage(['> {', '>   "nginx" : {', '>     "version" : "1.21.6"', '>   }', '> }']),
+    'json',
+  );
+});
+
+test('detectLanguage 認得沒有 _t 型別線索的 C', () => {
+  // 007page.md:434 —— 純函式呼叫，舊規則要 _t 結尾才算 C，會掉進 nginx 兜底
+  assert.strictEqual(detectLanguage(['> s = ngx\\_array\\_push(a);']), 'c');
+  // 007page.md:942 —— 指標成員存取
+  assert.strictEqual(detectLanguage(['> log->action = "sending mp4 to client";']), 'c');
+});
+
+test('detectLanguage 新規則沒有搶走一般 nginx 設定', () => {
+  // 守門：rule 6 的兜底仍要活著——白名單外的指令區塊依舊是 nginx
+  assert.strictEqual(detectLanguage(['> fastcgi\\_param SCRIPT\\_FILENAME /home/www$fastcgi\\_script\\_name;']), 'nginx');
+  assert.strictEqual(detectLanguage(['> worker\\_processes    4;', '> worker\\_cpu\\_affinity 0001 0010;']), 'nginx');
+});
