@@ -142,6 +142,18 @@
 	</dependencies>
 
 	<build>
+		<resources>
+			<resource>
+				<directory>src/main/resources</directory>
+			</resource>
+			<resource>
+				<directory>docs/nginxdocumentation</directory>
+				<targetPath>nginxdocumentation</targetPath>
+				<includes>
+					<include>*page.md</include>
+				</includes>
+			</resource>
+		</resources>
 		<plugins>
 			<plugin>
 				<groupId>com.github.shalousun</groupId>
