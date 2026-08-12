@@ -76,12 +76,13 @@ public class NginxConfChecker {
 			if (line.isEmpty()) {
 				continue; // 空行,或整行都是註解
 			}
-			// 收尾的大括號常帶註解(} # end location)。只比對整行等於 } 會漏掉這個 pop。
+			// 一行可能收掉不只一層(} }、}}),或收完之後接著開新區塊(} location /b {)。
+			// 這才是這裡不能寫成 equals("}") 的理由 —— 行尾註解在上面 stripComment 就剝掉了,
+			// } # end location 走到這裡已經是 },那一種寫法 equals 也接得住。
 			//
-			// 一行也可能收掉不只一層(} }、}}),或收完之後接著開新區塊(} location /b {)。
-			// 只 pop 一次、再把整行剩下的部分丟掉,後面每一行都會被算在錯的那一層 —— 而且
-			// 這種設定的括號是平衡的,使用者照著但書去數括號只會更相信那個誤報。所以逐個
-			// 吃掉行首的 },再讓剩下的部分走回底下的正常流程。
+			// 只 pop 一次、再把整行剩下的部分丟掉,後面每一行都會被算在錯的那一層,而且這種
+			// 設定的括號是平衡的,使用者照著但書去數括號只會更相信那個誤報。所以逐個吃掉
+			// 行首的 },再讓剩下的部分走回底下的正常流程。
 			while (line.startsWith("}")) {
 				stack.pollLast();
 				line = line.substring(1).trim();
@@ -93,7 +94,34 @@ public class NginxConfChecker {
 			String first = line.split("[\\s{;]", 2)[0];
 
 			if (line.endsWith("{")) {
+				// 開區塊那一行本身也要比對 context。design doc 舉的頭號例子就是「if 寫在 http 層」,
+				// 而「if 的 context 不含 http」與指令行的判斷一模一樣是確定的 —— 不屬於本類
+				// 刻意保留的「不確定就閉嘴」。少了這一段,六種 nginx 會直接拒絕啟動的區塊錯位
+				// (if/location 掛在 http、events 掛在 http 裡、server 掛在 location 裡、
+				// upstream 掛在 server 裡、limit_except 掛在 server)全部靜音,而同一個名字
+				// 寫成指令行反而抓得到。
+				//
+				// 只比對 context,不查「指令不存在」:認不得的區塊名多半是第三方模組的區塊
+				// (geoip2 { }),那正是 OPAQUE 存在的理由,拿去猜拼字候選只會製造誤報。
+				//
+				// 順序要在 pushBlocks 之前 —— 比的是這個區塊「被放進去的那一層」,不是它
+				// 自己開出來的那一層。
+				checkContext(problems, stack, svc, first, lineNo);
 				pushBlocks(stack, line, first);
+				continue;
+			}
+			if (line.indexOf('{') >= 0 && line.indexOf('}') < 0) {
+				// 開了區塊,但同一行 { 後面還有內容(server { listen 80;)。這種行不以 { 結尾,
+				// 原本一層都不推,於是配對的 } 會 pop 掉父層,之後每一行都算在錯的那一層。
+				//
+				// 這比行尾 } 更難防:這種設定括號平衡、每個 } 也都已經獨立成行,連但書建議的
+				// 「把 } 拆開再檢查一次」都驗不出來 —— 兩次結果一樣,誤報反而被當成可信。
+				//
+				// 推 OPAQUE 而不是猜區塊名:深度跟著對齊,這一層整層靜音。裡面少報幾則,
+				// 好過拿錯的層去斷言。同一行已經有 } 的(map $a $b { default 0; })不推,
+				// 那種行自己開自己關,推了就再也不會被 pop,整份設定從此靜音。
+				checkContext(problems, stack, svc, first, lineNo);
+				stack.addLast(OPAQUE);
 				continue;
 			}
 			if (!line.endsWith(";")) {
@@ -113,8 +141,7 @@ public class NginxConfChecker {
 				continue;
 			}
 
-			List<NginxDirective> defs = svc.directive(first);
-			if (defs.isEmpty()) {
+			if (svc.directive(first).isEmpty()) {
 				List<String> hints = svc.suggest(first);
 				if (!hints.isEmpty()) {
 					problems.add("第 " + lineNo + " 行: 未知指令 " + first + ",是否想寫 " + String.join(" / ", hints) + " ?");
@@ -122,35 +149,55 @@ public class NginxConfChecker {
 				continue; // 沒有候選就不報:可能是第三方模組的指令
 			}
 
-			// 同名指令可能跨模組（語料有 122 個這種名字）。只要任一個定義允許目前 context
-			// 就算合法 —— 否則 stream 設定裡的 proxy_pass 會被 http 版的定義誤判成錯誤。
-			List<NginxDirective> known = defs.stream().filter(d -> !d.contexts().isEmpty()).toList();
-			if (known.isEmpty()) {
-				continue; // 沒有任何一份定義說得出 context → 不報
-			}
-			// 先用最外層區塊把候選定義篩掉別的家族,再比對 context。同名跨模組的指令兩份定義
-			// 都在,篩完會留下對的那一份 —— 這正是 directive() 回 list 的用意。
-			String family = topLevelFamily(stack);
-			List<NginxDirective> applicable = family == null ? known
-					: known.stream().filter(d -> {
-						String f = moduleFamily(d.module());
-						return f == null || f.equals(family);
-					}).toList();
-
-			List<String> accepted = acceptedContexts(stack, ctx);
-			// applicable 被篩空時 anyMatch 自然是 false,也就會被報出來 —— 一條純 HTTP 指令
-			// 在 stream 底下沒有任何一份適用的定義,這件事是確定的。
-			boolean legal = applicable.stream().anyMatch(
-					d -> d.contexts().contains(ANY) || d.contexts().stream().anyMatch(accepted::contains));
-			if (!legal) {
-				String allowed = known.stream()
-						.map(d -> d.module() + ": " + String.join(", ", d.contexts()))
-						.collect(Collectors.joining(" / "));
-				problems.add("第 " + lineNo + " 行: " + first + " 不能用在 " + where(family, ctx)
-						+ ",官方允許的 context 是 " + allowed + " — " + known.get(0).sourceUrl());
-			}
+			checkContext(problems, stack, svc, first, lineNo);
 		}
 		return problems;
+	}
+
+	/**
+	 * 比對 name 用在堆疊目前這一層合不合法,不合法就往 problems 加一則。
+	 *
+	 * 指令行與開區塊那一行共用這一段:兩者要問的問題完全相同(這個名字允許出現在這一層嗎),
+	 * 差別只在開區塊那一行不查拼字候選。分成兩份寫的話,家族過濾與 if 的雙 context 這兩個
+	 * 最容易寫錯的地方就會有兩份實作,而其中一份遲早會落後。
+	 *
+	 * 看不懂的層(OPAQUE)、不像指令名的字、語料查不到的名字、以及沒有任何一份定義說得出
+	 * context 的名字,一律回報不出東西 —— 這幾道就是「只回報能確定的問題」的入口。
+	 */
+	private static void checkContext(List<String> problems, Deque<String> stack, NginxDocService svc,
+			String name, int lineNo) {
+		String ctx = stack.isEmpty() ? "main" : stack.peekLast();
+		if (OPAQUE.equals(ctx) || !DIRECTIVE_NAME.matcher(name).matches()) {
+			return;
+		}
+		// 同名指令可能跨模組（語料有 122 個這種名字）。只要任一個定義允許目前 context
+		// 就算合法 —— 否則 stream 設定裡的 proxy_pass 會被 http 版的定義誤判成錯誤。
+		List<NginxDirective> known = svc.directive(name).stream().filter(d -> !d.contexts().isEmpty()).toList();
+		if (known.isEmpty()) {
+			return; // 語料沒有這個名字,或沒有任何一份定義說得出 context → 不報
+		}
+		// 先用最外層區塊把候選定義篩掉別的家族,再比對 context。同名跨模組的指令兩份定義
+		// 都在,篩完會留下對的那一份 —— 這正是 directive() 回 list 的用意。
+		String family = topLevelFamily(stack);
+		List<NginxDirective> applicable = family == null ? known
+				: known.stream().filter(d -> {
+					String f = moduleFamily(d.module());
+					return f == null || f.equals(family);
+				}).toList();
+
+		List<String> accepted = acceptedContexts(stack, ctx);
+		// applicable 被篩空時 anyMatch 自然是 false,也就會被報出來 —— 一條純 HTTP 指令
+		// 在 stream 底下沒有任何一份適用的定義,這件事是確定的。
+		boolean legal = applicable.stream().anyMatch(
+				d -> d.contexts().contains(ANY) || d.contexts().stream().anyMatch(accepted::contains));
+		if (legal) {
+			return;
+		}
+		String allowed = known.stream()
+				.map(d -> d.module() + ": " + String.join(", ", d.contexts()))
+				.collect(Collectors.joining(" / "));
+		problems.add("第 " + lineNo + " 行: " + name + " 不能用在 " + where(family, ctx)
+				+ ",官方允許的 context 是 " + allowed + " — " + known.get(0).sourceUrl());
 	}
 
 	/**

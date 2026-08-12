@@ -230,7 +230,10 @@ public class NginxDocService {
 				prefix.add(key);
 			} else if (k.contains(q)) {
 				substring.add(key);
-			} else if (editDistance(k, q) <= 2) {
+			} else if (Math.abs(k.length() - q.length()) <= 2 && editDistance(k, q) <= 2) {
+				// 長度差 > 2 就不可能距離 <= 2(一次編輯最多改變長度 1),所以這道守衛不改結果,
+				// 只是不做注定失敗的 DP。少了它,貼一段含 base64 的 conf 會讓 nginx_check_config
+				// 卡好幾秒 —— 每個 token 都對 803 個 key 跑一次 O(n*m),而 n 是那個 token 的長度。
 				near.add(key);
 			}
 		}

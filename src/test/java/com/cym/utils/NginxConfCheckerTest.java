@@ -481,10 +481,13 @@ public class NginxConfCheckerTest {
 				}
 				""";
 		List<String> problems = NginxConfChecker.check(conf, svc);
-		assertEquals(3, problems.size(), "實際:" + problems);
+		assertEquals(4, problems.size(), "實際:" + problems);
 		assertTrue(problems.get(0).startsWith("第 3 行: 未知指令 proxy_pas"), problems.get(0));
-		assertTrue(problems.get(1).startsWith("第 9 行: worker_connections 不能用在 http"), problems.get(1));
-		assertTrue(problems.get(2).startsWith("第 13 行: root 不能用在 stream 的 server"), problems.get(2));
+		// 這一則是開區塊那一行本身被檢查之後才冒出來的,而且它是對的:map 的 context 只有 http,
+		// 寫在 server 裡 nginx 會拒絕啟動。這份 fixture 從一開始就藏著這個錯,只是沒人看得到。
+		assertTrue(problems.get(1).startsWith("第 4 行: map 不能用在 server"), problems.get(1));
+		assertTrue(problems.get(2).startsWith("第 9 行: worker_connections 不能用在 http"), problems.get(2));
+		assertTrue(problems.get(3).startsWith("第 13 行: root 不能用在 stream 的 server"), problems.get(3));
 	}
 
 	@Test
@@ -569,6 +572,113 @@ public class NginxConfCheckerTest {
 		List<String> problems = NginxConfChecker.check(probe, svc);
 		assertEquals(1, problems.size(), "實際:" + problems);
 		assertTrue(problems.get(0).startsWith("第 5 行: listen 不能用在 main"), problems.get(0));
+	}
+
+	@Test
+	public void check_區塊開錯位置要抓到() {
+		// design doc 舉的頭號例子就是「if 寫在 http 層」。開區塊那一行原本只用來推堆疊、
+		// 自己從來沒被檢查過,所以底下六種 nginx 會直接拒絕啟動的錯位全部靜音 —— 而同一個
+		// 名字寫成指令行反而抓得到。context 已知、目前層級已知,這是能確定的事,不屬於
+		// 「不確定就閉嘴」那一類。
+		assertOneProblem("http {\n    if ($host = a) {\n    }\n}\n", "第 2 行: if 不能用在 http");
+		assertOneProblem("http {\n    location / {\n    }\n}\n", "第 2 行: location 不能用在 http");
+		assertOneProblem("http {\n    events {\n    }\n}\n", "第 2 行: events 不能用在 http");
+		assertOneProblem("http {\n    server {\n        location / {\n            server {\n            }\n        }\n    }\n}\n",
+				"第 4 行: server 不能用在 location");
+		assertOneProblem("http {\n    server {\n        upstream u {\n        }\n    }\n}\n",
+				"第 3 行: upstream 不能用在 server");
+		assertOneProblem("http {\n    server {\n        limit_except GET {\n        }\n    }\n}\n",
+				"第 3 行: limit_except 不能用在 server");
+	}
+
+	@Test
+	public void check_合法的區塊位置與第三方區塊不誤報() {
+		// 開區塊那一行開始被檢查之後,最容易的翻車方式有兩種:把合法的巢狀一起報掉,或把
+		// 第三方模組的區塊名(geoip2 { })當成拼錯的指令 —— 所以開區塊那一行只比對 context,
+		// 不查拼字候選。stream 底下的 upstream / server 也一併釘住,家族過濾錯了會在這裡紅。
+		String conf = """
+				events {
+				}
+				http {
+				    map $a $b {
+				        default 0;
+				    }
+				    geoip2 /etc/nginx/geoip/GeoLite2-Country.mmdb {
+				        auto_reload 60m;
+				    }
+				    upstream backend {
+				        server 127.0.0.1:8080;
+				    }
+				    server {
+				        location / {
+				            limit_except GET {
+				                deny all;
+				            }
+				            if ($host = a) {
+				                return 403;
+				            }
+				        }
+				    }
+				}
+				stream {
+				    upstream tcp_backend {
+				        server 127.0.0.1:3306;
+				    }
+				    server {
+				        listen 3306;
+				    }
+				}
+				""";
+		assertEquals(List.of(), NginxConfChecker.check(conf, svc));
+	}
+
+	@Test
+	public void check_左大括號後面同行還有內容不讓堆疊漂移() {
+		// server { listen 80; 不以 { 結尾,原本一層都不推,配對的 } 於是 pop 掉父層,
+		// server_name / root 被算在 http。這一份的括號是平衡的、每個 } 也都已經獨立成行,
+		// 連但書建議的「把 } 拆開再檢查一次」都驗不出來 —— 兩次結果一樣,誤報反而顯得可信。
+		String conf = """
+				http {
+				    server { listen 80;
+				        server_name a.com;
+				        root /var/www;
+				    }
+				}
+				""";
+		assertEquals(List.of(), NginxConfChecker.check(conf, svc));
+
+		// 深度要真的對齊:漂移的話後面這個 server 會落在錯的層,裡面的 root 就被報出來。
+		String sibling = """
+				http {
+				    server { listen 80;
+				        root /var/www;
+				    }
+				    server {
+				        root /var/www;
+				    }
+				}
+				""";
+		assertEquals(List.of(), NginxConfChecker.check(sibling, svc));
+
+		// 自己開自己關的一行(map $a $b { default 0; })不能推 —— 推了就再也不會被 pop,
+		// 整份設定從那一行之後全部靜音。用一條真的放錯層的指令當探針。
+		String selfClosed = """
+				http {
+				    map $a $b { default 0; }
+				    upstream u {
+				        root /var/www;
+				    }
+				}
+				""";
+		List<String> problems = NginxConfChecker.check(selfClosed, svc);
+		assertEquals(1, problems.size(), "實際:" + problems);
+		assertTrue(problems.get(0).startsWith("第 4 行: root 不能用在 upstream"), problems.get(0));
+	}
+
+	private void assertOneProblem(String conf, String expectedPrefix) {
+		List<String> problems = NginxConfChecker.check(conf, svc);
+		assertEquals(1, problems.size(), "實際:" + problems);
+		assertTrue(problems.get(0).startsWith(expectedPrefix), problems.get(0));
 	}
 
 	@Test

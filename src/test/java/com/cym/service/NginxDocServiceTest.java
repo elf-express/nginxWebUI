@@ -85,6 +85,37 @@ public class NginxDocServiceTest {
 	}
 
 	@Test
+	public void search_回傳的片段真的含查詢詞() {
+		// 沒有這一條的話,把 indexOf(q) 換成常數 0(＝完全忽略查詢字串、直接回前 N 頁)
+		// 整個測試套件照樣全綠 —— 上面那條只檢查「非空、筆數、含連結」,三件事在 stub
+		// 之下全部成立。這是整個搜尋路徑唯一能被 stub 蒙混過去的地方。
+		for (String q : List.of("load balancing", "proxy_pass", "反向代理")) {
+			List<String> hits = svc.search(q, 5);
+			assertFalse(hits.isEmpty(), q + " 應該有命中");
+			for (String hit : hits) {
+				assertTrue(hit.toLowerCase(java.util.Locale.ROOT).contains(q), q + " 的片段沒帶到查詢詞:" + hit);
+			}
+		}
+	}
+
+	@Test
+	public void suggest_超長輸入不做無謂的編輯距離運算() {
+		// suggest 對全部 803 個 key 跑 Levenshtein。沒有長度守衛時,貼一段含 base64 的 conf
+		// (實測 200 個 2,000 字元 token → 14 秒)會讓 nginx_check_config 卡住。
+		// 長度差 > 2 時距離不可能 <= 2(一次編輯最多改變長度 1),所以跳過是等價的。
+		// 這裡釘的是結果:超長 token 回空,而正常輸入的候選一個都不少。
+		String huge = "a".repeat(50_000);
+		long start = System.nanoTime();
+		assertEquals(List.of(), svc.suggest(huge), "語料裡不可能有 5 萬字元的指令名");
+		long ms = (System.nanoTime() - start) / 1_000_000;
+		assertTrue(ms < 500, "超長輸入應該被長度守衛擋掉,實際花了 " + ms + " ms");
+
+		// 守衛不能連正常候選一起擋掉:長度差剛好 2 的仍要留著。
+		assertTrue(svc.suggest("proxy_pas").contains("proxy_pass"));
+		assertTrue(svc.suggest("proxy_read_timout").contains("proxy_read_timeout"));
+	}
+
+	@Test
 	public void search_limit真的截斷() {
 		// load balancing 只命中 1 頁,截斷路徑不會被走到;nginx 每頁的 Source 標頭都有,150 頁全中。
 		assertEquals(3, svc.search("nginx", 3).size());

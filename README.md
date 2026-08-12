@@ -183,22 +183,26 @@ built at startup from the 150 documentation pages bundled inside the jar — **9
 
 Five read-only tools: `nginx_directive` (exact lookup), `nginx_search` (full-text search),
 `nginx_module` (list one module's directives), `nginx_context` (reverse lookup — what may legally appear
-inside `location`, `server`, `upstream`, …), and `nginx_check_config` (check the directives *inside* a
-config draft against their documented contexts).
+inside `location`, `server`, `upstream`, …), and `nginx_check_config` (check a config draft's directives —
+and its block placements — against their documented contexts).
 
 **What `nginx_check_config` does and does not check.** It reads the config line by line, tracking braces to
 know which block each line sits in, and then checks the **directive lines** — is this a real directive, and
-is this context one the documentation allows it in. The lines that *open* a block are only used to track
-nesting; their own legality is never judged. So a block opened in the wrong place — `if { }` written
-directly under `http`, or `server { }` at the top level — is not reported, even though nginx refuses to
-start on it. The brace tracking is also the reason a finding can be confident and still be wrong.
+is this context one the documentation allows it in. The line that *opens* a block is checked the same way
+before it is pushed, so a block opened in the wrong place — `if { }` written directly under `http`,
+`server { }` inside a `location`, `upstream { }` inside a `server` — is reported too. What is not checked is
+syntax and argument values: a directive in a legal context with nonsense arguments passes. A block whose name
+is not in the documentation (`geoip2 { }`, from a third-party module) is treated as opaque, and everything
+inside it stays silent. The brace tracking is also the reason a finding can be confident and still be wrong.
 Unbalanced braces misattribute every line after the mismatch — and so does any closing brace that does not
 have a line to itself, even when the braces balance. `} }`, `}}` and `} location /b {` are tracked correctly;
 a trailing `}` (`listen 80; }`) is not. The caveat on findings therefore names the whole category — a closing
 brace sharing a line with anything else — instead of listing particular spellings, because a list that misses
 one ends up endorsing it. It also carries a check that covers the category: put every `}` on its own line, run
-it again, and trust the finding only if both runs agree. And nothing reported never means the config is
-correct — the tool reports only what it is certain of, and deliberately stays silent everywhere else.
+it again, and trust the finding only if both runs agree. An *opening* brace sharing a line (`server { listen 80;`)
+is handled the other way round — that block becomes opaque, so its depth stays aligned and its contents go
+unreported rather than misjudged. And nothing reported never means the config is correct — the tool reports
+only what it is certain of, and deliberately stays silent everywhere else.
 
 ### Turning it on
 

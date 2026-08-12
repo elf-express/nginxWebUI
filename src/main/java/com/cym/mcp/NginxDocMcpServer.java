@@ -65,6 +65,14 @@ public class NginxDocMcpServer {
 	/** 欄位在語料裡沒寫時的統一措辭。空字串會讓 AI 讀成「哪裡都不能用」/「沒有語法」。 */
 	private static final String UNLISTED = "文件未列出";
 
+	/**
+	 * nginx_search 每次最多回幾筆。
+	 *
+	 * 上限存在不是問題,不講才是:@Param 描述與截斷提示都由這個常數組出來,改一個數字兩邊
+	 * 一起變 —— 寫死字面值的話,遲早會出現「描述說 30、實際截到別的數字」。
+	 */
+	private static final int SEARCH_MAX_HITS = 30;
+
 	@Inject
 	NginxDocService docService;
 
@@ -98,23 +106,31 @@ public class NginxDocMcpServer {
 	// 描述寫得比實作大,呼叫端就會拿一次查無當成「官方文件沒講這件事」。
 	@ToolMapping(description = "以關鍵字全文搜尋 nginx 官方文件,用於還不知道指令名稱時。比對方式是把整串關鍵字當一個字面片語(不拆詞、不分大小寫),且語料內文多為 zh-TW 譯文,因此單一短詞、指令名或中文詞命中率最高,英文多詞片語(例如 reverse proxy)經常查無。每頁只回第一個命中片段與來源連結。")
 	public String nginx_search(@Param(description = "搜尋關鍵字,單一短詞或指令名效果最好") String query,
-			@Param(description = "最多回傳幾筆,預設 10", required = false) Integer limit) {
+			@Param(description = "最多回傳幾筆,預設 10,上限 " + SEARCH_MAX_HITS
+					+ "(要求更多會截到上限,並在回應開頭說明)", required = false) Integer limit) {
 		if (indexEmpty()) {
 			return indexEmptyMessage();
 		}
 		if (isBlank(query)) {
 			return "請提供搜尋關鍵字。";
 		}
-		int n = (limit == null || limit <= 0) ? 10 : Math.min(limit, 30);
+		int n = (limit == null || limit <= 0) ? 10 : Math.min(limit, SEARCH_MAX_HITS);
 		List<String> hits = docService.search(query, n);
 		// 查無不能停在死路 —— 其他工具查無時都給得出下一步,只有這裡是一堵牆。而且這個工具
 		// 查無的最常見原因(整串片語比對 + zh-TW 譯文)恰好是縮短關鍵字就能解掉的。
-		return hits.isEmpty()
-				? "查無「" + query + "」的相關內容。這是整串字面比對:請把關鍵字縮短成單一詞再試一次"
-						+ "(多詞片語只要有一個字不完全相符就會整串落空),或改用中文譯詞。"
-						+ "若已經知道指令名稱,用 nginx_directive 直接查它的定義;"
-						+ "若想知道某個 context(location、server…)能用哪些指令,用 nginx_context。"
-				: String.join("\n\n---\n\n", hits);
+		if (hits.isEmpty()) {
+			return "查無「" + query + "」的相關內容。這是整串字面比對:請把關鍵字縮短成單一詞再試一次"
+					+ "(多詞片語只要有一個字不完全相符就會整串落空),或改用中文譯詞。"
+					+ "若已經知道指令名稱,用 nginx_directive 直接查它的定義;"
+					+ "若想知道某個 context(location、server…)能用哪些指令,用 nginx_context。";
+		}
+		// 靜默截斷與 nginx_context 的截斷是同一件事:可以少給,但不能讓呼叫端以為手上這份是
+		// 全部。差別在 search 是逐頁掃到湊滿 n 就停,拿不到「總命中數」,所以只講得出上限
+		// 生效了、實際回了幾筆 —— 不為了印總數去改搜尋演算法。
+		String header = limit != null && limit > SEARCH_MAX_HITS
+				? "要求 " + limit + " 筆,但本工具每次最多回 " + SEARCH_MAX_HITS + " 筆,以下 " + hits.size() + " 筆:\n\n"
+				: "";
+		return header + String.join("\n\n---\n\n", hits);
 	}
 
 	@ToolMapping(description = "列出某個 nginx 模組的所有指令。簡寫若對應多個模組會回候選清單要求指定。")
@@ -171,10 +187,11 @@ public class NginxDocMcpServer {
 		return header + shown.stream().map(this::brief).collect(Collectors.joining("\n"));
 	}
 
-	// 描述只講做得到的事。「檢查 context」聽起來像連 if 寫在 http 層都抓得到,但開區塊那一行
-	// 本身從來沒被檢查過(NginxConfChecker 見到行尾的 { 就推堆疊並跳過),而那正是規格範例裡
-	// 舉的錯誤。工具描述與 README 是 AI 與人形成期待的地方,寫得比實作大就是在製造錯誤的信任。
-	@ToolMapping(description = "拿一段 nginx 設定對照官方文件檢查區塊「內」的指令:指令是否存在、是否用在合法的 context。開區塊那一行本身不檢查(http 層誤寫 if {、最外層誤寫 server { 這類錯誤查不出來,即使 nginx 會因此拒絕啟動)。只回報能確定的問題,沒有回報不等於設定正確。")
+	// 描述只講做得到的事:寫得比實作大是在製造錯誤的信任,寫得比實作小則是把已經做到的事
+	// 藏起來,兩邊都要跟著實作改。開區塊那一行原本完全不檢查(見到行尾的 { 就推堆疊並跳過),
+	// 現在 NginxConfChecker 會先比對這個區塊放在這一層合不合法,規格範例舉的「if 寫在 http 層」
+	// 因此抓得到 —— 這句描述必須跟著改,否則就換成文件比實作小。
+	@ToolMapping(description = "拿一段 nginx 設定對照官方文件檢查:指令是否存在、是否用在合法的 context。區塊「內」的指令與開區塊那一行本身都會檢查(http 層誤寫 if {、location 裡誤寫 server { 這類 nginx 會拒絕啟動的錯位都會回報)。不檢查語法細節與參數值。只回報能確定的問題,沒有回報不等於設定正確。")
 	public String nginx_check_config(@Param(description = "要檢查的 nginx 設定文字") String conf) {
 		if (indexEmpty()) {
 			return indexEmptyMessage();
@@ -192,8 +209,9 @@ public class NginxDocMcpServer {
 			logger.warn("nginx_check_config 檢查失敗", e);
 			return "檢查過程發生錯誤,無法完成檢查:" + e;
 		}
-		// 檢查器刻意「寧可漏不可誤」(區塊指令本身不檢查、單行區塊整行跳過、第三方區塊內靜音、
-		// 大小寫錯的指令名被形狀過濾吃掉),所以無問題不等於設定正確,措辭不能寫成保證。
+		// 檢查器刻意「寧可漏不可誤」(第三方區塊與資料區塊整層靜音、{ 後面同行還有內容時該層
+		// 轉靜音、跨行指令跳過、大小寫錯的指令名被形狀過濾吃掉),所以無問題不等於設定正確,
+		// 措辭不能寫成保證。
 		//
 		// 有問題時同樣要附但書,而且理由更硬:context 是逐行追蹤大括號推得的,追蹤一旦偏掉,
 		// 後面每一行都會被算在錯的那一層。
