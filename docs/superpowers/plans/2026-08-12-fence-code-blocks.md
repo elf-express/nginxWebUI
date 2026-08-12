@@ -2,7 +2,12 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 把 `docs/nginxdocumentation/` 109 個檔案中 4080 行以 markdown 引用塊（`> `）呈現的程式碼，轉成帶語言標註的 code fence，且不動任何一個字元的程式碼內容。
+**Goal:** 把 `docs/nginxdocumentation/` 的檔案中以 markdown 引用塊（`> `）呈現的程式碼，轉成帶語言標註的 code fence，且不動任何一個字元的程式碼內容。
+
+**實測基準（Task 2 全語料掃描，取代本計畫初稿的估算值）：** 152 檔共 7350 行引用，
+扣掉 152 行 `> Source:` 檔頭與 256 行 `> >` 巢狀引用後，6942 行進入分類器 —— 其中
+程式碼 889 塊／6650 行，散文 249 塊／292 行。計畫初稿寫的「4080 行程式碼、3263 行散文」
+是語料進版控前用行級啟發式估的，把 C 原始碼與單行命令誤算成散文，以此處數字為準。
 
 **Architecture:** 新增獨立腳本 `scripts/fence-code-blocks.js`，管線為「切分區塊 → 分類 → 推斷語言 → 轉換 → 驗證」。分類與轉換以**區塊**為單位（連續 `>` 行，由空行分隔），不逐行判斷——逐行會把 C 函式的續行 `void ngx_str_rbtree_insert_value(ngx_rbtree_node_t *temp,` 誤判成散文。核心安全機制是一條可自動驗證的不變量：轉換前後，剝除標記後的文字內容必須完全相同。
 
@@ -698,7 +703,7 @@ node scripts/fence-code-blocks.js --dir E:/nginxWebUI/docs/nginxdocumentation --
 - [ ] **Step 4: 機器驗收**
 
 ```bash
-node --test tests/unit/
+npm run test:unit
 git -C E:/nginxWebUI diff --stat docs/nginxdocumentation | tail -1
 ```
 再跑一次乾跑，應該幾乎沒有可轉換的區塊了（冪等）：
