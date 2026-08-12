@@ -1183,11 +1183,12 @@ public class InitConfig {
 			}
 			AsBlockIntent i = new AsBlockIntent();
 			i.setAsn(asn);
-			i.setStatus(AsBlockIntent.STATUS_ACTIVE);
+			// pending (not active): map enforcement is off by default; operator must re-push to CS
+			i.setStatus(AsBlockIntent.STATUS_PENDING);
 			i.setDuration("24h");
 			i.setReasonTag(AsnBlockService.reasonTagForAsn(asn));
 			i.setCreatedByProfile(AsnBlockService.PROFILE_MANUAL);
-			String note = "migrated from AsnRule";
+			String note = "migrated from AsnRule — re-push required";
 			if (StrUtil.isNotBlank(rule.getOrgName())) {
 				note = note + ": " + rule.getOrgName().trim();
 			}

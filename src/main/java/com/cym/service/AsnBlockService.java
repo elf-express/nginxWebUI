@@ -226,15 +226,16 @@ public class AsnBlockService {
 			throw new IllegalArgumentException("intent_not_found");
 		}
 		intent.setStatus(AsBlockIntent.STATUS_PENDING);
-		intent.setLastError(null);
-		sqlHelper.updateById(intent);
+		// insertOrUpdate skips null columns — use "" so prior errors clear on DB write
+		intent.setLastError("");
+		sqlHelper.updateAllColumnById(intent);
 
 		String batchId = String.valueOf(System.currentTimeMillis());
 		List<String> cidrs = fetchAggregatedCidrs(intent.getAsn());
 		if (cidrs.isEmpty()) {
 			intent.setStatus(AsBlockIntent.STATUS_FAILED);
 			intent.setLastError("no_prefixes");
-			sqlHelper.updateById(intent);
+			sqlHelper.updateAllColumnById(intent);
 			return;
 		}
 		String reason = intent.getReasonTag();
@@ -252,14 +253,15 @@ public class AsnBlockService {
 		intent.setLastPushAt(System.currentTimeMillis());
 		if (ok == 0) {
 			intent.setStatus(AsBlockIntent.STATUS_FAILED);
-			intent.setLastError(lastErr);
+			intent.setLastError(lastErr != null ? lastErr : "all_failed");
 		} else {
 			intent.setStatus(AsBlockIntent.STATUS_ACTIVE);
+			// clear on full success; keep partial note when some ranges fail
 			intent.setLastError(ok < cidrs.size()
 					? "partial:" + ok + "/" + cidrs.size() + " " + lastErr
-					: null);
+					: "");
 		}
-		sqlHelper.updateById(intent);
+		sqlHelper.updateAllColumnById(intent);
 	}
 
 	/**
