@@ -119,15 +119,11 @@ var asnCatalogNS = (function () {
 		$.post(ctx + '/adminPage/asn/setProfile', data, function (res) {
 			if (!res.success) {
 				layer.msg(res.msg || 'error');
-				setRadioChecked(profile);
-				return;
 			}
-			profile = next;
-			setRadioChecked(profile);
-			applyUiGates();
-			loadIntents();
+			// Always resync radio + gates from server (covers revoke fail after profile already light)
+			loadProfile();
 		}).fail(function () {
-			setRadioChecked(profile);
+			loadProfile();
 		});
 	}
 
@@ -137,6 +133,30 @@ var asnCatalogNS = (function () {
 
 		// Z: manual/strict → light
 		if (next === 'light' && profile !== 'light') {
+			// Without CrowdSec, Revoke cannot run — only offer Keep + Close
+			if (!crowdsecConfigured) {
+				layer.confirm(asnStr.switchLightMsg || '', {
+					title: asnStr.switchLightTitle || '',
+					icon: 3,
+					btn: [
+						asnStr.switchLightKeep || 'Keep',
+						commonStr.close || 'Close'
+					],
+					cancel: function () {
+						setRadioChecked(profile);
+					}
+				}, function (index) {
+					// keep
+					layer.close(index);
+					postSetProfile('light', 'keep');
+				}, function (index) {
+					// close — revert radio
+					setRadioChecked(profile);
+					layer.close(index);
+				});
+				return;
+			}
+
 			layer.confirm(asnStr.switchLightMsg || '', {
 				title: asnStr.switchLightTitle || '',
 				icon: 3,

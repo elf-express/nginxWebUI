@@ -52,4 +52,17 @@ public class AsnBlockServiceTest {
 		assertEquals("manual", AsnBlockService.normalizeProfile("manual"));
 		assertEquals("strict", AsnBlockService.normalizeProfile("strict"));
 	}
+
+	@Test
+	public void isValidProfile_exactCaseSensitive() {
+		assertTrue(AsnBlockService.isValidProfile("light"));
+		assertTrue(AsnBlockService.isValidProfile("manual"));
+		assertTrue(AsnBlockService.isValidProfile("strict"));
+		assertFalse(AsnBlockService.isValidProfile(null));
+		assertFalse(AsnBlockService.isValidProfile(""));
+		assertFalse(AsnBlockService.isValidProfile("heavy"));
+		assertFalse(AsnBlockService.isValidProfile("LIGHT"));
+		assertFalse(AsnBlockService.isValidProfile("Manual"));
+		assertFalse(AsnBlockService.isValidProfile(" STRICT "));
+	}
 }

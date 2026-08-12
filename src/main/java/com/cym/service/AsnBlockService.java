@@ -54,10 +54,18 @@ public class AsnBlockService {
 	}
 
 	/**
+	 * Exact match light|manual|strict (case-sensitive). For write-path validation.
+	 */
+	public static boolean isValidProfile(String p) {
+		return PROFILE_LIGHT.equals(p) || PROFILE_MANUAL.equals(p) || PROFILE_STRICT.equals(p);
+	}
+
+	/**
 	 * Normalize to light|manual|strict; anything else → light.
+	 * For read/get paths only — write path must use {@link #isValidProfile} and reject.
 	 */
 	public static String normalizeProfile(String p) {
-		if (PROFILE_MANUAL.equals(p) || PROFILE_STRICT.equals(p) || PROFILE_LIGHT.equals(p)) {
+		if (isValidProfile(p)) {
 			return p;
 		}
 		return PROFILE_LIGHT;
@@ -83,9 +91,16 @@ public class AsnBlockService {
 		return normalizeProfile(settingService.get(SETTING_PROFILE));
 	}
 
-	/** Persist profile; only light|manual|strict accepted (else light). */
+	/**
+	 * Persist profile; only exact light|manual|strict accepted.
+	 *
+	 * @throws IllegalArgumentException invalid_profile if blank or not an allowed value
+	 */
 	public void setProfile(String profile) {
-		settingService.set(SETTING_PROFILE, normalizeProfile(profile));
+		if (!isValidProfile(profile)) {
+			throw new IllegalArgumentException("invalid_profile");
+		}
+		settingService.set(SETTING_PROFILE, profile);
 	}
 
 	public boolean canCreateIntent() {

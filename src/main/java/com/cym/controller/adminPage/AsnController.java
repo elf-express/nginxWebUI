@@ -144,23 +144,36 @@ public class AsnController extends BaseController {
 	}
 
 	/**
-	 * Set profile=light|manual|strict. When switching to light, revokeMode=keep|revoke (Z).
+	 * Set profile=light|manual|strict (exact, case-sensitive). When switching to light,
+	 * revokeMode=keep|revoke (Z). Invalid/blank profile is rejected (no silent normalize).
 	 */
 	@Mapping("setProfile")
 	public JsonResult setProfile(String profile, String revokeMode) {
+		if (!AsnBlockService.isValidProfile(profile)) {
+			return renderError(mapServiceError("invalid_profile"));
+		}
 		String previous = asnBlockService.getProfile();
-		String next = AsnBlockService.normalizeProfile(profile);
-		asnBlockService.setProfile(next);
+		String next = profile;
 
 		// Z: leaving non-light → light, optionally revoke all WebUI ASN range bans
-		if (AsnBlockService.PROFILE_LIGHT.equals(next)
+		boolean wantRevoke = AsnBlockService.PROFILE_LIGHT.equals(next)
 				&& !AsnBlockService.PROFILE_LIGHT.equals(previous)
-				&& "revoke".equalsIgnoreCase(StrUtil.blankToDefault(revokeMode, "keep"))) {
+				&& "revoke".equalsIgnoreCase(StrUtil.blankToDefault(revokeMode, "keep"));
+
+		// Check CrowdSec before mutating profile when revoke was requested
+		if (wantRevoke && !asnBlockService.isCrowdSecConfigured()) {
+			return renderError(mapServiceError("crowdsec_not_configured"));
+		}
+
+		asnBlockService.setProfile(next);
+
+		if (wantRevoke) {
 			try {
 				int n = asnBlockService.revokeAllWebuiAsnBans();
 				return renderSuccess(n);
 			} catch (Exception e) {
 				logger.error("revoke on setProfile light failed", e);
+				// profile already light — client must loadProfile() to resync
 				return renderError(StrUtil.blankToDefault(e.getMessage(), "revoke_failed"));
 			}
 		}
@@ -297,6 +310,8 @@ public class AsnController extends BaseController {
 			return msgOr("asnStr.crowdsecRequired", code);
 		case "invalid_asn":
 			return msgOr("asnStr.invalidAsn", code);
+		case "invalid_profile":
+			return msgOr("asnStr.invalidProfile", code);
 		case "intent_not_found":
 			return msgOr("asnStr.intentNotFound", code);
 		default:
