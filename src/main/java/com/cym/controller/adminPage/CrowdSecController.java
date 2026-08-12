@@ -16,6 +16,7 @@ import com.cym.service.DenyAllowService;
 import com.cym.service.SettingService;
 import com.cym.utils.BaseController;
 import com.cym.utils.JsonResult;
+import com.cym.utils.NetGuard;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.http.HttpRequest;
@@ -25,6 +26,9 @@ import cn.hutool.http.HttpResponse;
 @Mapping("/adminPage/crowdsec")
 public class CrowdSecController extends BaseController {
 	Logger logger = LoggerFactory.getLogger(this.getClass());
+
+	/** Default duration for ban / whitelist when client omits it. */
+	private static final String DEFAULT_DURATION = "4h";
 
 	@Inject
 	SettingService settingService;
@@ -89,7 +93,7 @@ public class CrowdSecController extends BaseController {
 					.header("X-Api-Key", apiKey).timeout(10000).execute();
 			return renderSuccess(resp.body());
 		} catch (Exception e) {
-			return renderError(e.getMessage());
+			return fail(e);
 		}
 	}
 
@@ -102,24 +106,34 @@ public class CrowdSecController extends BaseController {
 			int offset = (page - 1) * limit;
 			return renderSuccess(crowdSecClient.listDecisionsRaw(limit, offset));
 		} catch (Exception e) {
-			return renderError(e.getMessage());
+			return fail(e);
 		}
 	}
 
 	/**
 	 * Ban a single IP — delegates to {@link CrowdSecClient#banIp}.
 	 * Keeps legacy response shape (success with empty obj on OK).
+	 * Client-side gate: blank duration → {@code 4h}; IP via NetGuard.
 	 */
 	@Mapping("addDecision")
 	public JsonResult addDecision(String ip, String duration, String reason) {
 		if (!crowdSecClient.isConfigured()) {
 			return renderError("notConfigured");
 		}
+		JsonResult gate = gateIpAndDuration(ip, duration);
+		if (gate != null) {
+			return gate;
+		}
+		if (StrUtil.isBlank(duration)) {
+			duration = DEFAULT_DURATION;
+		} else {
+			duration = duration.trim();
+		}
 		try {
-			crowdSecClient.banIp(ip, duration, reason);
+			crowdSecClient.banIp(ip.trim(), duration, reason);
 			return renderSuccess();
 		} catch (Exception e) {
-			return renderError(e.getMessage());
+			return fail(e);
 		}
 	}
 
@@ -133,11 +147,20 @@ public class CrowdSecController extends BaseController {
 		if (!crowdSecClient.isConfigured()) {
 			return renderError("notConfigured");
 		}
+		JsonResult gate = gateIpAndDuration(range, duration);
+		if (gate != null) {
+			return gate;
+		}
+		if (StrUtil.isBlank(duration)) {
+			duration = DEFAULT_DURATION;
+		} else {
+			duration = duration.trim();
+		}
 		try {
-			crowdSecClient.banRange(range, duration, reason);
+			crowdSecClient.banRange(range.trim(), duration, reason);
 			return renderSuccess();
 		} catch (Exception e) {
-			return renderError(e.getMessage());
+			return fail(e);
 		}
 	}
 
@@ -160,7 +183,15 @@ public class CrowdSecController extends BaseController {
 		}
 		ip = ip.trim();
 		if (StrUtil.isBlank(duration)) {
-			duration = "4h";
+			duration = DEFAULT_DURATION;
+		} else {
+			duration = duration.trim();
+		}
+		if (!NetGuard.isValidCidr(ip)) {
+			return renderError(msgOr("crowdsecStr.invalidCidr", NetGuard.ERR_INVALID_CIDR));
+		}
+		if (!NetGuard.isValidDuration(duration)) {
+			return renderError(msgOr("crowdsecStr.invalidDuration", NetGuard.ERR_INVALID_DURATION));
 		}
 		if (StrUtil.isBlank(reason)) {
 			reason = "nginxwebui:fp-whitelist";
@@ -168,7 +199,7 @@ public class CrowdSecController extends BaseController {
 		try {
 			crowdSecClient.whitelistIp(ip, duration, reason);
 		} catch (Exception e) {
-			return renderError(e.getMessage());
+			return fail(e);
 		}
 
 		boolean sync = "true".equalsIgnoreCase(syncDenyAllow) || "1".equals(syncDenyAllow)
@@ -228,7 +259,7 @@ public class CrowdSecController extends BaseController {
 			int n = crowdSecClient.deleteDecisionsByReasonPrefix(reasonPrefix);
 			return renderSuccess(n);
 		} catch (Exception e) {
-			return renderError(e.getMessage());
+			return fail(e);
 		}
 	}
 
@@ -241,8 +272,62 @@ public class CrowdSecController extends BaseController {
 			crowdSecClient.deleteDecision(decisionId);
 			return renderSuccess();
 		} catch (Exception e) {
-			return renderError(e.getMessage());
+			return fail(e);
 		}
+	}
+
+	// ── validation / error helpers ──────────────────────────────────────
+
+	/**
+	 * Shared pre-check for addDecision / addRangeDecision: CIDR + duration (blank → default later).
+	 *
+	 * @return null if OK; otherwise a renderError JsonResult
+	 */
+	private JsonResult gateIpAndDuration(String ipOrRange, String duration) {
+		if (StrUtil.isBlank(ipOrRange) || !NetGuard.isValidCidr(ipOrRange.trim())) {
+			return renderError(msgOr("crowdsecStr.invalidCidr", NetGuard.ERR_INVALID_CIDR));
+		}
+		String dur = duration;
+		if (StrUtil.isBlank(dur)) {
+			dur = DEFAULT_DURATION;
+		}
+		if (!NetGuard.isValidDuration(dur)) {
+			return renderError(msgOr("crowdsecStr.invalidDuration", NetGuard.ERR_INVALID_DURATION));
+		}
+		return null;
+	}
+
+	/**
+	 * Log full exception; map known NetGuard codes to i18n; never return e.getMessage() for unknown.
+	 */
+	private JsonResult fail(Exception e) {
+		logger.error("crowdsec api failed", e);
+		if (e instanceof IllegalArgumentException) {
+			String msg = e.getMessage();
+			if (NetGuard.ERR_INVALID_CIDR.equals(msg)) {
+				return renderError(msgOr("crowdsecStr.invalidCidr", msg));
+			}
+			if (NetGuard.ERR_INVALID_DURATION.equals(msg)) {
+				return renderError(msgOr("crowdsecStr.invalidDuration", msg));
+			}
+			if (NetGuard.ERR_INVALID_REASON.equals(msg)) {
+				return renderError(msgOr("crowdsecStr.invalidReason", msg));
+			}
+		}
+		return renderError(msgOr("crowdsecStr.error", "crowdsec_error"));
+	}
+
+	/** MessageUtils if key resolves; else English fallback. */
+	private String msgOr(String key, String fallback) {
+		try {
+			String s = m.get(key);
+			if (StrUtil.isNotBlank(s) && !s.equals(key)) {
+				return s;
+			}
+		} catch (Exception ignored) {
+			// fall through
+		}
+		return fallback;
 	}
 
 	private static String trimBase(String url) {

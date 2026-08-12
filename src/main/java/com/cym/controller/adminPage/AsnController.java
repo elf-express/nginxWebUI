@@ -19,6 +19,7 @@ import com.cym.sqlhelper.bean.Page;
 import com.cym.sqlhelper.utils.ConditionAndWrapper;
 import com.cym.utils.BaseController;
 import com.cym.utils.JsonResult;
+import com.cym.utils.NetGuard;
 
 import cn.hutool.core.util.StrUtil;
 
@@ -167,8 +168,8 @@ public class AsnController extends BaseController {
 				return renderSuccess(n);
 			} catch (Exception e) {
 				logger.error("revoke on setProfile light failed", e);
-				// profile unchanged (still previous)
-				return renderError(StrUtil.blankToDefault(e.getMessage(), "revoke_failed"));
+				// profile unchanged (still previous); never leak internals
+				return renderError(mapServiceError("crowdsec_error"));
 			}
 		}
 		asnBlockService.setProfile(next);
@@ -193,14 +194,14 @@ public class AsnController extends BaseController {
 			return renderError(mapServiceError(e.getMessage()));
 		} catch (Exception e) {
 			logger.error("addIntent failed", e);
-			return renderError(StrUtil.blankToDefault(e.getMessage(), "add_intent_failed"));
+			return renderError(mapServiceError("crowdsec_error"));
 		}
 	}
 
 	@Mapping("pushIntent")
 	public JsonResult pushIntent(String id) {
 		if (StrUtil.isBlank(id)) {
-			return renderError("intent_not_found");
+			return renderError(mapServiceError("intent_not_found"));
 		}
 		try {
 			asnBlockService.pushIntent(id);
@@ -212,12 +213,13 @@ public class AsnController extends BaseController {
 			return renderError(mapServiceError(e.getMessage()));
 		} catch (Exception e) {
 			logger.error("pushIntent failed", e);
-			return renderError(StrUtil.blankToDefault(e.getMessage(), "push_failed"));
+			return renderError(mapServiceError("crowdsec_error"));
 		}
 	}
 
 	/**
 	 * Revoke by intent id (resolve reasonTag) or by reasonTag directly.
+	 * Direct reasonTag path must be {@code nginxwebui:*} (NetGuard) before service.
 	 */
 	@Mapping("revokeIntent")
 	public JsonResult revokeIntent(String id, String reasonTag) {
@@ -225,9 +227,14 @@ public class AsnController extends BaseController {
 			if (StrUtil.isNotBlank(id)) {
 				AsBlockIntent intent = sqlHelper.findById(id, AsBlockIntent.class);
 				if (intent == null) {
-					return renderError("intent_not_found");
+					return renderError(mapServiceError("intent_not_found"));
 				}
 				reasonTag = intent.getReasonTag();
+			} else if (StrUtil.isNotBlank(reasonTag)) {
+				// reasonTag without id: only allow WebUI-owned tags
+				if (!NetGuard.isAllowedWebuiReason(reasonTag)) {
+					return renderError(mapServiceError("invalid_reason"));
+				}
 			}
 			if (StrUtil.isBlank(reasonTag)) {
 				return renderError("reason_tag_required");
@@ -237,9 +244,11 @@ public class AsnController extends BaseController {
 			}
 			int n = asnBlockService.revokeByReasonTag(reasonTag);
 			return renderSuccess(n);
+		} catch (IllegalArgumentException e) {
+			return renderError(mapServiceError(e.getMessage()));
 		} catch (Exception e) {
 			logger.error("revokeIntent failed", e);
-			return renderError(StrUtil.blankToDefault(e.getMessage(), "revoke_failed"));
+			return renderError(mapServiceError("crowdsec_error"));
 		}
 	}
 
@@ -322,8 +331,17 @@ public class AsnController extends BaseController {
 			return msgOr("asnStr.invalidProfile", code);
 		case "intent_not_found":
 			return msgOr("asnStr.intentNotFound", code);
+		case "invalid_cidr":
+			return msgOr("asnStr.invalidCidr", code);
+		case "invalid_duration":
+			return msgOr("asnStr.invalidDuration", code);
+		case "invalid_reason":
+			return msgOr("asnStr.invalidReason", code);
+		case "crowdsec_error":
+			return msgOr("crowdsecStr.error", code);
 		default:
-			return code;
+			// Never return raw unknown exception text to the client
+			return msgOr("crowdsecStr.error", "crowdsec_error");
 		}
 	}
 
