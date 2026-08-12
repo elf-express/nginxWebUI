@@ -1,0 +1,21 @@
+src/main/java/com/cym/utils/UpdateUtils.java
+  s_c8ef65e070d276::t_31af56cf68fd68 44,47-49,51-53,56-60,62,64
+src/main/resources/static/js/adminPage/select_template.js
+  s_c8ef65e070d276::t_bf6c1f01bc7733 227-229
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "a4cc7403e6a3ffcdb554f2743035cb0ea8ab689a",
+  "prompts": {},
+  "sessions": {
+    "s_c8ef65e070d276": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50a5711e-6dec-48f3-95d8-31c9541c3480",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
