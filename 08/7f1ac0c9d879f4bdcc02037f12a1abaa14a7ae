@@ -1,0 +1,86 @@
+src/test/java/com/cym/service/AsnBlockServiceTest.java
+  s_492e18725e3eaa::t_59bd2a63959a22 1-83
+src/main/java/com/cym/controller/adminPage/ProtectionCertController.java
+  s_492e18725e3eaa::t_59bd2a63959a22 4,6,21,69-75
+  s_492e18725e3eaa::t_a60b7bfe0ab1e5 76
+docs/superpowers/specs/2026-08-12-ipverse-asn-phase1-closure.md
+  s_492e18725e3eaa::t_59bd2a63959a22 1-42
+src/main/java/com/cym/config/InitConfig.java
+  s_492e18725e3eaa::t_59bd2a63959a22 22-23,32,187-188,395-414,1168-1210
+  s_492e18725e3eaa::t_8fd1b4864f445f 1211-1212
+src/main/resources/static/js/adminPage/protectionCert/crowdsec.js
+  s_492e18725e3eaa::t_59bd2a63959a22 1,7-30,81,84,87,107,121,127,130,152,163-174,176-181,185,188,200,203-205,216,239-291,293-295,331-332
+src/main/java/com/cym/service/CrowdSecClient.java
+  s_492e18725e3eaa::t_59bd2a63959a22 1-309
+CLAUDE.md
+  s_492e18725e3eaa::t_59bd2a63959a22 231
+src/test/java/com/cym/utils/NetGuardTest.java
+  s_492e18725e3eaa::t_59bd2a63959a22 1-50
+src/main/resources/messages.properties
+  s_492e18725e3eaa::t_59bd2a63959a22 838-893,1012-1032
+src/main/resources/static/js/adminPage/protectionCert/asnCatalog.js
+  s_492e18725e3eaa::t_59bd2a63959a22 1-468
+docs/superpowers/specs/2026-08-12-ipverse-asn-crowdsec-design.md
+  s_492e18725e3eaa::t_59bd2a63959a22 1-237
+docs/superpowers/specs/2026-08-13-asn-security-harden-design.md
+  s_492e18725e3eaa::t_59bd2a63959a22 1-82
+src/test/java/com/cym/utils/AsnSourceUrlsTest.java
+  s_492e18725e3eaa::t_59bd2a63959a22 1-37
+src/main/resources/WEB-INF/view/adminPage/protectionCert/index.html
+  s_492e18725e3eaa::t_59bd2a63959a22 271-274,276-400,905
+src/test/java/com/cym/service/AsnMetaParseTest.java
+  s_492e18725e3eaa::t_59bd2a63959a22 1-72
+src/main/resources/messages_zh_TW.properties
+  s_492e18725e3eaa::t_59bd2a63959a22 838-893,1012-1032
+src/main/java/com/cym/model/AsMeta.java
+  s_492e18725e3eaa::t_59bd2a63959a22 1-114
+src/test/resources/asn/as-meta-sample.json
+  s_492e18725e3eaa::t_59bd2a63959a22 1-50
+docs/superpowers/plans/2026-08-13-next-ai-handoff-asn-phase1.md
+  s_492e18725e3eaa::t_59bd2a63959a22 1-47
+docs/superpowers/plans/2026-08-13-asn-security-harden-plan.md
+  s_492e18725e3eaa::t_59bd2a63959a22 1-478
+src/main/java/com/cym/task/ScheduleTask.java
+  s_492e18725e3eaa::t_59bd2a63959a22 27,80-81,160-183
+  s_492e18725e3eaa::t_0f51a0c79ac514 184-185
+src/main/java/com/cym/model/AsBlockIntent.java
+  s_492e18725e3eaa::t_59bd2a63959a22 1-117
+src/main/java/com/cym/controller/adminPage/CrowdSecController.java
+  s_492e18725e3eaa::t_59bd2a63959a22 4,10-11,13-15,19,28-32,35-38,51,72,92,96,102,107,109,113-117,120,123-131,133-260,262,268,272-273,275-338,340
+src/main/java/com/cym/service/AsnBlockService.java
+  s_492e18725e3eaa::t_59bd2a63959a22 1-328
+src/main/resources/messages_en_US.properties
+  s_492e18725e3eaa::t_59bd2a63959a22 838-893,1012-1032
+src/main/java/com/cym/service/ConfService.java
+  s_492e18725e3eaa::t_59bd2a63959a22 213-235
+tests/e2e/35-asn-catalog-profile.spec.js
+  s_492e18725e3eaa::t_59bd2a63959a22 1-108
+docs/superpowers/plans/2026-08-12-ipverse-asn-crowdsec-plan.md
+  s_492e18725e3eaa::t_59bd2a63959a22 1-1044
+src/main/java/com/cym/controller/adminPage/AsnController.java
+  s_492e18725e3eaa::t_59bd2a63959a22 3,5,8,13-14,16-18,22,31-43,50-52,84-86,96-367
+src/main/java/com/cym/utils/NetGuard.java
+  s_492e18725e3eaa::t_59bd2a63959a22 1-96
+src/test/java/com/cym/service/CrowdSecClientTest.java
+  s_492e18725e3eaa::t_59bd2a63959a22 1-147
+src/main/java/com/cym/service/AsnMetaService.java
+  s_492e18725e3eaa::t_59bd2a63959a22 1-225
+src/main/java/com/cym/utils/AsnSourceUrls.java
+  s_492e18725e3eaa::t_59bd2a63959a22 1-64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.22",
+  "base_commit_sha": "087f1ac0c9d879f4bdcc02037f12a1abaa14a7ae",
+  "prompts": {},
+  "sessions": {
+    "s_492e18725e3eaa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0393758c-a272-4bb9-a97c-c1ed6354bc61",
+        "model": "claude-opus-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
