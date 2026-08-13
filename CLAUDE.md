@@ -6,260 +6,107 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 For additional context about the active work, see plans under [docs/superpowers/plans/](docs/superpowers/plans/) — the most recent dated file is usually the current focus.
 <!-- SPECKIT END -->
 
-> 本檔以英文為主、關鍵處附中文註解。新增使用者可見字串仍須同步三份 i18n（見下）。
-> **Code navigation:** this repo is indexed by CodeGraph (`.codegraph/codegraph.db`). Reach for `codegraph_explore` (MCP) or `codegraph explore "<question>"` (shell) BEFORE grep/find/Read when locating or understanding code — one call returns verbatim source + call paths in far fewer tokens than a grep/read loop.
+> 本檔以英文為主、關鍵處附中文註解。**本檔只放「每次都要知道」的東西；細節在 `docs/memory/`。**
+
+## 專案記憶 / Project memory — 動手前先讀對應那一頁
+
+這份檔案刻意保持精簡（150 行內）。下表每一頁都是這裡的延伸，**要動到那個領域就去讀那一頁**，
+不要憑印象作業 —— 這些檔案裡的每一條都是踩過才寫下來的。
+
+| 讀這頁 | 什麼時候 |
+|---|---|
+| [docs/memory/stack-and-layout.md](docs/memory/stack-and-layout.md) | 要找程式放哪裡、要寫 DB 存取、要加 CRUD 頁 |
+| [docs/memory/conventions.md](docs/memory/conventions.md) | 要改前端／後端／測試／Docker／參數模板 |
+| [docs/memory/dev-run-deploy.md](docs/memory/dev-run-deploy.md) | 要跑起來、要改啟動參數、要動 compose |
+| [docs/memory/release-flow.md](docs/memory/release-flow.md) | **要發版**（誰是觸發器很容易記錯，先看） |
+| [docs/memory/mcp.md](docs/memory/mcp.md) | 要動 nginx 文件 MCP（`/mcp` 端點、索引、設定檢查器） |
+| [docs/memory/feature-inventory.md](docs/memory/feature-inventory.md) | 想知道這個 fork 相對上游多了什麼 |
+
+> **Code navigation:** this repo is indexed by CodeGraph (`.codegraph/codegraph.db`).
+> Reach for `codegraph_explore` (MCP) or `codegraph explore "<question>"` (shell) BEFORE grep/find/Read —
+> one call returns verbatim source + call paths in far fewer tokens than a grep/read loop.
 
 ## Overview
-nginxWebUI is a web tool that simplifies NGINX configuration — users fill in UI forms instead of hand-writing `nginx.conf` (reverse proxy, SSL, load balancing, security hardening).
+
+nginxWebUI is a web tool that simplifies NGINX configuration — users fill in UI forms instead of
+hand-writing `nginx.conf` (reverse proxy, SSL, load balancing, security hardening).
 
 Entry point: [com.cym.NginxWebUI](src/main/java/com/cym/NginxWebUI.java) — `@SolonMain` + `@EnableScheduling`.
+
 > 注意：啟動時會先殺掉同名舊 jar process 再 `Solon.start()`。
 
-## Tech Stack
-- **Backend:** Java 17 (LTS) + [Solon 3.10.7](https://solon.noear.org/) — **NOT Spring Boot**
-  - DI: `@Component` (services) / `@Controller` (controllers) / `@Inject` (not `@Service` / `@Autowired`)
-  - Routing: `@Mapping("/path")` on both class and method level
-  - Scheduling: `@Scheduled` from `solon-scheduling-simple`
-- **Frontend:** Layui + jQuery + Freemarker (server-side rendered — **not an SPA**)
-- **DB:** SQLite (default) / PostgreSQL / MySQL — switch via `--spring.database.type`
-- **GeoIP:** `com.maxmind.db:maxmind-db` **4.1.0** reads MMDB `build_epoch` for the version badge.
-  > 注意：4.1.0 起 `Metadata` 改為 Java **record**（需 Java 16+），`getBuildDate()` 已移除 → 用 `buildTime()`（Instant）。此版由 dependabot 於 2026-07-05 升級（同批帶動 Java 8→17 地基升級）；讀取邏輯見 `GeoipService.readBuildDate`。
-- **Build:** Maven → `target/nginxWebUI-<version>.jar` (fat jar, `jar-with-dependencies`)
-- **Tests:** Playwright E2E (**no JUnit for end-to-end**)
-- **Containers:** Docker Compose stack (PostgreSQL + CrowdSec). **Two self-built images: `nginxwebui` + `nginxwebui-crowdsec`** (crowdsec = official base + config baked from [docker/crowdsec/](docker/crowdsec/)).
-  > 注意：Loki + Promtail + Grafana 已於 2026-06-30 從本專案移除 — nginx 內建 access/error log 已足夠排查,CrowdSec 直接從共享的 `nginxwebui_log` volume 讀 nginx log,不需要 Loki 中介。
+**Stack in one line:** Java 17 + **Solon 3.10.7（不是 Spring Boot）** · Layui + jQuery + Freemarker
+（伺服器端渲染，不是 SPA）· SQLite／PostgreSQL／MySQL 走自寫的 `SqlHelper`（不是 JPA）·
+Maven fat jar · Playwright E2E + JUnit 5 單元測試 · Docker Compose（PG + 可選 CrowdSec）。
+細節見 [stack-and-layout.md](docs/memory/stack-and-layout.md)。
 
-## Directory Structure
-```
-src/main/java/com/cym/
-├── config/         # init, filters, config (InitConfig, AppFilter)
-├── controller/     # adminPage/ (28 page controllers) + api/ (11 REST API controllers)
-├── ext/            # view DTOs (e.g. DenyAllowExt, GeoipDbInfo) — 非 @Table
-├── model/          # data models (@Table entities: Server, Location, Http, ...)
-├── service/        # business logic (@Component + @Inject SqlHelper)
-├── sqlhelper/      # home-grown ORM
-└── utils/          # utilities
+## 核心原則 / Core principles
 
-src/main/resources/
-├── WEB-INF/view/adminPage/   # Freemarker templates (HTML)
-├── static/js/adminPage/      # frontend JS (one dir per page)
-├── static/lib/               # third-party libs (layui, codemirror...)
-├── messages.properties       # i18n 简体中文
-├── messages_zh_TW.properties # i18n 繁體中文
-├── messages_en_US.properties # i18n English
-└── app.yml                   # app config
+這六條沒有例外，其餘慣例在 [conventions.md](docs/memory/conventions.md)。
 
-tests/e2e/          # Playwright specs
-docs/               # design docs & plans
-```
+1. **不要破壞既有商業邏輯** —— 改動以 UI 打磨或純疊加的功能為主。
+2. **多語言** —— 每個新的使用者可見字串都要同步改三份 `messages*.properties`
+   （簡／繁／英；CJK 值用 `\uXXXX` escape，檔案是 ISO-8859-1）。
+3. **自動化測試** —— 每個新增／變更的功能都要附一支 Playwright 測試。
+4. **零風險優先** —— 能純前端或純疊加就不要動既有路徑。
+5. **A11y 底線** —— 不要用 `<a href="javascript:...">` 當動作連結，用 `<button type="button">`。
+   header／sidebar／表格操作／modal／captcha 都已遷移，由
+   [tests/e2e/27-a11y-buttons.spec.js](tests/e2e/27-a11y-buttons.spec.js) 把關。
+   只有圖示的控制項需要 `aria-label`；新頁面需要 `<h1>` 地標。
+6. **離線優先的前端** —— 第三方 lib 要 vendor 進 `static/lib/`，不要從公開 CDN 載
+   （這是自架的管理工具，經常部署在無外網環境）。由
+   [tests/e2e/26-offline-no-cdn.spec.js](tests/e2e/26-offline-no-cdn.spec.js) 把關。
 
-## Conventions
+## 發版：**push 到 master 才發版，push 到 dev 不會**
 
-### Core principles / 核心原則
-1. **Don't break existing business logic** — changes are UI polish or additive features only.
-2. **Multilingual** — every new user-facing string updates all 3 `messages*.properties`.
-3. **Automated tests** — every new/changed feature ships a Playwright test.
-4. **Zero-risk first** — prefer pure-frontend / purely-additive changes.
-5. **A11y baseline** — never introduce `<a href="javascript:...">` pseudo-links for actions; use `<button type="button">`. Header / sidebar / table-action / modal / captcha already migrated; guarded by [tests/e2e/27-a11y-buttons.spec.js](tests/e2e/27-a11y-buttons.spec.js). Icon-only controls need `aria-label`. New pages need an `<h1>` landmark.
-6. **Offline-first frontend** — vendor third-party libs into `static/lib/` rather than loading from a public CDN (this is a self-hosted admin tool, often deployed air-gapped). Guarded by [tests/e2e/26-offline-no-cdn.spec.js](tests/e2e/26-offline-no-cdn.spec.js).
+這一點最常被記錯，所以放在主檔。完整流程與依據見 [release-flow.md](docs/memory/release-flow.md)。
 
-### Frontend
-- Use Layui components; refresh `select` / `checkbox` with `form.render()`.
-- JS lives per page (e.g. `static/js/adminPage/server/index.js`); reachable at URL `/js/...` (not `/static/js/...`).
-- **i18n key convention:** `<page>Str.<field>` (e.g. `serverStr.add`, `geoipStr.download`). Controller injects `MessageUtils m`; template uses `${serverStr.xxx}`.
-- JS i18n globals (e.g. `commonStr`, `geoipStr`) are auto-generated in [common.html](src/main/resources/WEB-INF/view/adminPage/common.html) from `messageHeaders` — a new prefix appears automatically once added to properties.
-> 注意：新增任何使用者可見字串，必須同步改三份 properties：`messages.properties`（簡）、`messages_zh_TW.properties`（繁）、`messages_en_US.properties`（英）。CJK 值用 `\uXXXX` escape（檔案是 ISO-8859-1）。
+`.github/workflows/build.yml` 的 push 觸發分支是 `[master, dev]`，兩者都跑 CI，
+但 `Release image` 與 `Auto-tag + GitHub Release` 兩個 job 被閘在 `github.ref == 'refs/heads/master'`
+（`:41` 與 `:121`）。所以 **dev 的 push 只有 build & test**。
+`release/*` 分支**不是**發版觸發器，它只是「通往 master 的一條路」，好讓 claude-code-review 有機會審。
 
-### Backend
-- Controllers live under `controller/adminPage/` (page controllers, incl. CrowdSec / Geo / Asn / ProtectionCert / SiteResource / Geoip) and `controller/api/` (REST API: `*Api` for basic/cert/denyAllow/nginx/param/password/server/upstream/www + `Token` / `Upload`) — none in `controller/` root.
-- Services: `@Component` + `@Inject SqlHelper sqlHelper;`. Persistence via `SqlHelper` (home-grown ORM, not JPA — see cheatsheet).
-- Primary keys: always `SnowFlakeUtils.getId()` (snowflake; stored as String, generated as Long).
-- Init logic in `InitConfig.java`; runtime config via `app.yml` or launch args.
-- **Seed-on-empty pattern:** fork ships sensible defaults so users don't bootstrap from zero — e.g. `InitConfig.start()` seeds 6 malicious-IP blocklist rules via `DenyAllowService.defaultBlocklistRules()` when the table is empty (guarded by `denyAllowSeeded` setting flag; async first-fetch fills IPs). Apply the same pattern for any new feature where "empty DB ≈ broken UX."
-
-### Testing (see docs/superpowers/plans/playwright-guide.md)
-- Specs in `tests/e2e/` — numbered `01-login` … `35-mcp` (contiguous) plus standalone (`flag-svg-integrity`). New feature → next number.
-- `35-mcp` 是唯一自己另起 server 的 spec（port 18081 + `--mcp.token`，資料落在已被 gitignore 的 `test-data/mcp/`）。共用實例（18080）沒帶 token，所以它同時守得住「未啟用時 404」。
-- **PG smoke:** `npm run test:pg` — docker 起 postgres:18-alpine(port 15432),跑 01+33 驗證 PostgreSQL 上的登入與 server 儲存(主套件只跑 SQLite,跨 DB 行為差異靠這層抓)。
-- Match 簡/繁 button text with regex: `/批量輸入|批量输入/`.
-- Drive Layui widgets via `page.evaluate()`.
-- Run: `npm test` (headed) · `npm run test:fast` (headless/CI) · `npx playwright test tests/e2e/08-crowdsec.spec.js` (one file) · `npm run report` (http://localhost:9400).
-> 注意：測試會自動啟動獨立 server（port 18080）+ 獨立 SQLite，不碰 `./dev-home/`。`tests/e2e/helpers.js` 動態解析 `target/nginxWebUI-*.jar`，所以跑測試前要先 `mvn package`。
-
-### Docker (see docs/superpowers/plans/docker-guide.md — partially superseded)
-- container_name: flat `nginxwebui` (app) / `nginxwebui-<service>` (sidecar) — no version suffix since 5.1.0.
-- volume name: `nginxwebui_{purpose}_data` (explicit `name:` to dodge compose project prefix).
-- healthcheck + startup order required; `entrypoint.sh` must be LF (`.gitattributes` enforces).
-- **Two self-built images:** `nginxwebui` (root Dockerfile) + `nginxwebui-crowdsec` (`docker/crowdsec/Dockerfile` = official crowdsec base + baked config). CrowdSec is opt-in via compose **profile** `security`; default `docker compose up -d` starts only nginxwebui + postgres.
-- Container-side GeoIP refresh: [scripts/update-geoip-cf.sh](scripts/update-geoip-cf.sh) — downloads GeoLite2 Country/City/ASN mmdb + Cloudflare ips-v4/v6 into `/etc/nginx/geoip`（entrypoint 啟動跑一次 + crontab 每週三、六;7 天內已更新則跳過,避免每次 restart 重抓 ~80 MB）。
-- **nginx modules (slim set, ~31 `.so`):** root [Dockerfile](Dockerfile) installs a curated `nginx-mod-*` set. **Do not** re-add unmaintained/risky packages: `upstream_fair`, legacy `geoip`/`stream_geoip` (`.dat`), `perl`, `upload`/`uploadprogress`, `zip`/`untar`/`slowfs`, `echo`, `dav_ext`, `fancyindex`, `xslt`, `shibboleth`, `log_zmq`, `accounting`, `redis2`.
-- **`load_module` order** is owned by `NginxService.MODULE_CATALOG` (NDK→Lua ecosystem → stream/mail/rtmp → geoip2 → js/keyval → compress → filters → dynamic upstream → feature modules). `getEnabledModulePaths()` follows **catalog order**, not DB `seq` (avoids dependency breakage). Migration `moduleCatalogHardened20260812` prunes obsolete module rows + resequences.
-- **Do not use bare `nginx -t`** inside the image without `-c` — Alpine’s `/etc/nginx/nginx.conf` auto-includes package confs with a bad lua/lua_upstream order. Always test UI conf: `nginx -t -c /home/nginxWebUI/temp/nginx.conf -p /home/nginxWebUI/temp/`.
-
-### Parameter templates / 參數模板 (`Template.def`)
-- **Multi-select auto-apply contexts** stored in `Template.def` as lowercase comma-separated tags (normalized by `TemplateDefUtils`).
-- **UI:** tag chips on [adminPage/template](src/main/resources/WEB-INF/view/adminPage/template/index.html) — human labels + grey internal codes.
-- **Keys (internal → meaning):**
-  | key | meaning |
-  |-----|---------|
-  | `http` | global `http { }` (zones, map, log_format, geoip2…) — injected by `ConfService` |
-  | `server` | every **HTTP** `server { }` (site / reverse proxy) — `ParamService` |
-  | `server1` | every **TCP** stream `server { }` (L4, no location) — `ParamService` |
-  | `server2` | every **UDP** stream `server { }` — `ParamService` |
-  | `stream` | global `stream { }` (e.g. `limit_conn_zone`) — `ConfService` |
-  | `location` | every `location { }` — `ParamService` |
-  | `upstream` | every HTTP `upstream { }` — `ParamService` |
-- Empty `def` = manual apply only via「選擇參數模板」.
-- **Smart-ish tag lock (read-only disabled):** `TemplateDefUtils.allowedContexts(params)` is the **single source of truth**. UI calls `POST /adminPage/template/allowedDefs` (debounced) to grey/`disabled` illegal tags; **save path** runs `normalizeAndFilter`. Do not re-duplicate HTTP_ONLY lists in JS.
-- **stream safety:** ConfService skips HTTP-only directives (`if`, `add_header`, …) when auto-injecting into `stream{}`; emits `limit_conn_zone` before `limit_conn`. Migration `streamDefTemplatesSanitized20260812` clears mistaken `def=stream` on GeoIP/`if` templates; only Connection Limit (stream layer) keeps `def=stream`, stream-server limit uses `server1`.
-- **Do not** put HTTP `if` / `$request` log_format into stream templates. See [docs/nginx結構.md](docs/nginx結構.md).
-
-## Architecture Flow
-A typical "user edits HTTP params" request crosses these layers:
-```
-Freemarker view (WEB-INF/view/adminPage/*.html)
-   ↓ Layui submit / jQuery ajax
-Controller — @Controller @Mapping  → routed by Solon, @Inject Service
-   ↓
-Service (@Component) — @Inject SqlHelper
-   ↓
-SqlHelper (home-grown ORM) — ConditionAndWrapper / Page / Sort → JDBC
-   ↓
-SQLite / PostgreSQL / MySQL
-```
-
-**Shortest path to add a CRUD page / 新增 CRUD 頁最短路徑:**
-1. `model/Xxx.java` with `@Table`, boxed types (`Long`/`Boolean`), key from `BaseModel`.
-2. `service/XxxService.java` — `@Component` + inject `SqlHelper`.
-3. `controller/adminPage/XxxController.java` — `@Controller @Mapping("/adminPage/xxx")`.
-4. View `WEB-INF/view/adminPage/xxx/index.html` + JS `static/js/adminPage/xxx/index.js`.
-5. **Add i18n keys to all 3 `messages*.properties`.**
-6. Add `tests/e2e/NN-xxx.spec.js` (next number).
-
-## SqlHelper Cheatsheet
-`SqlHelper` is [src/main/java/com/cym/sqlhelper/utils/SqlHelper.java](src/main/java/com/cym/sqlhelper/utils/SqlHelper.java) — not JPA, not MyBatis.
-
-```java
-@Component
-public class HttpService {
-    @Inject SqlHelper sqlHelper;
-
-    List<Http> all = sqlHelper.findAll(new Sort("seq", Direction.ASC), Http.class);       // sorted findAll
-    Http http = sqlHelper.findById(httpId, Http.class);                                    // by PK
-    Http one  = sqlHelper.findOneByQuery(new ConditionAndWrapper().eq("name","x"), Http.class);
-    List<Param> p = sqlHelper.findListByQuery(new ConditionAndWrapper().eq(Param::getTemplateId, id), Param.class);
-
-    sqlHelper.insert(entity);          // insert (ID supplied externally)
-    sqlHelper.updateById(entity);      // full-row update
-    sqlHelper.insertOrUpdate(entity);  // empty ID → insert; else update
-    sqlHelper.deleteById(id, Http.class);
-}
-```
-
-**Gotchas / 踩雷點:**
-- PK type is `String` but value comes from `SnowFlakeUtils.getId()` (Long → auto toString). 新增前可不指定 ID，交給 `insertOrUpdate`。
-- `ConditionAndWrapper` chains are immutable; compose with `.and(...)` / `.or(...)`.
-- No `@Repository`, no Mapper interface — **don't grep for DAO**; read the matching `XxxService.java`.
-- Paging returns `Page<T>` (`records` / `total`) with `new Page<>(pageNum, pageSize)`.
-
-## Dev Environment
-
-| Tool | Version | Check |
-|---|---|---|
-| JDK | Java 17 (LTS) | `java -version` |
-| Maven | 3.6+ | `mvn -version` |
-| Node.js | 18+ | `node -v` |
-| Git | 2.30+ | `.gitattributes` forces LF cross-platform |
-| Docker (optional) | 20.10+ | incl. Compose v2 |
-
-> 注意：Java 17 是建置目標（2026-07-05 從 Java 8 升級，配合 maxmind-db 4.1.0 需 Java 16+）；CI 以 JDK 17 為準（build.yml）。跑 E2E 時 `spawn('java')` 走 PATH，需確保 PATH 的 java 是 17（否則 Java 8 跑 Java 17 jar 會 UnsupportedClassVersionError）。
-
-```bash
-git clone <repo-url> nginxWebUI && cd nginxWebUI
-npm install && npx playwright install --with-deps chromium   # Node deps
-mvn clean package -DskipTests                                # → target/nginxWebUI-<version>.jar
-```
-
-IDE: Main class `com.cym.NginxWebUI` · Program args `--server.port=8080 --project.home=./dev-home/` · JVM args `-Dfile.encoding=UTF-8`.
-
-## Run & Deploy
-
-**Minimal (SQLite, port 8080):**
-```bash
-java -jar -Dfile.encoding=UTF-8 target/nginxWebUI-<version>.jar --server.port=8080 --project.home=./dev-home/
-```
-First visit prompts to set the admin password.
-
-**Useful launch flags / 常用啟動參數:**
-- PostgreSQL: `--spring.database.type=postgresql --spring.datasource.url=... --spring.datasource.username=... --spring.datasource.password=...`
-- Reset password: `--project.findPass=true` (prints password then exits)
-- Test captcha: `--project.testCaptcha=1234` (CAPTCHA always accepts 1234 — for E2E)
-- Skip wizard: `--init.admin=admin --init.pass=admin123 --init.api=true`
-  > 注意：`--init.*` 只在 DB 還沒有任何管理員時生效。自 5.1.0 起 compose 的 `BOOT_OPTIONS` 不再內建 `--init.admin/pass`（首次走 UI 引導）。
-
-**Docker Compose (recommended)** — run from `docker/`. Deploy needs `docker-compose.yml` + `.env` (crowdsec config is baked into its self-built image, no bind-mount needed). Default `up -d` = nginxwebui + postgres only; add `--profile security` for CrowdSec IDS:
-```bash
-cd docker
-docker compose pull && docker compose up -d     # pull release images (:latest = newest tag)
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build   # build nginxwebui from source
-docker compose ps                                # all healthy
-```
-
-**Stack** (from [docker/docker-compose.yml](docker/docker-compose.yml)): **always on** — nginxwebui (host **12300**→8080, 80, 443) · postgres:18-alpine. **Optional via profile** — `security`: crowdsec · crowdsec-bouncer. CrowdSec = self-built `nginxwebui-crowdsec`（官方 base + 烤 config）。
-> 注意：crowdsec config（acquis/profiles/abuseipdb）已烤進自建 image（`docker/crowdsec/Dockerfile`），升版跟著 image 走;runtime secret 仍走 `.env`。
-> 注意：Loki / Promtail / Grafana monitoring profile 已於 2026-06-30 從本專案移除。若 server 上還有 `nginxwebui_loki_data` / `nginxwebui_grafana_data` volume 是歷史遺留，可手動 `docker volume rm` 清理。
-
-## Release Flow (see docs/superpowers/plans/2026-05-21-dev-release-workflow.md)
-**Branches:** `dev` (常駐日常開發) · `master` (**push 觸發發版**;CI 版本閘控:pom 版本在 ghcr 沒有才 build+push;自動打 `v*` tag + 建 GitHub Release) · `hotfix/*` (從 `master` 開).
-
-**Primary path — bump on `dev`, push straight to `master` (no PR):**
 ```bash
 git checkout dev && git pull origin dev
-scripts/release.sh 5.2.6        # 只在 dev 或 hotfix/* 能跑(script 有分支閘);只改 pom 的 nginxWebUI <version> + commit,不打 tag、不 push
-git push origin dev             # 同步 origin/dev
-git push origin dev:master      # 觸發 CI:build+push 2 images (amd64) + auto-tag v5.2.6 + GitHub Release(--generate-notes)
-docker manifest inspect ghcr.io/elf-express/nginxwebui:5.2.6   # 確認 image pushed
+scripts/release.sh 5.2.9        # 只改 pom 的 nginxWebUI <version> + commit;不打 tag、不 push
+git push origin dev             # 同步 origin/dev（此步不發版）
+git push origin dev:master      # ← 這一步才發版：build+push 2 images + auto-tag + GitHub Release
 ```
-> 注意：**不要開 dev → master 的 PR** — GitHub merge 後的「Delete branch」會刪掉常駐 `dev`。直接 push `dev:master` 不走 PR、不刪 dev(代價是沒有 claude-code-review 自動審)。
 
-**Optional PR variant(要 claude-code-review 保險時):** 先在 `dev` 跑 `scripts/release.sh`(它的分支閘不接受 `release/*`),再 `git checkout -b release/5.2.6` 推上去開 release/5.2.6 → master PR;merge 時 GitHub 刪的是 release 分支,`dev` 不動,merge 後 `git checkout dev && git pull` 即已同步(bump commit 本來就在 dev)。
-> `release.sh` 只改 pom.xml,不碰 README/README_TW/CLAUDE/.env — 部署文件刻意「不綁版本」(`:latest` + `master` raw URL + jar 萬用字元)。Hotfix:從 `master` 開 `hotfix/*`,同樣 `scripts/release.sh x.y.z` 後 `git push origin hotfix/xxx:master`。
+> **不要開 dev → master 的 PR** —— GitHub merge 後的「Delete branch」會刪掉常駐 `dev`。
 
-## Feature Inventory
-**UI/UX:** batch param input · TLS default fix · conf indent + CodeMirror highlight · login password toggle · default http params/templates · HTTP param grouping (`HttpController.GROUP_DEFS`) · template grouping · **template auto-apply multi-select tags** (`Template.def` via `TemplateDefUtils`: `http`/`server`/`server1`/`server2`/`stream`/`location`/`upstream`) · IP/DenyAllow tag-ization · edit mode · conf error diagnosis · lang switch (flag SVG) · brand logo upload + header 200×60 align · HTTP param panel phase 2/3: tri-state enable mode + nginx module-availability filter (specs 28–31;5.2.7 起面板移至 http 參數配置頁 — 全域設定歸全域頁,server 精靈只留逐站步驟①Location ②server 參數).
-**Accessibility (Wave 1/2 audit, ongoing):** site-wide pseudo-link `<a href="javascript:">` → `<button>` migration (header, sidebar, table actions, modals, captcha) · semantic landmarks (`<nav>` sidebar, `<h1>` on key pages) · icon button `aria-label`. Specs 27-a11y-buttons + crawler-style assertions guard this.
-**Security:** CrowdSec (IDS + bouncer) · GeoIP2 country block · **ASN big-block via CrowdSec range** (ipverse as-metadata catalog `AsMeta` + as-ip-blocks prefix fetch; protection profiles `light`/`manual`/`strict` on `protection.profile`; intents `AsBlockIntent` with reason `nginxwebui:as-ban:AS{n}`; AsnRule nginx `$blocked_asn` map deprecated, opt-in only via `asn.nginxMapEnabled`) · Protection Cert · Real-IP module · **DenyAllow black/white lists — 全站自動生效** (`type` deny/allow, `@InitValue("deny")`; seeded 6 malicious-IP feed rules + daily URL refresh + async first-fetch; rules auto-apply at http/stream level via `ConfService.buildDenyAllow` — allow before deny, default allow, **no per-server binding**(舊綁定 UI 已於 5.2.6 移除,Settings/欄位保留不讀); cross-type IP conflict rejected on save; CrowdSec FP whitelist may optional-sync DenyAllow allow) · **firewall page = 6 tabs** (IP database / 黑名單 / 白名單 / GeoIP country / ASN / Protection Cert).
-**GeoIP DB module (v5.2.0+):** header shows Country/City/ASN/Cloudflare status in a 2×2 grid（4 列直排會撐破 60px header） (`GeoipService` via maxmind-db; build-date cache keyed by file mtime — 避免每 request 重讀 ~80MB mmdb) · ProtectionCert Tab-1 IP-database table (version / schedule / manual download / status cross-verify: `GeoipService.evaluateStatus` + `reverifyAll` + per-file stat/status fields) · **Cloudflare Real-IP auto-download** (`/adminPage/geoip/downloadCloudflare` → `realip.conf`, Cloudflare status row in the same table) · `GeoipController` `/adminPage/geoip/{versions,download,downloadCloudflare,…}` · Java/Hutool download (jar + Docker).
-**nginx modules (Docker slim):** ~31 dynamic modules; `MODULE_CATALOG` load order; pruned unmaintained/high-risk modules (fair, legacy geoip, perl, upload*, …). Stream connection-limit templates use zone name `s_conn_perip` (must not collide with HTTP `conn_limit`).
-**Monitoring/Ops:** nginx module auto-detect (`/adminPage/monitor/nginxInfo`) · Site Resource · connectivity test.
-**nginx docs MCP:** 969 條指令定義 / 803 個相異名稱 / 99 個模組 / 15 個 context,啟動時從打包進 jar 的 150 頁 markdown 建索引(`NginxDocService.loadFromClasspath`,`NginxDocParser` 解析) · 五個唯讀工具(`nginx_directive` / `nginx_search` / `nginx_module` / `nginx_context` 反查 / `nginx_check_config`,見 `NginxDocMcpServer`) · `@McpServerEndpoint(channel = STREAMABLE_STATELESS, mcpEndpoint = "/mcp")` —— 無狀態通道:裸 POST 回純 JSON,不需 `initialize` 握手也沒有 SSE 包裝 · **opt-in `--mcp.token=<token>`**:未設定則 bean 不註冊(`@Condition(onProperty = "mcp.token")`)、索引不解析、`AppFilter` 回 404;設定了則 `Authorization: Bearer <token>` 不符回 401 · 三處(`@Condition` / `AppFilter` / `InitConfig`)必須共用 `NginxDocMcpServer.TOKEN_KEY` 常數 **且**同用 `Solon.cfg().getByExpr`(`cfg().get()` 不查環境變數,混用會造出「端點註冊了卻永遠 404」) · client 設定在 `.mcp.json`(token 與 URL 走環境變數) · E2E 見 [tests/e2e/35-mcp.spec.js](tests/e2e/35-mcp.spec.js)(未設 token 的共用 server 驗 404;另起帶 token 的 18081 實例驗 401/工具清單/語意分流/`AppFilter` 全域回歸)。
-> 注意:`mcp.token` 含 `.`,不是合法 POSIX shell 識別字 —— `export mcp.token=x` 在 sh/bash 是語法錯誤。文件一律以 `--mcp.token=` 啟動參數為主;Docker 走 `BOOT_OPTIONS` 或 compose `environment:`。
-> 注意:手動 curl 測 `/mcp` 時 **`Accept: application/json, text/event-stream` 是必要的**(兩種型態都要列)。少了它、或只寫 `application/json`,一律 **400 且 body 完全是空的**,不會告訴你原因 —— 很容易誤判成功能壞掉。MCP client 自己會帶對,只有手測會踩到。
-**Deploy/Test:** test captcha · Compose stack (PG18 + CrowdSec) · **CrowdSec = self-built `nginxwebui-crowdsec` (official base + baked config)** · optional `security` profile · **master-triggered release: CI version-gated builds 2 images (nginxwebui + nginxwebui-crowdsec, amd64) + auto-tag + auto GitHub Release** · **geoip MMDB baked at build (offline-ready)** · `.gitattributes` LF · Playwright E2E suite (offline-CDN guard + a11y crawler) · `@claude` mention responder ([.github/workflows/claude.yml](.github/workflows/claude.yml)) · **save-path hardening (5.2.6):** `nginx -t` precheck 15s timeout + 無法執行/逾時→SKIPPED 不回滾(修死鎖) · realip.conf 啟動 placeholder · ORM 綁定正規化(Boolean→'1'/'0' + 啟動 migration) + DML SQLException 不再靜默 · http `variables_hash_max_size`/`variables_hash_bucket_size` defaults when geoip2+map variables are many.
+## 每次都會用到的指令
 
-## Docs
-- **README:** `README.md`=英文(主) · `README_TW.md`=繁中;語言切換連結雙向,改內容須同步兩版。
-- [nginx 設定結構](docs/nginx結構.md) — 區塊樹、http vs stream 差異、zone 命名、宣告/使用配對（模板 `declares`/`requires` 設計依據）。
-- [nginx 官方文檔校對索引](docs/nginxdocumentation/README.md) · [翻譯規範](docs/nginxdocumentation/TRANSLATION.md) — 關鍵頁人工繁中；**勿**用 `scripts/auto-translate.js` 批次改 md（會誤翻 `nginx -s quit` 等字面值）。
-- [Improvement plans & reports](docs/superpowers/plans/)
-- [Playwright guide](docs/superpowers/plans/playwright-guide.md) · [Docker guide](docs/superpowers/plans/docker-guide.md) · [Docker standard](docs/superpowers/plans/docker-standard.md)
-- [Dev/release workflow](docs/superpowers/plans/2026-05-21-dev-release-workflow.md)
-
-## Quick Commands
 ```bash
-mvn clean package -DskipTests                 # build
+mvn clean package -DskipTests                 # build（跑測試前必須先有 jar）
 java -jar -Dfile.encoding=UTF-8 target/nginxWebUI-<version>.jar --server.port=8080   # run
-npm test            # E2E (headed)            #   npm run test:fast (headless)
+npm test            # E2E (headed)            #   npm run test:fast (headless/CI)
 npm run report      # test report (port 9400)
 cd docker && docker compose up -d --build     # docker build+run
-codegraph explore "<question or symbol>"      # 1-call code lookup (prefer over grep/find)
+codegraph explore "<question or symbol>"      # 1-call code lookup（優先於 grep/find）
 ```
 
-## app.yml Key Params
-```yaml
-project: { home: /home/nginxWebUI/, findPass: false }   # home: data dir (db/log/cert)
-spring:
-  database: { type: sqlite }                              # sqlite / postgresql / mysql
-  datasource: { url: , username: , password: }            # PG/MySQL JDBC
-init: { admin: , pass: , api: }                           # empty → UI wizard
-```
+> 注意：E2E 會自動起獨立 server（port 18080）+ 獨立 SQLite，不碰 `./dev-home/`。
+> `tests/e2e/helpers.js` 動態解析 `target/nginxWebUI-*.jar` —— 所以跑過 `mvn clean` 之後
+> 一定要先 `mvn -o package -DskipTests` 把 jar 建回來，否則測試會起不來。
+
+## 幾條「做了會出事」的紅線
+
+- **不要在 image 裡裸跑 `nginx -t`**（不帶 `-c`）—— Alpine 的 `/etc/nginx/nginx.conf` 會 include
+  順序壞掉的套件設定。要測 UI 產生的設定：
+  `nginx -t -c /home/nginxWebUI/temp/nginx.conf -p /home/nginxWebUI/temp/`。
+- **不要**把 HTTP 的 `if` / `$request` log_format 放進 stream 模板（見 [docs/nginx結構.md](docs/nginx結構.md)）。
+- **不要**把已剔除的高風險 nginx 模組加回 Dockerfile（`upstream_fair`、舊 `geoip`、`perl`、`upload*`…）。
+- **不要**用 `scripts/auto-translate.js` 批次改 `docs/nginxdocumentation/` 的 md —— 會誤翻
+  `nginx -s quit` 這類字面值。翻譯規範見 [TRANSLATION.md](docs/nginxdocumentation/TRANSLATION.md)。
+- 改 `AppFilter` 要格外小心：它在每個 request 的必經路徑上，守著整個後台。
+
+## Docs
+
+- **README：** `README.md`=英文（主）· `README_TW.md`=繁中；語言切換連結雙向，改內容須同步兩版。
+- [nginx 設定結構](docs/nginx結構.md) — 區塊樹、http vs stream 差異、zone 命名、宣告/使用配對。
+- [nginx 官方文檔校對索引](docs/nginxdocumentation/README.md) · [翻譯規範](docs/nginxdocumentation/TRANSLATION.md)
+- [Improvement plans & reports](docs/superpowers/plans/) ·
+  [Playwright guide](docs/superpowers/plans/playwright-guide.md) ·
+  [Docker guide](docs/superpowers/plans/docker-guide.md) ·
+  [Dev/release workflow](docs/superpowers/plans/2026-05-21-dev-release-workflow.md)
