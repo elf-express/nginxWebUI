@@ -268,25 +268,136 @@
 
 				<!-- ==================== Tab 5: ASN Block ==================== -->
 				<div class="layui-tab-item" id="asnTabContent">
-					<div style="margin-bottom:10px;">
-						<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="addAsn()"><i class="layui-icon layui-icon-add-circle-fine"></i> ${commonStr.add}</button>
-						<button type="button" class="layui-btn layui-btn-sm layui-btn-danger" onclick="delManyAsn()"><i class="layui-icon layui-icon-delete"></i> ${commonStr.delAll}</button>
+
+					<!-- Phase-1 scope: Light + catalog ready; Strict bulk post-merge -->
+					<div id="asnPhaseBanner" class="layui-bg-blue" style="padding:10px 14px;margin-bottom:12px;border-radius:4px;color:#fff;">
+						<i class="layui-icon layui-icon-tips"></i> ${asnStr.phase1Banner}
 					</div>
-					<table class="layui-table layui-form" lay-size="sm" lay-filter="asnForm">
-						<thead>
-							<tr>
-								<th style="width:20px;">
-									<input type="checkbox" id="asnCheckAll" lay-filter="asnCheckAll" lay-skin="primary">
-								</th>
-								<th style="width:120px;">${asnStr.asn}</th>
-								<th>${asnStr.orgName}</th>
-								<th style="width:80px;">${asnStr.enable}</th>
-								<th style="width:160px;">${commonStr.operation}</th>
-							</tr>
-						</thead>
-						<tbody id="asnTableBody">
-						</tbody>
-					</table>
+
+					<!-- CrowdSec not configured banner -->
+					<div id="asnCrowdsecBanner" class="layui-bg-orange" style="display:none;padding:10px 14px;margin-bottom:12px;border-radius:4px;color:#fff;">
+						<i class="layui-icon layui-icon-about"></i> ${asnStr.crowdsecRequired}
+					</div>
+
+					<!-- Manual/Strict bulk push not production-hardened yet -->
+					<div id="asnBulkWarnBanner" class="layui-bg-orange" style="display:none;padding:10px 14px;margin-bottom:12px;border-radius:4px;color:#fff;">
+						<i class="layui-icon layui-icon-about"></i> ${asnStr.bulkPushWarn}
+					</div>
+
+					<!-- Profile control -->
+					<div class="layui-form" lay-filter="asnProfileForm" style="margin-bottom:16px;padding:12px 14px;background:#fafafa;border:1px solid #eee;border-radius:6px;">
+						<div class="layui-form-item" style="margin-bottom:0;">
+							<label class="layui-form-label" style="width:auto;padding-left:0;">${asnStr.profile}</label>
+							<div class="layui-input-block" style="margin-left:0;" id="asnProfile">
+								<input type="radio" name="protectionProfile" id="asnProfileLight" value="light" title="${asnStr.profileLight}" lay-filter="asnProfile">
+								<input type="radio" name="protectionProfile" id="asnProfileManual" value="manual" title="${asnStr.profileManual}" lay-filter="asnProfile">
+								<input type="radio" name="protectionProfile" id="asnProfileStrict" value="strict" title="${asnStr.profileStrict}" lay-filter="asnProfile">
+							</div>
+							<div class="layui-form-mid layui-word-aux" id="asnProfileTip" style="margin-left:0;padding:4px 0 0;"></div>
+						</div>
+					</div>
+
+					<!-- Catalog -->
+					<div style="margin-bottom:18px;">
+						<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+							<strong style="font-size:14px;">${asnStr.catalog}</strong>
+							<button type="button" class="layui-btn layui-btn-sm" id="btnAsnSyncMeta" onclick="asnCatalogNS.syncMeta()"><i class="layui-icon layui-icon-refresh"></i> ${asnStr.syncMeta}</button>
+							<button type="button" class="layui-btn layui-btn-sm layui-btn-warm" id="btnAsnSuggestHosting" style="display:none;" onclick="asnCatalogNS.suggestHosting()"><i class="layui-icon layui-icon-engine"></i> ${asnStr.suggestHosting}</button>
+						</div>
+						<div class="layui-form" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px;">
+							<input type="text" id="asnCatalogQ" class="layui-input" style="width:220px;display:inline-block;" placeholder="${asnStr.searchPlaceholder}" onkeydown="if(event.keyCode===13){asnCatalogNS.search();return false;}">
+							<select id="asnCatalogCategory" style="width:160px;">
+								<option value="">${asnStr.allCategories}</option>
+								<option value="hosting">hosting</option>
+								<option value="isp">isp</option>
+								<option value="business">business</option>
+								<option value="education_research">education_research</option>
+								<option value="government_admin">government_admin</option>
+							</select>
+							<input type="text" id="asnCatalogCountry" class="layui-input" style="width:140px;display:inline-block;" placeholder="${asnStr.countryPlaceholder}" maxlength="2" onkeydown="if(event.keyCode===13){asnCatalogNS.search();return false;}">
+							<button type="button" class="layui-btn layui-btn-sm" onclick="asnCatalogNS.search()"><i class="layui-icon layui-icon-search"></i> ${commonStr.search}</button>
+						</div>
+						<table class="layui-table" lay-size="sm">
+							<thead>
+								<tr>
+									<th style="width:90px;">${asnStr.asn}</th>
+									<th style="width:120px;">${asnStr.handle}</th>
+									<th>${asnStr.description}</th>
+									<th style="width:70px;">${asnStr.country}</th>
+									<th style="width:110px;">${asnStr.category}</th>
+									<th style="width:140px;">${commonStr.operation}</th>
+								</tr>
+							</thead>
+							<tbody id="asnCatalogBody">
+								<tr><td colspan="6" style="text-align:center;color:#999;">--</td></tr>
+							</tbody>
+						</table>
+						<div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+							<button type="button" class="layui-btn layui-btn-primary layui-btn-xs" id="btnAsnCatalogPrev" onclick="asnCatalogNS.prevPage()">${asnStr.prevPage}</button>
+							<span id="asnCatalogPageInfo" class="layui-word-aux"></span>
+							<button type="button" class="layui-btn layui-btn-primary layui-btn-xs" id="btnAsnCatalogNext" onclick="asnCatalogNS.nextPage()">${asnStr.nextPage}</button>
+						</div>
+					</div>
+
+					<!-- Intents -->
+					<div style="margin-bottom:18px;">
+						<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+							<strong style="font-size:14px;">${asnStr.intents}</strong>
+							<input type="text" id="asnIntentDuration" class="layui-input" style="width:120px;display:inline-block;" value="24h" placeholder="${asnStr.durationPlaceholder}">
+							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" id="btnAsnAddIntent" onclick="asnCatalogNS.promptAddIntent()"><i class="layui-icon layui-icon-add-circle-fine"></i> ${asnStr.addIntent}</button>
+						</div>
+						<table class="layui-table" lay-size="sm">
+							<thead>
+								<tr>
+									<th style="width:90px;">${asnStr.asn}</th>
+									<th style="width:100px;">${asnStr.status}</th>
+									<th style="width:80px;">${asnStr.duration}</th>
+									<th style="width:150px;">${asnStr.lastPush}</th>
+									<th>${asnStr.error}</th>
+									<th style="width:180px;">${commonStr.operation}</th>
+								</tr>
+							</thead>
+							<tbody id="asnIntentBody">
+								<tr><td colspan="6" style="text-align:center;color:#999;">--</td></tr>
+							</tbody>
+						</table>
+					</div>
+
+					<!-- Source links footer -->
+					<div style="margin:12px 0 18px;padding:10px 12px;background:#f8f9fa;border:1px solid #eee;border-radius:4px;font-size:12px;color:#666;">
+						<strong>${asnStr.sources}:</strong>
+						<a href="${asnSourceUrls.lens}" target="_blank" rel="noopener noreferrer">${asnStr.sourceLens}</a>
+						·
+						<a href="${asnSourceUrls.meta}" target="_blank" rel="noopener noreferrer">${asnStr.sourceMeta}</a>
+						·
+						<a href="${asnSourceUrls.blocks}" target="_blank" rel="noopener noreferrer">${asnStr.sourceBlocks}</a>
+						·
+						<a href="${asnSourceUrls.tools}" target="_blank" rel="noopener noreferrer">${asnStr.sourceTools}</a>
+					</div>
+
+					<!-- Legacy AsnRule (deprecated until Task 8) -->
+					<details style="margin-top:8px;">
+						<summary style="cursor:pointer;color:#999;font-size:13px;">${asnStr.legacyTitle}</summary>
+						<div style="margin:10px 0;">
+							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="addAsn()"><i class="layui-icon layui-icon-add-circle-fine"></i> ${commonStr.add}</button>
+							<button type="button" class="layui-btn layui-btn-sm layui-btn-danger" onclick="delManyAsn()"><i class="layui-icon layui-icon-delete"></i> ${commonStr.delAll}</button>
+						</div>
+						<table class="layui-table layui-form" lay-size="sm" lay-filter="asnForm">
+							<thead>
+								<tr>
+									<th style="width:20px;">
+										<input type="checkbox" id="asnCheckAll" lay-filter="asnCheckAll" lay-skin="primary">
+									</th>
+									<th style="width:120px;">${asnStr.asn}</th>
+									<th>${asnStr.orgName}</th>
+									<th style="width:80px;">${asnStr.enable}</th>
+									<th style="width:160px;">${commonStr.operation}</th>
+								</tr>
+							</thead>
+							<tbody id="asnTableBody">
+							</tbody>
+						</table>
+					</details>
 				</div>
 
 				<!-- ==================== Tab 6: Certificate Management ==================== -->
@@ -791,6 +902,7 @@
 <script src="${ctx}/js/adminPage/protectionCert/geo.js?v=${jsrandom}" type="text/javascript"></script>
 <script src="${ctx}/js/adminPage/protectionCert/cert.js?v=${jsrandom}" type="text/javascript"></script>
 <script src="${ctx}/js/adminPage/denyAllow/asn.js?v=${jsrandom}" type="text/javascript"></script>
+<script src="${ctx}/js/adminPage/protectionCert/asnCatalog.js?v=${jsrandom}" type="text/javascript"></script>
 
 </body>
 </html>
