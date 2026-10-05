@@ -36,7 +36,7 @@
 
 ```bash
 mvn clean package -DskipTests      # 先產 jar，E2E 依賴它
-mvn test                           # JUnit 5 單元測試（CI 不跑，必須本機跑）
+mvn test                           # JUnit 5 單元測試（CI 也會跑，本機先跑過再開 PR）
 npm run test:unit                  # Node 單元測試（docs 腳本）
 npm run test:fast                  # Playwright E2E 全套（SQLite）
 npm run test:pg                    # 動到 SQL／ORM／跨 DB 行為時加跑

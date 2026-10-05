@@ -1,4 +1,5 @@
 # Dependabot 自動 PR 提醒第三方依賴升級
+# PR 一律開到 dev(push master 會觸發發版,依賴升級跟下一次發版一起進 master)
 # 文件：https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 version: 2
 updates:
@@ -7,6 +8,7 @@ updates:
   # 真正的 Dockerfile 在 repo root,故 directory 指 "/"(先前指 /docker 找不到 Dockerfile 而報錯)。
   # compose 的 sidecar 官方 image(postgres/grafana/crowdsec…)不在此 ecosystem 覆蓋範圍。
   - package-ecosystem: "docker"
+    target-branch: "dev"
     directory: "/"
     schedule:
       interval: "weekly"
@@ -21,6 +23,7 @@ updates:
 
   # crowdsec 自建 image 的 base(crowdsecurity/crowdsec)
   - package-ecosystem: "docker"
+    target-branch: "dev"
     directory: "/docker/crowdsec"
     schedule:
       interval: "weekly"
@@ -35,6 +38,7 @@ updates:
 
   # GitHub Actions versions in .github/workflows/*.yml
   - package-ecosystem: "github-actions"
+    target-branch: "dev"
     directory: "/"
     schedule:
       interval: "weekly"
@@ -49,6 +53,7 @@ updates:
 
   # Maven dependencies in pom.xml
   - package-ecosystem: "maven"
+    target-branch: "dev"
     directory: "/"
     schedule:
       interval: "weekly"

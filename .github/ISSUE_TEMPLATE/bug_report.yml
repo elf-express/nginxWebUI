@@ -1,0 +1,72 @@
+name: 回報錯誤
+description: 回報 nginxWebUI 的錯誤或異常行為
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        安全漏洞請不要公開開 issue，請用本倉庫的「Report a vulnerability」私下回報。
+
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: 頁面右上角或 image tag 上的版本號
+      placeholder: 例如 5.2.9
+    validations:
+      required: true
+
+  - type: dropdown
+    id: deploy
+    attributes:
+      label: 部署方式
+      options:
+        - Docker Compose
+        - Docker 單一容器
+        - jar 直接執行
+    validations:
+      required: true
+
+  - type: dropdown
+    id: database
+    attributes:
+      label: 資料庫
+      options:
+        - SQLite
+        - PostgreSQL
+        - MySQL
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 問題描述
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 重現步驟
+      placeholder: |
+        1. 進入「站台」頁
+        2. 新增 server 並存檔
+        3. 出現錯誤…
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 預期結果
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日誌與產生的 nginx.conf 片段
+      description: 容器日誌、瀏覽器 console 錯誤、相關的 conf 片段（請遮掉網域與 IP）
+      render: shell
