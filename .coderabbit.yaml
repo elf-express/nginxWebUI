@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit 自動審查設定。需先在 elf-express 組織安裝 CodeRabbit GitHub App 並授權本倉庫。
+language: "zh-TW"
+reviews:
+  profile: "chill"
+  auto_review:
+    enabled: true
+    drafts: false
+    # 預設分支（master）之外，也審以 dev 為目標的 PR
+    base_branches:
+      - "^dev$"
+  path_instructions:
+    - path: "src/main/java/**/*.java"
+      instructions: |
+        Solon 框架（不是 Spring Boot）：DI 用 @Component / @Controller / @Inject，路由用 @Mapping。
+        資料存取走自寫 ORM SqlHelper（不是 JPA），主鍵用 SnowFlakeUtils.getId()。
+        InitConfig 的啟動 migration 必須可重複執行，以 setting flag 當閘門，不可刪既有資料。
+    - path: "src/main/resources/messages*.properties"
+      instructions: |
+        新增或修改的 key 必須三份（簡、繁、英）同步；CJK 值用 \uXXXX escape（檔案是 ISO-8859-1）。
+    - path: "src/main/resources/WEB-INF/view/**/*.html"
+      instructions: |
+        Freemarker 伺服器端渲染。動作控制項用 <button type="button">，不可用 <a href="javascript:">；
+        只有圖示的控制項要有 aria-label。第三方 lib 從 static/lib/ 載入，不可引用外網 CDN。
+    - path: "tests/e2e/**/*.spec.js"
+      instructions: |
+        Playwright E2E。Layui 元件用 page.evaluate() 驅動；簡繁按鈕文字用 regex 同時比對。

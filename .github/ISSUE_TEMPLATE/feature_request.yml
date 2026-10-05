@@ -1,0 +1,25 @@
+name: 功能建議
+description: 提出新功能或改進建議
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 想解決的問題
+      description: 目前哪裡不方便、缺了什麼
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 建議做法
+      description: 希望 UI 怎麼操作、會產生什麼 nginx 設定
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 目前的替代做法
