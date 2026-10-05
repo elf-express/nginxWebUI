@@ -55,7 +55,7 @@
 	</#list>
 	
 	<#list messages as message>
-	${message.key} = "${message.value}";
+	${message.key} = "${message.value?js_string}";
 	</#list>
 	
 	// 这是用来看项目使用情况的, 不要删
