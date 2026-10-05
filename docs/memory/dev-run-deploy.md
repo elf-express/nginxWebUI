@@ -39,6 +39,7 @@ java -jar -Dfile.encoding=UTF-8 target/nginxWebUI-<version>.jar --server.port=80
 - PostgreSQL：`--spring.database.type=postgresql --spring.datasource.url=... --spring.datasource.username=... --spring.datasource.password=...`
 - 重設密碼：`--project.findPass=true`（印出密碼後結束）
 - 測試用驗證碼：`--project.testCaptcha=1234`（CAPTCHA 永遠接受 1234 —— 給 E2E 用）
+- 不殺同名 jar 進程：`--project.skipKillSelf=true`（預設啟動時會 kill 其他 `nginxWebUI*.jar` 進程當作舊版本；E2E 另起第二個實例時帶這個）
 - 跳過引導：`--init.admin=admin --init.pass=admin123 --init.api=true`
   > 注意：`--init.*` 只在 DB 還沒有任何管理員時生效。自 5.1.0 起 compose 的 `BOOT_OPTIONS` 不再內建 `--init.admin/pass`（首次走 UI 引導）。
 - nginx 文件 MCP：`--mcp.token=<token>`（不設就完全不啟用，見 [mcp.md](mcp.md)）

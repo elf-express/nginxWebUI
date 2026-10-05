@@ -113,6 +113,8 @@ test.describe('MCP 端點', () => {
 				`--server.port=${MCP_PORT}`,
 				`--project.home=${MCP_DATA_DIR}/`,
 				'--project.skipSeedFetch=true',
+				// 共用的 18080 server 還在跑;不帶這個,啟動時會把它當舊版本殺掉
+				'--project.skipKillSelf=true',
 				`--mcp.token=${MCP_TOKEN}`,
 			], { cwd: PROJECT_ROOT, stdio: 'pipe' });
 
