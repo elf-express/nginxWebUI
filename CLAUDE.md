@@ -8,6 +8,11 @@ For additional context about the active work, see plans under [docs/superpowers/
 
 > 本檔以英文為主、關鍵處附中文註解。**本檔只放「每次都要知道」的東西；細節在 `docs/memory/`。**
 
+> **開發規範（分支、PR、Linear Spec／Plan、回報）見 [Linear.rule.md](Linear.rule.md)，以它為準。**
+> 新的規格與計畫寫在 Linear，`docs/superpowers/plans/` 只剩歷史紀錄與指南。
+
+@Linear.rule.md
+
 ## 專案記憶 / Project memory — 動手前先讀對應那一頁
 
 這份檔案刻意保持精簡（150 行內）。下表每一頁都是這裡的延伸，**要動到那個領域就去讀那一頁**，
@@ -106,7 +111,7 @@ codegraph explore "<question or symbol>"      # 1-call code lookup（優先於 g
 - **README：** `README.md`=英文（主）· `README_TW.md`=繁中；語言切換連結雙向，改內容須同步兩版。
 - [nginx 設定結構](docs/nginx結構.md) — 區塊樹、http vs stream 差異、zone 命名、宣告/使用配對。
 - [nginx 官方文檔校對索引](docs/nginxdocumentation/README.md) · [翻譯規範](docs/nginxdocumentation/TRANSLATION.md)
-- [Improvement plans & reports](docs/superpowers/plans/) ·
+- [Improvement plans & reports（歷史）](docs/superpowers/plans/) ·
   [Playwright guide](docs/superpowers/plans/playwright-guide.md) ·
   [Docker guide](docs/superpowers/plans/docker-guide.md) ·
   [Dev/release workflow](docs/superpowers/plans/2026-05-21-dev-release-workflow.md)
