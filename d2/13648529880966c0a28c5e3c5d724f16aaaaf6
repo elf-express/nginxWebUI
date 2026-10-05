@@ -1,0 +1,35 @@
+.github/ISSUE_TEMPLATE/config.yml
+  s_e341848ede711f::t_700e18cef95bd0 1
+docs/memory/conventions.md
+  s_e341848ede711f::t_10a6aef819ec39 32
+.github/dependabot.yml
+  s_e341848ede711f::t_31ef2b4c4c1727 2,11,26,41,56
+Linear.rule.md
+  s_e341848ede711f::t_10a6aef819ec39 39
+.github/PULL_REQUEST_TEMPLATE.md
+  s_e341848ede711f::t_ff41362c3b93a0 1-33
+.github/ISSUE_TEMPLATE/bug_report.yml
+  s_e341848ede711f::t_700e18cef95bd0 1-72
+.github/ISSUE_TEMPLATE/feature_request.yml
+  s_e341848ede711f::t_700e18cef95bd0 1-25
+.coderabbit.yaml
+  s_e341848ede711f::t_976bda941fe385 1-27
+.github/workflows/build.yml
+  s_e341848ede711f::t_d66ca6c97db499 4-7,12-13,18-22,25,40-67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d213648529880966c0a28c5e3c5d724f16aaaaf6",
+  "prompts": {},
+  "sessions": {
+    "s_e341848ede711f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "db6c0729-14d9-4317-989a-dd3108172b84",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
