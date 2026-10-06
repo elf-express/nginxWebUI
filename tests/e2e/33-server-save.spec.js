@@ -25,13 +25,15 @@ test.describe('server 儲存流程 — 新增/編輯/enable 持久化', () => {
     await page.locator('#listen').fill('9001');
 
     // 成功後 JS 會 location.reload(),導航後 body 不可讀 → 只驗 HTTP ok,
+    // 點擊前先掛 load 監聽:reload 是非同步的,事後才 waitForLoadState 會在 reload 開始前就返回,接著的 goto 會撞上 reload
     // 持久化證明交給重載後的表格斷言
+    const addReloaded = page.waitForEvent('load');
     const [addResp] = await Promise.all([
       page.waitForResponse((r) => r.url().includes('/adminPage/server/addOver')),
       page.locator(".layui-layer button[onclick='addOver()']").click(),
     ]);
     expect(addResp.ok()).toBeTruthy();
-    await page.waitForLoadState('load');
+    await addReloaded;
 
     // 重載驗證持久化(捕捉「假成功、沒寫進 DB」的靜默失敗)
     await page.goto('/adminPage/server');
@@ -46,12 +48,13 @@ test.describe('server 儲存流程 — 新增/編輯/enable 持久化', () => {
     await expect(page.locator('#serverName')).toHaveValue(NAME);
     await page.locator('#listen').fill('9002');
 
+    const editReloaded = page.waitForEvent('load');
     const [editResp] = await Promise.all([
       page.waitForResponse((r) => r.url().includes('/adminPage/server/addOver')),
       page.locator(".layui-layer button[onclick='addOver()']").click(),
     ]);
     expect(editResp.ok()).toBeTruthy();
-    await page.waitForLoadState('load');
+    await editReloaded;
 
     await page.goto('/adminPage/server');
     await page.waitForSelector('table');
@@ -73,12 +76,13 @@ test.describe('server 儲存流程 — 新增/編輯/enable 持久化', () => {
     // === 刪除清理(共用 DB,避免影響其他 spec;del() 用原生 confirm → 需 dialog handler) ===
     page.on('dialog', (dialog) => dialog.accept());
     const row3 = page.locator('tr', { hasText: NAME });
+    const delReloaded = page.waitForEvent('load');
     const [delResp] = await Promise.all([
       page.waitForResponse((r) => r.url().includes('/adminPage/server/del')),
       row3.locator("button[onclick*=\"del('\"]").click(),
     ]);
     expect(delResp.ok()).toBeTruthy();
-    await page.waitForLoadState('load');
+    await delReloaded;
 
     await page.goto('/adminPage/server');
     await page.waitForSelector('table');

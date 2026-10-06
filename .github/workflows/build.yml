@@ -51,6 +51,12 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
 
+      # runner 預裝 nginx;E2E 以「沒有 nginx」為前提(InitConfig 偵測到會自動設 nginxExe 並跑 nginx -t 預檢)
+      - name: Remove preinstalled nginx
+        run: |
+          sudo apt-get purge -y -qq 'nginx*' >/dev/null || true
+          if command -v nginx; then echo "nginx still on PATH"; exit 1; fi
+
       - name: Node unit tests
         run: npm run test:unit
 

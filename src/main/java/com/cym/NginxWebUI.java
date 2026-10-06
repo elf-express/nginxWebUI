@@ -26,17 +26,22 @@ public class NginxWebUI {
 
 	public static void main(String[] args) {
 		boolean findPass = false;
-		
+		// 與另一個實例並存時(E2E 另起的第二個 server)不殺同名 jar 進程
+		boolean skipKillSelf = false;
+
 		if (args != null) {
 			for (String arg : args) {
 				if (arg.equals("--project.findPass=true")) {
 					findPass = true;
 				}
+				if (arg.equals("--project.skipKillSelf=true")) {
+					skipKillSelf = true;
+				}
 			}
 		}
-		
+
 		try {
-			if (!findPass) {
+			if (!findPass && !skipKillSelf) {
 				// 尝试杀掉旧版本
 				killSelf(args);
 

@@ -110,6 +110,8 @@ async function startApp() {
     stdio: 'pipe',
   });
 
+  // stdout / stderr 都要讀掉:pipe 緩衝區寫滿後 app 寫 log 會被阻塞,請求跟著卡死
+  serverProcess.stdout.on('data', () => {});
   serverProcess.stderr.on('data', () => {});
 
   await waitForReady();
