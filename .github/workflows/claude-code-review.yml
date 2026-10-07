@@ -33,6 +33,7 @@ jobs:
         uses: anthropics/claude-code-action@9d7150bc8a3dae8149739a88019d192b579ad90c # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          allowed_bots: dependabot[bot]
           # 直接給 review 任務(不需 @claude 提及)
           prompt: |
             請 review 這個 PR,並用繁體中文在 PR 留言。聚焦:
