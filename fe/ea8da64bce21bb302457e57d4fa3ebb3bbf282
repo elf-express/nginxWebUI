@@ -1,0 +1,25 @@
+README_TW.md
+  s_4b458e80391909::t_547eb05abf7b3e 222-224,226-227
+README.md
+  s_4b458e80391909::t_547eb05abf7b3e 225-227,229-230
+docker/.env.example
+  s_4b458e80391909::t_547eb05abf7b3e 30-34
+docker/docker-compose.yml
+  s_4b458e80391909::t_547eb05abf7b3e 23-24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "feea8da64bce21bb302457e57d4fa3ebb3bbf282",
+  "prompts": {},
+  "sessions": {
+    "s_4b458e80391909": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cc7abdf4-9e8e-4625-907e-0af42bde178a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
