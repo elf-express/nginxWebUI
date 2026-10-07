@@ -46,7 +46,9 @@ jobs:
           node-version: '24'
           cache: npm
 
+      # --with-deps 會跑 apt-get;Ubuntu 鏡像卡住時讓它在 15 分內失敗,而不是佔住 concurrency group 6 小時
       - name: Install Node deps + Chromium
+        timeout-minutes: 15
         run: |
           npm ci
           npx playwright install --with-deps chromium
