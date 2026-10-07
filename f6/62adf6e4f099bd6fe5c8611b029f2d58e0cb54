@@ -1,0 +1,19 @@
+.github/workflows/claude-code-review.yml
+  s_4b458e80391909::t_a7c5f401ef8e84 48-52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f662adf6e4f099bd6fe5c8611b029f2d58e0cb54",
+  "prompts": {},
+  "sessions": {
+    "s_4b458e80391909": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cc7abdf4-9e8e-4625-907e-0af42bde178a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
