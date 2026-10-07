@@ -20,7 +20,8 @@ services:
       # 自動化部署需跳過精靈時，在 .env 設 INIT_ADMIN/INIT_PASS 並把
       #   --init.admin=${INIT_ADMIN} --init.pass=${INIT_PASS}
       # 加回 BOOT_OPTIONS 後重啟。詳見 InitConfig.java:660 addAdmin() 行為。
-      - BOOT_OPTIONS=--spring.database.type=postgresql --spring.datasource.url=jdbc:postgresql://postgres:5432/nginxwebui --spring.datasource.username=nginxwebui --spring.datasource.password=nginxwebui123
+      # nginx 文件 MCP：在 .env 設 MCP_TOKEN 即啟用 /mcp；留空則不啟用（/mcp 回 404）。
+      - BOOT_OPTIONS=--spring.database.type=postgresql --spring.datasource.url=jdbc:postgresql://postgres:5432/nginxwebui --spring.datasource.username=nginxwebui --spring.datasource.password=nginxwebui123 --mcp.token=${MCP_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy

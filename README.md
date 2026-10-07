@@ -222,13 +222,12 @@ java -jar -Dfile.encoding=UTF-8 \
      --mcp.token=REPLACE_WITH_YOUR_TOKEN
 ```
 
-**Docker Compose:** append the same flag to `BOOT_OPTIONS` in `docker/docker-compose.yml`, then
-`docker compose up -d`:
+**Docker Compose:** `docker/docker-compose.yml` already passes `--mcp.token=${MCP_TOKEN:-}` in
+`BOOT_OPTIONS`. Set `MCP_TOKEN` in `docker/.env` (or in your stack manager's environment variables), then
+`docker compose up -d`. Leaving it empty keeps the endpoint off.
 
-```yaml
-    environment:
-      # keep the flags already on this line, just add --mcp.token at the end
-      - BOOT_OPTIONS=--spring.database.type=postgresql ... --mcp.token=REPLACE_WITH_YOUR_TOKEN
+```bash
+MCP_TOKEN=REPLACE_WITH_YOUR_TOKEN
 ```
 
 > **Why the launch flag rather than an environment variable.** The setting key is `mcp.token`, and the dot
