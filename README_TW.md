@@ -219,13 +219,12 @@ java -jar -Dfile.encoding=UTF-8 \
      --mcp.token=REPLACE_WITH_YOUR_TOKEN
 ```
 
-**Docker Compose：** 把同一個參數接到 `docker/docker-compose.yml` 的 `BOOT_OPTIONS` 後面，
-再 `docker compose up -d`：
+**Docker Compose：** `docker/docker-compose.yml` 的 `BOOT_OPTIONS` 已帶 `--mcp.token=${MCP_TOKEN:-}`。
+在 `docker/.env`（或 stack 管理工具的環境變數）設定 `MCP_TOKEN`，再 `docker compose up -d`。
+留空則端點維持關閉。
 
-```yaml
-    environment:
-      # 這行原本的參數都保留，只在最後加上 --mcp.token
-      - BOOT_OPTIONS=--spring.database.type=postgresql ... --mcp.token=REPLACE_WITH_YOUR_TOKEN
+```bash
+MCP_TOKEN=REPLACE_WITH_YOUR_TOKEN
 ```
 
 > **為什麼用啟動參數而不是環境變數。** 設定鍵是 `mcp.token`，中間那個點讓它**不是合法的 POSIX shell
