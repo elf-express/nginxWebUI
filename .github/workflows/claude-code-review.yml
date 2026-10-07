@@ -45,4 +45,8 @@ jobs:
             - 對應的 Playwright E2E 測試是否齊備
             只點出真正重要的問題,附檔案/行號與具體修法;不要吹毛求疵。
             最後用 `gh pr comment` 留一則總結。
-          claude_args: "--max-turns 5 --model claude-sonnet-4-6"
+          # gh 指令須明列於 --allowedTools,否則讀 diff / 留言會被權限擋下
+          claude_args: >-
+            --max-turns 10
+            --model claude-sonnet-4-6
+            --allowedTools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
