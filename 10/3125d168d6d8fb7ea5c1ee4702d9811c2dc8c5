@@ -1,0 +1,19 @@
+.github/workflows/build.yml
+  s_4b458e80391909::t_4f97d03079cc2c 49,51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "103125d168d6d8fb7ea5c1ee4702d9811c2dc8c5",
+  "prompts": {},
+  "sessions": {
+    "s_4b458e80391909": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cc7abdf4-9e8e-4625-907e-0af42bde178a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
