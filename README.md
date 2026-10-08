@@ -298,7 +298,7 @@ PostgreSQL schema is **CodeFirst auto-ALTER TABLE** by SqlHelper (custom ORM) â€
 
 ```bash
 npm install && npx playwright install --with-deps chromium
-mvn clean package -DskipTests
+mvn clean package -DskipTests # first build also downloads Node 24 and builds the Vue frontend (frontend/)
 npm test                      # E2E (headed)
 npm run test:fast             # E2E (headless / CI)
 ```
