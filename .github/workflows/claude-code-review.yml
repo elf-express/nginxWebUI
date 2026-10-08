@@ -47,7 +47,8 @@ jobs:
             只點出真正重要的問題,附檔案/行號與具體修法;不要吹毛求疵。
             最後用 `gh pr comment` 留一則總結。
           # gh 指令須明列於 --allowedTools,否則讀 diff / 留言會被權限擋下
+          # Read/Glob/Grep 讓審查能讀 checkout 下來的檔案;被擋的工具呼叫也會耗掉回合數
           claude_args: >-
-            --max-turns 10
+            --max-turns 30
             --model claude-sonnet-4-6
-            --allowedTools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
+            --allowedTools "Read,Glob,Grep,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
