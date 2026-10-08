@@ -1,0 +1,25 @@
+frontend/src/shared/bootstrap.test.ts
+  s_8b783eaeb24df5::t_f5eaaf7d29611d 1-16,22-58
+frontend/src/shared/bootstrap.ts
+  s_8b783eaeb24df5::t_bf4546898e99a1 12-32,36,39-42,44-45
+frontend/src/shared/http.test.ts
+  s_8b783eaeb24df5::t_6495a0bb600081 66-74
+frontend/src/shared/http.ts
+  s_8b783eaeb24df5::t_38ea01afea7e46 46-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "17df5b1acc4c485d8eb23cae96c387a147608641",
+  "prompts": {},
+  "sessions": {
+    "s_8b783eaeb24df5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c9e89b23-18ad-41ed-be93-0338b38ee3a4",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
