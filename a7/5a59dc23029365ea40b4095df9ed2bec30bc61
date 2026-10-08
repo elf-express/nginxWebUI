@@ -1,0 +1,33 @@
+docs/memory/conventions.md
+  s_8b783eaeb24df5::t_fe4f7b23f8bc4b 12-18,21,33,41
+docs/memory/feature-inventory.md
+  s_8b783eaeb24df5::t_fe4f7b23f8bc4b 5
+README.md
+  s_8b783eaeb24df5::t_fe4f7b23f8bc4b 301
+README_TW.md
+  s_8b783eaeb24df5::t_fe4f7b23f8bc4b 297
+docs/memory/stack-and-layout.md
+  s_8b783eaeb24df5::t_fe4f7b23f8bc4b 12,43-46,68-71
+  s_8b783eaeb24df5::t_4a386ad056c3a0 72
+CLAUDE.md
+  s_8b783eaeb24df5::t_fe4f7b23f8bc4b 44
+docs/memory/dev-run-deploy.md
+  s_8b783eaeb24df5::t_fe4f7b23f8bc4b 11,25-27
+  s_8b783eaeb24df5::t_cedcd04f2df160 28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a75a59dc23029365ea40b4095df9ed2bec30bc61",
+  "prompts": {},
+  "sessions": {
+    "s_8b783eaeb24df5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c9e89b23-18ad-41ed-be93-0338b38ee3a4",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
