@@ -79,3 +79,7 @@ test-home-param/
 # scripts/translate-docs.js 與 scripts/fence-code-blocks.js 會在來源目錄旁寫 .translate-backup/。
 # 那不是還原用的真實來源 —— 語料已進版控,要回退用 git checkout。留著只會變成 git status 的雜訊。
 .translate-backup/
+
+### Orca worktree (added 2026-10-08) ###
+# Orca 的「工作樹位置」設為 .ocrca\worktrees,worktree 開在 repo 內。docker build context 是白名單(.dockerignore),不受影響。
+/.ocrca/
