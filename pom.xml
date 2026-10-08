@@ -17,6 +17,7 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 		<java.version>17</java.version>
+		<skipTests>false</skipTests>
 	</properties>
 
 	<dependencyManagement>
@@ -196,6 +197,59 @@
 						<goals>
 							<goal>html</goal>
 						</goals>
+					</execution>
+				</executions>
+			</plugin>
+
+			<!-- Vue 前端（frontend/）：generate-resources 階段安裝 Node 並建置，產物寫進 target/classes/static/js/spa/。
+			     Node 裝在 frontend/node/，mvn clean 不會刪，之後可用 mvn -o 離線建置（npm 依賴走 ~/.npm 快取）。 -->
+			<plugin>
+				<groupId>com.github.eirslett</groupId>
+				<artifactId>frontend-maven-plugin</artifactId>
+				<version>1.15.1</version>
+				<configuration>
+					<workingDirectory>frontend</workingDirectory>
+					<installDirectory>frontend</installDirectory>
+					<nodeVersion>v24.18.0</nodeVersion>
+				</configuration>
+				<executions>
+					<execution>
+						<id>install-node</id>
+						<phase>generate-resources</phase>
+						<goals>
+							<goal>install-node-and-npm</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>npm-ci</id>
+						<phase>generate-resources</phase>
+						<goals>
+							<goal>npm</goal>
+						</goals>
+						<configuration>
+							<arguments>ci --prefer-offline --no-audit --no-fund</arguments>
+						</configuration>
+					</execution>
+					<execution>
+						<id>npm-build</id>
+						<phase>generate-resources</phase>
+						<goals>
+							<goal>npm</goal>
+						</goals>
+						<configuration>
+							<arguments>run build</arguments>
+						</configuration>
+					</execution>
+					<execution>
+						<id>npm-test</id>
+						<phase>test</phase>
+						<goals>
+							<goal>npm</goal>
+						</goals>
+						<configuration>
+							<arguments>test</arguments>
+							<skip>${skipTests}</skip>
+						</configuration>
 					</execution>
 				</executions>
 			</plugin>
