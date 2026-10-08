@@ -22,6 +22,10 @@ npm install && npx playwright install --with-deps chromium   # Node deps
 mvn clean package -DskipTests                                # → target/nginxWebUI-<version>.jar
 ```
 
+**Orca worktree：** 「工作樹位置」填 `.ocrca\worktrees`（已列入 `.gitignore`）。新 worktree 的初始化腳本在根目錄
+[`orca.yaml`](../../orca.yaml)（`scripts.setup`，團隊共用）：`npm ci`、裝 Chromium、建 jar（E2E 依賴它），
+主倉庫有 `docker/.env` 時一併複製。主倉庫勿跑 `git clean -x`，會連 worktree 一起刪掉。
+
 IDE：Main class `com.cym.NginxWebUI` · Program args `--server.port=8080 --project.home=./dev-home/` · JVM args `-Dfile.encoding=UTF-8`。
 
 ## Run
