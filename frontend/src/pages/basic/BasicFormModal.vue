@@ -4,7 +4,7 @@ import { Form, FormItem, Input, Modal, Textarea, message } from 'ant-design-vue'
 import { t } from '../../shared/i18n'
 import { validateBasicForm, type BasicForm } from './form'
 
-const props = defineProps<{ open: boolean; title: string; initial: BasicForm }>()
+const props = defineProps<{ open: boolean; title: string; initial: BasicForm; submitting: boolean }>()
 const emit = defineEmits<{ submit: [form: BasicForm]; cancel: [] }>()
 
 const form = reactive<BasicForm>({ id: '', name: '', value: '' })
@@ -34,6 +34,7 @@ function onOk() {
     :open="open"
     :title="title"
     :width="600"
+    :confirm-loading="submitting"
     :ok-text="t('commonStr.submit')"
     :cancel-text="t('commonStr.close')"
     @ok="onOk"
