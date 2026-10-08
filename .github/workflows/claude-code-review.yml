@@ -1,23 +1,25 @@
 name: Claude Code Review
 
-# Claude Code 自動 PR Review — 團隊每個 PR 開啟/更新時,Claude 自動審查並留言。
-# 與 claude.yml(@claude 互動)互補:這個不用手動提及,PR 一開就自動 review。
+# Claude Code PR Review — 需人工同意:有人在 PR 加上 `claude-review` label 才會審查並留言。
+# PR 開啟或 push 不會自動觸發;要重審最新一版,移除 label 再加回去。
+# 與 claude.yml(@claude 互動)互補。
 # 認證:沿用同一 repo secret CLAUDE_CODE_OAUTH_TOKEN(Claude Max OAuth token,`claude setup-token` 產生)。
 # 官方文件:https://code.claude.com/docs/en/github-actions
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: [labeled]
 
-# 同一 PR 連續 push 時,取消前一次未完成的 review,只 review 最新一版(省額度)
+# 同一 PR 重複觸發時,取消前一次未完成的 review,只 review 最新一版(省額度)
 concurrency:
-  group: claude-review-${{ github.event.pull_request.number }}
+  # 帶 label 名稱,加其他 label 不會取消進行中的 review
+  group: claude-review-${{ github.event.pull_request.number }}-${{ github.event.label.name }}
   cancel-in-progress: true
 
 jobs:
   claude-review:
-    # 略過 draft PR,避免半成品白燒 Agent SDK 額度與 Actions 分鐘
-    if: github.event.pull_request.draft == false
+    # 只在加上 claude-review label 時執行;略過 draft PR,避免半成品白燒 Agent SDK 額度與 Actions 分鐘
+    if: github.event.label.name == 'claude-review' && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     permissions:
       contents: read # 讀程式碼做 review
