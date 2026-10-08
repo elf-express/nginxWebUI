@@ -1,0 +1,24 @@
+src/test/java/com/cym/controller/adminPage/I18nControllerTest.java
+  s_8b783eaeb24df5::t_83165f6e1c4a8f 1-53
+src/main/java/com/cym/controller/adminPage/I18nController.java
+  s_8b783eaeb24df5::t_7397cf234cc6f6 1-57
+src/main/resources/messages_en_US.properties
+  s_8b783eaeb24df5::t_091e6bc5f15af4 461
+  s_8b783eaeb24df5::t_1f0ffeea25b9be 469
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9c7628645599f453481ead0bfb08a45f1135d1c7",
+  "prompts": {},
+  "sessions": {
+    "s_8b783eaeb24df5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c9e89b23-18ad-41ed-be93-0338b38ee3a4",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
