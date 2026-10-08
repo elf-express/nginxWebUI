@@ -116,6 +116,14 @@ test.describe('basic 頁 Vue 版', () => {
     await expect(page.locator('table.layui-table').first()).toBeVisible();
   });
 
+  test('bundle 執行時丟錯自動回舊版', async ({ page }) => {
+    await page.route('**/js/spa/basic.js*', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/javascript', body: 'throw new Error("boom")' }));
+    await page.goto('/adminPage/basic');
+    await page.waitForURL(/legacy=1/);
+    await expect(page.locator('table.layui-table').first()).toBeVisible();
+  });
+
   test('i18n 字典取不到時回舊版', async ({ page }) => {
     await page.route('**/adminPage/i18n*', (route) => route.fulfill({ status: 500, body: '' }));
     await page.goto('/adminPage/basic');
@@ -140,6 +148,61 @@ test.describe('basic 頁 Vue 版', () => {
     await context.clearCookies();
     await row(page, 'worker_processes').getByRole('button', { name: /編輯|编辑/ }).click();
     await page.waitForURL(/adminPage\/login/, { waitUntil: 'commit' });
+  });
+
+  test('模組開關：啟用連帶啟用依賴，停用連帶停用相依', async ({ page }) => {
+    const GEO = 'ngx_stream_geoip2_module.so';
+    const STREAM = 'ngx_stream_module.so';
+    // CI 與 Windows 上磁碟沒有模組，改寫 pageData 讓開關出現；setModuleEnable 照常送到真後端
+    const idOf = {};
+    await page.route('**/adminPage/basic/pageData*', async (route) => {
+      const res = await route.fetch();
+      const json = await res.json();
+      for (const m of json.obj.moduleList) {
+        idOf[m.name] = String(m.id);
+      }
+      json.obj.isLinux = true;
+      json.obj.modulesOnDisk = [STREAM, GEO];
+      await route.fulfill({ response: res, json });
+    });
+    const calls = [];
+    page.on('request', (req) => {
+      if (req.url().includes('/adminPage/basic/setModuleEnable')) {
+        calls.push(req.postData());
+      }
+    });
+
+    await page.goto('/adminPage/basic');
+    await expect(page.locator('#app h1')).toHaveText(H1);
+    const geo = page.getByRole('switch', { name: GEO });
+    const stream = page.getByRole('switch', { name: STREAM });
+    await expect(geo).not.toBeChecked();
+    await expect(stream).not.toBeChecked();
+
+    try {
+      await geo.click();
+      await expect(stream).toBeChecked();
+      await expect(geo).toBeChecked();
+      await expect(page.locator('.ant-message')).toContainText(/已自動啟用依賴模組|已自动启用依赖模组/);
+      expect(calls.map((c) => new URLSearchParams(c).get('enable'))).toEqual(['1', '1']);
+      expect(calls.map((c) => new URLSearchParams(c).get('id'))).toEqual([idOf[GEO], idOf[STREAM]]);
+
+      calls.length = 0;
+      await stream.click();
+      await expect(stream).not.toBeChecked();
+      await expect(geo).not.toBeChecked();
+      await expect(page.locator('.ant-message')).toContainText(/已自動停用相依模組|已自动停用相依模组/);
+      expect(calls.map((c) => new URLSearchParams(c).get('enable'))).toEqual(['0', '0']);
+      expect(calls.map((c) => new URLSearchParams(c).get('id'))).toEqual([idOf[STREAM], idOf[GEO]]);
+    } finally {
+      // 失敗時把兩個模組都關回去
+      for (const sw of [geo, stream]) {
+        if (await sw.isChecked()) {
+          await sw.click();
+          await expect(sw).not.toBeChecked();
+        }
+      }
+    }
   });
 
   test('英文語系顯示英文字串', async ({ page }) => {
