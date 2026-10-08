@@ -63,3 +63,12 @@ it('被導向登入頁時整頁跳轉並丟 SessionExpiredError', async () => {
   await expect(get('/adminPage/basic/pageData')).rejects.toBeInstanceOf(SessionExpiredError)
   expect(redirect).toHaveBeenCalledWith('/adminPage/login')
 })
+
+it('遠端節點連不上被導向 noServer 時跳轉到該頁', async () => {
+  const redirect = vi.fn()
+  setRedirect(redirect)
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(fakeResponse(null, { redirected: true, url: 'http://localhost/adminPage/login/noServer' })))
+
+  await expect(get('/adminPage/basic/pageData')).rejects.toBeInstanceOf(SessionExpiredError)
+  expect(redirect).toHaveBeenCalledWith('/adminPage/login/noServer')
+})

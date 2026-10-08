@@ -43,8 +43,10 @@ async function request<T>(method: 'GET' | 'POST', url: string, params: Params = 
   const res = await fetch(target, init)
 
   // 未登入時 AppFilter 回 302 到登入頁，fetch 會跟著轉址
-  if (res.redirected && new URL(res.url, window.location.href).pathname.startsWith(LOGIN_PATH)) {
-    redirect(LOGIN_PATH)
+  // 遠端節點連不上時 AppFilter 轉到 /adminPage/login/noServer，原樣跳過去而不是回登入頁
+  const finalPath = res.redirected ? new URL(res.url, window.location.href).pathname : ''
+  if (finalPath.startsWith(LOGIN_PATH)) {
+    redirect(finalPath)
     throw new SessionExpiredError(res.url)
   }
   if (!res.ok) {
