@@ -139,17 +139,19 @@ onMounted(reload)
       </Alert>
 
       <template v-else>
-        <Space class="spa-toolbar" wrap>
-          <Button type="primary" @click="openAdd">
-            <template #icon><PlusOutlined /></template>
-            {{ t('basicStr.add') }}
-          </Button>
-          <Button danger @click="deleteSelected">
-            <template #icon><DeleteOutlined /></template>
-            {{ t('commonStr.delAll') }}
-          </Button>
-          <a class="spa-legacy-link" href="?legacy=1">{{ t('spaStr.legacyLink') }}</a>
-        </Space>
+        <div class="spa-toolbar">
+          <Space wrap>
+            <Button type="primary" @click="openAdd">
+              <template #icon><PlusOutlined /></template>
+              {{ t('basicStr.add') }}
+            </Button>
+            <Button danger @click="deleteSelected">
+              <template #icon><DeleteOutlined /></template>
+              {{ t('commonStr.delAll') }}
+            </Button>
+            <a class="spa-legacy-link" href="?legacy=1">{{ t('spaStr.legacyLink') }}</a>
+          </Space>
+        </div>
 
         <Table
           class="basic-table"
@@ -216,5 +218,10 @@ onMounted(reload)
 }
 .spa-legacy-link {
   margin-left: 8px;
+  color: #1e9fff;
+}
+.spa-legacy-link:hover,
+.spa-legacy-link:focus-visible {
+  text-decoration: underline;
 }
 </style>
