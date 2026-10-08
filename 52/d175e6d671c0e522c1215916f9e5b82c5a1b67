@@ -1,0 +1,25 @@
+frontend/src/pages/basic/BasicFormModal.vue
+  s_8b783eaeb24df5::t_d6e8061884e006 7,37
+frontend/src/pages/basic/store.ts
+  s_8b783eaeb24df5::t_d6e8061884e006 58-65,67-70
+frontend/src/pages/basic/store.test.ts
+  s_8b783eaeb24df5::t_edd39ac772dc71 38,44,51,58,72-94
+frontend/src/pages/basic/BasicPage.vue
+  s_8b783eaeb24df5::t_d6e8061884e006 16,70-73,79-81,83,97,99-100,118,120,194
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "52d175e6d671c0e522c1215916f9e5b82c5a1b67",
+  "prompts": {},
+  "sessions": {
+    "s_8b783eaeb24df5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c9e89b23-18ad-41ed-be93-0338b38ee3a4",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
