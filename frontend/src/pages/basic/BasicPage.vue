@@ -13,6 +13,7 @@ import { useBasicStore } from './store'
 const store = useBasicStore()
 const loadError = ref(false)
 const selectedIds = ref<string[]>([])
+const submitting = ref(false)
 const modal = reactive<{ open: boolean; title: string; initial: BasicForm }>({
   open: false,
   title: '',
@@ -66,12 +67,20 @@ async function openEdit(id: string) {
 }
 
 async function onSubmit(form: BasicForm) {
+  if (submitting.value) {
+    return
+  }
+  submitting.value = true
   try {
     await store.save(form)
     modal.open = false
   } catch (err) {
     notifyError(err)
+    return
+  } finally {
+    submitting.value = false
   }
+  await reload()
 }
 
 function confirmDelete(ids: string[]) {
@@ -83,10 +92,12 @@ function confirmDelete(ids: string[]) {
     onOk: async () => {
       try {
         await store.remove(ids)
-        selectedIds.value = selectedIds.value.filter((id) => !ids.includes(id))
       } catch (err) {
         notifyError(err)
+        return
       }
+      selectedIds.value = selectedIds.value.filter((id) => !ids.includes(id))
+      await reload()
     },
   })
 }
@@ -104,7 +115,9 @@ async function move(id: string, count: -1 | 1) {
     await store.move(id, count)
   } catch (err) {
     notifyError(err)
+    return
   }
+  await reload()
 }
 
 onMounted(reload)
@@ -178,6 +191,7 @@ onMounted(reload)
         :open="modal.open"
         :title="modal.title"
         :initial="modal.initial"
+        :submitting="submitting"
         @submit="onSubmit"
         @cancel="modal.open = false"
       />
