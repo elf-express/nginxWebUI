@@ -1,0 +1,22 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<#include "/adminPage/common.html"/>
+<link href="${ctx}/js/spa/basic.css?v=${jsrandom}" rel="stylesheet" />
+</head>
+<body class="layui-layout-body">
+	<div class="layui-layout layui-layout-admin">
+
+		<#include "/adminPage/header.html"/>
+		<#include "/adminPage/menu.html"/>
+
+		<div class="layui-body">
+			<!-- 內容區由 Vue 掛載（frontend/src/pages/basic/），bundle 載入失敗時改開舊版頁 -->
+			<div id="app"></div>
+		</div>
+	</div>
+
+	<#include '/adminPage/script.html'/>
+	<script type="module" src="${ctx}/js/spa/basic.js?v=${jsrandom}" onerror="location.replace(location.pathname + '?legacy=1')"></script>
+</body>
+</html>

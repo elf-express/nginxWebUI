@@ -18,11 +18,8 @@ test.describe('Nginx 資訊顯示', () => {
   test('基本參數頁面可正常載入', async ({ page }) => {
     await login(page);
     await page.goto('/adminPage/basic');
-    await page.waitForSelector('table');
-
-    const content = await page.content();
-    expect(content).toContain('worker_processes');
-    expect(content).toContain('events');
+    await expect(page.locator('#app').getByText('worker_processes', { exact: true })).toBeVisible();
+    await expect(page.locator('#app').getByText('events', { exact: true })).toBeVisible();
   });
 
   test('啟用配置頁面可正常載入', async ({ page }) => {

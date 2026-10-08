@@ -29,7 +29,7 @@ test.describe.serial('離線守門:前端不依賴外網 CDN', () => {
   });
 
   test('主要頁面載入皆不請求外網 CDN', async () => {
-    const pages = ['/adminPage/monitor', '/adminPage/server', '/adminPage/http', '/adminPage/protectionCert'];
+    const pages = ['/adminPage/monitor', '/adminPage/server', '/adminPage/http', '/adminPage/protectionCert', '/adminPage/basic'];
     for (const path of pages) {
       await page.goto(path);
       await page.waitForLoadState('domcontentloaded');
