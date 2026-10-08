@@ -11,6 +11,7 @@ const LISTING_PAGES = [
   '/adminPage/protectionCert',
   '/adminPage/admin',
   '/adminPage/remote',
+  '/adminPage/basic',
 ];
 
 test.beforeEach(async ({ page }) => {
