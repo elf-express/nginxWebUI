@@ -1,6 +1,9 @@
 package com.cym.controller.adminPage;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.noear.solon.annotation.Controller;
 import org.noear.solon.annotation.Inject;
@@ -30,21 +33,30 @@ public class BasicController extends BaseController {
 
 	@Mapping("")
 	public ModelAndView index(ModelAndView modelAndView) {
-		List<Basic> basicList = basicService.findAll();
-
-		// 過濾掉 load_module（由模組管理 UI 控制）
-		basicList.removeIf(b -> "load_module".equals(b.getName()));
-
-		modelAndView.put("basicList", basicList);
-
-		// 模組管理
-		List<Module> moduleList = sqlHelper.findAll(new Sort("seq", Direction.ASC), Module.class);
-		modelAndView.put("moduleList", moduleList);
-		modelAndView.put("modulesOnDisk", nginxService.getAllModules());
-		modelAndView.put("isLinux", SystemTool.isLinux());
-
+		buildPageData().forEach(modelAndView::put);
 		modelAndView.view("/adminPage/basic/index.html");
 		return modelAndView;
+	}
+
+	@Mapping("pageData")
+	public JsonResult pageData() {
+		return renderSuccess(buildPageData());
+	}
+
+	private Map<String, Object> buildPageData() {
+		Map<String, Object> data = new HashMap<>();
+		data.put("basicList", withoutLoadModule(basicService.findAll()));
+		data.put("moduleList", sqlHelper.findAll(new Sort("seq", Direction.ASC), Module.class));
+		data.put("modulesOnDisk", nginxService.getAllModules());
+		data.put("isLinux", SystemTool.isLinux());
+		return data;
+	}
+
+	// load_module 由模組管理 UI 控制，不列在基礎參數清單
+	static List<Basic> withoutLoadModule(List<Basic> basicList) {
+		List<Basic> result = new ArrayList<>(basicList);
+		result.removeIf(b -> "load_module".equals(b.getName()));
+		return result;
 	}
 
 	@Mapping("addOver")
