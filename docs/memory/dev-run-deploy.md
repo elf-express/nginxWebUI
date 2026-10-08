@@ -8,7 +8,7 @@
 |---|---|---|
 | JDK | Java 17 (LTS) | `java -version` |
 | Maven | 3.6+ | `mvn -version` |
-| Node.js | 18+ | `node -v` |
+| Node.js | 24（`frontend-maven-plugin` 自帶 v24.18.0 到 `frontend/node/`，`mvn clean` 不會刪） | `node -v` |
 | Git | 2.30+ | `.gitattributes` 強制跨平台 LF |
 | Docker (optional) | 20.10+ | 含 Compose v2 |
 
@@ -21,6 +21,10 @@ git clone <repo-url> nginxWebUI && cd nginxWebUI
 npm install && npx playwright install --with-deps chromium   # Node deps
 mvn clean package -DskipTests                                # → target/nginxWebUI-<version>.jar
 ```
+
+> 注意：`mvn package` 在 generate-resources 階段會跑 `frontend-maven-plugin`（1.15.1）：安裝 Node、`npm ci --prefer-offline`、`npm run build`（vue-tsc + vite build）。
+> 第一次建置會下載 Node 與 npm 依賴，之後 `mvn -o` 可離線；`-DskipTests` 建置時間約 27s → 54s。
+> 前端開發：`cd frontend && npm test`（Vitest）· `npm run build` · `npm run typecheck`。
 
 **Orca worktree：** 「工作樹位置」填 `.ocrca\worktrees`（已列入 `.gitignore`）。新 worktree 的初始化腳本在根目錄
 [`orca.yaml`](../../orca.yaml)（`scripts.setup`，團隊共用）：`npm ci`、裝 Chromium、建 jar（E2E 依賴它），

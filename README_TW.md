@@ -294,7 +294,7 @@ PostgreSQL schema 由 SqlHelper（自製 ORM）**CodeFirst 自動 ALTER TABLE** 
 ```bash
 # 開發環境
 npm install && npx playwright install --with-deps chromium
-mvn clean package -DskipTests
+mvn clean package -DskipTests # 第一次建置會一併下載 Node 24 並建置 Vue 前端（frontend/）
 npm test                      # 跑 E2E（headed）
 npm run test:fast             # 跑 E2E（headless / CI）
 ```
