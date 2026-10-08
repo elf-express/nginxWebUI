@@ -1,0 +1,27 @@
+docs/memory/conventions.md
+  s_8b783eaeb24df5::t_88a47926dbdf5c 40
+src/main/resources/WEB-INF/view/adminPage/basic/spa.html
+  s_8b783eaeb24df5::t_29f67c9b081f6f 20-27
+tests/e2e/26-offline-no-cdn.spec.js
+  s_8b783eaeb24df5::t_742ef2dd46cac7 32-33,38-42
+tests/e2e/27-a11y-buttons.spec.js
+  s_8b783eaeb24df5::t_daa395b048a21c 17-27,34,43,57
+tests/e2e/37-spa-basic.spec.js
+  s_8b783eaeb24df5::t_c568a4973b6667 119-126,153-207
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "49972969e0240b844e6c3583adcd0dd201221a38",
+  "prompts": {},
+  "sessions": {
+    "s_8b783eaeb24df5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c9e89b23-18ad-41ed-be93-0338b38ee3a4",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
