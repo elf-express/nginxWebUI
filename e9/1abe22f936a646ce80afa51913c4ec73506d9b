@@ -1,0 +1,21 @@
+frontend/src/pages/basic/BasicPage.vue
+  s_8b783eaeb24df5::t_623159e462a8ff 142,154
+  s_8b783eaeb24df5::t_631a0ad26289ab 221-225
+  s_8b783eaeb24df5::t_c40cd63dd3f0ad 143-153
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e91abe22f936a646ce80afa51913c4ec73506d9b",
+  "prompts": {},
+  "sessions": {
+    "s_8b783eaeb24df5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c9e89b23-18ad-41ed-be93-0338b38ee3a4",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}

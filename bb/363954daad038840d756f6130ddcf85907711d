@@ -1,0 +1,29 @@
+pom.xml
+  s_8b783eaeb24df5::t_31695da49403b1 20
+  s_8b783eaeb24df5::t_411e38b01500a3 204-255
+  s_02f6cb21cef201::t_bd2d5d20b3c165 203
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bb363954daad038840d756f6130ddcf85907711d",
+  "prompts": {},
+  "sessions": {
+    "s_02f6cb21cef201": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7482caea-5d7a-4b50-9ad4-42aaf436fb5c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    },
+    "s_8b783eaeb24df5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c9e89b23-18ad-41ed-be93-0338b38ee3a4",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
