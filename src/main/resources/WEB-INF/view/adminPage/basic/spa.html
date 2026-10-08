@@ -17,6 +17,14 @@
 	</div>
 
 	<#include '/adminPage/script.html'/>
+	<script>
+		// bundle 解析或執行丟錯時 onerror 不會觸發；Vue 掛載完成會設 window.__spaBooted，之前的 /js/spa/ 腳本錯誤就改開舊版頁
+		window.addEventListener('error', function (e) {
+			if (!window.__spaBooted && e.filename && e.filename.indexOf('/js/spa/') !== -1) {
+				location.replace(location.pathname + '?legacy=1');
+			}
+		});
+	</script>
 	<script type="module" src="${ctx}/js/spa/basic.js?v=${jsrandom}" onerror="location.replace(location.pathname + '?legacy=1')"></script>
 </body>
 </html>

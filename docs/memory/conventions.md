@@ -37,7 +37,7 @@
 - Layui 元件用 `page.evaluate()` 驅動。
 - 執行：`npm test`（headed）· `npm run test:fast`（headless/CI）· `npm run test:fast -- 08-crowdsec`（單檔）· `npm run report`（http://localhost:9400）。
   > 注意：設定檔在 `tests/e2e/playwright.config.js`，根目錄沒有 —— 裸跑 `npx playwright test <file>` 不帶 `--config`，globalSetup 不會起 server。一律走 npm script 或自己加 `--config=`。
-- **JUnit 5 單元測試**（`src/test/java`，走 `solon-test`）：`NginxConfChecker`、`NginxDocParser`、`TemplateDefUtils`、`NetGuard`、ASN／GeoIP／CrowdSec 服務等純邏輯。`mvn test`（全部）· `mvn test -Dtest=NetGuardTest`（單一類別）。CI（`build.yml` 的 Build & Test）在 PR 與 push 時都會跑這層、Node 單元測試與 Playwright 全套，任一失敗即中斷。
+- **JUnit 5 單元測試**（`src/test/java`，走 `solon-test`）：`NginxConfChecker`、`NginxDocParser`、`TemplateDefUtils`、`NetGuard`、ASN／GeoIP／CrowdSec 服務等純邏輯。`mvn test`（全部）· `mvn test -Dtest=NetGuardTest`（單一類別）；注意 mvn 現在也會跑前端的 npm ci／build／Vitest，只想跑 Java 測試時加 `-Dskip.npm` 略過 npm ci／build／test 三步（install-node 仍會執行，已裝過則秒過）；但 `clean` 之後略過 build 產出的 jar 不含 Vue bundle，basic 頁會自動回舊版，要跑 E2E 不可加。CI（`build.yml` 的 Build & Test）在 PR 與 push 時都會跑這層、Node 單元測試與 Playwright 全套，任一失敗即中斷。
 - **前端單元測試（Vitest）：** `cd frontend && npm test`；`mvn test` 的 test phase 也會跑（`-DskipTests` 會跳過，`-Dmaven.test.skip=true` 則不會）。
 - **Node 單元測試：** `npm run test:unit`（`node --test tests/unit/**/*.test.js`），守 docs 腳本（`translate-docs`、`fence-code-blocks`）。
 
