@@ -2,7 +2,7 @@
 
 > 從 [CLAUDE.md](../../CLAUDE.md) 進來的。這是「這個 fork 相對上游多了什麼」的清單。
 
-**UI/UX：** 批量參數輸入 · TLS 預設值修正 · conf 縮排 + CodeMirror 語法highlight · 登入密碼顯示切換 ·
+**UI/UX：** basic 頁 Vue 版（Phase 0，`?legacy=1` 回舊版）· 批量參數輸入 · TLS 預設值修正 · conf 縮排 + CodeMirror 語法highlight · 登入密碼顯示切換 ·
 預設 http 參數／模板 · HTTP 參數分組（`HttpController.GROUP_DEFS`）· 模板分組 ·
 **模板自動套用多選標籤**（`Template.def` 經 `TemplateDefUtils`：`http`/`server`/`server1`/`server2`/`stream`/`location`/`upstream`）·
 IP/DenyAllow 標籤化 · 編輯模式 · conf 錯誤診斷 · 語言切換（國旗 SVG）· 品牌 logo 上傳 + header 200×60 對齊 ·
