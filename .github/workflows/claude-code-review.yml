@@ -48,6 +48,6 @@ jobs:
             最後用 `gh pr comment` 留一則總結。
           # gh 指令須明列於 --allowedTools,否則讀 diff / 留言會被權限擋下
           claude_args: >-
-            --max-turns 10
+            --max-turns 20
             --model claude-sonnet-4-6
             --allowedTools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
