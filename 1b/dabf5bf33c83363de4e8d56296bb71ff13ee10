@@ -1,0 +1,25 @@
+src/main/java/com/cym/utils/NginxBlockCodec.java
+  s_bfd25b3a9e4e41::t_6a6484484caccc 133
+  s_bfd25b3a9e4e41::t_17d18264efecd3 1-132,134-181
+src/test/java/com/cym/utils/NginxBlockCodecTest.java
+  s_bfd25b3a9e4e41::t_2b9ccc442d5c69 1-23,29-77
+  s_bfd25b3a9e4e41::t_0a219173b46ace 24-28
+src/main/java/com/cym/ext/NginxBlockDraft.java
+  s_bfd25b3a9e4e41::t_184f614d1dee69 1-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1bdabf5bf33c83363de4e8d56296bb71ff13ee10",
+  "prompts": {},
+  "sessions": {
+    "s_bfd25b3a9e4e41": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14048-1d19-7730-ba15-dd1c45879d8d",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
