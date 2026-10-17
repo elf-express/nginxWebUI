@@ -9,6 +9,7 @@ import org.noear.solon.annotation.Mapping;
 import org.noear.solon.core.handle.ModelAndView;
 
 import com.cym.model.Stream;
+import com.cym.service.ConfService;
 import com.cym.service.SettingService;
 import com.cym.service.StreamService;
 import com.cym.utils.BaseController;
@@ -23,6 +24,8 @@ import cn.hutool.core.util.StrUtil;
 public class StreamController extends BaseController {
 	@Inject
 	StreamService streamService;
+	@Inject
+	ConfService confService;
 	@Inject
 	SettingService settingService;
 
@@ -68,6 +71,19 @@ public class StreamController extends BaseController {
 		} catch (NginxBlockCodec.BlockException ex) {
 			return renderError(java.text.MessageFormat.format(m.get("blockEditorStr.invalidBlock"), ex.getLine(), ex.getColumn()));
 		} catch (IllegalArgumentException ex) {
+			return renderError(m.get("blockEditorStr.saveInvalid"));
+		}
+	}
+
+	@Mapping("previewBlock")
+	public JsonResult previewBlock(String id, String header, String rawContent) {
+		try {
+			return renderSuccess(confService.previewStreamBlock(id, header, rawContent));
+		} catch (NginxBlockCodec.BlockException ex) {
+			return renderError(java.text.MessageFormat.format(m.get("blockEditorStr.invalidBlock"), ex.getLine(), ex.getColumn()));
+		} catch (IllegalArgumentException ex) {
+			return renderError(m.get("blockEditorStr.saveInvalid"));
+		} catch (IllegalStateException ex) {
 			return renderError(m.get("blockEditorStr.saveInvalid"));
 		}
 	}

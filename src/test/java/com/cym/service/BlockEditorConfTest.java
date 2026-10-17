@@ -14,8 +14,12 @@ import com.cym.ext.ConfExt;
 import com.cym.model.Stream;
 import com.cym.model.DenyAllow;
 import com.cym.model.Param;
+import com.cym.model.Server;
 import com.cym.model.Template;
 import com.cym.model.Upstream;
+import com.cym.model.UpstreamServer;
+import com.cym.controller.adminPage.StreamController;
+import com.cym.utils.JsonResult;
 import com.cym.sqlhelper.bean.Sort;
 import com.cym.sqlhelper.utils.Condition;
 import com.cym.sqlhelper.utils.ConditionWrapper;
@@ -28,9 +32,13 @@ class BlockEditorConfTest {
 	private ConfService conf;
 	private UpstreamService upstreams;
 	private StreamService streams;
+	private final List<Server> streamServers = new ArrayList<>();
+	private final Map<String, List<Param>> paramsByTypeId = new LinkedHashMap<>();
 
 	@BeforeEach
 	void setUp() {
+		streamServers.clear();
+		paramsByTypeId.clear();
 		sql = new MemorySqlHelper();
 		upstreams = new UpstreamService();
 		ReflectUtil.setFieldValue(upstreams, "sqlHelper", sql);
@@ -43,11 +51,18 @@ class BlockEditorConfTest {
 			@Override public String get(String key) { return null; }
 		});
 		ReflectUtil.setFieldValue(conf, "serverService", new ServerService() {
-			@Override public List<com.cym.model.Server> getListByProxyType(String[] types) { return List.of(); }
+			@Override public List<Server> getListByProxyType(String[] types) {
+				return streamServers.stream().filter(server -> List.of(types).contains(String.valueOf(server.getProxyType()))).toList();
+			}
 		});
 		ReflectUtil.setFieldValue(conf, "paramService", new ParamService() {
-			@Override public List<com.cym.model.Param> getListByTypeId(String id, String type) { return List.of(); }
+			@Override public List<Param> getListByTypeId(String id, String type) {
+				return paramsByTypeId.getOrDefault(id + "|" + type, List.of());
+			}
 		});
+		TemplateService templates = new TemplateService();
+		ReflectUtil.setFieldValue(templates, "sqlHelper", sql);
+		ReflectUtil.setFieldValue(conf, "templateService", templates);
 		DenyAllowService denyAllow = new DenyAllowService();
 		ReflectUtil.setFieldValue(denyAllow, "sqlHelper", sql);
 		ReflectUtil.setFieldValue(conf, "denyAllowService", denyAllow);
@@ -158,10 +173,153 @@ class BlockEditorConfTest {
 		assertTrue(denyAllowAt < upstreamAt);
 	}
 
+	@Test
+	void streamPreviewReplacesExistingDraftWithoutChangingStoredSources() {
+		Stream legacy = new Stream();
+		legacy.setName("log_format");
+		legacy.setValue("audit '$remote_addr';");
+		legacy.setSeq(10L);
+		sql.insertOrUpdate(legacy);
+		Stream persistedChild = streams.saveBlock(null, "map $ssl_preread_server_name $backend",
+				"\n    default api#suffix;\n    hash\\{escaped\\};\n    default ${backend};\n");
+		persistedChild.setSeq(20L);
+		Stream replaceMe = streams.saveBlock(null, "server", "\n    listen 9100;\n");
+		replaceMe.setSeq(30L);
+		Upstream upstream = upstreams.saveBlock(null, "tcp_api", 1, "\n    server 10.0.0.5:9000;\n", false);
+		DenyAllow deny = new DenyAllow();
+		deny.setType("deny");
+		deny.setIp("192.0.2.9");
+		sql.insertOrUpdate(deny);
+		Template template = new Template();
+		template.setName("preview-stream-limit");
+		template.setDef("stream");
+		sql.insertOrUpdate(template);
+		Param auto = new Param();
+		auto.setTemplateId(template.getId());
+		auto.setName("limit_conn_zone");
+		auto.setValue("$binary_remote_addr zone=preview_limit:10m");
+		sql.insertOrUpdate(auto);
+		Server tcp = new Server();
+		tcp.setProxyType(1);
+		tcp.setListen("9200");
+		tcp.setEnable(true);
+		tcp.setIpv6(0);
+		tcp.setSsl(0);
+		tcp.setProxyProtocol(0);
+		tcp.setSeq(40L);
+		sql.insertOrUpdate(tcp);
+		streamServers.add(tcp);
+
+		List<String> before = streamSnapshot();
+		String preview = conf.previewStreamBlock(replaceMe.getId(), "server", "\n    listen 9300; # draft\n");
+
+		assertEquals(1, count(preview, "listen 9300; # draft"));
+		assertEquals(1, count(preview, "listen 9200;"));
+		assertTrue(preview.contains("listen 9300; # draft"));
+		assertFalse(preview.contains("listen 9100;"));
+		assertTrue(preview.contains("audit '$remote_addr';"));
+		assertTrue(preview.contains("default api#suffix;"));
+		assertTrue(preview.contains("hash\\{escaped\\};"));
+		assertTrue(preview.contains("default ${backend};"));
+		assertTrue(preview.contains("limit_conn_zone"));
+		assertTrue(preview.contains("include conf.d/deny_stream.conf"));
+		assertTrue(preview.contains("upstream tcp_api {"));
+		assertTrue(preview.contains("listen 9200;"));
+		assertTrue(preview.indexOf("audit '$remote_addr';") < preview.indexOf("default api#suffix;"));
+		assertTrue(preview.indexOf("default api#suffix;") < preview.indexOf("listen 9300; # draft"));
+		assertTrue(preview.indexOf("listen 9300; # draft") < preview.indexOf("limit_conn_zone"));
+		assertTrue(preview.indexOf("limit_conn_zone") < preview.indexOf("include conf.d/deny_stream.conf"));
+		assertTrue(preview.indexOf("include conf.d/deny_stream.conf") < preview.indexOf("upstream tcp_api {"));
+		assertTrue(preview.indexOf("upstream tcp_api {") < preview.indexOf("listen 9200;"));
+		assertEquals(before, streamSnapshot());
+	}
+
+	@Test
+	void streamPreviewInsertsUnsavedDraftAtEndAndRepeatedCallsDoNotPersist() {
+		Stream legacy = new Stream();
+		legacy.setName("proxy_timeout");
+		legacy.setValue("5s;");
+		legacy.setSeq(10L);
+		sql.insertOrUpdate(legacy);
+		List<String> before = streamSnapshot();
+
+		String first = conf.previewStreamBlock(null, "server", "\n    listen 9400;\n");
+		String second = conf.previewStreamBlock(null, "server", "\n    listen 9400;\n");
+
+		assertTrue(first.indexOf("proxy_timeout 5s") < first.indexOf("listen 9400;"));
+		assertEquals(first, second);
+		assertEquals(before, streamSnapshot());
+	}
+
+	@Test
+	void streamControllerPreviewReturnsFullContextAndRejectsInvalidDraftWithoutSaving() {
+		StreamController controller = new StreamController();
+		ReflectUtil.setFieldValue(controller, "confService", conf);
+		ReflectUtil.setFieldValue(controller, "m", new com.cym.utils.MessageUtils() {
+			@Override public String get(String key) { return key; }
+		});
+		List<String> before = streamSnapshot();
+
+		JsonResult<?> result = controller.previewBlock(null, "server", "\n    listen 9500;\n");
+		JsonResult<?> invalid = controller.previewBlock(null, "server", "stream { server { listen 9501; } }");
+
+		assertTrue(result.isSuccess(), result.getMsg());
+		assertInstanceOf(String.class, result.getObj());
+		assertTrue(((String) result.getObj()).startsWith("stream {"));
+		assertFalse(invalid.isSuccess());
+		assertEquals(before, streamSnapshot());
+	}
+
+	@Test
+	void streamPreviewDoesNotMutateLegacyUpstreamServersOrParameters() {
+		Upstream legacy = new Upstream();
+		legacy.setName("legacy_ipv6");
+		legacy.setProxyType(0);
+		sql.insertOrUpdate(legacy);
+		UpstreamServer server = new UpstreamServer();
+		server.setUpstreamId(legacy.getId());
+		server.setServer("2001:db8::5");
+		server.setPort(8080);
+		server.setEnable(1);
+		server.setStatus("none");
+		sql.insertOrUpdate(server);
+
+		Param ordinary = new Param();
+		ordinary.setName("keepalive");
+		ordinary.setValue("4");
+		ordinary.setPosition(0);
+		Template template = new Template();
+		template.setName("read-only-param-template");
+		sql.insertOrUpdate(template);
+		Param templateEntry = new Param();
+		templateEntry.setTemplateId(template.getId());
+		templateEntry.setName("least_time");
+		templateEntry.setValue("header");
+		sql.insertOrUpdate(templateEntry);
+		Param templateRef = new Param();
+		templateRef.setName("");
+		templateRef.setValue("");
+		templateRef.setTemplateValue(template.getId());
+		templateRef.setPosition(1);
+		paramsByTypeId.put(legacy.getId() + "|upstream", List.of(templateRef, ordinary));
+
+		String preview = conf.previewStreamBlock(null, "server", "\n    listen 9600;\n");
+
+		assertTrue(preview.contains("listen 9600;"));
+		assertEquals("2001:db8::5", server.getServer());
+		assertEquals("keepalive", ordinary.getName());
+		assertEquals("least_time", templateEntry.getName());
+	}
+
 	private static int count(String text, String needle) {
 		int count = 0;
 		for (int at = 0; (at = text.indexOf(needle, at)) >= 0; at += needle.length()) count++;
 		return count;
+	}
+
+	private List<String> streamSnapshot() {
+		return streams.findAll().stream().map(stream -> stream.getId() + "|" + stream.getName() + "|" + stream.getValue()
+				+ "|" + stream.getConfigMode() + "|" + stream.getRawContent() + "|" + stream.getSeq()).toList();
 	}
 
 	/** Small in-memory SqlHelper exercising ConfService through its normal service boundary. */
