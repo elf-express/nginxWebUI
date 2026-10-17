@@ -1,0 +1,39 @@
+src/main/java/com/cym/service/ConfService.java
+  s_bfd25b3a9e4e41::t_9d1b229b6c2fe2 1385-1402,1404-1405,1409-1435,1440-1442
+  s_bfd25b3a9e4e41::t_8aa90bbf0aefb1 14,103,247-259,361-366,410-422,479
+  s_bfd25b3a9e4e41::t_4f700d625f76a4 1403,1406-1408
+  s_bfd25b3a9e4e41::t_5a7bb45f490ee9 1792
+  s_bfd25b3a9e4e41::t_8bdc7b7b379413 49,1436-1439
+  s_bfd6384d0251fd::t_f4952a6452f88b 1443
+src/test/java/com/cym/service/BlockEditorConfTest.java
+  s_bfd25b3a9e4e41::t_7eff7e62fd3d69 113
+  s_bfd25b3a9e4e41::t_beab823511499e 15-17,51-53,58-59,68,121-158
+  s_bfd25b3a9e4e41::t_845955a638bb2f 93-94,99,103
+  s_bfd25b3a9e4e41::t_2118d2520fd0fb 1-14,18-50,54-57,60-67,69-92,95-98,100-102,104-112,114-120,159-218
+src/main/java/com/cym/utils/RawBlockRenderer.java
+  s_bfd25b3a9e4e41::t_e7010702f600e8 1-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4e772f66c237adfed9f1a8e727d9aa3c29a62c9b",
+  "prompts": {},
+  "sessions": {
+    "s_bfd25b3a9e4e41": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14048-1d19-7730-ba15-dd1c45879d8d",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    },
+    "s_bfd6384d0251fd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4a0f995d-645c-4d6f-8eec-5e8e098079ce",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
