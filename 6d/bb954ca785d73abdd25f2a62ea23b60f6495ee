@@ -1,0 +1,28 @@
+src/test/java/com/cym/service/BlockEditorTransferTest.java
+  s_bfd25b3a9e4e41::t_65ed6c879f9fb4 99
+  s_bfd25b3a9e4e41::t_ad669ac4b3b0dd 1-98,100-113
+README.md
+  s_bfd25b3a9e4e41::t_65a9992561971b 86
+tests/e2e/playwright.pg.config.js
+  s_bfd25b3a9e4e41::t_7c14bd838e71d7 8-14
+README_TW.md
+  s_bfd25b3a9e4e41::t_65a9992561971b 86
+tests/e2e/block-editor-compatibility.spec.js
+  s_bfd25b3a9e4e41::t_7c14bd838e71d7 1-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6dbb954ca785d73abdd25f2a62ea23b60f6495ee",
+  "prompts": {},
+  "sessions": {
+    "s_bfd25b3a9e4e41": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14048-1d19-7730-ba15-dd1c45879d8d",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
