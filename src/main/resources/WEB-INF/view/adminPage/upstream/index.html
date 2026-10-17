@@ -135,11 +135,13 @@
 								<#if ext.upstream.tactics=="url_hash"> ${upstreamStr.urlHash} </#if>
 							</td>
 							<td style="padding: 0px;">
+								<#if (ext.upstream.configMode!'legacy') == 'block'>${blockEditorStr.monitor}<#else>
 								<table class="server">${ext.serverStr}
 								</table>
+								</#if>
 							</td>
 							<#if upstreamMonitor=='true'>
-							<td><input type="checkbox" name="switch" lay-filter="monitor" value="${ext.upstream.id}" ${(ext.upstream.monitor==1)?string( 'checked','')}  lay-text="ON|OFF" lay-skin="switch"></td>
+							<td><input type="checkbox" name="switch" lay-filter="monitor" value="${ext.upstream.id}" ${(ext.upstream.monitor==1)?string( 'checked','')} <#if (ext.upstream.configMode!'legacy') == 'block'>disabled</#if> lay-text="ON|OFF" lay-skin="switch"></td>
 							</#if>
 							<td>
 								<div class="layui-inline">
@@ -186,6 +188,7 @@
 		<!-- 弹出框 -->
 		<div class="layui-form" id="windowDiv" style="padding: 15px; display: none">
 			<form id="addForm">
+				<button id="convertBlock" type="button" class="layui-btn layui-btn-sm" onclick="startBlockConversion()">${blockEditorStr.convert}</button>
 				<input type="hidden" name="id" id="id">
 
 				<div class="layui-form-item">
@@ -379,6 +382,7 @@
 	<#include '/adminPage/select_mail.html'/>
 	<#include '/adminPage/select_template.html'/>
 	<#include '/adminPage/select_preview.html'/>
+	<script src="${ctx}/js/adminPage/common/blockEditor.js?v=${jsrandom}" type="text/javascript"></script>
 	<script src="${ctx}/js/adminPage/upstream/index.js?v=${jsrandom}" type="text/javascript"></script>
 </body>
 

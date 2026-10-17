@@ -88,6 +88,7 @@ async function startApp() {
     `--init.pass=${TEST_PASS}`,
     `--project.testCaptcha=${TEST_CAPTCHA}`,
     '--project.skipSeedFetch=true',
+    '--project.skipKillSelf=true',
   ];
 
   // PG smoke 模式:E2E_DB=postgresql 時連 PostgreSQL(容器由 global-setup-pg.js 啟動,fresh DB)
