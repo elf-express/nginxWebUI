@@ -31,6 +31,7 @@
         });
         context.addEventListener('change', function() { state.context = context.value; });
         var header = field('blockHeader', blockEditorStr.header);
+        header.addEventListener('input', refresh);
         var headerRow = el('div', {style:'display:flex;align-items:center;gap:8px;font-family:monospace'});
         root.insertBefore(headerRow, header);
         headerRow.appendChild(el('span', {id:'blockPrefix'}, 'upstream'));
@@ -51,9 +52,7 @@
         root.appendChild(el('p', {id:'blockError', role:'alert', style:'color:#b42318;white-space:pre-wrap'}));
         var actions = el('div', {style:'position:sticky;bottom:0;background:white;padding:10px 0;display:flex;gap:8px;flex-wrap:wrap'});
         actions.appendChild(button('blockParse', blockEditorStr.parse, parse));
-        actions.appendChild(button('blockPreview', commonStr.preview, function() {
-            $('#blockOutput').text(render()).toggle();
-        }));
+        actions.appendChild(button('blockPreview', commonStr.preview, preview));
         actions.appendChild(button('blockSave', commonStr.submit, save));
         actions.appendChild(button('blockClose', commonStr.close, function() { layer.close(modal); }));
         root.appendChild(actions);
@@ -77,6 +76,19 @@
         refresh();
     }
     function render() { var d = getDraft(); return d.header + ' {' + d.body + (d.body.endsWith('\n') ? '' : '\n') + '}'; }
+    function preview() {
+        if (state.kind !== 'stream') {
+            $('#blockOutput').text(render()).toggle();
+            return;
+        }
+        var draft = getDraft();
+        $('#blockOutput').hide();
+        post('previewBlock', {id:state.id || '', header:draft.header, rawContent:draft.body}, function(output) {
+            var current = getDraft();
+            if (current.header !== draft.header || current.body !== draft.body) return;
+            $('#blockOutput').text(output).show();
+        });
+    }
     function error(data) {
         $('#blockError').text(data.msg || commonStr.errorInfo);
         if (data.line) {
