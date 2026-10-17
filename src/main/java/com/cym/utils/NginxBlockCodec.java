@@ -130,7 +130,7 @@ public final class NginxBlockCodec {
                     if (end < 0) throw error("UNBALANCED_BRACES", text, i + 1);
                     value.append(text, i, end + 1);
                     i = end + 1;
-                } else if (Character.isWhitespace(ch) || ch == '{' || ch == '}' || ch == ';') {
+                } else if (Character.isWhitespace(ch) || ch == '{' || ch == ';') {
                     break;
                 } else {
                     value.append(ch);

@@ -26,6 +26,13 @@ class NginxBlockCodecTest {
         assertEquals(body, NginxBlockCodec.parseSingleBlock("server {" + body + "}", "stream-child").getBody());
         assertEquals("server {custom abc#def;}", NginxBlockCodec.render("server", body, "stream-child"));
     }
+    @Test void closingBraceInsideUnquotedTokenIsNotStructural() {
+        String body = " default backend}; ";
+        NginxBlockDraft draft = NginxBlockCodec.parseSingleBlock("map $name $result {" + body + "}", "stream-child");
+        assertEquals(body, draft.getBody());
+        assertEquals("map $name $result { default backend}; }",
+                NginxBlockCodec.render(draft.getHeader(), draft.getBody(), "stream-child"));
+    }
     @Test void rejectMultipleBlocks() {
         error("MULTIPLE_BLOCKS", "server {} server {}", "stream-child");
         error("MULTIPLE_BLOCKS", "server {} worker_processes 2;", "stream-child");
