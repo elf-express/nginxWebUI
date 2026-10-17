@@ -17,6 +17,8 @@ import com.cym.sqlhelper.bean.Update;
 import com.cym.sqlhelper.utils.ConditionAndWrapper;
 import com.cym.sqlhelper.utils.ConditionOrWrapper;
 import com.cym.sqlhelper.utils.SqlHelper;
+import com.cym.utils.NginxBlockCodec;
+import com.cym.utils.SnowFlakeUtils;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
@@ -79,6 +81,46 @@ public class UpstreamService {
 
 	}
 
+	/** Save one verbatim upstream block after structural validation. */
+	public Upstream saveBlock(String id, String name, Integer proxyType, String rawContent, boolean convertLegacy) {
+		Upstream upstream = StrUtil.isNotEmpty(id) ? sqlHelper.findById(id, Upstream.class) : null;
+		if (StrUtil.isNotEmpty(id) && upstream == null) {
+			throw new IllegalArgumentException("upstream_not_found");
+		}
+		if (upstream != null && !upstream.isBlockMode() && !convertLegacy) {
+			throw new IllegalStateException("legacy_conversion_required");
+		}
+		if (StrUtil.isEmpty(name)) {
+			throw new IllegalArgumentException("invalid_upstream_name");
+		}
+		long duplicateCount = StrUtil.isEmpty(id) ? getCountByName(name) : getCountByNameWithOutId(name, id);
+		if (duplicateCount > 0) {
+			throw new IllegalArgumentException("duplicate_upstream_name");
+		}
+		int effectiveProxyType = proxyType == null ? 0 : proxyType;
+		if (effectiveProxyType != 0 && effectiveProxyType != 1) {
+			throw new IllegalArgumentException("invalid_proxy_type");
+		}
+		String context = effectiveProxyType == 0 ? "http-upstream" : "stream-upstream";
+		NginxBlockCodec.validate("upstream " + name, rawContent, context);
+
+		if (upstream == null) {
+			upstream = new Upstream();
+			upstream.setSeq(SnowFlakeUtils.getId());
+		}
+		upstream.setName(name);
+		upstream.setProxyType(effectiveProxyType);
+		upstream.setConfigMode("block");
+		upstream.setRawContent(rawContent == null ? "" : rawContent);
+		upstream.setMonitor(0);
+		sqlHelper.insertOrUpdate(upstream);
+		return upstream;
+	}
+
+	public Upstream findById(String id) {
+		return sqlHelper.findById(id, Upstream.class);
+	}
+
 	public List<UpstreamServer> getUpstreamServers(String id) {
 		return sqlHelper.findListByQuery(new ConditionAndWrapper().eq("upstreamId", id), UpstreamServer.class);
 	}
@@ -104,13 +146,23 @@ public class UpstreamService {
 	}
 
 	public List<UpstreamServer> getServerListByMonitor(int monitor) {
-		List<String> upstreamIds = sqlHelper.findIdsByQuery(new ConditionAndWrapper().eq("monitor", monitor), Upstream.class);
-
-		return sqlHelper.findListByQuery(new ConditionAndWrapper().in("upstreamId", upstreamIds), UpstreamServer.class);
+		List<String> upstreamIds = new ArrayList<>();
+		for (Upstream upstream : sqlHelper.findListByQuery(new ConditionAndWrapper().eq("monitor", monitor), Upstream.class)) {
+			if (!upstream.isBlockMode()) upstreamIds.add(upstream.getId());
+		}
+		return upstreamIds.isEmpty() ? new ArrayList<>()
+				: sqlHelper.findListByQuery(new ConditionAndWrapper().in("upstreamId", upstreamIds), UpstreamServer.class);
 	}
 
 	public List<UpstreamServer> getAllServer() {
-		return sqlHelper.findAll(UpstreamServer.class);
+		List<String> blockIds = new ArrayList<>();
+		for (Upstream upstream : sqlHelper.findAll(Upstream.class)) {
+			if (upstream.isBlockMode()) blockIds.add(upstream.getId());
+		}
+		List<UpstreamServer> servers = sqlHelper.findAll(UpstreamServer.class);
+		if (blockIds.isEmpty()) return servers;
+		servers.removeIf(server -> blockIds.contains(server.getUpstreamId()));
+		return servers;
 	}
 
 	public void resetMonitorStatus() {

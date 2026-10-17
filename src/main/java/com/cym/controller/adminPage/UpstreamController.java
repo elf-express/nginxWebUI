@@ -14,15 +14,23 @@ import com.cym.ext.UpstreamExt;
 import com.cym.model.Upstream;
 import com.cym.model.UpstreamServer;
 import com.cym.service.ParamService;
+import com.cym.service.ConfService;
 import com.cym.service.SettingService;
 import com.cym.service.UpstreamService;
 import com.cym.sqlhelper.bean.Page;
 import com.cym.utils.BaseController;
 import com.cym.utils.JsonResult;
 import com.cym.utils.SnowFlakeUtils;
+import com.cym.utils.NginxBlockCodec;
+import com.cym.ext.NginxBlockDraft;
+import com.cym.utils.ToolUtils;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
+import java.text.MessageFormat;
+import com.github.odiszapc.nginxparser.NgxBlock;
+import com.github.odiszapc.nginxparser.NgxConfig;
+import com.github.odiszapc.nginxparser.NgxDumper;
 
 @Controller
 @Mapping("/adminPage/upstream")
@@ -33,6 +41,8 @@ public class UpstreamController extends BaseController {
 	ParamService paramService;
 	@Inject
 	SettingService settingService;
+	@Inject
+	ConfService confService;
 
 	@Mapping("")
 	public ModelAndView index(ModelAndView modelAndView, Page page, String keywords) {
@@ -121,6 +131,12 @@ public class UpstreamController extends BaseController {
 	@Mapping("addOver")
 	public JsonResult addOver(String upstreamJson, String upstreamParamJson, String upstreamServerJson) {
 		Upstream upstream = JSONUtil.toBean(upstreamJson, Upstream.class);
+		if (StrUtil.isNotEmpty(upstream.getId())) {
+			Upstream existing = sqlHelper.findById(upstream.getId(), Upstream.class);
+			if (existing != null && existing.isBlockMode()) {
+				return renderError(m.get("blockEditorStr.legacyOverwriteBlocked"));
+			}
+		}
 		List<UpstreamServer> upstreamServers = JSONUtil.toList(JSONUtil.parseArray(upstreamServerJson), UpstreamServer.class);
 
 		if (StrUtil.isEmpty(upstream.getId())) {
@@ -142,6 +158,56 @@ public class UpstreamController extends BaseController {
 		upstreamService.addOver(upstream, upstreamServers, upstreamParamJson);
 
 		return renderSuccess();
+	}
+
+	@Mapping("parseBlock")
+	public JsonResult parseBlock(String text, String context) {
+		try {
+			NginxBlockDraft draft = NginxBlockCodec.parseSingleBlock(text, context);
+			return renderSuccess(draft);
+		} catch (NginxBlockCodec.BlockException ex) {
+			return renderError(invalidBlockMessage(ex));
+		}
+	}
+
+	@Mapping("saveBlock")
+	public JsonResult saveBlock(String id, String name, Integer proxyType, String rawContent, Boolean convertLegacy) {
+		try {
+			Upstream upstream = upstreamService.saveBlock(id, name, proxyType, rawContent, Boolean.TRUE.equals(convertLegacy));
+			return renderSuccess(upstream);
+		} catch (NginxBlockCodec.BlockException ex) {
+			return renderError(invalidBlockMessage(ex));
+		} catch (IllegalStateException ex) {
+			return renderError(m.get("blockEditorStr.conversionRequired"));
+		} catch (IllegalArgumentException ex) {
+			if ("duplicate_upstream_name".equals(ex.getMessage())) return renderError(m.get("upstreamStr.sameName"));
+			return renderError(m.get("blockEditorStr.saveInvalid"));
+		}
+	}
+
+	@Mapping("blockPreview")
+	public JsonResult blockPreview(String id) {
+		Upstream upstream = sqlHelper.findById(id, Upstream.class);
+		if (upstream == null) return renderError(m.get("blockEditorStr.saveInvalid"));
+		try {
+			if (upstream.isBlockMode()) {
+				return renderSuccess(new NginxBlockDraft("upstream " + upstream.getName(), upstream.getRawContent()));
+			}
+			String text;
+			NgxBlock block = confService.buildBlockUpstream(upstream);
+			NgxConfig config = new NgxConfig();
+			config.addEntry(block);
+			text = ToolUtils.formatConf(ToolUtils.handleConf(new NgxDumper(config).dump()));
+			String context = Integer.valueOf(1).equals(upstream.getProxyType()) ? "stream-upstream" : "http-upstream";
+			NginxBlockDraft draft = NginxBlockCodec.parseSingleBlock(text, context);
+			return renderSuccess(draft);
+		} catch (NginxBlockCodec.BlockException ex) {
+			return renderError(invalidBlockMessage(ex));
+		}
+	}
+
+	private String invalidBlockMessage(NginxBlockCodec.BlockException ex) {
+		return MessageFormat.format(m.get("blockEditorStr.invalidBlock"), ex.getLine(), ex.getColumn());
 	}
 
 	@Mapping("detail")
@@ -166,10 +232,14 @@ public class UpstreamController extends BaseController {
 
 	@Mapping("setMonitor")
 	public JsonResult setMonitor(String id, Integer monitor) {
-		Upstream upstream = new Upstream();
-		upstream.setId(id);
-		upstream.setMonitor(monitor);
-		sqlHelper.updateById(upstream);
+		Upstream existing = sqlHelper.findById(id, Upstream.class);
+		if (existing != null && existing.isBlockMode() && Integer.valueOf(1).equals(monitor)) {
+			return renderError(m.get("blockEditorStr.monitorUnsupported"));
+		}
+		if (existing != null) {
+			existing.setMonitor(monitor);
+			sqlHelper.updateById(existing);
+		}
 
 		return renderSuccess();
 	}
