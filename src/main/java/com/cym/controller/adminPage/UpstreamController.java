@@ -23,14 +23,10 @@ import com.cym.utils.JsonResult;
 import com.cym.utils.SnowFlakeUtils;
 import com.cym.utils.NginxBlockCodec;
 import com.cym.ext.NginxBlockDraft;
-import com.cym.utils.ToolUtils;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import java.text.MessageFormat;
-import com.github.odiszapc.nginxparser.NgxBlock;
-import com.github.odiszapc.nginxparser.NgxConfig;
-import com.github.odiszapc.nginxparser.NgxDumper;
 
 @Controller
 @Mapping("/adminPage/upstream")
@@ -193,11 +189,7 @@ public class UpstreamController extends BaseController {
 			if (upstream.isBlockMode()) {
 				return renderSuccess(new NginxBlockDraft("upstream " + upstream.getName(), upstream.getRawContent()));
 			}
-			String text;
-			NgxBlock block = confService.buildBlockUpstream(upstream);
-			NgxConfig config = new NgxConfig();
-			config.addEntry(block);
-			text = ToolUtils.formatConf(ToolUtils.handleConf(new NgxDumper(config).dump()));
+			String text = confService.previewUpstream(upstream);
 			String context = Integer.valueOf(1).equals(upstream.getProxyType()) ? "stream-upstream" : "http-upstream";
 			NginxBlockDraft draft = NginxBlockCodec.parseSingleBlock(text, context);
 			return renderSuccess(draft);

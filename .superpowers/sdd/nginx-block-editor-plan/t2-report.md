@@ -4,9 +4,10 @@
 
 - RED: `mvn -o test -Dtest=BlockEditorPersistenceTest` exited 1 before implementation. Test compilation failed on the missing mode accessors and save/reload service APIs (expected missing-feature failure).
 - GREEN: after adding schema round-trip coverage, `mvn -o test -Dtest=BlockEditorPersistenceTest` exited 0; 9 tests passed, 0 failures, 0 errors.
+- Preview-order follow-up: the legacy upstream preview now uses the same parameter/server ordering as HTTP generation; `BlockEditorPersistenceTest` passes 10/10, including position-1 parameter → enabled server → position-0 parameter and disabled-server exclusion.
 - The focused tests cover legacy-mode defaults, exact raw-text save/reload, failed-save preservation, explicit upstream conversion, global upstream name uniqueness, repeated Stream `server` blocks, guide replacement preserving block rows, legacy API overwrite protection, monitoring/connection-test exclusions, and a real SQLite schema round-trip.
 - `git diff --check` passed.
-- Full `mvn -o test` exited 0: 167 tests passed, 0 failures, 0 errors. This included T2 persistence 9/9, T3 configuration 5/5, and codec 12/12.
+- Full `mvn -o test` exited 0 after the preview-order and stream-preview fixes: 172 tests passed, 0 failures, 0 errors. This included T2 persistence 10/10, T3 configuration 9/9, and codec 12/12.
 - T4's targeted Playwright E2E run passed 3/3, exit 0; its package command passed and the test server was stopped.
 
 ## Contracts implemented
@@ -21,4 +22,4 @@
 ## Limitations / remaining verification
 
 - Diagnostic line and column are included in the localized parser error message. The shared `JsonResult` wire shape remains unchanged; it does not expose separate `line`/`column` properties.
-- T3 made a final test-only CRLF assertion change while the full suite was running and is verifying it with a focused rerun; the completed full suite passed the code/test state compiled at its start.
+- The legacy upstream preview uses the same effective HTTP generation order: description/tactics, position-1 parameters, enabled servers, then position-0/null-position parameters. Block mode previews continue returning stored body text unchanged.

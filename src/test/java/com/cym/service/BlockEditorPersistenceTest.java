@@ -19,8 +19,11 @@ import com.cym.sqlhelper.utils.ConditionWrapper;
 import com.cym.sqlhelper.utils.SqlHelper;
 import com.cym.model.UpstreamServer;
 import com.cym.controller.api.BasicApiController;
+import com.cym.controller.adminPage.UpstreamController;
+import com.cym.model.Param;
 import com.cym.utils.MessageUtils;
 import com.cym.utils.JsonResult;
+import com.cym.ext.NginxBlockDraft;
 import com.cym.config.SQLConstants;
 import com.cym.sqlhelper.config.DataSourceEmbed;
 import com.cym.sqlhelper.utils.JdbcTemplate;
@@ -171,6 +174,56 @@ class BlockEditorPersistenceTest {
 		addUpstreamTestResults.setAccessible(true);
 		addUpstreamTestResults.invoke(conf, results, "site", "/", block.getId());
 		assertTrue(results.isEmpty());
+	}
+
+	@Test
+	void legacyUpstreamPreviewMatchesHttpGenerationOrderAndEnabledServers() {
+		Upstream upstream = new Upstream();
+		upstream.setName("preview_api");
+		upstream.setProxyType(0);
+		upstream.setId("preview-1");
+		sql.insertOrUpdate(upstream);
+
+		UpstreamServer enabled = server(upstream.getId(), "192.0.2.10");
+		enabled.setPort(8080);
+		enabled.setStatus("none");
+		UpstreamServer disabled = server(upstream.getId(), "192.0.2.11");
+		disabled.setPort(8081);
+		disabled.setEnable(0);
+		disabled.setStatus("none");
+		sql.insertOrUpdate(enabled);
+		sql.insertOrUpdate(disabled);
+
+		Param before = new Param();
+		before.setName("hash");
+		before.setValue("$remote_addr consistent");
+		before.setPosition(1);
+		Param after = new Param();
+		after.setName("keepalive");
+		after.setValue("8");
+		after.setPosition(0);
+
+		ParamService params = new ParamService() {
+			@Override public List<Param> getListByTypeId(String id, String type) { return List.of(before, after); }
+		};
+		ConfService conf = new ConfService();
+		ReflectUtil.setFieldValue(conf, "sqlHelper", sql);
+		ReflectUtil.setFieldValue(conf, "upstreamService", upstreams);
+		ReflectUtil.setFieldValue(conf, "paramService", params);
+		UpstreamController controller = new UpstreamController();
+		ReflectUtil.setFieldValue(controller, "sqlHelper", sql);
+		ReflectUtil.setFieldValue(controller, "confService", conf);
+
+		JsonResult<?> result = controller.blockPreview(upstream.getId());
+		assertTrue(result.isSuccess(), result.getMsg());
+		NginxBlockDraft draft = (NginxBlockDraft) result.getObj();
+		String body = draft.getBody();
+		int beforeIndex = body.indexOf("hash $remote_addr consistent;");
+		int serverIndex = body.indexOf("server 192.0.2.10:8080;");
+		int afterIndex = body.indexOf("keepalive 8;");
+		assertTrue(beforeIndex >= 0 && serverIndex >= 0 && afterIndex >= 0, body);
+		assertTrue(beforeIndex < serverIndex && serverIndex < afterIndex, body);
+		assertFalse(body.contains("192.0.2.11"));
 	}
 
 	@Test
