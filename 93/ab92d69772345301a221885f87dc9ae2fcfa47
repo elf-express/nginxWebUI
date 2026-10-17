@@ -1,0 +1,21 @@
+src/main/java/com/cym/utils/NginxBlockCodec.java
+  s_bfd25b3a9e4e41::t_0601bcfcf83315 133
+src/test/java/com/cym/utils/NginxBlockCodecTest.java
+  s_bfd25b3a9e4e41::t_b32ee6fcad25b7 29-35
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "93ab92d69772345301a221885f87dc9ae2fcfa47",
+  "prompts": {},
+  "sessions": {
+    "s_bfd25b3a9e4e41": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14048-1d19-7730-ba15-dd1c45879d8d",
+        "model": "gpt-6-astra"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
