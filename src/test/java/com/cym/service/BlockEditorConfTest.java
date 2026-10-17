@@ -50,6 +50,9 @@ class BlockEditorConfTest {
 		ReflectUtil.setFieldValue(conf, "settingService", new SettingService() {
 			@Override public String get(String key) { return null; }
 		});
+		ReflectUtil.setFieldValue(conf, "nginxService", new NginxService() {
+			@Override public List<String> getEnabledModulePaths() { return List.of(); }
+		});
 		ReflectUtil.setFieldValue(conf, "serverService", new ServerService() {
 			@Override public List<Server> getListByProxyType(String[] types) {
 				return streamServers.stream().filter(server -> List.of(types).contains(String.valueOf(server.getProxyType()))).toList();
