@@ -1,0 +1,60 @@
+src/main/java/com/cym/service/StreamService.java
+  s_bfd25b3a9e4e41::t_eb3629098cab8c 15,60-80,97-103
+src/main/java/com/cym/controller/adminPage/UpstreamController.java
+  s_bfd25b3a9e4e41::t_2dcd9838e698a7 194,196-200
+  s_bfd25b3a9e4e41::t_3ea5c9cb4f4469 26,31-33
+  s_bfd25b3a9e4e41::t_979ac2589a2431 137
+  s_bfd25b3a9e4e41::t_09bbee2ef31c2a 17,24-25,30,44-45,134-136,138-139,163-183,185-190,192-193,195,201-212,235-242
+  s_bfd25b3a9e4e41::t_b14f9616cc1a36 184,191
+src/test/java/com/cym/service/BlockEditorPersistenceTest.java
+  s_bfd25b3a9e4e41::t_5ff2097ec880a8 1-4,6-19,31-65,104-151,195-199,249-308,310-314
+  s_bfd25b3a9e4e41::t_8b6a74bd3b2e3f 20-23,152,154-169,173-194,200-208,309
+  s_bfd25b3a9e4e41::t_d581bc600d0993 24-30,66-103,209-248
+  s_bfd25b3a9e4e41::t_b653431514a936 153
+  s_bfd25b3a9e4e41::t_b12b8f75794fe1 5,170-172
+src/main/java/com/cym/controller/adminPage/StreamController.java
+  s_bfd25b3a9e4e41::t_8079bb5060c54e 71
+  s_bfd25b3a9e4e41::t_8230434946af14 17,41-46,55-70,72-73
+  s_bfd25b3a9e4e41::t_a88f0796d065e5 74
+src/main/java/com/cym/model/Stream.java
+  s_bfd25b3a9e4e41::t_b38ab0bcc9b542 23-26,54-72
+  s_128d3d106ddb5d::t_c43064bc3f14fb 73
+.superpowers/sdd/nginx-block-editor-plan/t2-report.md
+  s_bfd25b3a9e4e41::t_4e13600f96f135 1-5,8,11-23
+  s_bfd25b3a9e4e41::t_774890cd5e94dc 10
+  s_bfd25b3a9e4e41::t_31a4337602ad21 6-7,9,24
+src/main/java/com/cym/service/UpstreamService.java
+  s_bfd25b3a9e4e41::t_af024f99a7d9c6 20-21,84-95,98-123,149-154,158-165
+  s_bfd25b3a9e4e41::t_722c9e4a9becce 96-97
+src/main/java/com/cym/model/Upstream.java
+  s_bfd25b3a9e4e41::t_30f11168a8ac87 42-45,98-116
+  s_128d3d106ddb5d::t_119f5d5a312153 117
+src/main/java/com/cym/controller/api/BasicApiController.java
+  s_bfd25b3a9e4e41::t_5b4454e1fa598a 132-137,144-145
+src/main/java/com/cym/controller/api/UpstreamApiController.java
+  s_bfd25b3a9e4e41::t_94445ede8567cd 57-62,81-82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "58ac263f59912a01de967479cbe0436dc52dd381",
+  "prompts": {},
+  "sessions": {
+    "s_128d3d106ddb5d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0575194d-0384-4e39-b2cb-35bcd33faec7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    },
+    "s_bfd25b3a9e4e41": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14048-1d19-7730-ba15-dd1c45879d8d",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
