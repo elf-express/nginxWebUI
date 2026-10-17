@@ -1,0 +1,21 @@
+tests/e2e/stream-block-editor.spec.js
+  s_bfd25b3a9e4e41::t_5b9d531b218c90 4-42
+src/main/resources/static/js/adminPage/common/blockEditor.js
+  s_bfd25b3a9e4e41::t_892591128811bc 34,55,79-91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7ff56cbf35a9da42477e09484e4e07a9a0657a04",
+  "prompts": {},
+  "sessions": {
+    "s_bfd25b3a9e4e41": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14048-1d19-7730-ba15-dd1c45879d8d",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
