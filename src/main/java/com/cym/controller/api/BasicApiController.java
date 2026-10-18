@@ -129,12 +129,20 @@ public class BasicApiController extends BaseController {
 	 */
 	@Mapping("insertOrUpdateStream")
 	public JsonResult<Stream> insertOrUpdateStream(Stream stream) {
+		if (StrUtil.isNotEmpty(stream.getId())) {
+			Stream existing = sqlHelper.findById(stream.getId(), Stream.class);
+			if (existing != null && existing.isBlockMode()) {
+				return renderError(m.get("blockEditorStr.legacyOverwriteBlocked"));
+			}
+		}
 		if (StrUtil.isEmpty(stream.getName()) || StrUtil.isEmpty(stream.getValue())) {
 			return renderError(m.get("apiStr.noContent"));
 		}
 		if (StrUtil.isEmpty(stream.getId())) {
 			stream.setSeq(SnowFlakeUtils.getId());
 		}
+		stream.setConfigMode("legacy");
+		stream.setRawContent(null);
 		sqlHelper.insertOrUpdate(stream);
 		return renderSuccess(stream);
 	}

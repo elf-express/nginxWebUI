@@ -54,6 +54,12 @@ public class UpstreamApiController extends BaseController {
 	 */
 	@Mapping("insertOrUpdate")
 	public JsonResult<?> insertOrUpdate(Upstream upstream) {
+		if (StrUtil.isNotEmpty(upstream.getId())) {
+			Upstream existing = sqlHelper.findById(upstream.getId(), Upstream.class);
+			if (existing != null && existing.isBlockMode()) {
+				return renderError(m.get("blockEditorStr.legacyOverwriteBlocked"));
+			}
+		}
 		if (StrUtil.isEmpty(upstream.getName())) {
 			return renderError("name" + m.get("apiStr.notFill"));
 		}
@@ -72,6 +78,8 @@ public class UpstreamApiController extends BaseController {
 		if (StrUtil.isEmpty(upstream.getId())) {
 			upstream.setSeq(SnowFlakeUtils.getId());
 		}
+		upstream.setConfigMode("legacy");
+		upstream.setRawContent(null);
 		sqlHelper.insertOrUpdate(upstream);
 		return renderSuccess(upstream);
 	}

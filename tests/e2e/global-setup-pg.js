@@ -11,11 +11,16 @@ function sleep(ms) {
 
 module.exports = async function globalSetupPg() {
   process.env.E2E_DB = 'postgresql';
+  const pgPort = Number(process.env.E2E_PG_PORT || 15432);
+  if (!Number.isInteger(pgPort) || pgPort < 1 || pgPort > 65535) {
+    throw new Error('E2E_PG_PORT must be a valid TCP port');
+  }
+  process.env.E2E_PG_URL = `jdbc:postgresql://localhost:${pgPort}/nginxwebui`;
 
   console.log('Starting PostgreSQL container...');
   try { execSync(`docker rm -f -v ${CONTAINER}`, { stdio: 'ignore' }); } catch (e) { /* not exists */ }
   execSync(
-    `docker run -d --name ${CONTAINER} -p 15432:5432 ` +
+    `docker run -d --name ${CONTAINER} -p ${pgPort}:5432 ` +
     '-e POSTGRES_DB=nginxwebui -e POSTGRES_USER=nginxwebui -e POSTGRES_PASSWORD=nginxwebui123 ' +
     'postgres:18-alpine',
     { stdio: 'inherit' },

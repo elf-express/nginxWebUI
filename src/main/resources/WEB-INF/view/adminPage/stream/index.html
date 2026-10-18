@@ -37,6 +37,7 @@ input[name='param'] {
 					<div class="layui-form">
 						<div class="layui-inline">
 							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="add()"><i class="layui-icon layui-icon-add-circle-fine" aria-hidden="true"></i> ${stream.add}</button>
+							<button type="button" class="layui-btn layui-btn-sm" onclick="addLegacy()">${blockEditorStr.addDirective}</button>
 						</div>
 						<div class="layui-inline">
 							<button type="button" class="layui-btn layui-btn-sm" onclick="guide()">${httpStr.guide}</button>
@@ -70,8 +71,8 @@ input[name='param'] {
 							<td>
 								<input type="checkbox" name="ids" title="" lay-skin="primary" value="${stream.id}">
 							</td>
-							<td>${stream.name}</td>
-							<td style="width: 50%;">${stream.value}</td>
+							<td>${stream.name?html}</td>
+							<td style="width: 50%;"><#if (stream.configMode!'legacy') == 'block'><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${(stream.rawContent!'')?html}</pre><#else>${(stream.value!'')?html}</#if></td>
 							<td>
 								<div class="layui-inline">
 									<button type="button" class="layui-btn layui-btn-sm " onclick="edit('${stream.id}')"><i class="layui-icon layui-icon-edit" aria-hidden="true"></i> ${commonStr.edit}</button>
@@ -154,6 +155,7 @@ input[name='param'] {
 	<#include '/adminPage/script.html'/>
 	<#include '/adminPage/select_preview.html'/>
 	<#include '/adminPage/select_template.html'/>
+	<script src="${ctx}/js/adminPage/common/blockEditor.js?v=${jsrandom}" type="text/javascript"></script>
 	<script src="${ctx}/js/adminPage/stream/index.js?v=${jsrandom}" type="text/javascript"></script>
 </body>
 

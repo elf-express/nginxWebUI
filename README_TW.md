@@ -83,6 +83,7 @@ docker compose up -d          # image 預設拉 :latest，永遠跟最新 releas
 - HTTP / HTTPS / TCP / UDP 全支援、自動產生 `nginx.conf`
 - TLS 1.2 / 1.3 支援、Let's Encrypt 自動續簽（acme.sh DNS 模式）
 - 上游負載均衡（upstream）含 weight / backup / down 設定
+- **nginx 區塊編輯器**支援 HTTP/TCP/UDP upstream 與 Stream 子區塊：貼上並驗證原始指令、預覽產生的設定，保留註解、排版與 nginx 變數；既有表單資料仍可照常使用，需明確轉換後才會改用區塊模式。
 - **19 個內建參數模板**（含中文註解）：WebSocket Proxy / Proxy Headers / Large File Upload / CORS / Rate Limit / Security Headers / GeoIP / CrowdSec 認證
 
 ### 📊 觀測性
