@@ -39,6 +39,10 @@ public class Upstream extends BaseModel {
 	 * 描述
 	 */
 	String descr;
+	/** Configuration storage mode; null rows from older databases are legacy. */
+	String configMode;
+	/** Verbatim contents inside upstream braces when configMode is block. */
+	String rawContent;
 
 	@JsonIgnore
 	Long seq;
@@ -89,6 +93,26 @@ public class Upstream extends BaseModel {
 
 	public void setName(String name) {
 		this.name = name;
+	}
+
+	public String getConfigMode() {
+		return configMode == null ? "legacy" : configMode;
+	}
+
+	public void setConfigMode(String configMode) {
+		this.configMode = configMode;
+	}
+
+	public boolean isBlockMode() {
+		return "block".equals(configMode);
+	}
+
+	public String getRawContent() {
+		return rawContent;
+	}
+
+	public void setRawContent(String rawContent) {
+		this.rawContent = rawContent;
 	}
 
 }

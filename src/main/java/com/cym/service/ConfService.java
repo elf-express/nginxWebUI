@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import org.noear.solon.annotation.Component;
 import org.noear.solon.annotation.Inject;
@@ -45,6 +46,8 @@ import com.cym.sqlhelper.utils.SqlHelper;
 import com.cym.utils.SystemTool;
 import com.cym.utils.TelnetUtils;
 import com.cym.utils.ToolUtils;
+import com.cym.utils.RawBlockRenderer;
+import com.cym.utils.NginxBlockCodec;
 import com.github.odiszapc.nginxparser.NgxBlock;
 import com.github.odiszapc.nginxparser.NgxConfig;
 import com.github.odiszapc.nginxparser.NgxDumper;
@@ -88,6 +91,10 @@ public class ConfService {
 	NginxService nginxService;
 
 	public synchronized ConfExt buildConf(Boolean decompose, Boolean check) {
+		return buildConf(decompose, check, null);
+	}
+
+	private ConfExt buildConf(Boolean decompose, Boolean check, Stream previewDraft) {
 		ConfExt confExt = new ConfExt();
 		confExt.setFileList(new ArrayList<>());
 
@@ -98,6 +105,7 @@ public class ConfService {
 		try {
 
 			NgxConfig ngxConfig = new NgxConfig();
+			Map<String, String> rawBlocks = new LinkedHashMap<>();
 
 			// 載入資料庫中已啟用且磁碟上存在的模組（Linux 環境）
 			if (SystemTool.isLinux()) {
@@ -241,6 +249,19 @@ public class ConfService {
 			List<Upstream> upstreams = upstreamService.getListByProxyType(0);
 
 			for (Upstream upstream : upstreams) {
+				if (upstream.isBlockMode()) {
+					String rawBlock = RawBlockRenderer.render("upstream " + upstream.getName(), upstream.getRawContent(), "http-upstream");
+					hasHttp = true;
+					if (decompose) {
+						String filename = addRawConfFile(confExt, "upstreams." + upstream.getName() + ".conf", rawBlock);
+						ngxParam = new NgxParam();
+						ngxParam.addValue("include " + filename);
+						ngxBlockHttp.addEntry(ngxParam);
+					} else {
+						addRawBlockEntry(ngxBlockHttp, rawBlocks, rawBlock);
+					}
+					continue;
+				}
 				NgxBlock ngxBlockServer = new NgxBlock();
 				ngxBlockServer.addValue("upstream " + upstream.getName().trim());
 
@@ -337,11 +358,34 @@ public class ConfService {
 
 			// TCP/UDP转发
 			// 创建stream
-			List<Stream> streamList = sqlHelper.findAll(new Sort("seq", Direction.ASC), Stream.class);
+			List<Stream> streamList = new ArrayList<>(sqlHelper.findAll(new Sort("seq", Direction.ASC), Stream.class));
+			if (previewDraft != null) {
+				if (StrUtil.isEmpty(previewDraft.getId())) {
+					streamList.add(previewDraft);
+				} else {
+					int replaceIndex = -1;
+					for (int i = 0; i < streamList.size(); i++) {
+						if (previewDraft.getId().equals(streamList.get(i).getId())) {
+							replaceIndex = i;
+							break;
+						}
+					}
+					if (replaceIndex < 0) {
+						throw new IllegalArgumentException("stream_not_found");
+					}
+					streamList.set(replaceIndex, previewDraft);
+				}
+			}
 			boolean hasStream = false;
 			NgxBlock ngxBlockStream = new NgxBlock();
 			ngxBlockStream.addValue("stream");
 			for (Stream stream : streamList) {
+				if (stream.isBlockMode()) {
+					String rawBlock = RawBlockRenderer.render(stream.getName(), stream.getRawContent(), "stream-child");
+					addRawBlockEntry(ngxBlockStream, rawBlocks, rawBlock);
+					hasStream = true;
+					continue;
+				}
 				ngxParam = new NgxParam();
 				ngxParam.addValue(stream.getName() + " " + stream.getValue());
 				ngxBlockStream.addEntry(ngxParam);
@@ -385,6 +429,19 @@ public class ConfService {
 			// 添加upstream
 			upstreams = upstreamService.getListByProxyType(1);
 			for (Upstream upstream : upstreams) {
+				if (upstream.isBlockMode()) {
+					String rawBlock = RawBlockRenderer.render("upstream " + upstream.getName(), upstream.getRawContent(), "stream-upstream");
+					hasStream = true;
+					if (decompose) {
+						String filename = addRawConfFile(confExt, "upstreams." + upstream.getName() + ".conf", rawBlock);
+						ngxParam = new NgxParam();
+						ngxParam.addValue("include " + filename);
+						ngxBlockStream.addEntry(ngxParam);
+					} else {
+						addRawBlockEntry(ngxBlockStream, rawBlocks, rawBlock);
+					}
+					continue;
+				}
 				NgxBlock ngxBlockServer = buildBlockUpstream(upstream);
 
 				if (decompose) {
@@ -441,7 +498,7 @@ public class ConfService {
 				conf = conf.replaceAll(";;", ";");
 			}
 
-			confExt.setConf(conf);
+			confExt.setConf(restoreRawBlocks(conf, rawBlocks));
 
 			// fileList 排序
 			Collections.sort(confExt.getFileList(), new Comparator<ConfFile>() {
@@ -459,6 +516,118 @@ public class ConfService {
 		}
 
 		return null;
+	}
+
+	/** Build the complete effective Stream context with one unsaved child draft overlaid. */
+	public String previewStreamBlock(String id, String header, String rawContent) {
+		NginxBlockCodec.validate(header, rawContent, "stream-child");
+		Stream draft = new Stream();
+		draft.setName(header.trim());
+		draft.setRawContent(rawContent == null ? "" : rawContent);
+		draft.setConfigMode("block");
+		if (StrUtil.isNotEmpty(id)) {
+			Stream existing = sqlHelper.findById(id, Stream.class);
+			if (existing == null) {
+				throw new IllegalArgumentException("stream_not_found");
+			}
+			draft.setId(existing.getId());
+			draft.setSeq(existing.getSeq());
+		} else {
+			draft.setSeq(Long.MAX_VALUE);
+		}
+		ConfExt generated = buildConf(false, false, draft);
+		if (generated == null) {
+			throw new IllegalStateException("stream_preview_generation_failed");
+		}
+		String streamBlock = findTopLevelStreamBlock(generated.getConf());
+		if (streamBlock == null) {
+			throw new IllegalStateException("stream_preview_generation_failed");
+		}
+		return streamBlock;
+	}
+
+	/** Render the persisted Stream context for the existing page-level Preview action. */
+	public String previewStream() {
+		ConfExt generated = buildConf(false, false);
+		if (generated == null) {
+			throw new IllegalStateException("stream_preview_generation_failed");
+		}
+		String streamBlock = findTopLevelStreamBlock(generated.getConf());
+		return streamBlock == null ? "stream {\n\n}" : streamBlock;
+	}
+
+	/** Locate the generated top-level stream block without parsing and re-dumping raw child text. */
+	private String findTopLevelStreamBlock(String conf) {
+		int candidate = -1;
+		int depth = 0;
+		char quote = 0;
+		boolean escaped = false;
+		boolean comment = false;
+		boolean tokenBoundary = true;
+		for (int i = 0; i < conf.length(); i++) {
+			char ch = conf.charAt(i);
+			if (comment) {
+				if (ch == '\n' || ch == '\r') {
+					comment = false;
+					tokenBoundary = true;
+				}
+				continue;
+			}
+			if (quote != 0) {
+				if (escaped) escaped = false;
+				else if (ch == '\\') escaped = true;
+				else if (ch == quote) {
+					quote = 0;
+					tokenBoundary = false;
+				}
+				continue;
+			}
+			if (ch == '\\') {
+				if (i + 1 < conf.length()) i++;
+				tokenBoundary = false;
+				continue;
+			}
+			if (tokenBoundary && ch == '#') {
+				comment = true;
+				continue;
+			}
+			if (ch == '\'' || ch == '"') {
+				quote = ch;
+				tokenBoundary = false;
+				continue;
+			}
+			if (ch == '$' && i + 1 < conf.length() && conf.charAt(i + 1) == '{') {
+				int end = conf.indexOf('}', i + 2);
+				if (end >= 0) i = end;
+				tokenBoundary = false;
+				continue;
+			}
+			if (tokenBoundary && depth == 0 && conf.startsWith("stream", i)
+					&& (i + 6 == conf.length() || !isNginxWordChar(conf.charAt(i + 6)))) {
+				int next = i + 6;
+				while (next < conf.length() && Character.isWhitespace(conf.charAt(next))) next++;
+				if (next < conf.length() && conf.charAt(next) == '{') candidate = i;
+			}
+			if (Character.isWhitespace(ch)) {
+				tokenBoundary = true;
+				continue;
+			}
+			if (ch == '{') {
+				depth++;
+				tokenBoundary = true;
+			}
+			else if (tokenBoundary && ch == '}' && depth > 0) {
+				depth--;
+				tokenBoundary = true;
+				if (depth == 0 && candidate >= 0) return conf.substring(candidate, i + 1);
+			} else if (ch == ';') tokenBoundary = true;
+			else tokenBoundary = false;
+		}
+		return null;
+	}
+
+	private boolean isNginxWordChar(char ch) {
+		return Character.isLetterOrDigit(ch) || ch == '_' || ch == '$' || ch == '-';
 	}
 
 	/**
@@ -793,6 +962,73 @@ public class ConfService {
 		}
 
 		return ngxBlockServer;
+	}
+
+	/** Build one upstream block for preview, matching the effective HTTP generation order. */
+	public String previewUpstream(Upstream upstream) {
+		String context = Integer.valueOf(1).equals(upstream.getProxyType()) ? "stream-upstream" : "http-upstream";
+		if (upstream.isBlockMode()) {
+			return RawBlockRenderer.render("upstream " + upstream.getName(), upstream.getRawContent(), context);
+		}
+
+		NgxBlock block = new NgxBlock();
+		block.addValue("upstream " + upstream.getName().trim());
+		if (StrUtil.isNotEmpty(upstream.getDescr())) {
+			for (String description : upstream.getDescr().split("\n")) {
+				NgxParam comment = new NgxParam();
+				comment.addValue("# " + description);
+				block.addEntry(comment);
+			}
+		}
+		if (StrUtil.isNotEmpty(upstream.getTactics())) {
+			NgxParam tactic = new NgxParam();
+			tactic.addValue(upstream.getTactics());
+			block.addEntry(tactic);
+		}
+
+		List<Param> params = paramService.getListByTypeId(upstream.getId(), "upstream");
+		boolean http = !Integer.valueOf(1).equals(upstream.getProxyType());
+		if (http) {
+			for (Param param : params) {
+				if (Integer.valueOf(1).equals(param.getPosition())) addPreviewParam(param, block);
+			}
+		}
+		for (UpstreamServer server : upstreamService.getUpstreamServers(upstream.getId())) {
+			if (Integer.valueOf(1).equals(server.getEnable())) {
+				NgxParam serverParam = new NgxParam();
+				serverParam.addValue("server " + buildNodeStr(server));
+				block.addEntry(serverParam);
+			}
+		}
+		for (Param param : params) {
+			if (!http || param.getPosition() == null || Integer.valueOf(0).equals(param.getPosition())) {
+				addPreviewParam(param, block);
+			}
+		}
+		NgxConfig config = new NgxConfig();
+		config.addEntry(block);
+		String preview = ToolUtils.formatConf(ToolUtils.handleConf(new NgxDumper(config).dump()));
+		while (preview.contains(";;")) preview = preview.replace(";;", ";");
+		return preview;
+	}
+
+	/** Add a Param's rendered values without mutating the ORM objects used by later generation. */
+	private void addPreviewParam(Param param, NgxBlock block) {
+		if (StrUtil.isEmpty(param.getTemplateValue())) {
+			String name = param.getName();
+			if (StrUtil.isNotEmpty(name.trim())) name = name.trim() + " ";
+			NgxParam value = new NgxParam();
+			value.addValue(name + param.getValue().trim());
+			block.addEntry(value);
+		} else {
+			for (Param templateParam : templateService.getParamList(param.getTemplateValue())) {
+				String name = templateParam.getName();
+				if (StrUtil.isNotEmpty(name.trim())) name = name.trim() + " ";
+				NgxParam value = new NgxParam();
+				value.addValue(name + templateParam.getValue().trim());
+				block.addEntry(value);
+			}
+		}
 	}
 
 	public List<Integer> processPort(String listenString) {
@@ -1274,12 +1510,11 @@ public class ConfService {
 	}
 
 	public String buildNodeStr(UpstreamServer upstreamServer) {
-
-		if (upstreamServer.getServer().contains(":")) {
-			upstreamServer.setServer("[" + upstreamServer.getServer() + "]");
+		String host = upstreamServer.getServer();
+		if (host.contains(":" ) && !(host.startsWith("[") && host.endsWith("]"))) {
+			host = "[" + host + "]";
 		}
-
-		String conf = upstreamServer.getServer() + ":" + upstreamServer.getPort();
+		String conf = host + ":" + upstreamServer.getPort();
 		if (upstreamServer.getWeight() != null) {
 			conf += " weight=" + upstreamServer.getWeight();
 		}
@@ -1304,21 +1539,15 @@ public class ConfService {
 	private void setSameParam(Param param, NgxBlock ngxBlock) {
 		if (StrUtil.isEmpty(param.getTemplateValue())) {
 			NgxParam ngxParam = new NgxParam();
-			if (StrUtil.isNotEmpty(param.getName().trim())) {
-				param.setName(param.getName().trim() + " ");
-			}
-
-			ngxParam.addValue(param.getName() + param.getValue().trim());
+			String name = param.getName() == null ? "" : param.getName().trim();
+			ngxParam.addValue(name + (StrUtil.isNotEmpty(name) ? " " : "") + param.getValue().trim());
 			ngxBlock.addEntry(ngxParam);
 		} else {
 			List<Param> params = templateService.getParamList(param.getTemplateValue());
 			for (Param paramSub : params) {
 				NgxParam ngxParam = new NgxParam();
-				if (StrUtil.isNotEmpty(paramSub.getName().trim())) {
-					paramSub.setName(paramSub.getName().trim() + " ");
-				}
-
-				ngxParam.addValue(paramSub.getName() + paramSub.getValue().trim());
+				String name = paramSub.getName() == null ? "" : paramSub.getName().trim();
+				ngxParam.addValue(name + (StrUtil.isNotEmpty(name) ? " " : "") + paramSub.getValue().trim());
 				ngxBlock.addEntry(ngxParam);
 			}
 		}
@@ -1345,6 +1574,65 @@ public class ConfService {
 //		return new File(nginxPath).getParent().replace("\\", "/") + "/conf.d/" + name;
 
 		return "conf.d/" + name;
+	}
+
+	/** Store an already-rendered raw block without passing it through NgxDumper. */
+	private String addRawConfFile(ConfExt confExt, String name, String rawBlock) {
+		name = name.replace(" ", "_").replaceAll("[!@#$%^&*()_+=\\{\\}\\[\\]\"<>,/;':\\\\|`~]+", "_");
+		for (ConfFile confFile : confExt.getFileList()) {
+			if (confFile.getName().equals(name)) {
+				confFile.setConf(confFile.getConf() + "\n" + rawBlock);
+				return "conf.d/" + name;
+			}
+		}
+		ConfFile confFile = new ConfFile();
+		confFile.setName(name);
+		confFile.setConf(rawBlock);
+		confExt.getFileList().add(confFile);
+		return "conf.d/" + name;
+	}
+
+	private void addRawBlockEntry(NgxBlock parent, Map<String, String> rawBlocks, String renderedBlock) {
+		String marker;
+		boolean collision;
+		do {
+			marker = "__NGX_RAW_BLOCK_" + UUID.randomUUID().toString().replace("-", "") + "__";
+			collision = renderedBlock.contains(marker) || rawBlocks.containsKey(marker);
+			for (String raw : rawBlocks.values()) collision |= raw.contains(marker);
+		} while (collision);
+		NgxParam placeholder = new NgxParam();
+		placeholder.addValue(marker);
+		parent.addEntry(placeholder);
+		rawBlocks.put(marker, renderedBlock);
+	}
+
+	/** Restore only registered, per-build placeholders after the legacy formatter has finished. */
+	private String restoreRawBlocks(String conf, Map<String, String> rawBlocks) {
+		for (Map.Entry<String, String> entry : rawBlocks.entrySet()) {
+			String markerLine = entry.getKey() + ";";
+			int at = conf.indexOf(markerLine);
+			if (at < 0 || conf.indexOf(markerLine, at + markerLine.length()) >= 0) {
+				throw new IllegalStateException("raw block placeholder was lost or duplicated");
+			}
+			int lineStart = conf.lastIndexOf('\n', at) + 1;
+			String indent = conf.substring(lineStart, at);
+			if (indent.chars().anyMatch(ch -> ch != ' ' && ch != '\t')) {
+				throw new IllegalStateException("raw block placeholder is not on its own line");
+			}
+			String rendered = entry.getValue();
+			int close = rendered.length() - 1;
+			if (close < 0 || rendered.charAt(close) != '}') {
+				throw new IllegalStateException("raw block renderer returned an invalid block");
+			}
+			rendered = rendered.substring(0, close) + indent + rendered.substring(close);
+			conf = conf.substring(0, at) + rendered + conf.substring(at + markerLine.length());
+		}
+		for (String marker : rawBlocks.keySet()) {
+			if (conf.contains(marker)) {
+				throw new IllegalStateException("unresolved raw block placeholder");
+			}
+		}
+		return conf;
 	}
 
 	private String addConfFile(ConfExt confExt, String name, NgxBlock ngxBlockServer) {
@@ -1695,7 +1983,7 @@ public class ConfService {
 			return;
 		}
 		Upstream upstream = sqlHelper.findById(upstreamId, Upstream.class);
-		if (upstream == null) {
+		if (upstream == null || upstream.isBlockMode()) {
 			return;
 		}
 		List<UpstreamServer> servers = upstreamService.getUpstreamServers(upstreamId);

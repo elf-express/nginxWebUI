@@ -18,7 +18,6 @@ import org.slf4j.LoggerFactory;
 import com.cym.ext.ConfExt;
 import com.cym.model.Http;
 import com.cym.model.Server;
-import com.cym.model.Stream;
 import com.cym.model.Upstream;
 import com.cym.service.ConfService;
 import com.cym.service.SettingService;
@@ -98,7 +97,7 @@ public class MainController extends BaseController {
 			ngxBlock = confService.bulidBlockServer(server, confExt);
 		} else if (type.equals("upstream")) {
 			Upstream upstream = sqlHelper.findById(id, Upstream.class);
-			ngxBlock = confService.buildBlockUpstream(upstream);
+			return renderSuccess(confService.previewUpstream(upstream));
 		} else if (type.equals("http")) {
 			List<Http> httpList = sqlHelper.findAll(new Sort("seq", Direction.ASC), Http.class);
 			ngxBlock = new NgxBlock();
@@ -115,16 +114,7 @@ public class MainController extends BaseController {
 
 			confService.buildDenyAllow(ngxBlock, "http", confExt);
 		} else if (type.equals("stream")) {
-			List<Stream> streamList = sqlHelper.findAll(new Sort("seq", Direction.ASC), Stream.class);
-			ngxBlock = new NgxBlock();
-			ngxBlock.addValue("stream");
-			for (Stream stream : streamList) {
-				NgxParam ngxParam = new NgxParam();
-				ngxParam.addValue(stream.getName() + " " + stream.getValue());
-				ngxBlock.addEntry(ngxParam);
-			}
-
-			confService.buildDenyAllow(ngxBlock, "stream", confExt);
+			return renderSuccess(confService.previewStream());
 		}
 		NgxConfig ngxConfig = new NgxConfig();
 		ngxConfig.addEntry(ngxBlock);

@@ -16,6 +16,10 @@ function search() {
 }
 
 function add() {
+	blockEditor.open({kind:'stream', context:'stream-child'});
+}
+
+function addLegacy() {
 	$("#id").val(""); 
 	$("#name").val(""); 
 	$("#value").val(""); 
@@ -69,6 +73,10 @@ function edit(id) {
 		success : function(data) {
 			if (data.success) {
 				var http = data.obj;
+				if (http.configMode === 'block') {
+					blockEditor.open({kind:'stream', id:http.id, header:http.name, body:http.rawContent, context:'stream-child'});
+					return;
+				}
 				$("#id").val(http.id); 
 				$("#value").val(http.value); 
 				$("#name").val(http.name);
@@ -199,6 +207,5 @@ function addGiudeOver(){
 		}
 	});
 }
-
 
 

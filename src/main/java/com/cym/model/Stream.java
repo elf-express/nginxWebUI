@@ -20,6 +20,10 @@ public class Stream extends BaseModel {
 	 * 参数值
 	 */
 	String value;
+	/** Configuration storage mode; null rows from older databases are legacy. */
+	String configMode;
+	/** Verbatim contents inside this stream child block's braces. */
+	String rawContent;
 	@JsonIgnore
 	Long seq;
 
@@ -45,6 +49,26 @@ public class Stream extends BaseModel {
 
 	public void setSeq(Long seq) {
 		this.seq = seq;
+	}
+
+	public String getConfigMode() {
+		return configMode == null ? "legacy" : configMode;
+	}
+
+	public void setConfigMode(String configMode) {
+		this.configMode = configMode;
+	}
+
+	public boolean isBlockMode() {
+		return "block".equals(configMode);
+	}
+
+	public String getRawContent() {
+		return rawContent;
+	}
+
+	public void setRawContent(String rawContent) {
+		this.rawContent = rawContent;
 	}
 
 }
