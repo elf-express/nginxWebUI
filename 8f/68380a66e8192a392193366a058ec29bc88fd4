@@ -1,0 +1,43 @@
+src/main/resources/messages.properties
+  s_bfd25b3a9e4e41::t_3b8429324c75e3 744
+src/main/java/com/cym/controller/adminPage/StreamController.java
+  s_bfd25b3a9e4e41::t_4bd78d092f0329 53-54
+src/test/java/com/cym/service/BlockEditorPersistenceTest.java
+  s_bfd25b3a9e4e41::t_6fe2781694ed1a 393-397
+  s_bfd25b3a9e4e41::t_9ad702c26fc08d 81
+  s_bfd25b3a9e4e41::t_c3835cabc15cf3 68-80,82-91,272-287
+  s_bfd25b3a9e4e41::t_c60be958c70234 288
+src/main/java/com/cym/controller/adminPage/MainController.java
+  s_bfd25b3a9e4e41::t_2ae4a72a9a4124 100,117,127
+src/main/resources/messages_zh_TW.properties
+  s_bfd25b3a9e4e41::t_8eaf57daa2c525 744
+src/main/resources/WEB-INF/view/adminPage/upstream/index.html
+  s_bfd25b3a9e4e41::t_639ce0a55d7a02 69-70
+src/main/resources/messages_en_US.properties
+  s_bfd25b3a9e4e41::t_6d389a0e004dd0 744
+src/main/java/com/cym/service/UpstreamService.java
+  s_bfd25b3a9e4e41::t_bcc49f32399365 53-55,96
+src/test/java/com/cym/service/BlockEditorConfTest.java
+  s_bfd25b3a9e4e41::t_30ee19e16cc53b 258-286,304-318
+  s_bfd25b3a9e4e41::t_3daaede94659fd 257,287-303
+src/main/java/com/cym/service/ConfService.java
+  s_bfd25b3a9e4e41::t_2d6c4cba1f806b 549-558,619,1010-1012
+src/main/java/com/cym/controller/adminPage/UpstreamController.java
+  s_bfd25b3a9e4e41::t_3e254975abe48a 130
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8f68380a66e8192a392193366a058ec29bc88fd4",
+  "prompts": {},
+  "sessions": {
+    "s_bfd25b3a9e4e41": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14048-1d19-7730-ba15-dd1c45879d8d",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
