@@ -50,6 +50,9 @@ public class UpstreamService {
 
 	
 	public void addOver(Upstream upstream, List<UpstreamServer> upstreamServers, String upstreamParamJson) {
+		if (upstream.getName() != null) upstream.setName(upstream.getName().trim());
+		upstream.setConfigMode("legacy");
+		upstream.setRawContent(null);
 		if (upstream.getProxyType() == 1 || upstream.getTactics() == null) {
 			upstream.setTactics("");
 		}
@@ -90,6 +93,7 @@ public class UpstreamService {
 		if (upstream != null && !upstream.isBlockMode() && !convertLegacy) {
 			throw new IllegalStateException("legacy_conversion_required");
 		}
+		name = name == null ? null : name.trim();
 		if (StrUtil.isEmpty(name)) {
 			throw new IllegalArgumentException("invalid_upstream_name");
 		}

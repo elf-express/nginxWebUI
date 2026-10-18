@@ -255,6 +255,68 @@ class BlockEditorConfTest {
 	}
 
 	@Test
+	void streamPreviewKeepsClosingBraceInsideUnquotedValueAndFollowingChildren() {
+		Stream map = streams.saveBlock(null, "map $name $backend", "\n    default backend};\n");
+		streams.saveBlock(null, "server", "\n    listen 9301;\n");
+
+		String preview = conf.previewStreamBlock(null, "server", "\n    listen 9302;\n");
+
+		assertTrue(preview.contains("default backend};"), preview);
+		assertTrue(preview.contains("listen 9301;"), preview);
+		assertTrue(preview.contains("listen 9302;"), preview);
+		assertTrue(preview.lastIndexOf('}') > preview.indexOf("listen 9302;"), preview);
+	}
+
+	@Test
+	void existingStreamToolbarPreviewRendersSavedBlockBodies() {
+		streams.saveBlock(null, "server", "\n    listen 9303;\n");
+		com.cym.controller.adminPage.MainController controller = new com.cym.controller.adminPage.MainController();
+		ReflectUtil.setFieldValue(controller, "sqlHelper", sql);
+		ReflectUtil.setFieldValue(controller, "confService", conf);
+
+		JsonResult<?> result = controller.preview(null, "stream");
+
+		assertTrue(result.isSuccess());
+		String preview = (String) result.getObj();
+		assertTrue(preview.contains("server {"), preview);
+		assertTrue(preview.contains("listen 9303;"), preview);
+		assertFalse(preview.contains("server null;"), preview);
+	}
+
+	@Test
+	void existingUpstreamToolbarPreviewRendersSavedBlockBodies() {
+		Upstream upstream = upstreams.saveBlock(null, "toolbar_api", 0,
+				"\n    least_conn;\n    server 192.0.2.20:8080;\n", false);
+		com.cym.controller.adminPage.MainController controller = new com.cym.controller.adminPage.MainController();
+		ReflectUtil.setFieldValue(controller, "sqlHelper", sql);
+		ReflectUtil.setFieldValue(controller, "confService", conf);
+
+		JsonResult<?> result = controller.preview(upstream.getId(), "upstream");
+
+		assertTrue(result.isSuccess());
+		String preview = (String) result.getObj();
+		assertTrue(preview.contains("upstream toolbar_api {"), preview);
+		assertTrue(preview.contains("least_conn;"), preview);
+		assertTrue(preview.contains("server 192.0.2.20:8080;"), preview);
+	}
+
+	@Test
+	void legacyUpstreamSnapshotRemovesDuplicateSemicolons() {
+		Upstream legacy = new Upstream();
+		legacy.setName("legacy_snapshot");
+		sql.insertOrUpdate(legacy);
+		Param param = new Param();
+		param.setName("keepalive");
+		param.setValue("8;");
+		paramsByTypeId.put(legacy.getId() + "|upstream", List.of(param));
+
+		String snapshot = conf.previewUpstream(legacy);
+
+		assertTrue(snapshot.contains("keepalive 8;"), snapshot);
+		assertFalse(snapshot.contains(";;"), snapshot);
+	}
+
+	@Test
 	void streamControllerPreviewReturnsFullContextAndRejectsInvalidDraftWithoutSaving() {
 		StreamController controller = new StreamController();
 		ReflectUtil.setFieldValue(controller, "confService", conf);

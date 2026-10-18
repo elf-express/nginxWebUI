@@ -50,6 +50,8 @@ public class StreamController extends BaseController {
 		if (StrUtil.isEmpty(stream.getId())) {
 			stream.setSeq(SnowFlakeUtils.getId());
 		}
+		stream.setConfigMode("legacy");
+		stream.setRawContent(null);
 		sqlHelper.insertOrUpdate(stream);
 
 		return renderSuccess();

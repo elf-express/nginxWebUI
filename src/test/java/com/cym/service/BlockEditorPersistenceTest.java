@@ -66,6 +66,30 @@ class BlockEditorPersistenceTest {
 	}
 
 	@Test
+	void blockUpstreamNamesAreTrimmedBeforeUniquenessChecks() {
+		Upstream saved = upstreams.saveBlock(null, "  api  ", 0, "server 127.0.0.1:8080;", false);
+
+		assertEquals("api", saved.getName());
+		assertThrows(IllegalArgumentException.class,
+				() -> upstreams.saveBlock(null, "api ", 0, "server 127.0.0.2:8080;", false));
+	}
+
+	@Test
+	void legacyUpstreamServiceSaveCannotAcceptBlockModeFromRequest() {
+		Upstream request = new Upstream();
+		request.setName("api");
+		request.setProxyType(0);
+		request.setConfigMode("block");
+		request.setRawContent("invalid block text");
+
+		upstreams.addOver(request, new ArrayList<>(), "[]");
+
+		Upstream saved = upstreams.findById(request.getId());
+		assertEquals("legacy", saved.getConfigMode());
+		assertNull(saved.getRawContent());
+	}
+
+	@Test
 	void sqliteSchemaPersistsRawTextAndKeepsOldRowsLegacy() throws Exception {
 		String oldSuffix = SQLConstants.SUFFIX;
 		String oldOrderType = SQLConstants.ORDER_TYPE_INT;
@@ -245,6 +269,23 @@ class BlockEditorPersistenceTest {
 		assertEquals("listen 9001;\n", streams.findById(block.getId()).getRawContent());
 	}
 
+	@Test
+	void legacyStreamPageSaveCannotAcceptBlockModeFromRequest() {
+		Stream request = new Stream();
+		request.setName("server");
+		request.setValue("listen 9001;");
+		request.setConfigMode("block");
+		request.setRawContent("invalid block text");
+
+		com.cym.controller.adminPage.StreamController controller = new com.cym.controller.adminPage.StreamController();
+		ReflectUtil.setFieldValue(controller, "sqlHelper", sql);
+		controller.addOver(request);
+
+		Stream saved = sql.findById(request.getId(), Stream.class);
+		assertEquals("legacy", saved.getConfigMode());
+		assertNull(saved.getRawContent());
+	}
+
 	private static Stream legacy(String name, String value) {
 		Stream stream = new Stream();
 		stream.setName(name);
@@ -347,6 +388,11 @@ class BlockEditorPersistenceTest {
 		@Override
 		public void deleteById(String id, Class<?> type) {
 			rows.getOrDefault(type, new LinkedHashMap<>()).remove(id);
+		}
+
+		@Override
+		public void deleteByQuery(ConditionWrapper conditions, Class<?> type) {
+			rows.getOrDefault(type, new LinkedHashMap<>()).values().removeIf(row -> matches(row, conditions));
 		}
 
 		private boolean matches(Object row, ConditionWrapper wrapper) {

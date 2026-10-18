@@ -127,6 +127,7 @@ public class UpstreamController extends BaseController {
 	@Mapping("addOver")
 	public JsonResult addOver(String upstreamJson, String upstreamParamJson, String upstreamServerJson) {
 		Upstream upstream = JSONUtil.toBean(upstreamJson, Upstream.class);
+		if (upstream.getName() != null) upstream.setName(upstream.getName().trim());
 		if (StrUtil.isNotEmpty(upstream.getId())) {
 			Upstream existing = sqlHelper.findById(upstream.getId(), Upstream.class);
 			if (existing != null && existing.isBlockMode()) {

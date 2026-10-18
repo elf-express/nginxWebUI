@@ -546,6 +546,16 @@ public class ConfService {
 		return streamBlock;
 	}
 
+	/** Render the persisted Stream context for the existing page-level Preview action. */
+	public String previewStream() {
+		ConfExt generated = buildConf(false, false);
+		if (generated == null) {
+			throw new IllegalStateException("stream_preview_generation_failed");
+		}
+		String streamBlock = findTopLevelStreamBlock(generated.getConf());
+		return streamBlock == null ? "stream {\n\n}" : streamBlock;
+	}
+
 	/** Locate the generated top-level stream block without parsing and re-dumping raw child text. */
 	private String findTopLevelStreamBlock(String conf) {
 		int candidate = -1;
@@ -606,7 +616,7 @@ public class ConfService {
 				depth++;
 				tokenBoundary = true;
 			}
-			else if (ch == '}' && depth > 0) {
+			else if (tokenBoundary && ch == '}' && depth > 0) {
 				depth--;
 				tokenBoundary = true;
 				if (depth == 0 && candidate >= 0) return conf.substring(candidate, i + 1);
@@ -997,7 +1007,9 @@ public class ConfService {
 		}
 		NgxConfig config = new NgxConfig();
 		config.addEntry(block);
-		return ToolUtils.formatConf(ToolUtils.handleConf(new NgxDumper(config).dump()));
+		String preview = ToolUtils.formatConf(ToolUtils.handleConf(new NgxDumper(config).dump()));
+		while (preview.contains(";;")) preview = preview.replace(";;", ";");
+		return preview;
 	}
 
 	/** Add a Param's rendered values without mutating the ORM objects used by later generation. */
