@@ -5,7 +5,13 @@ const base = require('./playwright.config.js');
 
 module.exports = {
   ...base,
-  testMatch: ['01-login.spec.js', '33-server-save.spec.js'],
+  testMatch: [
+    '01-login.spec.js',
+    '33-server-save.spec.js',
+    'upstream-block-editor.spec.js',
+    'stream-block-editor.spec.js',
+    'block-editor-compatibility.spec.js',
+  ],
   globalSetup: './global-setup-pg.js',
   globalTeardown: './global-teardown-pg.js',
   use: {

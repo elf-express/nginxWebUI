@@ -9,11 +9,13 @@ import org.noear.solon.annotation.Mapping;
 import org.noear.solon.core.handle.ModelAndView;
 
 import com.cym.model.Stream;
+import com.cym.service.ConfService;
 import com.cym.service.SettingService;
 import com.cym.service.StreamService;
 import com.cym.utils.BaseController;
 import com.cym.utils.JsonResult;
 import com.cym.utils.SnowFlakeUtils;
+import com.cym.utils.NginxBlockCodec;
 
 import cn.hutool.core.util.StrUtil;
 
@@ -22,6 +24,8 @@ import cn.hutool.core.util.StrUtil;
 public class StreamController extends BaseController {
 	@Inject
 	StreamService streamService;
+	@Inject
+	ConfService confService;
 	@Inject
 	SettingService settingService;
 
@@ -37,12 +41,53 @@ public class StreamController extends BaseController {
 
 	@Mapping("addOver")
 	public JsonResult addOver(Stream stream) {
+		if (StrUtil.isNotEmpty(stream.getId())) {
+			Stream existing = sqlHelper.findById(stream.getId(), Stream.class);
+			if (existing != null && existing.isBlockMode()) {
+				return renderError(m.get("blockEditorStr.legacyOverwriteBlocked"));
+			}
+		}
 		if (StrUtil.isEmpty(stream.getId())) {
 			stream.setSeq(SnowFlakeUtils.getId());
 		}
+		stream.setConfigMode("legacy");
+		stream.setRawContent(null);
 		sqlHelper.insertOrUpdate(stream);
 
 		return renderSuccess();
+	}
+
+	@Mapping("parseBlock")
+	public JsonResult parseBlock(String text, String context) {
+		try {
+			return renderSuccess(NginxBlockCodec.parseSingleBlock(text, context));
+		} catch (NginxBlockCodec.BlockException ex) {
+			return renderError(java.text.MessageFormat.format(m.get("blockEditorStr.invalidBlock"), ex.getLine(), ex.getColumn()));
+		}
+	}
+
+	@Mapping("saveBlock")
+	public JsonResult saveBlock(String id, String header, String rawContent) {
+		try {
+			return renderSuccess(streamService.saveBlock(id, header, rawContent));
+		} catch (NginxBlockCodec.BlockException ex) {
+			return renderError(java.text.MessageFormat.format(m.get("blockEditorStr.invalidBlock"), ex.getLine(), ex.getColumn()));
+		} catch (IllegalArgumentException ex) {
+			return renderError(m.get("blockEditorStr.saveInvalid"));
+		}
+	}
+
+	@Mapping("previewBlock")
+	public JsonResult previewBlock(String id, String header, String rawContent) {
+		try {
+			return renderSuccess(confService.previewStreamBlock(id, header, rawContent));
+		} catch (NginxBlockCodec.BlockException ex) {
+			return renderError(java.text.MessageFormat.format(m.get("blockEditorStr.invalidBlock"), ex.getLine(), ex.getColumn()));
+		} catch (IllegalArgumentException ex) {
+			return renderError(m.get("blockEditorStr.saveInvalid"));
+		} catch (IllegalStateException ex) {
+			return renderError(m.get("blockEditorStr.saveInvalid"));
+		}
 	}
 
 	@Mapping("addTemplate")

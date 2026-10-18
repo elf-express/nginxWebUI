@@ -50,6 +50,18 @@ function search() {
 
 
 function add() {
+	blockEditor.open({kind:'upstream', context:'http-upstream'});
+}
+
+function startBlockConversion() {
+	$.post(ctx + '/adminPage/upstream/blockPreview', {id:$('#id').val()}, function(data) {
+		if (!data.success) { layer.msg(data.msg); return; }
+		layer.closeAll();
+		blockEditor.open({kind:'upstream', id:$('#id').val(), context:$('#proxyType').val() == '0' ? 'http-upstream' : 'stream-upstream', header:data.obj.header, body:data.obj.body, convertLegacy:true});
+	}, 'json').fail(function() { layer.alert(commonStr.errorInfo); });
+}
+
+function addLegacy() {
 	$("#id").val("");
 	$("#name").val("");
 	$("#tactics option:first").prop("checked", true);
@@ -165,6 +177,11 @@ function edit(id,clone) {
 		success: function(data) {
 			if (data.success) {
 				var ext = data.obj;
+				if (ext.upstream.configMode === 'block') {
+					blockEditor.open({kind:'upstream', id:clone ? '' : ext.upstream.id, context:ext.upstream.proxyType == 0 ? 'http-upstream' : 'stream-upstream', header:clone ? '' : 'upstream ' + ext.upstream.name, body:ext.upstream.rawContent});
+					return;
+				}
+				$('#convertBlock').toggle(!clone);
 				var list = ext.upstreamServerList;
 
 				if (!clone) {

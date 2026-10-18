@@ -12,6 +12,7 @@ import com.cym.sqlhelper.bean.Sort.Direction;
 import com.cym.sqlhelper.utils.ConditionAndWrapper;
 import com.cym.sqlhelper.utils.SqlHelper;
 import com.cym.utils.SnowFlakeUtils;
+import com.cym.utils.NginxBlockCodec;
 
 @Component
 public class StreamService {
@@ -56,6 +57,27 @@ public class StreamService {
 		return sqlHelper.findAll(new Sort("seq", Direction.ASC), Stream.class);
 	}
 
+	public Stream saveBlock(String id, String header, String rawContent) {
+		Stream stream = id == null || id.isBlank() ? null : sqlHelper.findById(id, Stream.class);
+		if (id != null && !id.isBlank() && stream == null) {
+			throw new IllegalArgumentException("stream_not_found");
+		}
+		NginxBlockCodec.validate(header, rawContent, "stream-child");
+		if (stream == null) {
+			stream = new Stream();
+			stream.setSeq(SnowFlakeUtils.getId());
+		}
+		stream.setName(header.trim());
+		stream.setConfigMode("block");
+		stream.setRawContent(rawContent == null ? "" : rawContent);
+		sqlHelper.insertOrUpdate(stream);
+		return stream;
+	}
+
+	public Stream findById(String id) {
+		return sqlHelper.findById(id, Stream.class);
+	}
+
 	public void addTemplate(String templateId) {
 		List<Param> parmList = sqlHelper.findListByQuery(new ConditionAndWrapper().eq(Param::getTemplateId, templateId), Param.class);
 
@@ -72,7 +94,13 @@ public class StreamService {
 
 	public void setAll(List<Stream> streams) {
 		for (Stream stream : streams) {
-			Stream streamOrg = sqlHelper.findOneByQuery(new ConditionAndWrapper().eq("name", stream.getName()), Stream.class);
+			Stream streamOrg = null;
+			for (Stream candidate : findAll()) {
+				if (!candidate.isBlockMode() && java.util.Objects.equals(candidate.getName(), stream.getName())) {
+					streamOrg = candidate;
+					break;
+				}
+			}
 
 			if (streamOrg != null) {
 				sqlHelper.deleteById(streamOrg.getId(), Stream.class);

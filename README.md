@@ -83,6 +83,7 @@ Only the core two services start by default; CrowdSec is opt-in via the compose 
 - HTTP / HTTPS / TCP / UDP fully supported, auto-generated `nginx.conf`
 - TLS 1.2 / 1.3 support, Let's Encrypt auto-renewal (acme.sh DNS mode)
 - Upstream load balancing with weight / backup / down settings
+- **Nginx block editor** for HTTP/TCP/UDP upstreams and Stream child blocks: paste validated raw directives, preview the generated configuration, and keep comments, formatting, and nginx variables intact. Existing form-based records remain compatible until explicitly converted.
 - **19 built-in parameter templates** (with Chinese annotations): WebSocket Proxy / Proxy Headers / Large File Upload / CORS / Rate Limit / Security Headers / GeoIP / CrowdSec auth
 
 ### 📊 Observability
