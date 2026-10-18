@@ -1,0 +1,90 @@
+src/main/java/com/cym/ext/NginxBlockDraft.java
+  s_bfd25b3a9e4e41::t_135d10b5588358 1-17
+src/test/java/com/cym/service/BlockEditorPersistenceTest.java
+  s_bfd25b3a9e4e41::t_135d10b5588358 1-413
+src/main/resources/messages.properties
+  s_bfd25b3a9e4e41::t_135d10b5588358 744,1034-1051
+.github/workflows/claude-code-review.yml
+  s_bfd25b3a9e4e41::t_135d10b5588358 3-5,11,13,15-16,21-22,52,54,56
+tests/e2e/playwright.pg.config.js
+  s_bfd25b3a9e4e41::t_135d10b5588358 8-14
+src/main/resources/messages_zh_TW.properties
+  s_bfd25b3a9e4e41::t_135d10b5588358 744,1034-1051
+src/test/java/com/cym/service/BlockEditorConfTest.java
+  s_bfd25b3a9e4e41::t_135d10b5588358 1-441
+src/main/resources/WEB-INF/view/adminPage/upstream/index.html
+  s_bfd25b3a9e4e41::t_135d10b5588358 69-70,139,142,145,192,386,391
+src/main/java/com/cym/utils/RawBlockRenderer.java
+  s_bfd25b3a9e4e41::t_135d10b5588358 1-18
+src/main/java/com/cym/controller/api/UpstreamApiController.java
+  s_bfd25b3a9e4e41::t_135d10b5588358 57-62,81-82
+src/main/java/com/cym/model/Stream.java
+  s_bfd25b3a9e4e41::t_135d10b5588358 23-26,54-72
+  s_bfd25b3a9e4e41::t_0bdbc27a6abd00 73
+src/main/java/com/cym/service/StreamService.java
+  s_bfd25b3a9e4e41::t_135d10b5588358 15,60-80,97-103
+src/main/java/com/cym/controller/api/BasicApiController.java
+  s_bfd25b3a9e4e41::t_135d10b5588358 132-137,144-145
+src/main/java/com/cym/utils/NginxBlockCodec.java
+  s_bfd25b3a9e4e41::t_135d10b5588358 1-181
+src/main/java/com/cym/controller/adminPage/StreamController.java
+  s_bfd25b3a9e4e41::t_135d10b5588358 12,18,28-29,44-49,53-54,60-91
+  s_bfd25b3a9e4e41::t_0757167db2daec 92
+README.md
+  s_bfd25b3a9e4e41::t_135d10b5588358 86
+src/main/java/com/cym/service/ConfService.java
+  s_bfd25b3a9e4e41::t_135d10b5588358 14,49-50,94-97,108,252-264,361-378,383-388,432-444,501,521-632,967-1033,1513-1515,1517,1542-1543,1549-1550,1579-1637,1986
+src/test/java/com/cym/utils/NginxBlockCodecTest.java
+  s_bfd25b3a9e4e41::t_135d10b5588358 1-84
+src/main/java/com/cym/model/Upstream.java
+  s_bfd25b3a9e4e41::t_135d10b5588358 42-45,98-116
+  s_bfd25b3a9e4e41::t_cda14e16aba32f 117
+README_TW.md
+  s_bfd25b3a9e4e41::t_135d10b5588358 86
+tests/e2e/helpers.js
+  s_bfd25b3a9e4e41::t_135d10b5588358 91
+src/test/java/com/cym/service/BlockEditorTransferTest.java
+  s_bfd25b3a9e4e41::t_135d10b5588358 1-113
+src/main/resources/static/js/adminPage/upstream/index.js
+  s_bfd25b3a9e4e41::t_135d10b5588358 53-64,180-184
+src/main/resources/WEB-INF/view/adminPage/stream/index.html
+  s_bfd25b3a9e4e41::t_135d10b5588358 40,74-75,158,163
+tests/e2e/upstream-block-editor.spec.js
+  s_bfd25b3a9e4e41::t_135d10b5588358 1-88
+src/main/resources/static/js/adminPage/stream/index.js
+  s_bfd25b3a9e4e41::t_135d10b5588358 19-22,76-79
+tests/e2e/stream-block-editor.spec.js
+  s_bfd25b3a9e4e41::t_135d10b5588358 1-68
+tests/e2e/global-setup-pg.js
+  s_bfd25b3a9e4e41::t_135d10b5588358 14-18,23
+src/main/java/com/cym/controller/adminPage/UpstreamController.java
+  s_bfd25b3a9e4e41::t_135d10b5588358 17,24-25,29,40-41,130-136,160-205,228-235
+src/main/resources/messages_en_US.properties
+  s_bfd25b3a9e4e41::t_135d10b5588358 744,1034-1051
+src/main/java/com/cym/controller/adminPage/MainController.java
+  s_bfd25b3a9e4e41::t_135d10b5588358 100,117,127
+src/main/java/com/cym/service/UpstreamService.java
+  s_bfd25b3a9e4e41::t_135d10b5588358 20-21,53-55,87-127,153-158,162-169
+tests/e2e/block-editor-compatibility.spec.js
+  s_bfd25b3a9e4e41::t_135d10b5588358 1-30
+src/main/resources/static/js/adminPage/common/blockEditor.js
+  s_bfd25b3a9e4e41::t_135d10b5588358 1-146
+.superpowers/sdd/nginx-block-editor-plan/t2-report.md
+  s_bfd25b3a9e4e41::t_0484620ecea66c 1-25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b93ea5f67e16432b90b862fb1dabb70a7fa6ba76",
+  "prompts": {},
+  "sessions": {
+    "s_bfd25b3a9e4e41": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14048-1d19-7730-ba15-dd1c45879d8d",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
