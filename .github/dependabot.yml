@@ -1,5 +1,5 @@
 # Dependabot 自動 PR 提醒第三方依賴升級
-# PR 一律開到 dev(push master 會觸發發版,依賴升級跟下一次發版一起進 master)
+# PR 一律開到 dev；通過 CI 後隨 release 快轉與人工 v* tag 發版，分支 push 不發布。
 # 文件：https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 version: 2
 updates:

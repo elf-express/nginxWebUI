@@ -18,8 +18,8 @@
 | **安全防護** | 純 IP 黑白名單 | + **CrowdSec** 入侵偵測、+ **GeoIP2** 國家封鎖、+ **ASN** 封鎖、+ **多 list 自動 fetch** |
 | **語系** | 簡中為主 | **繁中為主**（簡 / 繁 / 英三份）|
 | **前端** | 純 Layui + jQuery | + **Vue 3 局部 mount**（template picker / **Vue Dashboard**）|
-| **CI/Release** | 手動打 jar | **GitHub Actions** push master 觸發、版本閘控自動 build image (linux/amd64) push 到 ghcr.io |
-| **開發流程** | 直接 push master | **dev/master 分支**、master 觸發發版（CI 自動打 tag）、`scripts/release.sh` 自動化 |
+| **CI/Release** | 手動打 jar | **GitHub Actions** 人工 `v*` tag → 驗證＋測試 → 版本閘控 build image (linux/amd64) push 到 ghcr.io |
+| **開發流程** | 原作者的開發流程 | **dev → release → main**、版號 PR、人在 release 建 annotated tag；`scripts/release.sh` 改版號＋commit |
 
 > 不取代上游，**互補**：你要極輕量單機部署用上游；要企業級觀測性與安全強化用這個 fork。
 
@@ -30,8 +30,8 @@
 ### 用 Docker Compose 一鍵啟動完整 stack
 
 ```bash
-git clone https://github.com/elf-express/nginxWebUI.git
-cd nginxWebUI/docker          # 預設分支 master = 最新 release 快照
+git clone --branch release https://github.com/elf-express/nginxWebUI.git
+cd nginxWebUI/docker          # release 是穩定版與部署來源
 docker compose up -d          # image 預設拉 :latest，永遠跟最新 release
 ```
 
@@ -106,9 +106,9 @@ docker compose up -d          # image 預設拉 :latest，永遠跟最新 releas
 
 ### 🚀 開發流程
 
-- **dev / master 雙分支模型**：日常開發在 dev、master = 最近一次 release 快照（發版走 `release/*` 分支 PR → master）
-- **`scripts/release.sh`** 自動化 pom bump + commit（tag 由 CI 在 master push 時自動打）
-- **GitHub Actions** push master → 版本閘控 build image (linux/amd64) → push ghcr.io，並自動打 `v*` tag + 建 Release
+- **dev → release → main**：開發分支經 PR 進 dev，測試通過後快轉 release；main 只從 release 快轉（見 [BRANCHING.md](BRANCHING.md)）
+- **`scripts/release.sh`** 在開發分支自動化 pom bump + commit；版號 PR 進 dev，tag 由人在 release 建立
+- **GitHub Actions** 分支 push／PR 只測試；人工 `v*` tag 或手動指定既有 tag，驗證後才發布兩個 image 與 GitHub Release
 - **Dependabot** 每週掃 Maven + Docker + Actions 依賴升級
 
 ---
@@ -123,8 +123,8 @@ docker compose up -d          # image 預設拉 :latest，永遠跟最新 releas
 
 ```bash
 mkdir nginxwebui && cd nginxwebui
-curl -O https://raw.githubusercontent.com/elf-express/nginxWebUI/master/docker/docker-compose.yml
-curl -o .env https://raw.githubusercontent.com/elf-express/nginxWebUI/master/docker/.env.example
+curl -O https://raw.githubusercontent.com/elf-express/nginxWebUI/release/docker/docker-compose.yml
+curl -o .env https://raw.githubusercontent.com/elf-express/nginxWebUI/release/docker/.env.example
 # 編輯 .env：image 預設 :latest，要釘版本就設 NGINX_WEBUI_VERSION=x.y.z
 docker compose up -d                      # 只起 nginxwebui + postgres
 ```
@@ -132,7 +132,7 @@ docker compose up -d                      # 只起 nginxwebui + postgres
 **要加 CrowdSec IDS —— 加上 compose `security` profile 即可（config 已烤進 `nginxwebui-crowdsec` image，不需 bind-mount）：**
 
 ```bash
-git clone https://github.com/elf-express/nginxWebUI.git && cd nginxWebUI/docker
+git clone --branch release https://github.com/elf-express/nginxWebUI.git && cd nginxWebUI/docker
 cp .env.example .env                       # 填 CROWDSEC_BOUNCER_KEY（首次可先填任意值）
 docker compose --profile security up -d
 # 或在 .env 設 COMPOSE_PROFILES=security 後直接 docker compose up -d
@@ -274,7 +274,8 @@ export NGINX_WEBUI_MCP_URL=http://localhost:8080/mcp   # 不是走 Compose 那�
 ## 升級
 
 ```bash
-git pull origin master
+git switch release
+git pull --ff-only origin release
 cd docker
 docker compose pull
 docker compose up -d

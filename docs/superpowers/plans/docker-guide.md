@@ -297,30 +297,18 @@ docker exec nginx-webui-5.0.3-postgres psql -U nginxwebui -c "SELECT count(*) FR
 
 ### 完整流程圖
 
+```text
+開發分支修改、測試 → PR 合進 dev（只 build/test）
+  → 維護者確認 CI 與提交清單 → release 從 origin/dev 快轉
+  → 人在 origin/release 建 annotated vX.Y.Z tag 並推送
+  → verify tag/pom/release → build/test
+  → 版本閘控發布 nginxwebui + nginxwebui-crowdsec（linux/amd64）與 GitHub Release
+  → 維護者確認後 main 從 origin/release 快轉
+  → 部署機 docker compose pull && docker compose up -d
 ```
-原始碼修改
-  ↓
-mvn clean package -DskipTests          # 編譯 JAR
-  ↓
-┌─ 本機測試 ─────────────────────────┐
-│ docker compose -f docker-compose.yml │
-│   -f docker-compose.dev.yml        │
-│   up -d --build                    │  ← 用 Dockerfile 本機 build image
-│ npm test                           │  ← 跑 Playwright 測試
-└────────────────────────────────────┘
-  ↓
-git push origin master                 # 推到 GitHub
-  ↓
-┌─ CI/CD（GitHub Actions 自動執行）──┐
-│ 1. mvn clean package               │
-│ 2. docker buildx（amd64 + arm64）  │
-│ 3. push → ghcr.io/elf-express/     │
-│    nginxwebui:5.0.3                 │
-│    nginxwebui:latest                │
-└────────────────────────────────────┘
-  ↓
-部署機 docker compose up -d           # 自動拉新 image
-```
+
+分支與逐步確認規範見 [BRANCHING.md](../../../BRANCHING.md)，完整發版流程見
+[release-flow.md](../../memory/release-flow.md)。
 
 ### 本機開發（Windows）
 
@@ -362,12 +350,10 @@ docker push ghcr.io/elf-express/nginxwebui:latest
 
 ### CI/CD 自動構建（GitHub Actions）
 
-推送到 `master` 分支會自動觸發 `.github/workflows/build.yml`：
-
-1. **Build Job** — 編譯 JAR，上傳為 artifact
-2. **Docker Job** — Build multi-arch image（amd64 + arm64），push 到 ghcr.io
-
-版本號從 `pom.xml` 的 `<version>` 自動提取。
+`.github/workflows/build.yml` 在 push `dev`／`release`／`hotfix/**` 或 PR 時只跑測試。
+人推送 `v*` tag 或手動指定既有 tag 時，先驗證 pom project version 與 release 祖先關係，
+再跑完整測試並發布兩個 linux/amd64 image 與 GitHub Release。已存在的映像版本不重發。
+workflow 不自行建立或推送 tag。
 
 ### 關鍵檔案說明
 
@@ -381,13 +367,12 @@ docker push ghcr.io/elf-express/nginxwebui:latest
 
 ### 升版 Checklist
 
-1. 修改 `pom.xml` 的 `<version>`（如 `5.0.3` → `5.1.0`）
-2. 修改 `docker-compose.yml` 的 `image` 和所有 `container_name` 版本號
-3. 修改 `tests/e2e/helpers.js` 的 `JAR_PATH`（如有改 JAR 檔名）
-4. 編譯測試：`mvn clean package -DskipTests && npm test`
-5. 提交推送：`git push origin master`
-6. CI 自動構建並推送 image
-7. 部署機：`docker compose pull && docker compose up -d`
+1. 確認版號，在從最新 origin/dev 開出的開發分支執行 `scripts/release.sh X.Y.Z`，只改 pom 並 commit。
+2. 開 `chore(release): vX.Y.Z` PR 進 dev，由 Eddie 用 merge commit 合併。
+3. 查目標提交的最新 check runs，全綠且取得確認後才把 release 從 origin/dev 快轉。
+4. 分別確認在 origin/release 建 annotated tag 與推送該 tag。
+5. 驗證 tag workflow、兩個 image manifest 與 GitHub Release；確認後 main 從 origin/release 快轉。
+6. 部署機從 release 取得 compose，執行 `docker compose pull && docker compose up -d`。
 
 ## 八、日常操作（部署環境）
 

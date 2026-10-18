@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# nginxWebUI release script — 在 dev 或 hotfix/* 分支執行
+# nginxWebUI release script — 在開發分支執行，版號經 PR 合進 dev
 #
 # 動作流程：
 #   1. 驗證分支與工作區乾淨
 #   2. 改 pom.xml 的 nginxWebUI 版本（不會誤改 parent solon-parent 版本）
-#   3. commit "chore(release): bump version to X.Y.Z"
+#   3. commit "chore(release): vX.Y.Z"；不 pull、不 push、不打 tag
 #
-# 後續手動動作（主線觸發發版）：
-#   git push origin <current-branch>:master     # push master → CI 版本閘控 build+push image + 自動打 tag v<version>
+# 後續手動動作：推送目前分支，開版號 PR 合進 dev。
+# dev 通過 CI 後，由維護者確認並快轉 release，再由人建立及推送 annotated tag。
 #
 # 用法：scripts/release.sh 5.0.4
 
@@ -22,10 +22,10 @@ fi
 # === 1. 確認在允許的分支、工作區乾淨 ===
 CURRENT_BRANCH="$(git branch --show-current)"
 case "$CURRENT_BRANCH" in
-  dev|hotfix/*)
+  feat/*|fix/*|docs/*|chore/*|test/*|hotfix/*)
     : ;;
   *)
-    echo "錯誤：請在 dev 或 hotfix/* 分支執行（目前在 $CURRENT_BRANCH）" >&2
+    echo "錯誤：請在開發分支執行（feat/fix/docs/chore/test/hotfix）（目前在 $CURRENT_BRANCH）" >&2
     exit 1
     ;;
 esac
@@ -39,11 +39,7 @@ if ! git diff --cached --quiet; then
   exit 1
 fi
 
-# === 2. 拉最新（同名遠端分支）===
-echo "拉最新 origin/$CURRENT_BRANCH ..."
-git pull --ff-only origin "$CURRENT_BRANCH"
-
-# === 3. 改 pom.xml 版本 ===
+# === 2. 改 pom.xml 版本（分支由呼叫者預先從最新 origin/dev 開出）===
 # pom.xml 第一個 <version> 是 <parent>solon-parent 的版本，不能改！
 # 要改的是 <artifactId>nginxWebUI</artifactId> 之後的那個 <version>
 CURRENT_VER=$(grep -A1 'artifactId>nginxWebUI' pom.xml | grep version | grep -oP '\d+\.\d+\.\d+')
@@ -64,7 +60,7 @@ awk -v new="$VERSION" '
   { print }
 ' pom.xml > pom.xml.tmp && mv pom.xml.tmp pom.xml
 
-# === 4. 驗證改寫成功且沒誤改 parent ===
+# === 3. 驗證改寫成功且沒誤改 parent ===
 NEW_VER=$(grep -A1 'artifactId>nginxWebUI' pom.xml | grep version | grep -oP '\d+\.\d+\.\d+')
 if [ "$NEW_VER" != "$VERSION" ]; then
   echo "錯誤：pom.xml 改寫失敗（預期 $VERSION、實際 $NEW_VER）" >&2
@@ -81,11 +77,12 @@ if [ "$PARENT_VER" != "3.10.7" ]; then
 fi
 echo "✓ pom.xml: nginxWebUI=$NEW_VER, parent solon-parent=$PARENT_VER"
 
-# === 5. commit（tag 由 CI 在 master push 時自動打，不在此打）===
+# === 4. commit（版號經 PR 合進 dev；tag 由人在 release 上建立）===
 git add pom.xml
-git commit -m "chore(release): bump version to $VERSION"
+git commit -m "chore(release): v$VERSION"
 
 echo ""
 echo "✓ pom 已升到 $VERSION 並 commit。下一步："
-echo "    git push origin $CURRENT_BRANCH:master"
-echo "    # push master → CI 版本閘控 build+push（nginxwebui + nginxwebui-crowdsec）+ 自動打 tag v$VERSION"
+echo "    git push -u origin $CURRENT_BRANCH"
+echo "    gh pr create --base dev --head $CURRENT_BRANCH --title \"chore(release): v$VERSION\""
+echo "    # 合併且 CI 全綠後，逐步確認：快轉 release → 人建立 annotated tag → 推送 tag → 驗證發版 → 快轉 main"

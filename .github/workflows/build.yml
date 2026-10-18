@@ -1,34 +1,94 @@
 name: Build & Test & Release
 
-# Trigger 模型:
-#   push dev                  → build/test(不 push image)
-#   push master               → build/test + release(pom 版本在 ghcr 沒有才 build+push+tag)
-#   pull_request→dev/master   → build/test
-#   build/test = mvn package(含 JUnit)+ Node 單元測試 + Playwright E2E,任一失敗即中斷
+# push dev/release/hotfix/** 與 PR → build/test；不發布、不建立 tag。
+# 人推送 v* tag 或 workflow_dispatch 指定既有 tag → verify → build/test → 發布。
+# build/test = Maven（含 JUnit／前端測試）+ Node 單元測試 + Playwright E2E。
 on:
   push:
-    branches: [master, dev]
+    branches: [dev, release, 'hotfix/**']
+    tags: ['v*']
   pull_request:
-    branches: [master, dev]
+    branches: [dev, release]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build, e.g. v5.3.0'
+        required: true
+        type: string
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-# 同一 PR 連續 push 時取消前一次;push 不取消,避免中斷 master 的發版
+# PR 連續更新可取消前一次；發版不取消，避免中斷映像推送。
 concurrency:
-  group: build-${{ github.ref }}
+  group: build-${{ inputs.tag || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  verify:
+    name: Verify release tag
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.verify.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      - name: Verify tag version and release ancestry
+        id: verify
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Expected an existing vX.Y.Z tag, got $TAG"
+            exit 1
+          fi
+          git show-ref --verify --quiet "refs/tags/$TAG"
+
+          # Read only the direct project version, never the Solon parent version.
+          version=$(python3 -c 'import xml.etree.ElementTree as ET; print(ET.parse("pom.xml").getroot().findtext("{http://maven.apache.org/POM/4.0.0}version", default=""))')
+          if [ "$TAG" != "v$version" ]; then
+            echo "::error::Tag $TAG does not match pom.xml project version $version"
+            exit 1
+          fi
+
+          git fetch --no-tags origin refs/heads/release:refs/remotes/origin/release
+          commit=$(git rev-parse "refs/tags/$TAG^{commit}")
+          if [ "$(git rev-parse HEAD)" != "$commit" ]; then
+            echo "::error::Checkout does not match tag $TAG"
+            exit 1
+          fi
+          if ! git merge-base --is-ancestor "$commit" origin/release; then
+            echo "::error::Tag $TAG is not on origin/release. Fast-forward release before tagging."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
   build:
     name: Build & Test
+    needs: verify
+    # verify 成功或跳過才跑；失敗或取消均不跑。
+    if: >-
+      ${{ always() && !cancelled() &&
+          (needs.verify.result == 'success' || needs.verify.result == 'skipped') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Set up JDK 17
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
@@ -76,10 +136,13 @@ jobs:
 
   release:
     name: Release image (${{ matrix.image.name }})
-    needs: build
+    needs: [verify, build]
     runs-on: ubuntu-latest
-    # 只在 push master 時跑(版本閘控:pom 版本在 ghcr 沒有才 build+push)
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    # 發版事件、tag 驗證和測試都通過後才發布；一般分支／PR 一律跳過。
+    if: >-
+      ${{ (github.event_name == 'workflow_dispatch' ||
+           (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/'))) &&
+          needs.verify.result == 'success' && needs.build.result == 'success' }}
     permissions:
       contents: read
       packages: write
@@ -98,13 +161,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - name: Extract version from pom.xml
-        id: version
-        run: |
-          VER=$(grep -A1 'artifactId>nginxWebUI' pom.xml | grep version | grep -oP '\d+\.\d+\.\d+')
-          echo "VERSION=$VER" >> "$GITHUB_OUTPUT"
-          echo "pom 版本: $VER"
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       # 先登入,version-gate 的 manifest inspect 才能查 private package(否則必失敗→每次重發)
       - name: Login to GitHub Container Registry
@@ -117,12 +175,12 @@ jobs:
       - name: Check if this version already on ghcr
         id: exists
         run: |
-          if docker manifest inspect ghcr.io/elf-express/${{ matrix.image.name }}:${{ steps.version.outputs.VERSION }} >/dev/null 2>&1; then
+          if docker manifest inspect ghcr.io/elf-express/${{ matrix.image.name }}:${{ needs.verify.outputs.version }} >/dev/null 2>&1; then
             echo "PUBLISHED=true" >> "$GITHUB_OUTPUT"
-            echo "${{ matrix.image.name }}:${{ steps.version.outputs.VERSION }} 已存在 → 跳過發布"
+            echo "${{ matrix.image.name }}:${{ needs.verify.outputs.version }} 已存在 → 跳過發布"
           else
             echo "PUBLISHED=false" >> "$GITHUB_OUTPUT"
-            echo "${{ matrix.image.name }}:${{ steps.version.outputs.VERSION }} 尚未發布 → 將 build+push"
+            echo "${{ matrix.image.name }}:${{ needs.verify.outputs.version }} 尚未發布 → 將 build+push"
           fi
 
       - name: Set up JDK 17
@@ -150,50 +208,64 @@ jobs:
           push: true
           platforms: linux/amd64
           tags: |
-            ghcr.io/elf-express/${{ matrix.image.name }}:${{ steps.version.outputs.VERSION }}
+            ghcr.io/elf-express/${{ matrix.image.name }}:${{ needs.verify.outputs.version }}
             ghcr.io/elf-express/${{ matrix.image.name }}:latest
           cache-from: type=gha,scope=${{ matrix.image.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image.name }}
 
-  tag:
-    name: Auto-tag + GitHub Release
-    needs: release
+  github_release:
+    name: GitHub Release
+    needs: [verify, release]
+    if: >-
+      ${{ (github.event_name == 'workflow_dispatch' ||
+           (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/'))) &&
+          needs.verify.result == 'success' && needs.release.result == 'success' }}
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     permissions:
       contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Create v<version> tag if new
-        run: |
-          VER=$(grep -A1 'artifactId>nginxWebUI' pom.xml | grep version | grep -oP '\d+\.\d+\.\d+')
-          # 查遠端(checkout 是淺 clone、不含 tags,不能用 local git rev-parse)
-          if git ls-remote --exit-code --tags origin "v$VER" >/dev/null 2>&1; then
-            echo "tag v$VER 已存在(遠端),跳過"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git tag -a "v$VER" -m "Release v$VER"
-            git push origin "v$VER"
-            echo "已打並推送 tag v$VER"
-          fi
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
-      # git tag ≠ GitHub Release entry；這步用內建 GITHUB_TOKEN 自動建 Release
-      # (需要 job 上方的 permissions.contents: write；不受本地組織 PAT 政策影響)
       - name: Create GitHub Release if new
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
-          VER=$(grep -A1 'artifactId>nginxWebUI' pom.xml | grep version | grep -oP '\d+\.\d+\.\d+')
-          # 冪等:release 已存在就跳過(重跑 CI 不會重複建)
-          if gh release view "v$VER" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "GitHub Release v$VER 已存在,跳過"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "GitHub Release $TAG 已存在，跳過"
           else
-            gh release create "v$VER" \
+            gh release create "$TAG" \
               --repo "$GITHUB_REPOSITORY" \
-              --title "v$VER" \
-              --target master \
+              --title "nginxWebUI $TAG" \
+              --verify-tag \
               --generate-notes
-            echo "已建立 GitHub Release v$VER"
+          fi
+
+  ci:
+    name: ci
+    needs: [verify, build, release, github_release]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Check required job results
+        env:
+          IS_RELEASE: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) }}
+          VERIFY_RESULT: ${{ needs.verify.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          IMAGE_RESULT: ${{ needs.release.result }}
+          RELEASE_RESULT: ${{ needs.github_release.result }}
+        run: |
+          test "$BUILD_RESULT" = success
+          if [ "$IS_RELEASE" = true ]; then
+            test "$VERIFY_RESULT" = success
+            test "$IMAGE_RESULT" = success
+            test "$RELEASE_RESULT" = success
+          else
+            test "$VERIFY_RESULT" = skipped
+            test "$IMAGE_RESULT" = skipped
+            test "$RELEASE_RESULT" = skipped
           fi

@@ -6,7 +6,7 @@ reviews:
   auto_review:
     enabled: true
     drafts: false
-    # 預設分支（master）之外，也審以 dev 為目標的 PR
+    # 審查以 dev（預設整合分支）為目標的 PR
     base_branches:
       - "^dev$"
   path_instructions:

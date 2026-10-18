@@ -42,7 +42,7 @@ Stream 連線數限制模板用 zone 名 `s_conn_perip`（不可與 HTTP 的 `co
 
 **Deploy/Test：** 測試用驗證碼 · Compose stack（PG18 + CrowdSec）·
 **CrowdSec = 自建 `nginxwebui-crowdsec`（官方 base + 烤 config）** · 可選的 `security` profile ·
-**master 觸發發版：CI 版本閘控建 2 個 image（nginxwebui + nginxwebui-crowdsec，amd64）+ 自動打 tag + 自動 GitHub Release**
+**人工 v* tag 觸發發版：verify＋測試通過後，CI 版本閘控建 2 個 image（nginxwebui + nginxwebui-crowdsec，amd64）+ GitHub Release；版號經 PR、tag 由人在 release 建立**
 （細節見 [release-flow.md](release-flow.md)）· **geoip MMDB 在建置期烤進 image（離線可用）** ·
 `.gitattributes` LF · Playwright E2E 套件（離線 CDN 守衛 + a11y crawler）·
 `@claude` mention 回應器（[.github/workflows/claude.yml](../../.github/workflows/claude.yml)）·
