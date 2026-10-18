@@ -1,0 +1,19 @@
+BRANCHING.md
+  s_8649bfd4b536c5::t_41b9526ef6b111 1-99
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "359a0f5c05baf49b9c0a855356627e67c66e55cd",
+  "prompts": {},
+  "sessions": {
+    "s_8649bfd4b536c5": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a14f9b-5306-7ae0-a82d-5dc6495018e9",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "unknown"
+    }
+  }
+}
