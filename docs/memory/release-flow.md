@@ -61,7 +61,10 @@ build/test 必須執行並成功，`verify` 與發版 job 必須跳過，貼出 
 
 ## 重跑既有 tag
 
-從 Actions 的 `workflow_dispatch` 輸入完整既有 tag，例如 `v5.3.0`。所有 checkout 都使用指定 tag。
+從 Actions 的 `workflow_dispatch` 輸入完整既有 tag，例如 `v5.3.0`。
+事件觸發的 checkout 固定事件 `github.sha`；手動執行先以指定 tag 驗證並輸出 commit，
+下游 build 與兩個發布 job 都固定使用該 commit，避免 tag 或分支移動造成測試與發布內容不同。
+所有 tag／手動發布（含不同版號）共用一個 workflow 併發群組，避免同時寫入版本映像、`:latest` 與 GitHub Release；branch／PR 的測試群組彼此獨立。
 每個 image 先登入 GHCR，再檢查該版本 manifest；已存在就跳過 build/push，GitHub Release 已存在也跳過。
 重建缺少的舊版 image 時仍沿用現有 `:latest` 發布行為，執行前由維護者確認要重建的版本。
 

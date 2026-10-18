@@ -19,9 +19,13 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-# PR 連續更新可取消前一次；發版不取消，避免中斷映像推送。
+# 所有 tag 與手動發布共用一把鎖，避免版本映像、latest 與 GitHub Release 競態。
+# branch／PR CI 各自分組；只有 PR 設 cancel-in-progress，發布不取消進行中的 run。
 concurrency:
-  group: build-${{ inputs.tag || github.ref }}
+  group: >-
+    ${{ (github.event_name == 'workflow_dispatch' ||
+         (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/'))) &&
+        'nginxwebui-publish' || format('build-{0}', github.ref) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -35,11 +39,12 @@ jobs:
       contents: read
     outputs:
       version: ${{ steps.verify.outputs.version }}
+      commit: ${{ steps.verify.outputs.commit }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.tag || github.sha }}
           fetch-depth: 0
 
       - name: Verify tag version and release ancestry
@@ -73,6 +78,7 @@ jobs:
             exit 1
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build & Test
@@ -88,7 +94,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ needs.verify.outputs.commit || github.sha }}
 
       - name: Set up JDK 17
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
@@ -162,7 +168,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ needs.verify.outputs.commit }}
 
       # 先登入,version-gate 的 manifest inspect 才能查 private package(否則必失敗→每次重發)
       - name: Login to GitHub Container Registry
@@ -227,7 +233,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ needs.verify.outputs.commit }}
 
       - name: Create GitHub Release if new
         env:

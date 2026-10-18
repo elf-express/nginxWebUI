@@ -141,6 +141,10 @@ test('workflow verify accepts an existing tag matching the direct project versio
   f.git('tag', '-a', 'v1.2.3', '-m', 'fixture');
   const result = verify(f, 'v1.2.3');
   assert.equal(result.status, 0, result.stdout + result.stderr);
+  const outputs = Object.fromEntries(fs.readFileSync(path.join(f.tempRoot, 'verify-output'), 'utf8')
+    .trim().split(/\r?\n/).map(line => line.split('=')));
+  assert.equal(outputs.version, '1.2.3');
+  assert.equal(outputs.commit, f.before);
 });
 
 for (const scenario of ['wrong-version', 'off-release', 'missing-tag', 'branch-name']) {
