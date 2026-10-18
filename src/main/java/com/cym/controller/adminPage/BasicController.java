@@ -32,7 +32,12 @@ public class BasicController extends BaseController {
 	NginxService nginxService;
 
 	@Mapping("")
-	public ModelAndView index(ModelAndView modelAndView) {
+	public ModelAndView index(ModelAndView modelAndView, String legacy) {
+		// 預設回 Vue 版，內容由 /adminPage/basic/pageData 提供；?legacy=1 回舊版 Freemarker 頁
+		if (!"1".equals(legacy)) {
+			modelAndView.view("/adminPage/basic/spa.html");
+			return modelAndView;
+		}
 		buildPageData().forEach(modelAndView::put);
 		modelAndView.view("/adminPage/basic/index.html");
 		return modelAndView;

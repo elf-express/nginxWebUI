@@ -41,7 +41,7 @@ Entry point: [com.cym.NginxWebUI](src/main/java/com/cym/NginxWebUI.java) — `@S
 > 注意：啟動時會先殺掉同名舊 jar process 再 `Solon.start()`。
 
 **Stack in one line:** Java 17 + **Solon 3.10.7（不是 Spring Boot）** · Layui + jQuery + Freemarker
-（伺服器端渲染，不是 SPA）· SQLite／PostgreSQL／MySQL 走自寫的 `SqlHelper`（不是 JPA）·
+（伺服器端渲染）；`basic` 頁已改 Vue 3 + ant-design-vue（`frontend/`，E-206 Phase 0）· SQLite／PostgreSQL／MySQL 走自寫的 `SqlHelper`（不是 JPA）·
 Maven fat jar · Playwright E2E + JUnit 5 單元測試 · Docker Compose（PG + 可選 CrowdSec）。
 細節見 [stack-and-layout.md](docs/memory/stack-and-layout.md)。
 

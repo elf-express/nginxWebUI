@@ -9,8 +9,16 @@
 - **i18n key convention:** `<page>Str.<field>`（例如 `serverStr.add`、`geoipStr.download`）。Controller 注入 `MessageUtils m`；template 用 `${serverStr.xxx}`。
 - JS i18n globals（`commonStr`、`geoipStr` 等）在 [common.html](../../src/main/resources/WEB-INF/view/adminPage/common.html) 由 `messageHeaders` 自動產生 —— 新前綴只要加進 properties 就會自動出現。
 
+### Vue 頁（`frontend/`）
+
+- 所有使用者可見字串一律走 `t()`（`src/shared/i18n.ts`），字典來源仍是三份 `messages*.properties`。`t()` 只支援 `{0}`/`{1}` 取代；不用 vue-i18n，因為它的編譯器把 `@ | {` 當語法，而既有 property 值含這些字元。
+- 保留 `?legacy=1` 逃生口與舊模板／舊 `static/js`；`bootstrap.ts` 在字典載入或掛載失敗時自動退回 `?legacy=1`。
+- `#app` 內要有 `<h1>`；純圖示按鈕要有文字或 `aria-label`（A11y 底線）。
+- antd 會在兩個 CJK 字之間插空格（「提交」的 accessible name 是「提 交」），Playwright 用 `/提\s*交/`。antd `Space` 換行模式會用 CSS-in-JS 給 `margin-bottom:-8px`，蓋掉 scoped 的 margin，間距放在外層 wrapper div。
+
 > 注意：新增任何使用者可見字串，必須同步改三份 properties：`messages.properties`（簡）、
 > `messages_zh_TW.properties`（繁）、`messages_en_US.properties`（英）。CJK 值用 `\uXXXX` escape（檔案是 ISO-8859-1）。
+> 行尾不可以是 `\`（會被當成續行，吞掉下一個 key）；JUnit `I18nControllerTest.allLanguagesHaveSameKeys` 守三份 key 一致。
 
 ## Backend
 
@@ -22,14 +30,15 @@
 
 ## Testing（詳見 [docs/superpowers/plans/playwright-guide.md](../superpowers/plans/playwright-guide.md)）
 
-- Specs 在 `tests/e2e/`，編號 `01-login` … `35-*` 外加獨立的 `flag-svg-integrity`。`35` 用了兩次（`35-asn-catalog-profile`、`35-mcp`），所以下一支新 spec 是 `36`。
+- Specs 在 `tests/e2e/`，編號 `01-login` … `35-*` 外加獨立的 `flag-svg-integrity`。`35` 用了兩次（`35-asn-catalog-profile`、`35-mcp`），`36` 已用（`36-i18n-js-escape`），`37-spa-basic` 是 Vue basic 頁，下一支新 spec 是 `38`。
 - `35-mcp` 是唯一自己另起 server 的 spec（port 18081 + `--mcp.token`，資料落在已被 gitignore 的 `test-data/mcp/`）。共用實例（18080）沒帶 token，所以它同時守得住「未啟用時 404」。
 - **PG smoke：** `npm run test:pg` —— docker 起 postgres:18-alpine（port 15432），跑 01+33 驗證 PostgreSQL 上的登入與 server 儲存（主套件只跑 SQLite，跨 DB 行為差異靠這層抓）。
 - 簡/繁按鈕文字用 regex 比對：`/批量輸入|批量输入/`。
 - Layui 元件用 `page.evaluate()` 驅動。
 - 執行：`npm test`（headed）· `npm run test:fast`（headless/CI）· `npm run test:fast -- 08-crowdsec`（單檔）· `npm run report`（http://localhost:9400）。
   > 注意：設定檔在 `tests/e2e/playwright.config.js`，根目錄沒有 —— 裸跑 `npx playwright test <file>` 不帶 `--config`，globalSetup 不會起 server。一律走 npm script 或自己加 `--config=`。
-- **JUnit 5 單元測試**（`src/test/java`，走 `solon-test`）：`NginxConfChecker`、`NginxDocParser`、`TemplateDefUtils`、`NetGuard`、ASN／GeoIP／CrowdSec 服務等純邏輯。`mvn test`（全部）· `mvn test -Dtest=NetGuardTest`（單一類別）。CI（`build.yml` 的 Build & Test）在 PR 與 push 時都會跑這層、Node 單元測試與 Playwright 全套，任一失敗即中斷。
+- **JUnit 5 單元測試**（`src/test/java`，走 `solon-test`）：`NginxConfChecker`、`NginxDocParser`、`TemplateDefUtils`、`NetGuard`、ASN／GeoIP／CrowdSec 服務等純邏輯。`mvn test`（全部）· `mvn test -Dtest=NetGuardTest`（單一類別）；注意 mvn 現在也會跑前端的 npm ci／build／Vitest，只想跑 Java 測試時加 `-Dskip.npm` 略過 npm ci／build／test 三步（install-node 仍會執行，已裝過則秒過）；但 `clean` 之後略過 build 產出的 jar 不含 Vue bundle，basic 頁會自動回舊版，要跑 E2E 不可加。CI（`build.yml` 的 Build & Test）在 PR 與 push 時都會跑這層、Node 單元測試與 Playwright 全套，任一失敗即中斷。
+- **前端單元測試（Vitest）：** `cd frontend && npm test`；`mvn test` 的 test phase 也會跑（`-DskipTests` 會跳過，`-Dmaven.test.skip=true` 則不會）。
 - **Node 單元測試：** `npm run test:unit`（`node --test tests/unit/**/*.test.js`），守 docs 腳本（`translate-docs`、`fence-code-blocks`）。
 
 > 注意：測試會自動啟動獨立 server（port 18080）+ 獨立 SQLite，不碰 `./dev-home/`。

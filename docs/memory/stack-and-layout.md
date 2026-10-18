@@ -9,6 +9,7 @@
   - Routing：`@Mapping("/path")` 類別層與方法層都要
   - Scheduling：`solon-scheduling-simple` 的 `@Scheduled`
 - **Frontend:** Layui + jQuery + Freemarker（伺服器端渲染 —— **不是 SPA**）
+- **Frontend（Vue）：** `basic` 頁已遷到 Vue 3 + ant-design-vue + Pinia（Vite 7 多入口，`frontend/`，E-206 Phase 0）；其餘頁仍是 Layui。`?legacy=1` 回舊版。
 - **DB:** SQLite（預設）/ PostgreSQL / MySQL —— 用 `--spring.database.type` 切換
 - **GeoIP:** `com.maxmind.db:maxmind-db` **4.1.0** 讀 MMDB 的 `build_epoch` 作為版本徽章。
   > 注意：4.1.0 起 `Metadata` 改為 Java **record**（需 Java 16+），`getBuildDate()` 已移除 → 改用 `buildTime()`（Instant）。此版由 dependabot 於 2026-07-05 升級（同批帶動 Java 8→17 地基升級）；讀取邏輯見 `GeoipService.readBuildDate`。
@@ -39,6 +40,10 @@ src/main/resources/
 ├── messages_en_US.properties # i18n English
 └── app.yml                   # app config
 
+frontend/                     # Vue 3 前端專案（Vite 7 多入口，Vitest）
+├── src/shared/               # http.ts（JsonResult fetch 包裝）、i18n.ts（t()）、notify.ts、bootstrap.ts
+└── src/pages/<page>/         # main.ts 入口 + Pinia store + 元件；產物 → target/classes/static/js/spa/<entry>.js
+
 docs/nginxdocumentation/      # 150 頁 nginx 官方文件 (打包進 jar，MCP 索引來源)
 docs/memory/                  # 本目錄：CLAUDE.md 的延伸記憶
 tests/e2e/                    # Playwright specs
@@ -59,6 +64,11 @@ SqlHelper (home-grown ORM) — ConditionAndWrapper / Page / Sort → JDBC
    ↓
 SQLite / PostgreSQL / MySQL
 ```
+
+**Vue 頁（`basic`）的流程：** Controller `index()` 預設渲染 `WEB-INF/view/adminPage/<page>/spa.html`（common/header/menu includes + `<div id="app">` +
+`<script type="module" src="/js/spa/<page>.js" onerror→?legacy=1>`），帶 `legacy=1` 才渲染舊模板。頁面載入後 `GET /adminPage/i18n`（目前語言字典）
++ `GET /adminPage/<page>/pageData`，寫入走既有 JSON 端點。`/js/spa/*` 落在 `AppFilter` 既有的 `/js/` 靜態排除內。舊模板與 `static/js/adminPage/<page>/`
+都保留（舊版遠端節點會用本機舊 JS 渲染自己的舊頁）。
 
 **新增 CRUD 頁最短路徑：**
 

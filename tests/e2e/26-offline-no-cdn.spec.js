@@ -29,11 +29,17 @@ test.describe.serial('離線守門:前端不依賴外網 CDN', () => {
   });
 
   test('主要頁面載入皆不請求外網 CDN', async () => {
-    const pages = ['/adminPage/monitor', '/adminPage/server', '/adminPage/http', '/adminPage/protectionCert'];
+    // Vue 版頁面要等內容掛載完才算載入完，新遷移的頁面加進這裡
+    const SPA_PAGES = ['/adminPage/basic'];
+    const pages = ['/adminPage/monitor', '/adminPage/server', '/adminPage/http', '/adminPage/protectionCert', '/adminPage/basic'];
     for (const path of pages) {
       await page.goto(path);
       await page.waitForLoadState('domcontentloaded');
-      await page.waitForTimeout(600); // 給 module import / 動態載入一點時間觸發
+      if (SPA_PAGES.includes(path)) {
+        await expect(page.locator('#app h1')).toBeVisible();
+      } else {
+        await page.waitForTimeout(600); // 給 module import / 動態載入一點時間觸發
+      }
     }
     expect(cdnHits, `不應有任何外網 CDN 請求,實際: ${cdnHits.join(', ')}`).toHaveLength(0);
   });
