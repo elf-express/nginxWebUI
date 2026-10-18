@@ -3,6 +3,18 @@
 > 完整規範：[分支規範：三種 repo 類型](https://linear.app/elf-express/document/分支規範三種-repo-類型貢獻型-fork私有-fork自有專案-128bf6e5e1f9)（Linear）
 > 本檔只記錄這個 repo 的設定。人與 AI 動手前請先讀完本檔。
 
+> **遷移過渡期（E-330）**：下列發佈、更新主庫與 hotfix 命令是**目標流程**，
+> 須先合併 [CI／版號遷移 PR #95](https://github.com/elf-express/nginxWebUI/pull/95)，
+> 確認合併後的 dev push run 測試成功、verify 與發版 job 跳過，再取得 Eddie 同意建立 `release`；
+> 在此之前不要執行下列發佈命令，每一步的確認要求仍適用。
+>
+> 遷移前的 `build.yml` 只接受 push／PR 到 `master`、`dev`，發版 job 只接受 push `master`。
+> 因此下列 `release` 快轉不會發布映像或 GitHub Release，hotfix PR 的 `release` 目標也不會觸發這個 workflow 的 build/tests。
+> `master` 已改名為 `main`，目前發版暫停；不要照舊推送到 `master`。
+>
+> [目前發版程序與限制](docs/memory/release-flow.md) 在 #95 合併前仍記錄舊流程，僅供對照，
+> 以本段的暫停與確認要求為準；遷移後依該頁更新後的流程操作。
+
 ## 本 repo 資訊
 
 | 項目                  | 值                                     |
