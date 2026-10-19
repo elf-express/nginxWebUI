@@ -1,0 +1,14 @@
+pom.xml
+  h_b23a6a8439c0dd 14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f0dd636b3ed2a4386970a38636e9929ced782544",
+  "prompts": {},
+  "humans": {
+    "h_b23a6a8439c0dd": {
+      "author": "unknown"
+    }
+  }
+}
