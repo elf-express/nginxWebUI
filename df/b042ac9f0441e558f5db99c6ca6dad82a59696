@@ -1,0 +1,34 @@
+scripts/translate-docs.js
+  s_822f18552e7f5f::t_aa7fcb52480eb5 30-31,40-41,454,492,547,551,575-581
+scripts/docs-file-safety.js
+  s_822f18552e7f5f::t_aa7fcb52480eb5 1-38
+tests/unit/docs-security.test.js
+  s_822f18552e7f5f::t_96fde4b12480db 63-67
+  s_822f18552e7f5f::t_82b248b813223a 53-56,59,61,70-72,113-119,150-160
+  s_822f18552e7f5f::t_4d463998d65fa0 100-109
+  s_822f18552e7f5f::t_883c3f4a9d9cf7 49-52,133-145,147-148
+  s_822f18552e7f5f::t_5d2e63c8835382 1-37,39-40,42-48,57-58,60,62,68-69,73,75-99,110-112,120-132,146,149,161-214
+  s_822f18552e7f5f::t_8d76c3f67b4032 38,41,74
+scripts/fence-code-blocks.js
+  s_822f18552e7f5f::t_aa7fcb52480eb5 11-12,380
+package-lock.json
+  s_822f18552e7f5f::t_cf26f24e74e8bc 13-14,114-122
+package.json
+  s_822f18552e7f5f::t_8c106fe9091ed8 22-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dfb042ac9f0441e558f5db99c6ca6dad82a59696",
+  "prompts": {},
+  "sessions": {
+    "s_822f18552e7f5f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a15361-e902-7a73-9a62-027a0c113b50",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "unknown"
+    }
+  }
+}
