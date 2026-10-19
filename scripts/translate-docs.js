@@ -27,6 +27,8 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { fenceScan } = require('./fence-code-blocks.js');
+const { createBackupOnce, updateExistingStamp } = require('./docs-file-safety.js');
+const { RE2JS } = require('re2js');
 
 const USAGE = `
 translate-docs.js — 保護程式碼的 markdown 批次翻譯工具
@@ -35,7 +37,8 @@ translate-docs.js — 保護程式碼的 markdown 批次翻譯工具
 
   --dir <path>       必填。要翻譯的 markdown 目錄（預設遞迴）
   --no-recursive     只翻這一層，不進子目錄
-  --match <regex>    只處理檔名符合此正則的檔案，例如 "^ngx_"
+  --match <regex>    以 RE2 正則篩選檔名，例如 "^ngx_"（線性時間）
+                    不支援 lookaround／反向參照；無效或不支援的語法會報錯
   --files 7-149      檔名開頭數字落在此範圍才處理（例如 007page.md）
   --engine <name>    tencent(預設，原生批次最快) | google（逐行、慢但穩）
                      microsoft 的 edge auth 端點目前回 404，留著備查
@@ -448,7 +451,7 @@ async function translateFile(file, opt, engine) {
 
   if (applied > 0) {
     if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
-    if (!fs.existsSync(backup)) fs.writeFileSync(backup, original, 'utf8');
+    createBackupOnce(backup, original);
     fs.writeFileSync(file, translated, 'utf8');
     fs.writeFileSync(stamp, translated, 'utf8');   // 供下次比對，辨識人工校對
   }
@@ -486,7 +489,7 @@ function repairFile(file) {
     const out = cur.join('\n');
     fs.writeFileSync(file, out, 'utf8');
     const stamp = `${backup}.out`;
-    if (fs.existsSync(stamp)) fs.writeFileSync(stamp, out, 'utf8');
+    updateExistingStamp(stamp, out);
   }
   return { file, repaired };
 }
@@ -541,11 +544,11 @@ function stripNav(file, opt) {
   const backup = navBackupPath(file);
   fs.mkdirSync(path.dirname(backup), { recursive: true });
   // 備份只寫第一次：重跑時手上的「原文」已經是刪過的內容，覆蓋下去就再也回不去了
-  if (!fs.existsSync(backup)) fs.writeFileSync(backup, original, 'utf8');
+  createBackupOnce(backup, original);
   fs.writeFileSync(file, out, 'utf8');
 
   const stamp = path.join(path.dirname(file), '.translate-backup', `${path.basename(file)}.out`);
-  if (fs.existsSync(stamp)) fs.writeFileSync(stamp, out, 'utf8');
+  updateExistingStamp(stamp, out);
   return { file, removed };
 }
 
@@ -569,8 +572,13 @@ function selectFiles(opt) {
   let files = listMarkdown(opt.dir, opt.recursive);
 
   if (opt.match) {
-    const re = new RegExp(opt.match);
-    files = files.filter((f) => re.test(path.basename(f)));
+    let re;
+    try {
+      re = RE2JS.compile(opt.match);
+    } catch (e) {
+      throw new Error(`--match 必須是有效且受支援的 RE2 正則（不支援 lookaround／反向參照）：${e.message}`);
+    }
+    files = files.filter((f) => re.matcher(path.basename(f)).find());
   }
 
   if (opt.files !== 'all') {

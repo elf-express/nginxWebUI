@@ -19,7 +19,8 @@
   "license": "ISC",
   "dependencies": {
     "fflate": "^0.8.3",
-    "playwright": "^1.58.2"
+    "playwright": "^1.58.2",
+    "re2js": "2.8.8"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
