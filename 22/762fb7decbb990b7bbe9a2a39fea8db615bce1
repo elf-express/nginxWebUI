@@ -1,0 +1,22 @@
+tests/unit/docs-security.test.js
+  s_822f18552e7f5f::t_6221bab790558b 70,138-155,166-167
+  s_822f18552e7f5f::t_dec1a274696363 49,59,61,137,156,164
+scripts/docs-file-safety.js
+  s_822f18552e7f5f::t_ee3d7bef094207 15-16,22-23,25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "22762fb7decbb990b7bbe9a2a39fea8db615bce1",
+  "prompts": {},
+  "sessions": {
+    "s_822f18552e7f5f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a15361-e902-7a73-9a62-027a0c113b50",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "unknown"
+    }
+  }
+}
