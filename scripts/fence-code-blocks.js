@@ -8,6 +8,8 @@
  */
 'use strict';
 
+const { createBackupOnce } = require('./docs-file-safety.js');
+
 const QUOTE_RE = /^\s*>/;
 // 檔頭 metadata：抓取工具留下的 Source 行，以及本專案翻譯版加的翻譯標注。
 // 兩者都是檔案開頭的註記而非內容，永遠不該變成程式碼。
@@ -375,7 +377,7 @@ function main() {
       const pre = path.join(bk, `${name}.pre-fence`);
       // 備份只寫第一次：重跑時手上的「原文」已經是轉換後的內容，
       // 覆蓋下去就再也回不到真正的原文了。
-      if (!fs.existsSync(pre)) fs.writeFileSync(pre, src, 'utf8');
+      createBackupOnce(pre, src);
       fs.writeFileSync(file, r.text, 'utf8');
     }
   }
