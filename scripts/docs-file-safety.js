@@ -12,17 +12,17 @@ function createBackupOnce(file, text) {
   }
 }
 
-// r+ never creates or truncates a path. Validate the opened inode before writing,
-// then keep every mutation on that descriptor even if the name is replaced.
+// Open without creating/truncating first, then validate that descriptor against the
+// current name. Every mutation stays on the pinned inode even if the name changes.
 function updateExistingStamp(file, text) {
   let fd;
   try {
-    const before = fs.lstatSync(file, { bigint: true });
-    if (!before.isFile() || before.nlink !== 1n) throw new Error(`拒絕不安全的 stamp：${file}`);
     fd = fs.openSync(file, fs.constants.O_RDWR | (fs.constants.O_NOFOLLOW || 0));
     const opened = fs.fstatSync(fd, { bigint: true });
+    if (!opened.isFile() || opened.nlink !== 1n) throw new Error(`拒絕不安全的 stamp：${file}`);
+    const named = fs.lstatSync(file, { bigint: true });
     // Identity checking also protects platforms without O_NOFOLLOW (Windows).
-    if (!opened.isFile() || opened.nlink !== 1n || opened.dev !== before.dev || opened.ino !== before.ino) {
+    if (!named.isFile() || named.nlink !== 1n || opened.dev !== named.dev || opened.ino !== named.ino) {
       throw new Error(`stamp 在開啟時被替換：${file}`);
     }
     const data = Buffer.from(text, 'utf8');

@@ -46,7 +46,7 @@ function fixture(t, mode) {
           fs.renameSync(target, target + '.detached');
           fs.linkSync(victim, target);
         }
-        if (action === 'replace-symbolic') {
+        if (action === 'replace-symbolic' || action === 'replace-symbolic-before-open') {
           fs.renameSync(target, target + '.detached');
           fs.symlinkSync(victim, target, 'file');
         }
@@ -56,9 +56,9 @@ function fixture(t, mode) {
         }
       }
       const exists = fs.existsSync;
-      fs.existsSync = function(p) { const result = exists(p); if (p === target && action !== 'replace-after-open') race(); return result; };
+      fs.existsSync = function(p) { const result = exists(p); if (p === target && action !== 'replace-after-open' && action !== 'replace-symbolic-before-open') race(); return result; };
       const lstat = fs.lstatSync;
-      fs.lstatSync = function(p, ...rest) { const result = lstat(p, ...rest); if (p === target && action !== 'replace-after-open') race(); return result; };
+      fs.lstatSync = function(p, ...rest) { const result = lstat(p, ...rest); if (p === target && action !== 'replace-after-open' && action !== 'replace-symbolic-before-open') race(); return result; };
       const open = fs.openSync;
       // Node can bypass its JS openSync in the writeFileSync UTF-8 fast path.
       fs.writeFileSync = function(p, ...rest) {
@@ -67,6 +67,7 @@ function fixture(t, mode) {
       };
       fs.openSync = function(p, flags, ...rest) {
         if (p === target && action === 'competing-backup') race();
+        if (p === target && action === 'replace-symbolic-before-open') race();
         const result = open(p, flags, ...rest);
         if (p === target && action === 'replace-after-open') race();
         return result;
@@ -133,20 +134,26 @@ for (const mode of ['repair', 'nav']) {
     assert.equal(fs.readFileSync(f.victim, 'utf8'), 'unrelated private data');
   });
 
-  test(`${mode}: replacing a stamp with a symlink preserves the victim and link`, t => {
-    const f = fixture(t, mode);
-    fs.writeFileSync(f.stamp, 'previous output');
-    fs.writeFileSync(f.victim, 'unrelated private data');
-    const probe = f.stamp + '.probe';
-    try { fs.symlinkSync(f.victim, probe, 'file'); }
-    catch (e) { if (e.code === 'EPERM') { t.skip('Windows symlink privilege unavailable'); return; } throw e; }
-    fs.unlinkSync(probe);
-    const result = f.run(f.stamp, 'replace-symbolic');
-    assert.equal(result.status, 1, result.stderr);
-    assert.equal(fs.readFileSync(f.victim, 'utf8'), 'unrelated private data');
-    assert.equal(fs.lstatSync(f.stamp).isSymbolicLink(), true);
-    assert.equal(fs.readlinkSync(f.stamp), f.victim);
-  });
+  for (const action of ['replace-symbolic', 'replace-symbolic-before-open']) {
+    test(`${mode}: ${action} preserves the victim and link`, t => {
+      const f = fixture(t, mode);
+      fs.writeFileSync(f.stamp, 'previous output');
+      fs.writeFileSync(f.victim, 'unrelated private data');
+      const probe = f.stamp + '.probe';
+      try { fs.symlinkSync(f.victim, probe, 'file'); }
+      catch (e) { if (e.code === 'EPERM') { t.skip('Windows symlink privilege unavailable'); return; } throw e; }
+      fs.unlinkSync(probe);
+      const result = f.run(f.stamp, action);
+      // A descriptor already validated before the last lstat pins the original inode;
+      // a symlink substituted before open must be rejected before any write.
+      assert.equal(result.status, action === 'replace-symbolic' ? 0 : 1, result.stderr);
+      assert.equal(fs.readFileSync(f.victim, 'utf8'), 'unrelated private data');
+      assert.equal(fs.lstatSync(f.stamp).isSymbolicLink(), true);
+      assert.equal(fs.readlinkSync(f.stamp), f.victim);
+      assert.equal(fs.readFileSync(f.stamp + '.detached', 'utf8'),
+        action === 'replace-symbolic' ? (mode === 'nav' ? 'Body\n' : '# 目前標題\n') : 'previous output');
+    });
+  }
 
   for (const action of ['replace-regular', 'replace-after-open']) {
     test(`${mode}: ${action} leaves the replacement inode unchanged`, t => {
@@ -154,8 +161,10 @@ for (const mode of ['repair', 'nav']) {
       fs.writeFileSync(f.stamp, 'previous output');
       fs.writeFileSync(f.victim, 'unrelated private data');
       const result = f.run(f.stamp, action);
-      assert.equal(result.status, action === 'replace-regular' ? 1 : 0, result.stderr);
+      assert.equal(result.status, action === 'replace-regular' ? 0 : 1, result.stderr);
       assert.equal(fs.readFileSync(f.stamp, 'utf8'), 'unrelated private data');
+      assert.equal(fs.readFileSync(f.stamp + '.detached', 'utf8'),
+        action === 'replace-regular' ? (mode === 'nav' ? 'Body\n' : '# 目前標題\n') : 'previous output');
     });
   }
 
