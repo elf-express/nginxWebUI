@@ -1,78 +1,74 @@
 # Release flow / 發版流程
 
-> 從 [CLAUDE.md](../../CLAUDE.md) 進來的。發版前請把這一頁讀完。
-> 延伸：[docs/superpowers/plans/2026-05-21-dev-release-workflow.md](../superpowers/plans/2026-05-21-dev-release-workflow.md)
+> 分支規範見 [BRANCHING.md](../../BRANCHING.md)。本倉庫是第 3 種自有專案。
+> 版號來源是 `pom.xml` 的 nginxWebUI project version；根 `package.json` 的版號不作為產品版號。
 
-## 誰是發版觸發器：**master 的 push**，不是 dev
+## 分支與觸發
 
-這一點常被記錯，所以先講清楚，並附上可自行複驗的依據。
+- 開發分支從最新 `origin/dev` 開出，經 PR 用 merge commit 合進 `dev`。
+- `release` 是唯一穩定版與部署來源，只從測過的 `origin/dev` 快轉；緊急修正從 `origin/hotfix/*` 快轉。
+- `main` 只從 `origin/release` 快轉，不作為部署來源。
+- push `dev`／`release`／`hotfix/**`，或 PR 目標為 `dev`／`release`：只跑 build/test，`verify`、image 與 GitHub Release job 跳過。
+- 人推送 `v*` tag，或 `workflow_dispatch` 指定既有 tag：先 `verify`，再跑 build/test，通過後才發布兩個 image 與 GitHub Release。
+- workflow 不提交版號、不建立或推送 tag；`ci` 彙總上述 job 結果。
 
-`.github/workflows/build.yml` 的 `on.push.branches` 是 `[master, dev]`，**兩個分支都會跑 CI**，
-但真正產出版本的兩個 job 被閘在 master：
+## 版號 PR
 
-```
-:41   if: github.event_name == 'push' && github.ref == 'refs/heads/master'   ← Release image
-:121  if: github.event_name == 'push' && github.ref == 'refs/heads/master'   ← Auto-tag + GitHub Release
-```
-
-實際執行結果（5.2.9 發版當下）：
-
-| push 目標 | Build JAR | Release image | Auto-tag + GitHub Release |
-|---|---|---|---|
-| `dev` | 跑，35s | **跳過**（0s） | **跳過**（0s） |
-| `master` | 跑，41s | 跑，兩個 image | 跑，建出 `v5.2.9` |
-
-所以：**push 到 dev 只有 build & test，不會發版；push 到 master 才會 build+push image、打 tag、建 GitHub Release。**
-
-`release/*` 分支**不是**發版觸發器。它在下面「PR 變體」裡的角色只是「通往 master 的一條路」，
-好讓 claude-code-review 有機會審；版本仍然是在它併進 master 之後才產生的。
-
-## 分支角色
-
-- `dev` — 常駐日常開發分支。
-- `master` — **push 觸發發版**。CI 有版本閘控：pom 版本在 ghcr 還沒有才 build+push；自動打 `v*` tag + 建 GitHub Release。
-- `hotfix/*` — 從 `master` 開。
-
-## 主要路徑：在 dev bump，直接 push 到 master（不開 PR）
+由維護者確認本次版號後，在從最新 `origin/dev` 開出的開發分支執行：
 
 ```bash
-git checkout dev && git pull origin dev
-scripts/release.sh 5.2.9        # 只在 dev 或 hotfix/* 能跑(script 有分支閘)
-                                # 只改 pom 的 nginxWebUI <version> + commit,不打 tag、不 push
-git push origin dev             # 同步 origin/dev（此步不發版）
-git push origin dev:master      # ← 這一步才發版
-docker manifest inspect ghcr.io/elf-express/nginxwebui:5.2.9   # 確認 image pushed
-gh release view v5.2.9                                          # 確認 Release 建出來
+scripts/release.sh X.Y.Z
+git push -u origin <目前開發分支>
+gh pr create --base dev --head <目前開發分支> --title "chore(release): vX.Y.Z"
 ```
 
-> **不要開 dev → master 的 PR** —— GitHub merge 後的「Delete branch」會刪掉常駐 `dev`。
-> 直接 push `dev:master` 不走 PR、不刪 dev（代價是沒有 claude-code-review 自動審）。
+版號 PR 只改 `pom.xml`；功能另開 PR。腳本只修改 nginxWebUI version 並 commit，
+不 pull、不 push、不打 tag。拒絕 `dev`／`release`／`main`、detached HEAD 與非開發分支。
+保留工作區及 staging area 檢查，以及兩道版號守衛：
 
-## 可選的 PR 變體（要 claude-code-review 保險時）
+1. 改到的是 `<artifactId>nginxWebUI</artifactId>` 後面的 `<version>`，不是 parent。
+2. parent `solon-parent` 版本仍為 `3.10.7`；驗證失敗會還原 pom 並停止。
 
-先在 `dev` 跑 `scripts/release.sh`（它的分支閘不接受 `release/*`），再 `git checkout -b release/5.2.9`
-推上去開 `release/5.2.9 → master` PR。merge 時 GitHub 刪的是 release 分支，`dev` 不動；
-merge 後 `git checkout dev && git pull` 即已同步（bump commit 本來就在 dev）。
+## 發佈與驗證
 
-**注意**：版本是在這個 PR 併進 master 的那一刻才產生的，不是在 `release/*` 被推上去的時候。
+每一步先列出內容並取得 Eddie 確認；AI 不合併 PR、不修改 repo／組織設定、不 force push。
 
-## release.sh 的兩道守衛
+1. Eddie 合併版號 PR 後，查 `origin/dev` 當前提交的最新 check runs，全部通過才繼續。
+2. 列出 `git log --oneline origin/release..origin/dev`，確認後把 `release` 從 `origin/dev` 快轉並推送；再確認該提交全部 checks 通過。
+3. 確認後由人在 `origin/release` 建立 annotated tag：`git tag -a vX.Y.Z -m "nginxWebUI vX.Y.Z" origin/release`。
+4. 再次確認後只推這個 tag：`git push origin vX.Y.Z`。
+5. 查 tag workflow：`verify` 必須確認既有 tag 名稱等於 `v` 加上 pom 的直接 project version，checkout 等於 tag commit，且該 commit 是 `origin/release` 的祖先。
+6. 確認兩個映像與 GitHub Release 已產出：
 
-腳本只改 `pom.xml`，不碰 README / README_TW / CLAUDE.md / .env —— 部署文件刻意「不綁版本」
-（`:latest` + `master` raw URL + jar 萬用字元）。它會驗證：
+```bash
+docker manifest inspect ghcr.io/elf-express/nginxwebui:X.Y.Z
+docker manifest inspect ghcr.io/elf-express/nginxwebui-crowdsec:X.Y.Z
+gh release view vX.Y.Z
+```
 
-1. 改到的是 `<artifactId>nginxWebUI</artifactId>` 後面那個 `<version>`，**不是** parent 的 `solon-parent` 版本。
-2. parent 版本仍為 `3.10.7`（升 Solon 時要同步改腳本裡這個數字）。
+7. 列出 `git log --oneline origin/main..origin/release`，確認後才把 `main` 從 `origin/release` 快轉並推送。
 
-任一驗證失敗會 `git checkout -- pom.xml` 還原並中止。
+只看分支的 workflow 清單不足以判斷發佈資格；須查目標提交的 check runs。
+任何快轉失敗、合併衝突、推送被 git-guard 擋下時立刻停止回報。
+
+## 首次遷移（E-330）
+
+先合併分支文件與 CI／版號遷移兩個 PR。CI PR 合併後，先核對該次 push 到 `dev` 的 run：
+build/test 必須執行並成功，`verify` 與發版 job 必須跳過，貼出 run 連結後才確認建立 `release`。
+建立來源為 `origin/main`（預期 `da9f8cff`），推送前重新核對；組織保護規則只查詢，不自行變更。
+第一個產品版號為 `5.3.0`，另開版號 PR；建立 `release`、改版號、打 tag、快轉各自等待確認。
+`release` 建立前，README 的 release 下載連結尚無對應分支；建立後再驗證實際可下載。
+
+## 重跑既有 tag
+
+從 Actions 的 `workflow_dispatch` 輸入完整既有 tag，例如 `v5.3.0`。
+事件觸發的 checkout 固定事件 `github.sha`；手動執行先以指定 tag 驗證並輸出 commit，
+下游 build 與兩個發布 job 都固定使用該 commit，避免 tag 或分支移動造成測試與發布內容不同。
+所有 tag／手動發布（含不同版號）共用一個 workflow 併發群組，避免同時寫入版本映像、`:latest` 與 GitHub Release；branch／PR 的測試群組彼此獨立。
+每個 image 先登入 GHCR，再檢查該版本 manifest；已存在就跳過 build/push，GitHub Release 已存在也跳過。
+重建缺少的舊版 image 時仍沿用現有 `:latest` 發布行為，執行前由維護者確認要重建的版本。
 
 ## Hotfix
 
-從 `master` 開 `hotfix/*`，同樣 `scripts/release.sh x.y.z` 之後 `git push origin hotfix/xxx:master`。
-
-## 在 worktree 裡發版的注意事項
-
-`scripts/release.sh` 的分支閘只接受 `dev` 或 `hotfix/*`。若主 checkout 正佔用 `dev`
-（git 不允許同一分支在兩個 worktree 同時 checkout），worktree 裡就跑不了這個腳本。
-這時手動做腳本的同樣三步即可，但**兩道守衛要自己補上**：確認改的是 nginxWebUI 的版本、
-確認 parent 仍是 3.10.7。
+從 `origin/release` 開 `hotfix/e-<編號>-<短名>`，測試後依分支規範逐步確認發布。
+發布後立刻把 `release` 合回 `dev`；衝突先停止回報。`main` 仍只從 `release` 快轉。

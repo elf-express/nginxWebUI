@@ -62,23 +62,17 @@ Maven fat jar · Playwright E2E + JUnit 5 單元測試 · Docker Compose（PG + 
    （這是自架的管理工具，經常部署在無外網環境）。由
    [tests/e2e/26-offline-no-cdn.spec.js](tests/e2e/26-offline-no-cdn.spec.js) 把關。
 
-## 發版：**push 到 master 才發版，push 到 dev 不會**
+## 分支與發版
 
-這一點最常被記錯，所以放在主檔。完整流程與依據見 [release-flow.md](docs/memory/release-flow.md)。
+動手前先讀 [BRANCHING.md](BRANCHING.md)，依 elf-team-rule 規範操作分支。
+本倉庫為第 3 種自有專案：開發分支 PR → `dev` → 快轉 `release` → 快轉 `main`；部署使用 `release`。
 
-`.github/workflows/build.yml` 的 push 觸發分支是 `[master, dev]`，兩者都跑 CI，
-但 `Release image` 與 `Auto-tag + GitHub Release` 兩個 job 被閘在 `github.ref == 'refs/heads/master'`
-（`:41` 與 `:121`）。所以 **dev 的 push 只有 build & test**。
-`release/*` 分支**不是**發版觸發器，它只是「通往 master 的一條路」，好讓 claude-code-review 有機會審。
+產品版號以 `pom.xml` 為準；`scripts/release.sh X.Y.Z` 只在開發分支改版號並 commit，版號 PR 合進 `dev`。
+push `dev`／`release`／`hotfix/**` 與 PR 只跑 build/test；由人在 `release` 建立及推送 annotated `v*` tag 才發布。
+workflow 先驗證 tag 與 pom、release 祖先關係，再測試與發布兩個 image／GitHub Release；不自行建立 tag。
+`workflow_dispatch` 僅用來重跑指定既有 tag。完整流程見 [release-flow.md](docs/memory/release-flow.md)。
 
-```bash
-git checkout dev && git pull origin dev
-scripts/release.sh 5.2.9        # 只改 pom 的 nginxWebUI <version> + commit;不打 tag、不 push
-git push origin dev             # 同步 origin/dev（此步不發版）
-git push origin dev:master      # ← 這一步才發版：build+push 2 images + auto-tag + GitHub Release
-```
-
-> **不要開 dev → master 的 PR** —— GitHub merge 後的「Delete branch」會刪掉常駐 `dev`。
+AI 不合併 PR；建立 `release`、改版號、打 tag、推 tag、快轉各自先取得 Eddie 確認。
 
 ## 每次都會用到的指令
 
@@ -114,4 +108,4 @@ codegraph explore "<question or symbol>"      # 1-call code lookup（優先於 g
 - [Improvement plans & reports（歷史）](docs/superpowers/plans/) ·
   [Playwright guide](docs/superpowers/plans/playwright-guide.md) ·
   [Docker guide](docs/superpowers/plans/docker-guide.md) ·
-  [Dev/release workflow](docs/superpowers/plans/2026-05-21-dev-release-workflow.md)
+  [Dev/release workflow](docs/memory/release-flow.md)

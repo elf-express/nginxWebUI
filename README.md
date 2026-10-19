@@ -18,8 +18,8 @@
 | **Security** | IP allow/deny lists only | + **CrowdSec** IDS, + **GeoIP2** country blocking, + **ASN** blocking, + **auto-fetch from URL** for multiple lists |
 | **Locale** | Simplified Chinese primary | **Traditional Chinese primary** (zh-CN / zh-TW / en-US) |
 | **Frontend** | Pure Layui + jQuery | + **Vue 3 partial mount** (template picker / **Vue Dashboard**) |
-| **CI/Release** | Manual jar build | **GitHub Actions** push-to-master triggered, version-gated image build (linux/amd64) → ghcr.io |
-| **Dev workflow** | Direct push to master | **dev/master branch model**, master-triggered release (CI auto-tags), `scripts/release.sh` automation |
+| **CI/Release** | Manual jar build | **GitHub Actions** human-pushed `v*` tag → verification + tests → version-gated image build (linux/amd64) → ghcr.io |
+| **Dev workflow** | Original author’s workflow | **dev → release → main**, version PRs, human-created annotated tags on release; `scripts/release.sh` bump + commit |
 
 > Not a replacement — **complementary**: use upstream for minimal single-host deployment; use this fork for enterprise observability and security hardening.
 
@@ -30,8 +30,8 @@
 ### Docker Compose full stack (recommended)
 
 ```bash
-git clone https://github.com/elf-express/nginxWebUI.git
-cd nginxWebUI/docker          # default branch master = latest release snapshot
+git clone --branch release https://github.com/elf-express/nginxWebUI.git
+cd nginxWebUI/docker          # release is the stable deployment source
 docker compose up -d          # image defaults to :latest, always tracks latest release
 ```
 
@@ -106,9 +106,9 @@ Only the core two services start by default; CrowdSec is opt-in via the compose 
 
 ### 🚀 Development
 
-- **dev / master dual-branch model**: daily dev on dev, master = last release snapshot (releases go via `release/*` branch PR → master)
-- **`scripts/release.sh`** automates pom bump + commit (CI auto-tags on master push)
-- **GitHub Actions** push to master → version-gated image build (linux/amd64) → ghcr.io, auto-tags `v*` + creates Release
+- **dev → release → main**: development branches enter dev through PRs; tested dev fast-forwards to release, then release to main (see [BRANCHING.md](BRANCHING.md))
+- **`scripts/release.sh`** automates pom bump + commit on a development branch; the version PR targets dev, and a person creates the release tag
+- **GitHub Actions** branch pushes/PRs only test; human-pushed `v*` tags or manual runs of an existing tag verify, test, then publish both images and a GitHub Release
 - **Dependabot** weekly scans Maven + Docker + Actions dependencies
 
 ---
@@ -123,8 +123,8 @@ Only the core two services start by default; CrowdSec is opt-in via the compose 
 
 ```bash
 mkdir nginxwebui && cd nginxwebui
-curl -O https://raw.githubusercontent.com/elf-express/nginxWebUI/master/docker/docker-compose.yml
-curl -o .env https://raw.githubusercontent.com/elf-express/nginxWebUI/master/docker/.env.example
+curl -O https://raw.githubusercontent.com/elf-express/nginxWebUI/release/docker/docker-compose.yml
+curl -o .env https://raw.githubusercontent.com/elf-express/nginxWebUI/release/docker/.env.example
 # Edit .env: image defaults to :latest, pin via NGINX_WEBUI_VERSION=x.y.z
 docker compose up -d                      # starts only nginxwebui + postgres
 ```
@@ -132,7 +132,7 @@ docker compose up -d                      # starts only nginxwebui + postgres
 **With CrowdSec IDS — add the compose `security` profile (config is baked into the `nginxwebui-crowdsec` image, no bind-mount needed):**
 
 ```bash
-git clone https://github.com/elf-express/nginxWebUI.git && cd nginxWebUI/docker
+git clone --branch release https://github.com/elf-express/nginxWebUI.git && cd nginxWebUI/docker
 cp .env.example .env                       # set CROWDSEC_BOUNCER_KEY (any value on first boot)
 docker compose --profile security up -d
 # or set COMPOSE_PROFILES=security in .env, then docker compose up -d
@@ -279,7 +279,8 @@ export NGINX_WEBUI_MCP_URL=http://localhost:8080/mcp   # only if you are not on 
 ## Upgrade
 
 ```bash
-git pull origin master
+git switch release
+git pull --ff-only origin release
 cd docker
 docker compose pull
 docker compose up -d

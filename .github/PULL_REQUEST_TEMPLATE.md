@@ -1,4 +1,4 @@
-<!-- 開發規範見 Linear.rule.md。PR 目標分支是 dev；不要開 dev → master 的 PR。 -->
+<!-- 動手前讀 BRANCHING.md 與 Linear.rule.md。開發／版號 PR 目標為 dev，由 Eddie 用 merge commit 合併；release 與 main 只快轉。 -->
 
 ## 關聯
 
