@@ -176,8 +176,13 @@ public class CrowdSecNginxConf {
 			Path stateDir = file.getParent().resolve("state");
 			Files.createDirectories(stateDir);
 			if (posix) {
-				Set<PosixFilePermission> all = PosixFilePermissions.fromString("rwxrwxrwx");
-				Files.setPosixFilePermissions(stateDir, all);
+				if (FileSystems.getDefault().supportedFileAttributeViews().contains("unix")) {
+					// 1777：全員可寫但有 sticky bit，其他本機使用者不能刪除或取代 worker 的檔案
+					Files.setAttribute(stateDir, "unix:mode", 01777);
+				} else {
+					Set<PosixFilePermission> all = PosixFilePermissions.fromString("rwxrwxrwx");
+					Files.setPosixFilePermissions(stateDir, all);
+				}
 			}
 		} catch (IOException e) {
 			throw new UncheckedIOException("cannot write crowdsec bouncer config", e);

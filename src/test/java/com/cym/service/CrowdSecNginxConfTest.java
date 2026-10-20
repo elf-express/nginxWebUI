@@ -239,14 +239,15 @@ class CrowdSecNginxConfTest {
 	}
 
 	@Test
-	void stateDirIsWorldWritable() throws Exception {
-		assumeTrue(FileSystems.getDefault().supportedFileAttributeViews().contains("posix"));
+	void stateDirIsWorldWritableAndSticky() throws Exception {
+		assumeTrue(FileSystems.getDefault().supportedFileAttributeViews().contains("unix"));
 
 		crowdsec.writeBouncerConf();
 
 		Path state = Path.of(home + "crowdsec/state");
 		assertTrue(Files.isDirectory(state));
-		assertEquals("rwxrwxrwx", PosixFilePermissions.toString(Files.getPosixFilePermissions(state)));
+		int mode = (Integer) Files.getAttribute(state, "unix:mode");
+		assertEquals(01777, mode & 07777);
 	}
 
 	@Test

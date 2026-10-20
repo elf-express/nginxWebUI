@@ -233,6 +233,8 @@ Only HTTP sites are protected; stream (TCP / UDP) servers are not.
   does not see those requests.
 - Bind-mounting your own `/etc/crowdsec` into the crowdsec container hides the hub content baked into the image
   (log parsers, scenarios, AppSec rules). Keep the image's `/etc/crowdsec`, or install the same collections yourself.
+- A custom `resolver` set in the http params or templates replaces the built-in `127.0.0.11`, so it must be able to
+  resolve the compose service name `crowdsec`; otherwise set `CROWDSEC_LAPI_URL` / `CROWDSEC_APPSEC_URL` to IP addresses.
 
 **Upgrading from the traefik bouncer setup** (earlier releases: a `crowdsec-bouncer` service and an
 `auth_request` template)
@@ -244,6 +246,12 @@ Only HTTP sites are protected; stream (TCP / UDP) servers are not.
   `docker compose --profile security up -d --remove-orphans` (or `docker rm -f nginxwebui-bouncer`).
 - The seeded "CrowdSec Auth Request" template pointed at a location that never existed. It is removed on upgrade
   unless you edited it. Apply the configuration once after upgrading.
+- The old `docker/.env.example` shipped an uncommented `CROWDSEC_BOUNCER_KEY=your-bouncer-key-here`. Core-only
+  deployments (no `security` profile) that copied it into `.env` should clear `CROWDSEC_BOUNCER_KEY` there; the
+  placeholder value is ignored anyway and the bouncer stays disabled. If a `security` deployment actually used that
+  placeholder as its real key, generate a new key with `openssl rand -hex 32`, put it in `.env`, then follow the
+  key-change steps above (`docker exec nginxwebui-crowdsec cscli bouncers delete nginx`, `docker compose up -d`,
+  then apply the configuration).
 
 ---
 

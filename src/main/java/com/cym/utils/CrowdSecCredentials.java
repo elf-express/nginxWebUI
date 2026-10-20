@@ -4,7 +4,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import cn.hutool.core.util.StrUtil;
 
@@ -19,6 +23,11 @@ public class CrowdSecCredentials {
 	public static final String RESOLVER_ENV = "CROWDSEC_RESOLVER";
 	public static final String DEFAULT_RESOLVER = "127.0.0.11";
 
+	/** 舊版 docker/.env.example 內未註解的範例金鑰 */
+	public static final String PLACEHOLDER_KEY = "your-bouncer-key-here";
+
+	private static final Logger logger = LoggerFactory.getLogger(CrowdSecCredentials.class);
+	private static final AtomicBoolean placeholderWarned = new AtomicBoolean(false);
 	private static final String MASK = "••••••";
 
 	public enum Source {
@@ -41,6 +50,12 @@ public class CrowdSecCredentials {
 			}
 			return MASK + value.substring(value.length() - 4);
 		}
+
+		/** 避免自動產生的 toString 印出完整金鑰 */
+		@Override
+		public String toString() {
+			return "Secret[" + masked() + ", " + source + "]";
+		}
 	}
 
 	private final Function<String, String> env;
@@ -62,7 +77,7 @@ public class CrowdSecCredentials {
 				Path file = secretsDir.resolve(KEY_FILE_NAME);
 				if (Files.isRegularFile(file)) {
 					String text = Files.readString(file, StandardCharsets.UTF_8).trim();
-					if (!text.isEmpty()) {
+					if (!text.isEmpty() && !isPlaceholder(text)) {
 						return new Secret(text, Source.SECRETS_FILE);
 					}
 				}
@@ -71,10 +86,21 @@ public class CrowdSecCredentials {
 			}
 		}
 		String fromEnv = trimmed(KEY_ENV);
-		if (fromEnv != null) {
+		if (fromEnv != null && !isPlaceholder(fromEnv)) {
 			return new Secret(fromEnv, Source.ENV);
 		}
 		return new Secret("", Source.NONE);
+	}
+
+	/** 舊版 docker/.env.example 的範例值視為未設定，並只警告一次（不含金鑰內容） */
+	private static boolean isPlaceholder(String key) {
+		if (!PLACEHOLDER_KEY.equals(key)) {
+			return false;
+		}
+		if (placeholderWarned.compareAndSet(false, true)) {
+			logger.warn("CROWDSEC_BOUNCER_KEY still has the placeholder value from the old .env.example; CrowdSec bouncer stays disabled");
+		}
+		return true;
 	}
 
 	/** LAPI 位址，去尾端 /，未設定回 null */

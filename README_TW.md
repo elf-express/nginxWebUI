@@ -227,6 +227,8 @@ bouncer 容器。`nginxwebui-crowdsec` image 已烤入日誌解析器與 AppSec 
 - 用 `return` 回應的 location（例如轉址）在 access 階段之前就結束，bouncer 看不到這些請求。
 - 把自己的 `/etc/crowdsec` bind-mount 進 crowdsec 容器，會蓋掉 image 內烤好的 hub 內容（日誌解析器、情境、AppSec
   規則）。請沿用 image 內的 `/etc/crowdsec`，或自行安裝同樣的 collection。
+- 在 http 參數或模板自訂 `resolver` 會取代內建的 `127.0.0.11`，所以它必須能解析 compose 服務名 `crowdsec`；
+  否則請把 `CROWDSEC_LAPI_URL`／`CROWDSEC_APPSEC_URL` 改成 IP 位址。
 
 **從 traefik bouncer 架構升級**（舊版：有 `crowdsec-bouncer` service 與 `auth_request` 模板）
 
@@ -235,6 +237,11 @@ bouncer 容器。`nginxwebui-crowdsec` image 已烤入日誌解析器與 AppSec 
 - 舊的 `nginxwebui-bouncer` 容器已不在 compose 檔裡，用 `docker compose --profile security up -d --remove-orphans`
   移除（或 `docker rm -f nginxwebui-bouncer`）。
 - 種子模板「CrowdSec Auth Request」指向一個從未存在的 location，升級時會自動移除（使用者改過的保留）。升級後請套用一次設定。
+- 舊版 `docker/.env.example` 附了一行未註解的 `CROWDSEC_BOUNCER_KEY=your-bouncer-key-here`。只跑核心服務（沒啟用
+  `security` profile）而且複製過它的部署，請把 `.env` 裡的 `CROWDSEC_BOUNCER_KEY` 清空；這個範例值本來就會被忽略，
+  bouncer 維持停用。若 `security` 部署真的把這個範例值當成金鑰在用，請用 `openssl rand -hex 32` 產生新金鑰填進 `.env`，
+  再照上面更換金鑰的步驟做（`docker exec nginxwebui-crowdsec cscli bouncers delete nginx`、`docker compose up -d`，
+  然後套用設定）。
 
 ---
 

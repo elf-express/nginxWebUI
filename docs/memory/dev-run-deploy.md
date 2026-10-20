@@ -81,6 +81,10 @@ LAPI 8080、AppSec 7422 只在 compose 網路內，不 publish。
 > 已存在就不重註冊 —— 換金鑰或從舊 traefik bouncer 升級時，沿用舊金鑰或先
 > `docker exec nginxwebui-crowdsec cscli bouncers delete nginx` 再 `docker compose up -d`；
 > 舊的 `nginxwebui-bouncer` 容器用 `--remove-orphans` 清掉。金鑰不想進環境變數：疊 `docker-compose.secrets.yml`（見檔頭）。
+> 注意：舊版 `docker/.env.example` 附過未註解的 `CROWDSEC_BOUNCER_KEY=your-bouncer-key-here`，`CrowdSecCredentials` 把這個
+> 範例值當成未設定（只 WARN 一次、不含金鑰）。只跑核心服務的部署請清空 `.env` 的 `CROWDSEC_BOUNCER_KEY`；`security` 部署若真的拿它當
+> 金鑰，要 `openssl rand -hex 32` 換新金鑰，再 `cscli bouncers delete nginx` → `docker compose up -d` → 套用設定。
+> 注意：在 http 參數／模板自訂 `resolver` 會取代內建 `127.0.0.11`，必須能解析服務名 `crowdsec`，否則把 `CROWDSEC_LAPI_URL`／`CROWDSEC_APPSEC_URL` 改 IP。
 > 注意：nginx.conf 只在「套用設定」時重新產生，容器重啟會沿用舊檔。新增／更換金鑰後要再套用一次才會載入 bouncer；拿掉金鑰後重啟是安全的（啟動時 InitConfig 會刪掉過期的 bouncer 設定檔，Lua 包裝發現檔案不存在就不啟用、流量放行），不必先套用。
 > 測試：`sh docker/test/lua-smoke.sh <image>`（Lua 載入、live 模式）、`sh docker/test/crowdsec-offline.sh <crowdsec image>`
 >（無網路啟動）、`sh docker/test/crowdsec-e2e.sh <nginxwebui image> <crowdsec image>`（整個 stack，stream 模式，

@@ -81,6 +81,36 @@ class CrowdSecCredentialsTest {
 	}
 
 	@Test
+	void placeholderKeyFromEnvIsNotSet() {
+		env.put("CROWDSEC_BOUNCER_KEY", " your-bouncer-key-here ");
+
+		CrowdSecCredentials.Secret secret = creds().bouncerKey();
+
+		assertFalse(secret.isPresent());
+		assertEquals(CrowdSecCredentials.Source.NONE, secret.source());
+	}
+
+	@Test
+	void placeholderKeyInSecretFileFallsBackToEnv() throws Exception {
+		Files.writeString(secrets.resolve("crowdsec_bouncer_key"), "your-bouncer-key-here\n");
+		env.put("CROWDSEC_BOUNCER_KEY", "from-env");
+
+		CrowdSecCredentials.Secret secret = creds().bouncerKey();
+
+		assertEquals("from-env", secret.value());
+		assertEquals(CrowdSecCredentials.Source.ENV, secret.source());
+	}
+
+	@Test
+	void secretToStringIsMasked() {
+		String raw = "abcdef-secret-123456";
+		String text = new CrowdSecCredentials.Secret(raw, CrowdSecCredentials.Source.ENV).toString();
+
+		assertFalse(text.contains(raw));
+		assertTrue(text.contains(DOTS + "3456"));
+	}
+
+	@Test
 	void lapiUrlTrimsTrailingSlash() {
 		env.put("CROWDSEC_LAPI_URL", "http://crowdsec:8080/");
 
