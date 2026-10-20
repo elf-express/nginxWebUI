@@ -2,8 +2,7 @@
 # Offline test: the CrowdSec image must start with no network and already carry the AppSec WAF.
 # Starts the container with --network none and checks that
 #   - LAPI comes up (cscli lapi status succeeds, up to 90s)
-#   - all required collections are installed (nginx, http-cve, base-http-scenarios, appsec-virtual-patching,
-#     appsec-generic-rules, appsec-crs)
+#   - all required collections are installed (nginx, http-cve, base-http-scenarios, appsec-virtual-patching, appsec-crs)
 #   - the AppSec listener is on 7422
 #   - the startup log has no hub download / install errors
 # Usage: sh docker/test/crowdsec-offline.sh <image>
@@ -54,7 +53,7 @@ echo "ok: LAPI is up"
 
 collections="$(docker exec "$NAME" cscli collections list -o raw 2>&1 || true)"
 for c in crowdsecurity/nginx crowdsecurity/http-cve crowdsecurity/base-http-scenarios \
-         crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules crowdsecurity/appsec-crs; do
+         crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-crs; do
   if echo "$collections" | grep -q "^$c,"; then
     echo "ok: collection $c"
   else

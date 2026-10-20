@@ -10,8 +10,7 @@ ENV NO_HUB_UPGRADE=true
 
 # The stock image keeps its config in /staging/etc/crowdsec and copies it to /etc/crowdsec on first start.
 # Build the final /etc/crowdsec here instead and install the hub content with it.
-# appsec-generic-rules is needed because crowdsecurity/appsec-default (loaded by appsec.yaml) refuses to load
-# without the generic-* / experimental-* / appsec-generic-test rules that collection provides.
+# AppSec rule sources are only virtual patching (appsec-virtual-patching) and the OWASP CRS (appsec-crs).
 RUN set -eux; \
     mkdir -p /etc/crowdsec; \
     cp -a /staging/etc/crowdsec/. /etc/crowdsec/; \
@@ -22,7 +21,6 @@ RUN set -eux; \
         crowdsecurity/http-cve \
         crowdsecurity/base-http-scenarios \
         crowdsecurity/appsec-virtual-patching \
-        crowdsecurity/appsec-generic-rules \
         crowdsecurity/appsec-crs
 
 # Data files the hub items download (CRS rule data etc.) land in /var/lib/crowdsec/data, which compose hides
