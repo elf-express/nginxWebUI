@@ -1,0 +1,11 @@
+# AppSec (WAF) acquisition: the nginx Lua bouncer forwards request headers/bodies here for inspection.
+# Listens on all interfaces of the container; port 7422 is only reachable inside the compose network (not published).
+# crowdsecurity/appsec-default : in-band rules (virtual patching + generic), a match blocks the request
+# crowdsecurity/crs            : OWASP Core Rule Set, out-of-band (alert only, never blocks)
+source: appsec
+listen_addr: 0.0.0.0:7422
+appsec_configs:
+  - crowdsecurity/appsec-default
+  - crowdsecurity/crs
+labels:
+  type: appsec

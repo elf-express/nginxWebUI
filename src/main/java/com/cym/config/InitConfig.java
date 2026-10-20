@@ -245,6 +245,14 @@ public class InitConfig {
 			logger.info("Migration: appended Chinese annotation to template names");
 		}
 
+		// 遷移：移除壞掉的舊「CrowdSec Auth Request」模板（auth_request 指向不存在的 /crowdsec-check）；
+		// 放在上面兩個改名遷移之後，新舊名稱都能處理
+		if (!"1".equals(settingService.get("crowdsecAuthRequestRemoved20261021"))) {
+			int removedTemplates = LegacyCrowdSecTemplateMigration.run(sqlHelper);
+			settingService.set("crowdsecAuthRequestRemoved20261021", "1");
+			logger.info("Migration: removed {} legacy CrowdSec Auth Request template(s)", removedTemplates);
+		}
+
 		// 遷移：既有庫補 stream 連線限制模板（參數不動舊四個 rateLimit；zone 名 s_conn_perip 與 http 隔離）
 		if (!"1".equals(settingService.get("streamConnLimitTemplatesSeeded"))) {
 			seedStreamConnLimitTemplatesIfMissing();
@@ -700,12 +708,6 @@ public class InitConfig {
 		addTemplate("ASN Log Info (ASN 記錄資訊)", "", "geoip", new String[][] {
 			{ "add_header", "X-ASN $geoip2_data_asn" },
 			{ "add_header", "X-ASN-Org $geoip2_data_asn_org" },
-		});
-
-		// ── CrowdSec Bouncer ──
-		addTemplate("CrowdSec Auth Request (CrowdSec 認證請求)", "", "crowdsec", new String[][] {
-			{ "auth_request", "/crowdsec-check" },
-			{ "auth_request_set", "$auth_status $upstream_status" },
 		});
 
 		// 其餘開源模組社群範本（與 seedModuleCommunityTemplatesIfMissing 同源）
