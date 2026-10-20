@@ -36,6 +36,8 @@ RUN    apk add --update --no-cache \
        nginx-mod-http-vts \
        nginx-mod-http-vod \
        nginx-mod-http-acme \
+       lua-resty-http \
+       lua5.1-cjson \
        openjdk17-jre \
        net-tools \
        curl \
@@ -50,6 +52,29 @@ RUN    apk add --update --no-cache \
     && ln -sf /usr/share/zoneinfo/${TZ} /etc/localtime \
     && echo "${TZ}" > /etc/timezone \
     && rm -rf /var/cache/apk/* /tmp/*
+# resty.string (needed by lua-resty-http). The Alpine lua-resty-string package conflicts with nginx
+# (it pulls in openresty), so only the pure-Lua string.lua is extracted from the fetched package.
+RUN mkdir -p /tmp/lrs/x /usr/share/lua/common/resty \
+    && apk fetch -q -o /tmp/lrs lua-resty-string \
+    && tar xzf /tmp/lrs/lua-resty-string-*.apk -C /tmp/lrs/x usr/share/lua/common/resty/string.lua \
+    && cp /tmp/lrs/x/usr/share/lua/common/resty/string.lua /usr/share/lua/common/resty/string.lua \
+    && rm -rf /tmp/lrs
+# CrowdSec official lua-cs-bouncer (from the cs-nginx-bouncer release tarball, pinned + sha256 verified).
+# Libraries go to /usr/local/lib/crowdsec/lua/, ban/captcha templates to /var/lib/crowdsec/lua/templates/.
+ARG CS_NGINX_BOUNCER_VERSION=v1.2.3
+ARG CS_NGINX_BOUNCER_SHA256=8cb0c176f01bda3a5fc5493d20bcd7261630c7dfbd60c00b2bff8eefc8fe84d5
+RUN curl -fL --retry 3 -o /tmp/cs-nginx-bouncer.tgz \
+        "https://github.com/crowdsecurity/cs-nginx-bouncer/releases/download/${CS_NGINX_BOUNCER_VERSION}/crowdsec-nginx-bouncer.tgz" \
+    && echo "${CS_NGINX_BOUNCER_SHA256}  /tmp/cs-nginx-bouncer.tgz" | sha256sum -c - \
+    && mkdir -p /tmp/cs-nginx-bouncer /usr/local/lib/crowdsec/lua /var/lib/crowdsec/lua/templates \
+    && tar xzf /tmp/cs-nginx-bouncer.tgz -C /tmp/cs-nginx-bouncer --strip-components=1 \
+    && cp -r /tmp/cs-nginx-bouncer/lua-mod/lib/. /usr/local/lib/crowdsec/lua/ \
+    && cp -r /tmp/cs-nginx-bouncer/lua-mod/templates/. /var/lib/crowdsec/lua/templates/ \
+    && rm -rf /tmp/cs-nginx-bouncer /tmp/cs-nginx-bouncer.tgz
+# nwu wrapper (nwu_crowdsec / nwu_crowdsec_policy), Lua path snippet and 503 page
+COPY docker/lua/nwu_crowdsec.lua docker/lua/nwu_crowdsec_policy.lua /usr/local/lib/nginxwebui/lua/
+COPY docker/lua/crowdsec_lua_paths.conf /etc/nginx/nwu/crowdsec_lua_paths.conf
+COPY docker/lua/protection-paused.html /usr/local/lib/nginxwebui/html/protection-paused.html
 COPY target/nginxWebUI-*.jar /home/nginxWebUI.jar
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 COPY scripts/update-geoip-cf.sh /usr/local/bin/update-geoip-cf.sh
