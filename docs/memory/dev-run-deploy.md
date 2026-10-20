@@ -66,10 +66,25 @@ docker compose ps                                # 全部 healthy
 
 **Stack**（見 [docker/docker-compose.yml](../../docker/docker-compose.yml)）：
 **常駐** —— nginxwebui（host **12300**→8080、80、443）· postgres:18-alpine。
-**profile 可選** —— `security`：crowdsec · crowdsec-bouncer。CrowdSec = 自建 `nginxwebui-crowdsec`（官方 base + 烤 config）。
+**profile 可選** —— `security`：crowdsec（自建 `nginxwebui-crowdsec`：官方 v1.8.1 base + 烤 config 與 hub 內容）。
+沒有獨立 bouncer 容器：封鎖由 nginxwebui image 內的官方 Lua bouncer（`lua-cs-bouncer` v1.2.3）在 nginx access 階段執行，
+順序是白名單 → CrowdSec 連不到超過寬限（預設 120 秒）回 503 → IP decision 回 444 → AppSec 擋下回 403。
+LAPI 8080、AppSec 7422 只在 compose 網路內，不 publish。
 
-> 注意：crowdsec config（acquis/profiles/abuseipdb）已烤進自建 image（`docker/crowdsec/Dockerfile`），
-> 升版跟著 image 走；runtime secret 仍走 `.env`。
+> 注意：crowdsec config（acquis/profiles/abuseipdb）與 hub 內容（nginx 日誌解析、AppSec virtual patching + CRS）
+> 已烤進自建 image（`docker/crowdsec/Dockerfile`），啟動不連 hub，升版跟著 image 走；runtime secret 仍走 `.env`。
+> 自己 bind-mount `/etc/crowdsec` 會蓋掉烤好的 hub 內容。
+> 注意：**金鑰與 profile 要一起開**。nginxwebui 看不到 profile，只看金鑰（`/run/secrets/crowdsec_bouncer_key`
+> 優先，其次 `CROWDSEC_BOUNCER_KEY`）：有金鑰才產生 `conf.d/crowdsec_http.conf` 與
+> `<home>crowdsec/crowdsec-nginx-bouncer.conf`（600）。只填金鑰沒起 crowdsec → 寬限過後非白名單全站 503。
+> 金鑰用 `openssl rand -hex 32` 產生；crowdsec 首次啟動以 `BOUNCER_KEY_nginx` 自動註冊 bouncer `nginx`，
+> 已存在就不重註冊 —— 換金鑰或從舊 traefik bouncer 升級時，沿用舊金鑰或先
+> `docker exec nginxwebui-crowdsec cscli bouncers delete nginx` 再 `docker compose up -d`；
+> 舊的 `nginxwebui-bouncer` 容器用 `--remove-orphans` 清掉。金鑰不想進環境變數：疊 `docker-compose.secrets.yml`（見檔頭）。
+> 注意：nginx.conf 只在「套用設定」時重新產生，容器重啟會沿用舊檔。加／拿掉金鑰後要再套用一次。
+> 測試：`sh docker/test/lua-smoke.sh <image>`（Lua 載入、live 模式）、`sh docker/test/crowdsec-offline.sh <crowdsec image>`
+>（無網路啟動）、`sh docker/test/crowdsec-e2e.sh <nginxwebui image> <crowdsec image>`（整個 stack，stream 模式，
+> 約 10 分鐘；用獨立 project `nwu-e376-e2e` 與自己的 volume／網段，不碰既有部署）。
 > 注意：Loki / Promtail / Grafana monitoring profile 已於 2026-06-30 從本專案移除。
 > 若 server 上還有 `nginxwebui_loki_data` / `nginxwebui_grafana_data` volume 是歷史遺留，可手動 `docker volume rm` 清理。
 

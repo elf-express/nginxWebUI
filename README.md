@@ -43,8 +43,7 @@ Only the core two services start by default; CrowdSec is opt-in via the compose 
 |---|---|---|---|
 | **nginxwebui** | 12300:8080 / 80 / 443 | Main app | ✅ |
 | postgres | 5432 | Database | ✅ |
-| crowdsec | — | Intrusion detection (v1.7.8) | profile `security` |
-| crowdsec-bouncer | — | nginx traffic filtering (0.5.0) | profile `security` |
+| crowdsec | — (internal only) | Intrusion detection + AppSec WAF (v1.8.1); blocking is done by the Lua bouncer inside nginx | profile `security` |
 
 ### Stack architecture
 
@@ -59,8 +58,8 @@ Only the core two services start by default; CrowdSec is opt-in via the compose 
 │                       ↓ ConfService generates         │
 │            nginx.conf + reverse proxy + GeoIP/ASN     │
 └───────────────────────────────────────────────────────┘
-            ↓ access / error log
-┌─ CrowdSec (IDS) ──→ Bouncer ──→ nginx auth_request   │
+            ↓ access / error log    ↑ nginx Lua bouncer asks per request
+┌─ CrowdSec (LAPI :8080 + AppSec WAF :7422, internal) ─┐
 └───────────────────────────────────────────────────────┘
 ```
 
@@ -75,7 +74,7 @@ Only the core two services start by default; CrowdSec is opt-in via the compose 
 - **IP allow/deny lists** — managed centrally on the Protection page and **applied site-wide automatically** (whitelist overrides blacklist, zero binding steps); ships with 6 default malicious-IP feed rules, **auto-fetched daily from URL** (Spamhaus DROP / Blocklist.de / Emerging Threats / CINS Army / Feodo Tracker / GreenSnow)
 - **GeoIP2 country blocking** — default whitelist of 17 countries (CN/JP/HK/KR/SG/TH/MY/TW/VN/GB/FR/DE/GR/CA/US/MO/LA), user-customizable
 - **ASN blocking** — block whole network segments by Autonomous System Number
-- **CrowdSec integration** — containerized deployment, bouncer intercepts attacker IPs
+- **CrowdSec integration** — the official nginx Lua bouncer runs inside nginx: banned IPs are dropped (444), requests stopped by the AppSec WAF get 403, allowlisted IPs bypass every layer (see [CrowdSec protection](#crowdsec-protection))
 - **Anti-bot certificate** — centrally managed in the "Protection" page
 
 ### 🌐 Reverse Proxy / Load Balancing
@@ -84,7 +83,7 @@ Only the core two services start by default; CrowdSec is opt-in via the compose 
 - TLS 1.2 / 1.3 support, Let's Encrypt auto-renewal (acme.sh DNS mode)
 - Upstream load balancing with weight / backup / down settings
 - **Nginx block editor** for HTTP/TCP/UDP upstreams and Stream child blocks: paste validated raw directives, preview the generated configuration, and keep comments, formatting, and nginx variables intact. Existing form-based records remain compatible until explicitly converted.
-- **19 built-in parameter templates** (with Chinese annotations): WebSocket Proxy / Proxy Headers / Large File Upload / CORS / Rate Limit / Security Headers / GeoIP / CrowdSec auth
+- **20 built-in parameter templates** (with Chinese annotations): WebSocket Proxy / Proxy Headers / Large File Upload / CORS / Rate Limit / Security Headers / GeoIP / ASN
 
 ### 📊 Observability
 
@@ -133,10 +132,13 @@ docker compose up -d                      # starts only nginxwebui + postgres
 
 ```bash
 git clone --branch release https://github.com/elf-express/nginxWebUI.git && cd nginxWebUI/docker
-cp .env.example .env                       # set CROWDSEC_BOUNCER_KEY (any value on first boot)
+cp .env.example .env
+openssl rand -hex 32                       # paste the output into CROWDSEC_BOUNCER_KEY= in .env
 docker compose --profile security up -d
 # or set COMPOSE_PROFILES=security in .env, then docker compose up -d
 ```
+
+Then apply the configuration once in the web UI so nginx picks up the bouncer. Key handling, the 503 behaviour and upgrade notes: [CrowdSec protection](#crowdsec-protection).
 
 > To build the nginxwebui image from source: after clone, inside `docker/` (run `mvn clean package -DskipTests` first):
 > `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build`
@@ -172,6 +174,74 @@ docker pull ghcr.io/elf-express/nginxwebui:latest
 ```
 
 Platform: linux/amd64 (single-arch, not multi-platform)
+
+---
+
+## CrowdSec protection
+
+With the `security` profile, nginx itself enforces CrowdSec: the `nginxwebui` image ships CrowdSec's official nginx
+Lua bouncer (`lua-cs-bouncer`, from cs-nginx-bouncer v1.2.3) and runs it in the access phase of every HTTP site.
+There is no separate bouncer container. The `nginxwebui-crowdsec` image carries the log parsers and the AppSec
+WAF rules (virtual patching and the OWASP CRS), so it starts without reaching the CrowdSec hub. LAPI (8080) and
+AppSec (7422) are only reachable on the compose network and are not published.
+
+Each request is checked in this order:
+
+1. **Allowlist first.** IPs and CIDRs on the Protection page allow list pass without any further check: no country
+   block, no CrowdSec decision, no WAF, no 503.
+2. **CrowdSec reachable?** If CrowdSec has not answered for longer than the grace period (default 120 seconds,
+   counted from nginx start), the request gets a 503 "protection paused" page with `Retry-After: 30`. The site
+   stays closed rather than open while protection is down (fail-closed). nginx probes CrowdSec every 5 seconds and
+   writes the result to `<home>/crowdsec/state/crowdsec_state.json`.
+3. **IP decision.** An IP with a ban decision is dropped without a response (nginx 444).
+4. **AppSec WAF.** Requests matching a virtual patching rule get 403 (for example `GET /.env`). OWASP CRS rules
+   run out-of-band: they only raise alerts, and an IP that keeps triggering them gets a ban decision.
+
+Only HTTP sites are protected; stream (TCP / UDP) servers are not.
+
+**The bouncer key**
+
+- Generate it with `openssl rand -hex 32` and put it in `CROWDSEC_BOUNCER_KEY` in `docker/.env`. On first start the
+  crowdsec container registers a bouncer named `nginx` with this key, so there is no `cscli bouncers add` step.
+- nginxWebUI cannot see compose profiles, so it decides from the key alone: with a key it writes the bouncer, without
+  one it writes nothing. **Fill in the key only together with the `security` profile.** A key without a running
+  CrowdSec means every non-allowlisted request gets the 503 page once the grace period is over.
+- The key is not stored in the database or in nginx.conf. It is written only to
+  `<home>/crowdsec/crowdsec-nginx-bouncer.conf` (mode 600).
+- nginx.conf is generated when you apply the configuration, not when the container starts. After adding or removing
+  the key, apply the configuration again (Apply / Reload in the UI).
+- To keep the key out of the container environment and `docker inspect`, use the secrets override instead of `.env`
+  (leave `CROWDSEC_BOUNCER_KEY` empty):
+
+  ```bash
+  mkdir -p secrets
+  openssl rand -hex 32 | tr -d '\n' > secrets/crowdsec_bouncer_key
+  docker compose -f docker-compose.yml -f docker-compose.secrets.yml --profile security up -d
+  ```
+
+- To change the key, delete the registered bouncer first, because the crowdsec container does not re-register an
+  existing name: `docker exec nginxwebui-crowdsec cscli bouncers delete nginx`, then `docker compose up -d`.
+
+**Things to know**
+
+- A site or location with its own `access_by_lua_*` directive replaces the site-wide bouncer for that scope (nginx
+  does not combine `access_by_lua_*` from different levels). Call `require("nwu_crowdsec").access()` at the start of
+  your own block to keep the protection.
+- A location that answers with `return` (for example a redirect) finishes before the access phase, so the bouncer
+  does not see those requests.
+- Bind-mounting your own `/etc/crowdsec` into the crowdsec container hides the hub content baked into the image
+  (log parsers, scenarios, AppSec rules). Keep the image's `/etc/crowdsec`, or install the same collections yourself.
+
+**Upgrading from the traefik bouncer setup** (earlier releases: a `crowdsec-bouncer` service and an
+`auth_request` template)
+
+- The crowdsec data volume already has a bouncer named `nginx`, so the new start does not register the key again.
+  Keep the same `CROWDSEC_BOUNCER_KEY`, or run `docker exec nginxwebui-crowdsec cscli bouncers delete nginx` before
+  `docker compose up -d` when you switch to a new key.
+- The old `nginxwebui-bouncer` container is no longer in the compose file. Remove it with
+  `docker compose --profile security up -d --remove-orphans` (or `docker rm -f nginxwebui-bouncer`).
+- The seeded "CrowdSec Auth Request" template pointed at a location that never existed. It is removed on upgrade
+  unless you edited it. Apply the configuration once after upgrading.
 
 ---
 
@@ -287,6 +357,10 @@ docker compose up -d
 ```
 
 > **2026-06-30 behavior change (monitoring removed):** Loki / Promtail / Grafana have been completely removed from the project (nginx's built-in access/error log is sufficient; CrowdSec reads the nginx log volume directly, no Loki intermediary). If you were running the monitoring profile: after upgrade `docker compose up -d` no longer starts these three services, and the now-orphaned `nginxwebui_loki_data` / `nginxwebui_grafana_data` volumes can be removed with `docker volume rm`. CrowdSec activation via `--profile security` is unchanged.
+
+> **CrowdSec Lua bouncer (replaces the traefik bouncer):** if you ran the `security` profile before, read
+> [Upgrading from the traefik bouncer setup](#crowdsec-protection) first (bouncer key reuse, removing the old
+> `nginxwebui-bouncer` container).
 
 PostgreSQL schema is **CodeFirst auto-ALTER TABLE** by SqlHelper (custom ORM) — **no manual migration required**.
 

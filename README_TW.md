@@ -43,8 +43,7 @@ docker compose up -d          # image 預設拉 :latest，永遠跟最新 releas
 |---|---|---|---|
 | **nginxwebui** | 12300:8080 / 80 / 443 | 主應用 | ✅ |
 | postgres | 5432 | 資料庫 | ✅ |
-| crowdsec | — | 入侵偵測（v1.7.8）| profile `security` |
-| crowdsec-bouncer | — | nginx 流量過濾（0.5.0）| profile `security` |
+| crowdsec | —（僅內部網路）| 入侵偵測 + AppSec WAF（v1.8.1）；封鎖由 nginx 內的 Lua bouncer 執行 | profile `security` |
 
 ### Stack 架構
 
@@ -59,8 +58,8 @@ docker compose up -d          # image 預設拉 :latest，永遠跟最新 releas
 │                       ↓ ConfService 生成             │
 │            nginx.conf + 反向代理 + GeoIP/ASN block    │
 └───────────────────────────────────────────────────────┘
-            ↓ access / error log
-┌─ CrowdSec (入侵偵測) ──→ Bouncer ──→ nginx auth_request
+            ↓ access / error log    ↑ nginx Lua bouncer 每個請求查詢
+┌─ CrowdSec (LAPI :8080 + AppSec WAF :7422，僅內部網路) ┐
 └───────────────────────────────────────────────────────┘
 ```
 
@@ -75,7 +74,7 @@ docker compose up -d          # image 預設拉 :latest，永遠跟最新 releas
 - **IP 黑白名單清單** — 防護頁集中管理、**自動全站生效**（白名單優先於黑名單，零綁定操作）；出廠自帶 6 條惡意 IP feed 規則，**每日定時從 URL 自動抓**（Spamhaus DROP / Blocklist.de / Emerging Threats / CINS Army / Feodo Tracker / GreenSnow）
 - **GeoIP2 國家封鎖** — 預設白名單 17 國（CN/JP/HK/KR/SG/TH/MY/TW/VN/GB/FR/DE/GR/CA/US/MO/LA），用戶可自訂
 - **ASN 封鎖** — 按 Autonomous System Number 封整段網路
-- **CrowdSec 整合** — 容器化部署、bouncer 攔截攻擊 IP
+- **CrowdSec 整合** — 官方 nginx Lua bouncer 直接在 nginx 裡執行：被封鎖的 IP 直接斷線（444）、被 AppSec WAF 擋下的請求回 403、白名單 IP 跳過所有防護層（見 [CrowdSec 防護](#crowdsec-防護)）
 - **防爬蟲憑證** — 「防護與憑證」頁面集中管理
 
 ### 🌐 反向代理 / 負載均衡
@@ -84,7 +83,7 @@ docker compose up -d          # image 預設拉 :latest，永遠跟最新 releas
 - TLS 1.2 / 1.3 支援、Let's Encrypt 自動續簽（acme.sh DNS 模式）
 - 上游負載均衡（upstream）含 weight / backup / down 設定
 - **nginx 區塊編輯器**支援 HTTP/TCP/UDP upstream 與 Stream 子區塊：貼上並驗證原始指令、預覽產生的設定，保留註解、排版與 nginx 變數；既有表單資料仍可照常使用，需明確轉換後才會改用區塊模式。
-- **19 個內建參數模板**（含中文註解）：WebSocket Proxy / Proxy Headers / Large File Upload / CORS / Rate Limit / Security Headers / GeoIP / CrowdSec 認證
+- **20 個內建參數模板**（含中文註解）：WebSocket Proxy / Proxy Headers / Large File Upload / CORS / Rate Limit / Security Headers / GeoIP / ASN
 
 ### 📊 觀測性
 
@@ -133,10 +132,13 @@ docker compose up -d                      # 只起 nginxwebui + postgres
 
 ```bash
 git clone --branch release https://github.com/elf-express/nginxWebUI.git && cd nginxWebUI/docker
-cp .env.example .env                       # 填 CROWDSEC_BOUNCER_KEY（首次可先填任意值）
+cp .env.example .env
+openssl rand -hex 32                       # 把輸出貼到 .env 的 CROWDSEC_BOUNCER_KEY=
 docker compose --profile security up -d
 # 或在 .env 設 COMPOSE_PROFILES=security 後直接 docker compose up -d
 ```
+
+接著在網頁介面套用一次設定，nginx 才會載入 bouncer。金鑰、503 行為與升級注意事項見 [CrowdSec 防護](#crowdsec-防護)。
 
 > 從原始碼自建 nginxwebui image：clone 後在 `docker/` 跑（先 `mvn clean package -DskipTests`）：
 > `docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build`
@@ -175,6 +177,64 @@ docker pull ghcr.io/elf-express/nginxwebui:latest
 ```
 
 Platform: linux/amd64（單一平台，非多架構）
+
+---
+
+## CrowdSec 防護
+
+開啟 `security` profile 後，由 nginx 自己執行 CrowdSec 的判斷：`nginxwebui` image 內建 CrowdSec 官方的 nginx Lua
+bouncer（`lua-cs-bouncer`，取自 cs-nginx-bouncer v1.2.3），在每個 HTTP 站台的 access 階段執行，不再有獨立的
+bouncer 容器。`nginxwebui-crowdsec` image 已烤入日誌解析器與 AppSec WAF 規則（virtual patching 與 OWASP CRS），
+啟動時不需要連 CrowdSec hub。LAPI（8080）與 AppSec（7422）只在 compose 網路內，不對外 publish。
+
+每個請求依序檢查：
+
+1. **白名單優先。** 「防護與憑證」頁白名單裡的 IP／CIDR 直接放行，不再做任何檢查：不受國家封鎖、CrowdSec
+   封鎖、WAF 與 503 影響。
+2. **CrowdSec 連得到嗎？** CrowdSec 沒回應超過寬限秒數（預設 120 秒，從 nginx 啟動起算）時，請求會收到 503
+   「防護暫停」頁，附 `Retry-After: 30`。防護失效時網站維持關閉，不會變成不設防（fail-closed）。nginx 每 5 秒探測
+   一次 CrowdSec，結果寫在 `<home>/crowdsec/state/crowdsec_state.json`。
+3. **IP 封鎖。** 有 ban decision 的 IP 直接斷線、不回應（nginx 444）。
+4. **AppSec WAF。** 符合 virtual patching 規則的請求回 403（例如 `GET /.env`）。OWASP CRS 規則以 out-of-band 執行：
+   只產生告警，同一個 IP 一再觸發才會被加上 ban decision。
+
+只保護 HTTP 站台；stream（TCP／UDP）不受 CrowdSec 保護。
+
+**bouncer 金鑰**
+
+- 用 `openssl rand -hex 32` 產生，填進 `docker/.env` 的 `CROWDSEC_BOUNCER_KEY`。crowdsec 容器第一次啟動時會用這組
+  金鑰自動註冊名為 `nginx` 的 bouncer，不必再執行 `cscli bouncers add`。
+- nginxWebUI 看不到 compose profile，只看有沒有金鑰：有金鑰就產生 bouncer 設定，沒有就完全不產生。
+  **只有啟用 `security` profile 時才填金鑰。** 填了金鑰但 CrowdSec 沒起來，寬限秒數一過，所有非白名單的請求都會收到
+  503 頁。
+- 金鑰不存進資料庫，也不寫進 nginx.conf，只寫在 `<home>/crowdsec/crowdsec-nginx-bouncer.conf`（權限 600）。
+- nginx.conf 是在套用設定時產生，不是在容器啟動時。新增或移除金鑰後，要再套用一次設定（介面上的套用／重新載入）。
+- 不想讓金鑰出現在容器環境變數與 `docker inspect`：改用 secrets 覆寫檔（`.env` 的 `CROWDSEC_BOUNCER_KEY` 留空）：
+
+  ```bash
+  mkdir -p secrets
+  openssl rand -hex 32 | tr -d '\n' > secrets/crowdsec_bouncer_key
+  docker compose -f docker-compose.yml -f docker-compose.secrets.yml --profile security up -d
+  ```
+
+- 要更換金鑰：crowdsec 容器不會重新註冊已存在的名稱，所以先刪掉已註冊的 bouncer：
+  `docker exec nginxwebui-crowdsec cscli bouncers delete nginx`，再 `docker compose up -d`。
+
+**注意事項**
+
+- 站台或 location 自己寫了 `access_by_lua_*` 指令時，該範圍內會取代全站的 bouncer（nginx 不會合併不同層級的
+  `access_by_lua_*`）。要保留防護，在自己的區塊開頭呼叫 `require("nwu_crowdsec").access()`。
+- 用 `return` 回應的 location（例如轉址）在 access 階段之前就結束，bouncer 看不到這些請求。
+- 把自己的 `/etc/crowdsec` bind-mount 進 crowdsec 容器，會蓋掉 image 內烤好的 hub 內容（日誌解析器、情境、AppSec
+  規則）。請沿用 image 內的 `/etc/crowdsec`，或自行安裝同樣的 collection。
+
+**從 traefik bouncer 架構升級**（舊版：有 `crowdsec-bouncer` service 與 `auth_request` 模板）
+
+- crowdsec 資料卷裡已經有名為 `nginx` 的 bouncer，新版啟動時不會再用金鑰註冊。沿用原本的 `CROWDSEC_BOUNCER_KEY`；
+  要換新金鑰，先 `docker exec nginxwebui-crowdsec cscli bouncers delete nginx`，再 `docker compose up -d`。
+- 舊的 `nginxwebui-bouncer` 容器已不在 compose 檔裡，用 `docker compose --profile security up -d --remove-orphans`
+  移除（或 `docker rm -f nginxwebui-bouncer`）。
+- 種子模板「CrowdSec Auth Request」指向一個從未存在的 location，升級時會自動移除（使用者改過的保留）。升級後請套用一次設定。
 
 ---
 
@@ -282,6 +342,9 @@ docker compose up -d
 ```
 
 > **2026-06-30 行為變更（monitoring 移除）**：Loki / Promtail / Grafana 三個 sidecar 已從專案完全移除（nginx 內建 access/error log 已足夠排查；CrowdSec 直接讀 nginx log volume，不再經 Loki 中介）。若你原本有跑 monitoring profile：升級後 `docker compose up -d` 不再啟動這三個 service，現存的 `nginxwebui_loki_data` / `nginxwebui_grafana_data` volume 可手動 `docker volume rm` 清理。CrowdSec 從 `--profile security` 啟動的行為不變。
+
+> **CrowdSec Lua bouncer（取代 traefik bouncer）**：原本有跑 `security` profile 的部署，請先看
+> [從 traefik bouncer 架構升級](#crowdsec-防護)（沿用 bouncer 金鑰、移除舊的 `nginxwebui-bouncer` 容器）。
 
 PostgreSQL schema 由 SqlHelper（自製 ORM）**CodeFirst 自動 ALTER TABLE** 加新欄位，**不需手動 migration**。
 
