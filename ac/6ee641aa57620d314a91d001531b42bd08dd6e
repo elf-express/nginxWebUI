@@ -1,0 +1,25 @@
+docker/crowdsec/Dockerfile
+  s_371734958b2dce::t_b708eea7a82b1f 13
+docker/test/crowdsec-offline.sh
+  s_371734958b2dce::t_b708eea7a82b1f 5,56
+docker/crowdsec/appsec.yaml
+  s_371734958b2dce::t_b708eea7a82b1f 3-4,8
+docker/.env.example
+  s_371734958b2dce::t_d002d80a19510f 29-31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ac6ee641aa57620d314a91d001531b42bd08dd6e",
+  "prompts": {},
+  "sessions": {
+    "s_371734958b2dce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a3cfa2a-1a37-44f7-a8f2-57edc63d6b2c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
