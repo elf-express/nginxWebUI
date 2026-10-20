@@ -1,0 +1,31 @@
+src/test/java/com/cym/utils/CrowdSecCredentialsTest.java
+  s_371734958b2dce::t_d7aa26fd255d4d 1-111
+src/main/java/com/cym/service/ConfService.java
+  s_371734958b2dce::t_fcc288f14cd2b9 92-93,156,167-169,190-200,785-792
+  s_371734958b2dce::t_aed874f8089143 793-794
+src/test/java/com/cym/service/CrowdSecNginxConfTest.java
+  s_371734958b2dce::t_4149d546015f22 1-348
+src/main/java/com/cym/service/CrowdSecNginxConf.java
+  s_371734958b2dce::t_6a357cea8834b0 1-189
+src/main/java/com/cym/utils/CrowdSecCredentials.java
+  s_371734958b2dce::t_9ac1d1629fd0c2 1-115
+src/main/java/com/cym/config/InitConfig.java
+  s_371734958b2dce::t_4944ab2f9bf036 35
+  s_371734958b2dce::t_75d7d10a7dbba7 407-410
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8d487d291150280c7b3f4f285b78f243781db409",
+  "prompts": {},
+  "sessions": {
+    "s_371734958b2dce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a3cfa2a-1a37-44f7-a8f2-57edc63d6b2c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
