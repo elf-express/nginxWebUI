@@ -1,0 +1,39 @@
+README_TW.md
+  s_371734958b2dce::t_9046ba17a3be9d 230-231
+  s_371734958b2dce::t_179234b43aa551 240-244
+README.md
+  s_371734958b2dce::t_fd6682f895bc56 249-254
+  s_371734958b2dce::t_570572f9e6cc01 236-237
+src/test/java/com/cym/service/CrowdSecNginxConfTest.java
+  s_371734958b2dce::t_70137b49bdb0d8 242-243,249-250
+src/main/java/com/cym/utils/CrowdSecCredentials.java
+  s_371734958b2dce::t_dcf339d1b749bd 53-58
+  s_371734958b2dce::t_681bdf7602175f 80
+  s_371734958b2dce::t_df7f04954fd611 89,95-103
+  s_371734958b2dce::t_f322c227ec4de5 26-30
+  s_371734958b2dce::t_1ba8402e8481c3 7,10-11
+  s_371734958b2dce::t_4c04045b86ec80 12
+  s_371734958b2dce::t_bbb34001294c51 104-105
+src/main/java/com/cym/service/CrowdSecNginxConf.java
+  s_371734958b2dce::t_2f6899e46b1c6f 179-185
+docs/memory/dev-run-deploy.md
+  s_371734958b2dce::t_ddb230bb214488 84-87
+src/test/java/com/cym/utils/CrowdSecCredentialsTest.java
+  s_371734958b2dce::t_7e4480c203f92b 83-112
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "db230b993ab08602852883970f7f632995617b77",
+  "prompts": {},
+  "sessions": {
+    "s_371734958b2dce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a3cfa2a-1a37-44f7-a8f2-57edc63d6b2c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
