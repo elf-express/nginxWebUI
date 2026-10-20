@@ -175,46 +175,9 @@ public class ConfService {
 			// 黑白名单(中央規則全站生效)
 			buildDenyAllow(ngxBlockHttp, "http", confExt);
 
-			// 國家存取控制 — map 指令放在 http block
-			List<GeoRule> geoRules = sqlHelper.findAll(GeoRule.class);
-			for (GeoRule rule : geoRules) {
-				if (rule.getEnable() == null || !rule.getEnable() || StrUtil.isEmpty(rule.getCountries())) {
-					continue;
-				}
-
-				// 生成唯一的 map 變數名
-				String idPart = StrUtil.isEmpty(rule.getServerId()) ? "global" : rule.getServerId().replace("-", "");
-				if (idPart.length() > 12) idPart = idPart.substring(0, 12);
-				String mapVarName = "geo_block_" + idPart;
-
-				// 建立 map block: map $geoip2_data_country_code $geo_block_xxx { ... }
-				NgxBlock mapBlock = new NgxBlock();
-				mapBlock.addValue("map $geoip2_data_country_code $" + mapVarName);
-
-				// default 值
-				NgxParam defaultParam = new NgxParam();
-				if (rule.getMode() == 0) {
-					// 白名單：預設封鎖(1)，列出的允許(0)
-					defaultParam.addValue("default 1");
-				} else {
-					// 黑名單：預設允許(0)，列出的封鎖(1)
-					defaultParam.addValue("default 0");
-				}
-				mapBlock.addEntry(defaultParam);
-
-				// 國家代碼
-				String[] codes = rule.getCountries().split(",");
-				for (String code : codes) {
-					NgxParam codeParam = new NgxParam();
-					if (rule.getMode() == 0) {
-						codeParam.addValue(code.trim() + " 0");
-					} else {
-						codeParam.addValue(code.trim() + " 1");
-					}
-					mapBlock.addEntry(codeParam);
-				}
-
-				ngxBlockHttp.addEntry(mapBlock);
+			// 白名單 geo 與國家存取控制 map — 各自拆成 include 檔，nginx.conf 只留 include
+			buildAllowlistGeo(ngxBlockHttp, confExt);
+			if (buildGeoMaps(ngxBlockHttp, confExt)) {
 				hasHttp = true;
 			}
 
@@ -803,6 +766,75 @@ public class ConfService {
 	}
 
 	/**
+	 * 白名單 geo：產生 conf.d/allowlist_http.conf（每次都產生，即使沒有白名單），
+	 * 讓 $nwu_allowlist 永遠有定義（"1" 為白名單 IP，其餘 "0"）。
+	 */
+	private void buildAllowlistGeo(NgxBlock http, ConfExt confExt) {
+		List<String> strs = new ArrayList<>();
+		strs.add("geo $nwu_allowlist {");
+		strs.add("    default 0;");
+		for (String ip : collectIps(denyAllowService.listByType("allow"))) {
+			strs.add("    " + ip + " 1;");
+		}
+		strs.add("}");
+
+		String filename = addConfFile(confExt, "allowlist_http.conf", strs);
+		NgxParam ngxParam = new NgxParam();
+		ngxParam.addValue("include " + filename);
+		http.addEntry(ngxParam);
+	}
+
+	/**
+	 * 國家存取控制 map：產生 conf.d/geo_http.conf。每條規則兩個 map：
+	 * $geo_block_xxx（依國家判斷）與 $geo_deny_xxx（白名單 IP 一律不封鎖）。
+	 * 沒有任何啟用且有國家的規則時不產生檔案也不加 include。
+	 *
+	 * @return 是否有加入 include
+	 */
+	private boolean buildGeoMaps(NgxBlock http, ConfExt confExt) {
+		List<String> strs = new ArrayList<>();
+		for (GeoRule rule : sqlHelper.findAll(GeoRule.class)) {
+			if (rule.getEnable() == null || !rule.getEnable() || StrUtil.isEmpty(rule.getCountries())) {
+				continue;
+			}
+
+			// 生成唯一的 map 變數名
+			String idPart = StrUtil.isEmpty(rule.getServerId()) ? "global" : rule.getServerId().replace("-", "");
+			if (idPart.length() > 12) idPart = idPart.substring(0, 12);
+			String blockVar = "geo_block_" + idPart;
+			String denyVar = "geo_deny_" + idPart;
+			boolean allowMode = rule.getMode() == 0;
+
+			// map $geoip2_data_country_code $geo_block_xxx { ... }
+			strs.add("map $geoip2_data_country_code $" + blockVar + " {");
+			// 白名單模式：預設封鎖(1)，列出的允許(0)；黑名單模式：預設允許(0)，列出的封鎖(1)
+			strs.add("    default " + (allowMode ? "1" : "0") + ";");
+			for (String code : rule.getCountries().split(",")) {
+				if (code.trim().isEmpty()) {
+					continue;
+				}
+				strs.add("    " + code.trim() + (allowMode ? " 0;" : " 1;"));
+			}
+			strs.add("}");
+
+			// 白名單 IP 一律放行：只有「不在白名單(0)且國家判定封鎖(1)」才封鎖
+			strs.add("map \"$nwu_allowlist:$" + blockVar + "\" $" + denyVar + " {");
+			strs.add("    default 0;");
+			strs.add("    \"0:1\" 1;");
+			strs.add("}");
+		}
+		if (strs.isEmpty()) {
+			return false;
+		}
+
+		String filename = addConfFile(confExt, "geo_http.conf", strs);
+		NgxParam ngxParam = new NgxParam();
+		ngxParam.addValue("include " + filename);
+		http.addEntry(ngxParam);
+		return true;
+	}
+
+	/**
 	 * 中央黑白名單全站自動生效:防護頁維護的規則直接套用在 http/stream 層級(涵蓋所有 server),
 	 * 零綁定操作。先 allow(白名單)再 deny(黑名單),且不加 deny all; — nginx 預設放行,
 	 * 效果 = 白名單覆蓋黑名單、名單外不受影響。
@@ -1216,7 +1248,7 @@ public class ConfService {
 				if (geoRule != null && StrUtil.isNotEmpty(geoRule.getCountries())) {
 					String idPart = StrUtil.isEmpty(geoRule.getServerId()) ? "global" : geoRule.getServerId().replace("-", "");
 					if (idPart.length() > 12) idPart = idPart.substring(0, 12);
-					String mapVarName = "geo_block_" + idPart;
+					String mapVarName = "geo_deny_" + idPart;
 
 					NgxBlock ifBlock = new NgxBlock();
 					ifBlock.addValue("if ($" + mapVarName + " = 1)");
