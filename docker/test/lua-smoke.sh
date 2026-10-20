@@ -1,7 +1,10 @@
 #!/bin/sh
 # Smoke test: the image can load lua-cs-bouncer and the nwu wrapper under nginx.
 # `nginx -t` does not run init_by_lua, so after the syntax check nginx is really started
-# and error.log must stay free of [error]/[emerg]/[alert] entries.
+# with a stub LAPI (127.0.0.1:18082, live mode) and the whole access path is exercised:
+#   LAPI up   : probe succeeds (state lapiOk:true), allowlisted and clean IPs get 200,
+#               a banned IP (127.0.0.2) is cut off with 444 (curl exit 52)
+#   LAPI down : after the grace period a non-allowlisted request gets the 503 page
 # Usage: sh docker/test/lua-smoke.sh <image>
 set -eu
 
@@ -18,7 +21,7 @@ for f in /usr/local/lib/nginxwebui/html/protection-paused.html \
 done
 cat > /tmp/smoke/bouncer.conf <<CONF
 ENABLED=true
-API_URL=http://127.0.0.1:1
+API_URL=http://127.0.0.1:18082
 API_KEY=smoke
 MODE=live
 BAN_TEMPLATE_PATH=/var/lib/crowdsec/lua/templates/ban.html
@@ -38,11 +41,23 @@ http {
         require "cjson"
         require "crowdsec"
         local w = require "nwu_crowdsec"
-        assert(w.init({ conf = "/tmp/smoke/bouncer.conf", grace = 2,
+        assert(w.init({ conf = "/tmp/smoke/bouncer.conf", grace = 8,
                         state = "/tmp/smoke/state.json",
                         page = "/usr/local/lib/nginxwebui/html/protection-paused.html" }))
     }
     init_worker_by_lua_block { require("nwu_crowdsec").init_worker() }
+    # stub LAPI: 127.0.0.2 is banned, everything else has no decision; /tmp/smoke/lapi_down turns it into a 500
+    server {
+        listen 127.0.0.1:18082;
+        access_log off;
+        location /v1/decisions {
+            if (-f /tmp/smoke/lapi_down) { return 500 "down"; }
+            if (\$arg_ip = "127.0.0.2") {
+                return 200 "[{\"id\":1,\"origin\":\"cscli\",\"type\":\"ban\",\"scope\":\"Ip\",\"value\":\"127.0.0.2\",\"duration\":\"1h\",\"scenario\":\"smoke\"}]";
+            }
+            return 200 "null";
+        }
+    }
     server {
         listen 127.0.0.1:18081;
         access_log off;
@@ -59,25 +74,40 @@ http {
     }
 }
 CONF
+fail() { echo "FAIL: $*"; cat /tmp/smoke/logs/error.log | grep -v "no file"; exit 1; }
 nginx -t -c /tmp/smoke/nginx.conf -p /tmp/smoke/
 nginx -c /tmp/smoke/nginx.conf -p /tmp/smoke/
-# LAPI is unreachable and grace is 2s, so after the first probes the guarded location must answer 503.
+
+# Phase 1: LAPI up. First probe runs after 5s.
 sleep 8
-code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:18081/allow)
-paused=$(curl -s -D - -o /tmp/smoke/paused.html http://127.0.0.1:18081/guard)
 state=$(cat /tmp/smoke/state.json 2>/dev/null || echo missing)
+echo "$state" | grep -q "\"lapiOk\":true" || fail "state file after successful probe: $state"
+code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:18081/allow)
+[ "$code" = "200" ] || fail "allowlisted request returned $code"
+code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:18081/guard)
+[ "$code" = "200" ] || fail "clean IP on guarded path returned $code"
+rc=0; curl -s -o /dev/null --interface 127.0.0.2 http://127.0.0.1:18081/guard || rc=$?
+[ "$rc" = "52" ] || fail "banned IP: curl exit $rc, expected 52 (444 connection close)"
+
+# Phase 2: LAPI down. Grace is 8s (probe interval is 5s); wait until the last success is older than grace.
+touch /tmp/smoke/lapi_down
+sleep 10
+paused=$(curl -s -D - -o /tmp/smoke/paused.html http://127.0.0.1:18081/guard)
+down_state=$(cat /tmp/smoke/state.json)
+code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:18081/allow)
+
 nginx -c /tmp/smoke/nginx.conf -p /tmp/smoke/ -s stop || true
-cat /tmp/smoke/logs/error.log
-[ "$code" = "200" ] || { echo "FAIL: allowlisted request returned $code"; exit 1; }
-# Expected [error] lines: lua-cs-bouncer captcha-not-configured at init; probe connect() refused (LAPI is deliberately unreachable).
-echo "$paused" | head -1 | grep -q " 503" || { echo "FAIL: guarded request was not 503: $paused"; exit 1; }
-echo "$paused" | grep -qi "^Retry-After: 30" || { echo "FAIL: no Retry-After header"; exit 1; }
-grep -q "<h1>" /tmp/smoke/paused.html || { echo "FAIL: 503 page has no h1"; exit 1; }
-echo "$state" | grep -q "\"lapiOk\":false" || { echo "FAIL: unexpected state file: $state"; exit 1; }
-if grep -E "\[(error|emerg|alert|crit)\]" /tmp/smoke/logs/error.log | grep -v -e "error loading captcha plugin" -e "connect() failed"; then
-  echo "FAIL: errors in nginx error.log"; exit 1
+cat /tmp/smoke/logs/error.log | grep -v "no file"
+echo "$paused" | head -1 | grep -q " 503" || fail "LAPI down: guarded request was not 503: $paused"
+echo "$paused" | grep -qi "^Retry-After: 30" || fail "no Retry-After header"
+grep -q "<h1>" /tmp/smoke/paused.html || fail "503 page has no h1"
+echo "$down_state" | grep -q "\"lapiOk\":false" || fail "state after LAPI down: $down_state"
+[ "$code" = "200" ] || fail "allowlisted request while LAPI down returned $code"
+# Expected [error] lines: lua-cs-bouncer captcha-not-configured at init; LAPI 500 from the stub is not logged as [error].
+if grep -E "\[(error|emerg|alert|crit)\]" /tmp/smoke/logs/error.log | grep -v -e "error loading captcha plugin"; then
+  fail "errors in nginx error.log"
 fi
-echo "lua smoke: ok (allowlisted -> $code, guarded -> 503, state $state)"
+echo "lua smoke: ok (up: state lapiOk:true, clean 200, banned curl exit 52; down: guarded 503, allowlisted 200, state $down_state)"
 '
 
 docker run --rm --entrypoint sh "$IMAGE" -c "$INNER"
