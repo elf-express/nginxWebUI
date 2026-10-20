@@ -32,6 +32,7 @@ import com.cym.model.Template;
 import com.cym.service.AsnBlockService;
 import com.cym.service.BasicService;
 import com.cym.service.ConfService;
+import com.cym.service.CrowdSecNginxConf;
 import com.cym.service.DenyAllowService;
 import com.cym.service.GeoipService;
 import com.cym.service.NginxDocService;
@@ -402,6 +403,10 @@ public class InitConfig {
 		// AsnRule nginx map is deprecated as primary path (default off → CrowdSec intents)
 		if (settingService.get("asn.nginxMapEnabled") == null) {
 			settingService.set("asn.nginxMapEnabled", "false");
+		}
+		// CrowdSec Lua bouncer: seconds nginx waits for CrowdSec before showing the 503 page
+		if (settingService.get(CrowdSecNginxConf.GRACE_KEY) == null) {
+			settingService.set(CrowdSecNginxConf.GRACE_KEY, String.valueOf(CrowdSecNginxConf.DEFAULT_GRACE));
 		}
 
 		// 遷移：既有 enable=true 的 AsnRule → AsBlockIntent status=active（不自動推 CrowdSec）

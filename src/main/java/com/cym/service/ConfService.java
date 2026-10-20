@@ -89,6 +89,8 @@ public class ConfService {
 	DenyAllowService denyAllowService;
 	@Inject
 	NginxService nginxService;
+	@Inject
+	CrowdSecNginxConf crowdSecNginxConf;
 
 	public synchronized ConfExt buildConf(Boolean decompose, Boolean check) {
 		return buildConf(decompose, check, null);
@@ -151,6 +153,7 @@ public class ConfService {
 			}
 
 			// 自動套用 def 含 http 的模板參數到 http{} 頂層（def 可多選）
+			boolean templateHasResolver = false;
 			for (Template tpl : sqlHelper.findAll(Template.class)) {
 				if (!com.cym.utils.TemplateDefUtils.contains(tpl.getDef(), "http")) {
 					continue;
@@ -160,6 +163,9 @@ public class ConfService {
 				for (Param p : tplParams) {
 					if (StrUtil.isEmpty(p.getName())) {
 						continue;
+					}
+					if ("resolver".equals(p.getName().trim())) {
+						templateHasResolver = true;
 					}
 					NgxParam ngxParam = new NgxParam();
 					ngxParam.addValue(p.getName().trim() + (StrUtil.isNotEmpty(p.getValue()) ? " " + p.getValue().trim() : ""));
@@ -178,6 +184,17 @@ public class ConfService {
 			// 白名單 geo 與國家存取控制 map — 各自拆成 include 檔，nginx.conf 只留 include
 			buildAllowlistGeo(ngxBlockHttp, confExt);
 			if (buildGeoMaps(ngxBlockHttp, confExt)) {
+				hasHttp = true;
+			}
+
+			// CrowdSec Lua bouncer — 金鑰、位址、模組與包裝檔都齊全才寫設定檔並加 include
+			if (crowdSecNginxConf != null && crowdSecNginxConf.isActive()) {
+				crowdSecNginxConf.writeBouncerConf();
+				String filename = addConfFile(confExt, "crowdsec_http.conf",
+						crowdSecNginxConf.buildHttpLines(!templateHasResolver && !hasEnabledResolver(httpList)));
+				NgxParam crowdsecInclude = new NgxParam();
+				crowdsecInclude.addValue("include " + filename);
+				ngxBlockHttp.addEntry(crowdsecInclude);
 				hasHttp = true;
 			}
 
@@ -763,6 +780,16 @@ public class ConfService {
 			return 30;
 		}
 		return 50;
+	}
+
+	/** http 參數中是否已有啟用的 resolver（nginx 不允許同層重複） */
+	private boolean hasEnabledResolver(List<Http> httpList) {
+		for (Http http : httpList) {
+			if (http.getEnable() != null && http.getEnable() && http.getName() != null && "resolver".equals(http.getName().trim())) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
