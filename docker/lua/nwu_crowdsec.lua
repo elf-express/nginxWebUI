@@ -17,11 +17,12 @@ local cfg = {}      -- parsed bouncer conf
 local opts = {}     -- opts given to init()
 local page_html     -- content of the 503 page
 local ready = false
+local configured = true  -- false when the bouncer conf file does not exist: wrapper is inert, traffic passes
 
 local function read_file(path)
-  local f = io.open(path, "rb")
+  local f, _, errno = io.open(path, "rb")
   if not f then
-    return nil
+    return nil, errno
   end
   local data = f:read("*a")
   f:close()
@@ -32,8 +33,14 @@ function _M.init(o)
   opts = o or {}
   opts.grace = tonumber(opts.grace) or 120
   ready = false
+  configured = true
 
-  local text = read_file(opts.conf or "")
+  local text, errno = read_file(opts.conf or "")
+  if policy.conf_missing(text, errno) then
+    configured = false
+    ngx.log(ngx.NOTICE, "[nwu_crowdsec] bouncer conf not found, CrowdSec protection is not configured: ", tostring(opts.conf))
+    return true
+  end
   if not text then
     ngx.log(ngx.ERR, "[nwu_crowdsec] cannot read bouncer conf: ", tostring(opts.conf))
     return false
@@ -134,7 +141,7 @@ local function probe(premature)
 end
 
 function _M.init_worker()
-  if not ready then
+  if not configured or not ready then
     return
   end
   if cs.get_mode() ~= "live" then
@@ -160,6 +167,9 @@ local function send_paused()
 end
 
 function _M.access()
+  if not configured then
+    return
+  end
   local allowlisted = ngx.var.nwu_allowlist == "1"
   if allowlisted then
     return

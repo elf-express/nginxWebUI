@@ -208,7 +208,7 @@ bouncer 容器。`nginxwebui-crowdsec` image 已烤入日誌解析器與 AppSec 
   **只有啟用 `security` profile 時才填金鑰。** 填了金鑰但 CrowdSec 沒起來，寬限秒數一過，所有非白名單的請求都會收到
   503 頁。
 - 金鑰不存進資料庫，也不寫進 nginx.conf，只寫在 `<home>/crowdsec/crowdsec-nginx-bouncer.conf`（權限 600）。
-- nginx.conf 是在套用設定時產生，不是在容器啟動時。新增或移除金鑰後，要再套用一次設定（介面上的套用／重新載入）。
+- nginx.conf 是在套用設定時產生，不是在容器啟動時。新增或更換金鑰後，要再套用一次設定（介面上的套用／重新載入），nginx 才會載入 bouncer。移除金鑰後直接重啟容器也安全：啟動時會刪掉過期的 bouncer 設定檔，bouncer 不啟用、流量照常通過（不必先套用）。
 - 不想讓金鑰出現在容器環境變數與 `docker inspect`：改用 secrets 覆寫檔（`.env` 的 `CROWDSEC_BOUNCER_KEY` 留空）：
 
   ```bash

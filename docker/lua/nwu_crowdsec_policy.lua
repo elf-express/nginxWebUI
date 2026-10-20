@@ -43,6 +43,13 @@ function _M.decide(allowlisted, now, last_ok, grace)
   return "check"
 end
 
+-- A bouncer conf file that does not exist (open failed with ENOENT = 2) means CrowdSec is not
+-- configured at all: the wrapper stays inert and traffic passes. Any other open failure
+-- (permission denied, unknown error) or a present file is not "missing" and stays fail-closed.
+function _M.conf_missing(text, errno)
+  return text == nil and errno == 2
+end
+
 -- cs.allowIp returns ok=false when the IP is banned.
 function _M.is_ban(ok, remediation)
   return ok == false

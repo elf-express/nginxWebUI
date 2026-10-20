@@ -107,7 +107,31 @@ echo "$down_state" | grep -q "\"lapiOk\":false" || fail "state after LAPI down: 
 if grep -E "\[(error|emerg|alert|crit)\]" /tmp/smoke/logs/error.log | grep -v -e "error loading captcha plugin"; then
   fail "errors in nginx error.log"
 fi
-echo "lua smoke: ok (up: state lapiOk:true, clean 200, banned curl exit 52; down: guarded 503, allowlisted 200, state $down_state)"
+# Phase 3: the include is still in nginx.conf but the bouncer conf file is gone (key removed, stale file cleaned up).
+# The wrapper must be inert: guarded paths pass immediately and still pass after the grace period.
+i=0; while [ -f /tmp/smoke/nginx.pid ] && [ "$i" -lt 20 ]; do sleep 0.5; i=$((i + 1)); done
+sed -e 's#/tmp/smoke/bouncer.conf#/tmp/smoke/absent.conf#' \
+    -e 's#/tmp/smoke/nginx.pid#/tmp/smoke/nginx3.pid#' \
+    -e 's#logs/error.log#logs/error3.log#' /tmp/smoke/nginx.conf > /tmp/smoke/nginx3.conf
+[ ! -e /tmp/smoke/absent.conf ] || fail "absent.conf must not exist"
+nginx -t -c /tmp/smoke/nginx3.conf -p /tmp/smoke/
+nginx -c /tmp/smoke/nginx3.conf -p /tmp/smoke/
+sleep 2
+code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:18081/guard)
+[ "$code" = "200" ] || fail "missing bouncer conf: guarded request returned $code right after start"
+sleep 12
+code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:18081/guard)
+[ "$code" = "200" ] || fail "missing bouncer conf: guarded request returned $code after the grace period"
+code=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:18081/allow)
+[ "$code" = "200" ] || fail "missing bouncer conf: allowlisted request returned $code"
+nginx -c /tmp/smoke/nginx3.conf -p /tmp/smoke/ -s stop || true
+cat /tmp/smoke/logs/error3.log | grep -v "no file" || true
+grep -q "bouncer conf not found" /tmp/smoke/logs/error3.log || fail "no not-configured notice in error3.log"
+if grep -E "\[(error|emerg|alert|crit)\]|cannot read bouncer conf|crowdsec init failed" /tmp/smoke/logs/error3.log | grep -v -e "no file"; then
+  fail "init errors with missing bouncer conf"
+fi
+
+echo "lua smoke: ok (up: state lapiOk:true, clean 200, banned curl exit 52; down: guarded 503, allowlisted 200, state $down_state; conf missing: guarded 200 before and after grace)"
 '
 
 docker run --rm --entrypoint sh "$IMAGE" -c "$INNER"

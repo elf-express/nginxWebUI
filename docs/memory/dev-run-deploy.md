@@ -81,7 +81,7 @@ LAPI 8080、AppSec 7422 只在 compose 網路內，不 publish。
 > 已存在就不重註冊 —— 換金鑰或從舊 traefik bouncer 升級時，沿用舊金鑰或先
 > `docker exec nginxwebui-crowdsec cscli bouncers delete nginx` 再 `docker compose up -d`；
 > 舊的 `nginxwebui-bouncer` 容器用 `--remove-orphans` 清掉。金鑰不想進環境變數：疊 `docker-compose.secrets.yml`（見檔頭）。
-> 注意：nginx.conf 只在「套用設定」時重新產生，容器重啟會沿用舊檔。加／拿掉金鑰後要再套用一次。
+> 注意：nginx.conf 只在「套用設定」時重新產生，容器重啟會沿用舊檔。新增／更換金鑰後要再套用一次才會載入 bouncer；拿掉金鑰後重啟是安全的（啟動時 InitConfig 會刪掉過期的 bouncer 設定檔，Lua 包裝發現檔案不存在就不啟用、流量放行），不必先套用。
 > 測試：`sh docker/test/lua-smoke.sh <image>`（Lua 載入、live 模式）、`sh docker/test/crowdsec-offline.sh <crowdsec image>`
 >（無網路啟動）、`sh docker/test/crowdsec-e2e.sh <nginxwebui image> <crowdsec image>`（整個 stack，stream 模式，
 > 約 10 分鐘；用獨立 project `nwu-e376-e2e` 與自己的 volume／網段，不碰既有部署）。

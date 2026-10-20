@@ -208,8 +208,10 @@ Only HTTP sites are protected; stream (TCP / UDP) servers are not.
   CrowdSec means every non-allowlisted request gets the 503 page once the grace period is over.
 - The key is not stored in the database or in nginx.conf. It is written only to
   `<home>/crowdsec/crowdsec-nginx-bouncer.conf` (mode 600).
-- nginx.conf is generated when you apply the configuration, not when the container starts. After adding or removing
-  the key, apply the configuration again (Apply / Reload in the UI).
+- nginx.conf is generated when you apply the configuration, not when the container starts. After adding or changing
+  the key, apply the configuration again (Apply / Reload in the UI) so nginx loads the bouncer. Removing the key is
+  safe on restart: the stale bouncer file is deleted at startup, so the bouncer stays inactive and traffic passes
+  (no need to apply first).
 - To keep the key out of the container environment and `docker inspect`, use the secrets override instead of `.env`
   (leave `CROWDSEC_BOUNCER_KEY` empty):
 

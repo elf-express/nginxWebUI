@@ -94,6 +94,8 @@ public class InitConfig {
 	@Inject
 	NginxDocService nginxDocService;
 	@Inject
+	CrowdSecNginxConf crowdSecNginxConf;
+	@Inject
 	DataSourceEmbed dataSourceEmbed;
 	@Inject("${project.beanPackage}")
 	String packageName;
@@ -416,6 +418,9 @@ public class InitConfig {
 		if (settingService.get(CrowdSecNginxConf.GRACE_KEY) == null) {
 			settingService.set(CrowdSecNginxConf.GRACE_KEY, String.valueOf(CrowdSecNginxConf.DEFAULT_GRACE));
 		}
+		// CrowdSec Lua bouncer: key removed but nginx.conf still includes the bouncer conf -> drop the stale file
+		// before nginx is started below, so the Lua wrapper sees "not configured" and traffic passes
+		crowdSecNginxConf.removeStaleBouncerConf();
 
 		// 遷移：既有 enable=true 的 AsnRule → AsBlockIntent status=active（不自動推 CrowdSec）
 		if (!"1".equals(settingService.get("asnRuleToIntent20260812"))) {

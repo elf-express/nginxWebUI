@@ -33,4 +33,12 @@ check(p.state_json(1.9, false, true, 2.2) == '{"lastOk":1,"lapiOk":false,"appsec
   "epoch seconds are floored to integers")
 check(p.state_json(nil, false, false, 5) == '{"lastOk":0,"lapiOk":false,"appsecOk":false,"checkedAt":5}')
 
+-- conf_missing(text, errno): only a file that does not exist (ENOENT = 2) means "not configured";
+-- unreadable or empty-but-present files are real failures and stay fail-closed.
+check(p.conf_missing(nil, 2) == true, "absent conf = not configured")
+check(p.conf_missing(nil, 13) == false, "permission denied is not a missing file")
+check(p.conf_missing(nil, nil) == false, "unknown open failure is not a missing file")
+check(p.conf_missing("API_KEY=x", nil) == false, "present conf is configured")
+check(p.conf_missing("", nil) == false, "empty present conf is not missing")
+
 print("policy tests: " .. n .. " passed")

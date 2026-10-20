@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.Set;
 
 import org.noear.solon.annotation.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.noear.solon.annotation.Inject;
 
 import com.cym.config.HomeConfig;
@@ -31,6 +33,7 @@ public class CrowdSecNginxConf {
 	public static final int DEFAULT_GRACE = 120;
 	static final int MIN_GRACE = 10;
 	static final int MAX_GRACE = 3600;
+	private static final Logger logger = LoggerFactory.getLogger(CrowdSecNginxConf.class);
 
 	static final String MARKER_PATH = "/usr/local/lib/nginxwebui/lua/nwu_crowdsec.lua";
 	static final String LUA_PATHS_CONF = "/etc/nginx/nwu/crowdsec_lua_paths.conf";
@@ -73,6 +76,28 @@ public class CrowdSecNginxConf {
 
 	public String bouncerConfPath() {
 		return homeConfig.home + "crowdsec/crowdsec-nginx-bouncer.conf";
+	}
+
+	/**
+	 * 啟動時清掉過期的 bouncer 設定檔：未啟用（金鑰已移除）但磁碟上的 nginx.conf 仍 include 它時，
+	 * 檔案不存在會讓 Lua 包裝判定「未設定」而放行。啟用中絕不動它。IO 失敗只記錄，不中斷啟動。
+	 *
+	 * @return 有刪除檔案時為 true
+	 */
+	public boolean removeStaleBouncerConf() {
+		try {
+			if (isActive()) {
+				return false;
+			}
+			boolean deleted = Files.deleteIfExists(Paths.get(bouncerConfPath()));
+			if (deleted) {
+				logger.info("CrowdSec bouncer is not configured; removed stale bouncer conf {}", bouncerConfPath());
+			}
+			return deleted;
+		} catch (IOException | RuntimeException e) {
+			logger.warn("cannot remove stale CrowdSec bouncer conf: {}", e.getMessage());
+			return false;
+		}
 	}
 
 	String stateFilePath() {

@@ -332,6 +332,36 @@ class CrowdSecNginxConfTest {
 		assertTrue(inc.contains("conf = \"C:\\\\data\\\\\\\"x\\\"\\\\crowdsec/crowdsec-nginx-bouncer.conf\""), inc);
 	}
 
+	@Test
+	void staleConfRemovedWhenInactive() throws Exception {
+		Path file = Path.of(crowdsec.bouncerConfPath());
+		Files.createDirectories(file.getParent());
+		Files.writeString(file, "API_KEY=old-key");
+		env.remove("CROWDSEC_BOUNCER_KEY");
+
+		assertTrue(crowdsec.removeStaleBouncerConf());
+		assertFalse(Files.exists(file));
+	}
+
+	@Test
+	void confKeptWhenActive() throws Exception {
+		Path file = Path.of(crowdsec.bouncerConfPath());
+		Files.createDirectories(file.getParent());
+		Files.writeString(file, "API_KEY=current");
+
+		assertTrue(crowdsec.isActive());
+		assertFalse(crowdsec.removeStaleBouncerConf());
+		assertEquals("API_KEY=current", Files.readString(file));
+	}
+
+	@Test
+	void noConfNoop() {
+		env.remove("CROWDSEC_BOUNCER_KEY");
+
+		assertFalse(Files.exists(Path.of(crowdsec.bouncerConfPath())));
+		assertFalse(crowdsec.removeStaleBouncerConf());
+	}
+
 	private void assertInactive() {
 		assertFalse(crowdsec.isActive());
 		ConfExt ext = conf.buildConf(true, false);
