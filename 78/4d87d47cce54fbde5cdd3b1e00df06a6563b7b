@@ -1,0 +1,42 @@
+README.md
+  s_371734958b2dce::t_c1faf1a40fa190 211-214
+docker/lua/nwu_crowdsec.lua
+  s_371734958b2dce::t_ea2fd44da0e58d 20,23,25,36,38-43,144,170-172
+src/test/java/com/cym/service/CrowdSecNginxConfTest.java
+  s_371734958b2dce::t_7dac5239aebf43 335-338,340-349,351-353,355-364
+  s_371734958b2dce::t_8ace4c9792b9de 339,350,354
+docker/lua/test/policy_test.lua
+  s_371734958b2dce::t_52b49ac4a5447d 36-40,42-43
+  s_371734958b2dce::t_50328772ec557d 41
+src/main/java/com/cym/service/CrowdSecNginxConf.java
+  s_371734958b2dce::t_aa8c4a730de37e 36
+  s_371734958b2dce::t_2382d5e7d5baa4 81-102
+  s_371734958b2dce::t_38c6339294e0b9 17-18
+docs/memory/dev-run-deploy.md
+  s_371734958b2dce::t_c1faf1a40fa190 84
+README_TW.md
+  s_371734958b2dce::t_c1faf1a40fa190 211
+src/main/java/com/cym/config/InitConfig.java
+  s_371734958b2dce::t_e6843a786b8b99 97-98,421-423
+docker/test/lua-smoke.sh
+  s_371734958b2dce::t_a49d3fb8a83edc 128-129
+  s_371734958b2dce::t_376ed0344b93e7 110-127,130-134
+docker/lua/nwu_crowdsec_policy.lua
+  s_371734958b2dce::t_ea2fd44da0e58d 46-52
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "784d87d47cce54fbde5cdd3b1e00df06a6563b7b",
+  "prompts": {},
+  "sessions": {
+    "s_371734958b2dce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a3cfa2a-1a37-44f7-a8f2-57edc63d6b2c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
