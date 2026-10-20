@@ -1,0 +1,20 @@
+docker/test/lua-smoke.sh
+  s_371734958b2dce::t_d745751872381b 4-7,24,49-60,77,80-81,83-84,86-91,93,96-98,100-108,110
+  s_371734958b2dce::t_bf13e03a756d24 44,92,94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3c5f1843f63473c547d06a18d0de237c665b29bc",
+  "prompts": {},
+  "sessions": {
+    "s_371734958b2dce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a3cfa2a-1a37-44f7-a8f2-57edc63d6b2c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
