@@ -1,0 +1,27 @@
+src/test/java/com/cym/service/AllowlistGeoConfTest.java
+  s_371734958b2dce::t_80349d5fc40bff 1-14,16-46,48-172
+  s_371734958b2dce::t_be5f652e2d3329 15,47
+src/test/java/com/cym/testsupport/InMemorySqlHelper.java
+  s_371734958b2dce::t_daff363157cec7 1-124
+src/main/java/com/cym/service/ConfService.java
+  s_371734958b2dce::t_e015cd82a0a7b9 178-180,768-836,1251
+tests/e2e/38-allowlist-include.spec.js
+  s_371734958b2dce::t_c9e21853c0c5c1 1-24,27,29-85
+  s_371734958b2dce::t_f11ddc257d84b6 25-26,28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "64e665ea2cbb7169257ceb047f438e7abf555fd7",
+  "prompts": {},
+  "sessions": {
+    "s_371734958b2dce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a3cfa2a-1a37-44f7-a8f2-57edc63d6b2c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
