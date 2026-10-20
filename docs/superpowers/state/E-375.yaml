@@ -1,5 +1,6 @@
 ticket: E-375
-phase: plan
+phase: verify
 plan: E-376
 split_to: E-389
+pr: 102
 updated: 2026-10-21
