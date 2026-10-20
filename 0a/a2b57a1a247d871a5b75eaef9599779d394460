@@ -1,0 +1,19 @@
+docs/superpowers/state/E-375.yaml
+  s_371734958b2dce::t_7f8ec167ce077e 2,5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0aa2b57a1a247d871a5b75eaef9599779d394460",
+  "prompts": {},
+  "sessions": {
+    "s_371734958b2dce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a3cfa2a-1a37-44f7-a8f2-57edc63d6b2c",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
