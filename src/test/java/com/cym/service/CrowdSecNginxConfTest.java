@@ -184,6 +184,18 @@ class CrowdSecNginxConfTest {
 	}
 
 	@Test
+	void writeFailureSkipsIncludeAndKeepsBuilding() throws Exception {
+		Files.writeString(tmp.resolve("home").resolve("crowdsec"), "not a directory");
+
+		ConfExt ext = conf.buildConf(true, false);
+
+		assertNotNull(ext);
+		assertFalse(ext.getConf().contains("crowdsec_http.conf"), ext.getConf());
+		assertTrue(ext.getFileList().stream().noneMatch(f -> f.getName().equals("crowdsec_http.conf")));
+		assertTrue(ext.getConf().contains("include conf.d/allowlist_http.conf;"), ext.getConf());
+	}
+
+	@Test
 	void includeComesAfterAllowlistInclude() {
 		String main = conf.buildConf(true, false).getConf();
 

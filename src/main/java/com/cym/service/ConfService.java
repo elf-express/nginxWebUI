@@ -188,8 +188,17 @@ public class ConfService {
 			}
 
 			// CrowdSec Lua bouncer — 金鑰、位址、模組與包裝檔都齊全才寫設定檔並加 include
+			// 寫入失敗只略過 CrowdSec，不能讓整份 nginx 設定產生失敗
+			boolean crowdSecReady = false;
 			if (crowdSecNginxConf != null && crowdSecNginxConf.isActive()) {
-				crowdSecNginxConf.writeBouncerConf();
+				try {
+					crowdSecNginxConf.writeBouncerConf();
+					crowdSecReady = true;
+				} catch (Exception e) {
+					logger.error("CrowdSec bouncer config could not be written; skipping CrowdSec for this build: " + e.getMessage());
+				}
+			}
+			if (crowdSecReady) {
 				String filename = addConfFile(confExt, "crowdsec_http.conf",
 						crowdSecNginxConf.buildHttpLines(!templateHasResolver && !hasEnabledResolver(httpList)));
 				NgxParam crowdsecInclude = new NgxParam();
