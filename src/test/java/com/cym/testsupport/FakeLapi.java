@@ -51,6 +51,8 @@ public class FakeLapi implements AutoCloseable {
 	public volatile String expire = "2099-01-01T00:00:00Z";
 	/** 為 true 時登入照常成功，但所有需要 JWT 的端點一律回 401 */
 	public volatile boolean rejectAllJwt = false;
+	/** 非 0 時 watchers/login 一律回這個狀態碼（模擬 LAPI 故障或限流，如 503、429） */
+	public volatile int loginStatus = 0;
 
 	public FakeLapi(String machineId, String password, String bouncerKey) throws IOException {
 		this.machineId = machineId;
@@ -98,6 +100,10 @@ public class FakeLapi implements AutoCloseable {
 	private void login(HttpExchange ex) throws IOException {
 		loginAttempts.incrementAndGet();
 		String text = read(ex);
+		if (loginStatus != 0) {
+			send(ex, loginStatus, "{\"code\":" + loginStatus + ",\"message\":\"unavailable\"}");
+			return;
+		}
 		String ua = ex.getRequestHeaders().getFirst("User-Agent");
 		if (ua == null || !VALID_USER_AGENT.matcher(ua).matches()) {
 			send(ex, 401, "{\"code\":401,\"message\":\"incorrect Username or Password\"}");

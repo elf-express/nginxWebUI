@@ -281,6 +281,34 @@ class CrowdSecClientLapiTest {
 	}
 
 	@Test
+	void loginServerErrorIsNotMachineAuthFailure() {
+		for (int status : new int[] { 503, 500, 429 }) {
+			lapi.loginStatus = status;
+
+			IllegalStateException e = assertThrows(IllegalStateException.class, () -> client().token());
+
+			assertFalse(e instanceof CrowdSecClient.MachineAuthException, "status " + status);
+			assertTrue(e.getMessage().contains(String.valueOf(status)), e.getMessage());
+			assertFalse(e.getMessage().contains(PASSWORD), e.getMessage());
+			assertFalse(e.getMessage().contains("unavailable"), e.getMessage());
+		}
+	}
+
+	@Test
+	void loginForbiddenIsMachineAuthFailure() {
+		lapi.loginStatus = 403;
+
+		assertThrows(CrowdSecClient.MachineAuthException.class, () -> client().token());
+	}
+
+	@Test
+	void probeReportsMachineUnreachableWhenLoginFailsServerSide() {
+		lapi.loginStatus = 503;
+
+		assertEquals(new CrowdSecClient.Probe("ok", "ok", "unreachable"), client().probe());
+	}
+
+	@Test
 	void probeUnreachable() throws Exception {
 		int closedPort;
 		try (ServerSocket socket = new ServerSocket(0)) {

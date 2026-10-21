@@ -66,7 +66,7 @@ public class CrowdSecClient {
 	public static final String NOT_CONFIGURED = "notConfigured";
 	public static final String UNCHECKED = "unchecked";
 
-	/** machine 帳號登入失敗，或重新登入後 LAPI 仍拒絕 JWT */
+	/** machine 帳號登入被 LAPI 拒絕（401／403），或重新登入後 LAPI 仍拒絕 JWT */
 	public static class MachineAuthException extends IllegalStateException {
 		private static final long serialVersionUID = 1L;
 		public static final String CODE = "crowdsec_machine_unauthorized";
@@ -290,8 +290,12 @@ public class CrowdSecClient {
 					.body(body.toString())
 					.timeout(timeoutMs)
 					.execute()) {
-				if (resp.getStatus() != 200) {
+				int status = resp.getStatus();
+				if (status == 401 || status == 403) {
 					throw new MachineAuthException();
+				}
+				if (status != 200) {
+					throw new IllegalStateException("crowdsec machine login HTTP " + status);
 				}
 				String text = resp.body();
 				JSONObject o = JSONUtil.isTypeJSONObject(text) ? JSONUtil.parseObj(text) : new JSONObject();

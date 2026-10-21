@@ -32,7 +32,7 @@
 ## Testing（詳見 [docs/superpowers/plans/playwright-guide.md](../superpowers/plans/playwright-guide.md)）
 
 - Specs 在 `tests/e2e/`，編號 `01-login` … `35-*` 外加獨立的 `flag-svg-integrity`。`35` 用了兩次（`35-asn-catalog-profile`、`35-mcp`），`36` 已用（`36-i18n-js-escape`），`37-spa-basic` 是 Vue basic 頁，`38-allowlist-include`、`39-crowdsec-tab` 已用，下一支新 spec 是 `40`。
-- `35-mcp` 與 `39-crowdsec-tab` 會自己另起 server（18081 + `--mcp.token`、18082 + `CROWDSEC_*` 環境變數，資料各落在已被 gitignore 的 `test-data/mcp/`、`test-data/crowdsec/`）。共用實例（18080）沒帶 token，所以它同時守得住「未啟用時 404」。
+- `35-mcp` 與 `39-crowdsec-tab` 會自己另起 server（18081 + `--mcp.token`、18082 + `CROWDSEC_*` 環境變數，資料各落在已被 gitignore 的 `test-data/mcp/`、`test-data/crowdsec/`）。`35-mcp` 的共用實例（18080）沒帶 token，所以它同時守得住「未啟用時 404」；`39-crowdsec-tab` 的共用實例（18080）沒設定 CrowdSec，用來驗「未設定」提示與 ASN 橫幅可見。
 - **PG smoke：** `npm run test:pg` —— docker 起 postgres:18-alpine（port 15432），跑 01+33 驗證 PostgreSQL 上的登入與 server 儲存（主套件只跑 SQLite，跨 DB 行為差異靠這層抓）。
 - 簡/繁按鈕文字用 regex 比對：`/批量輸入|批量输入/`。
 - Layui 元件用 `page.evaluate()` 驅動。

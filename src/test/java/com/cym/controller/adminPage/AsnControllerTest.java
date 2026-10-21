@@ -53,4 +53,34 @@ class AsnControllerTest {
 		assertFalse(result.isSuccess());
 		assertEquals(CrowdSecClient.MachineAuthException.CODE, result.getMsg());
 	}
+
+	@Test
+	void setProfileToLightReportsInvalidMachineCredentials() {
+		AsnController controller = controller(new AsnBlockService() {
+			@Override
+			public String getProfile() {
+				return AsnBlockService.PROFILE_MANUAL;
+			}
+
+			@Override
+			public boolean isCrowdSecConfigured() {
+				return true;
+			}
+
+			@Override
+			public int revokeAllWebuiAsnBans() {
+				throw new CrowdSecClient.MachineAuthException();
+			}
+
+			@Override
+			public void setProfile(String profile) {
+				fail("profile must stay unchanged when revoke fails");
+			}
+		});
+
+		JsonResult result = controller.setProfile(AsnBlockService.PROFILE_LIGHT, "revoke");
+
+		assertFalse(result.isSuccess());
+		assertEquals(CrowdSecClient.MachineAuthException.CODE, result.getMsg());
+	}
 }

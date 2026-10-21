@@ -149,7 +149,22 @@ public class CrowdSecController extends BaseController {
 			duration = duration.trim();
 		}
 		try {
-			crowdSecClient.banIp(ip.trim(), duration, reason);
+			String value = ip.trim();
+			int slash = value.indexOf('/');
+			if (slash < 0) {
+				crowdSecClient.banIp(value, duration, reason);
+			} else {
+				// CIDR → scope=range（Lua bouncer 不處理 scope=ip 帶前綴的值）；/32、/128 視為單一 IP
+				String host = value.substring(0, slash);
+				String prefix = value.substring(slash + 1);
+				boolean singleV4 = host.indexOf(':') < 0 && "32".equals(prefix);
+				boolean singleV6 = host.indexOf(':') >= 0 && "128".equals(prefix);
+				if (singleV4 || singleV6) {
+					crowdSecClient.banIp(host, duration, reason);
+				} else {
+					crowdSecClient.banRange(value, duration, reason);
+				}
+			}
 			return renderSuccess();
 		} catch (Exception e) {
 			return fail(e);

@@ -15,10 +15,12 @@ import org.junit.jupiter.api.io.TempDir;
 import com.cym.service.CrowdSecClient;
 import com.cym.service.CrowdSecNginxConf;
 import com.cym.service.SettingService;
+import com.cym.testsupport.FakeLapi;
 import com.cym.utils.CrowdSecCredentials;
 import com.cym.utils.JsonResult;
 
 import cn.hutool.core.util.ReflectUtil;
+import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 
 /** CrowdSec 連線設定 API：只回遮罩值與來源、只存寬限秒數、不讀資料庫舊設定。 */
@@ -179,5 +181,85 @@ class CrowdSecControllerTest {
 		Map<String, Object> obj = (Map<String, Object>) result.getObj();
 		assertEquals("notConfigured", obj.get("lapi"));
 		assertEquals("notConfigured", obj.get("machine"));
+	}
+
+	private static JSONObject firstDecision(FakeLapi lapi) {
+		assertEquals(1, lapi.alertBodies.size());
+		return JSONUtil.parseArray(lapi.alertBodies.get(0)).getJSONObject(0)
+				.getJSONArray("decisions").getJSONObject(0);
+	}
+
+	private void useLapi(FakeLapi lapi, String machinePassword) {
+		env.put("CROWDSEC_LAPI_URL", lapi.url());
+		env.put("CROWDSEC_MACHINE_PASSWORD", machinePassword);
+	}
+
+	@Test
+	void addDecisionReportsInvalidMachineCredentialsWithoutLeakingPassword() throws Exception {
+		try (FakeLapi lapi = new FakeLapi("nginxwebui", PASS, KEY)) {
+			useLapi(lapi, "wrong-" + PASS);
+
+			JsonResult result = controller.addDecision("192.0.2.1", "4h", "nginxwebui:t");
+
+			assertFalse(result.isSuccess());
+			assertEquals(CrowdSecClient.MachineAuthException.CODE, result.getMsg());
+			assertFalse(String.valueOf(result.getMsg()).contains(PASS));
+			assertFalse(JSONUtil.toJsonStr(result).contains(PASS));
+		}
+	}
+
+	@Test
+	void addDecisionWithCidrWritesRangeScope() throws Exception {
+		try (FakeLapi lapi = new FakeLapi("nginxwebui", PASS, KEY)) {
+			useLapi(lapi, PASS);
+
+			assertTrue(controller.addDecision(" 198.51.100.0/24 ", "4h", "nginxwebui:t").isSuccess());
+			JSONObject d = firstDecision(lapi);
+			assertEquals("range", d.getStr("scope"));
+			assertEquals("198.51.100.0/24", d.getStr("value"));
+		}
+	}
+
+	@Test
+	void addDecisionWithIpv6CidrWritesRangeScope() throws Exception {
+		try (FakeLapi lapi = new FakeLapi("nginxwebui", PASS, KEY)) {
+			useLapi(lapi, PASS);
+
+			assertTrue(controller.addDecision("2001:db8::/32", "4h", "nginxwebui:t").isSuccess());
+			JSONObject d = firstDecision(lapi);
+			assertEquals("range", d.getStr("scope"));
+			assertEquals("2001:db8::/32", d.getStr("value"));
+		}
+	}
+
+	@Test
+	void addDecisionWithSingleHostPrefixWritesIpScopeWithoutPrefix() throws Exception {
+		try (FakeLapi lapi = new FakeLapi("nginxwebui", PASS, KEY)) {
+			useLapi(lapi, PASS);
+
+			assertTrue(controller.addDecision("192.0.2.7/32", "4h", "nginxwebui:t").isSuccess());
+			assertTrue(controller.addDecision("2001:db8::7/128", "4h", "nginxwebui:t").isSuccess());
+			assertEquals(2, lapi.alertBodies.size());
+			JSONObject v4 = JSONUtil.parseArray(lapi.alertBodies.get(0)).getJSONObject(0)
+					.getJSONArray("decisions").getJSONObject(0);
+			JSONObject v6 = JSONUtil.parseArray(lapi.alertBodies.get(1)).getJSONObject(0)
+					.getJSONArray("decisions").getJSONObject(0);
+			assertEquals("ip", v4.getStr("scope"));
+			assertEquals("192.0.2.7", v4.getStr("value"));
+			assertEquals("ip", v6.getStr("scope"));
+			assertEquals("2001:db8::7", v6.getStr("value"));
+		}
+	}
+
+	@Test
+	void addDecisionWithPlainIpStillWritesIpScope() throws Exception {
+		try (FakeLapi lapi = new FakeLapi("nginxwebui", PASS, KEY)) {
+			useLapi(lapi, PASS);
+
+			assertTrue(controller.addDecision("192.0.2.9", "4h", "nginxwebui:t").isSuccess());
+			JSONObject d = firstDecision(lapi);
+			assertEquals("ip", d.getStr("scope"));
+			assertEquals("192.0.2.9", d.getStr("value"));
+		}
 	}
 }

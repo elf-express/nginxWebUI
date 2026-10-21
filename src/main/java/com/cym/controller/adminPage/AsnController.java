@@ -167,6 +167,8 @@ public class AsnController extends BaseController {
 				int n = asnBlockService.revokeAllWebuiAsnBans();
 				asnBlockService.setProfile(next);
 				return renderSuccess(n);
+			} catch (CrowdSecClient.MachineAuthException e) {
+				return renderError(mapServiceError(e.getMessage()));
 			} catch (Exception e) {
 				logger.error("revoke on setProfile light failed", e);
 				// profile unchanged (still previous); never leak internals
