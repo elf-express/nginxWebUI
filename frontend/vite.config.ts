@@ -13,6 +13,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         basic: fileURLToPath(new URL('./src/pages/basic/main.ts', import.meta.url)),
+        crowdsec: fileURLToPath(new URL('./src/pages/crowdsec/main.ts', import.meta.url)),
       },
       output: {
         entryFileNames: '[name].js',
