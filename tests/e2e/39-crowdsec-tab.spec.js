@@ -2,6 +2,7 @@ const { test, expect } = require('@playwright/test');
 const { spawn, execFileSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const http = require('http');
 const { PROJECT_ROOT, JAR_PATH, TEST_ADMIN, TEST_PASS, TEST_CAPTCHA, login } = require('./helpers');
 
@@ -24,8 +25,10 @@ const ENV_PORT = 18082;
 const ENV_BASE = `http://localhost:${ENV_PORT}`;
 // 放在已被 .gitignore 的 test-data/ 底下；helpers.cleanTestData() 只刪 test-data/sqlite.db
 const ENV_DATA_DIR = path.join(__dirname, 'test-data', 'crowdsec').replace(/\\/g, '/');
-const BOUNCER_KEY = 'e2e-bouncer-key-0f6c3b7a91c2';
-const MACHINE_PASSWORD = 'e2e-machine-pass-4d2e88a0b5d7';
+// 每次執行隨機產生，避免把看起來像憑證的字串寫進原始碼（會被密鑰掃描標紅）
+const BOUNCER_KEY = crypto.randomBytes(16).toString('hex');
+const MACHINE_PASSWORD = crypto.randomBytes(16).toString('hex');
+const MASK = '••••••';
 
 async function openTab(page) {
   await page.goto('/adminPage/protectionCert');
@@ -36,6 +39,13 @@ async function openTab(page) {
   // 掛載時會自動測一次連線，等它回來再操作
   await expect(app.locator('.crowdsec-light')).not.toHaveAttribute('data-light', 'gray', { timeout: 15000 });
   return app;
+}
+
+async function openAsnTab(page) {
+  await page.goto('/adminPage/protectionCert');
+  await page.locator('.layui-tab-title li', { hasText: /ASN/ }).click();
+  // asnCatalog.js 的 applyUiGates() 先改橫幅再寫提示文字；提示出現代表橫幅已依 profile 回應更新過
+  await expect(page.locator('#asnProfileTip')).toHaveText(/\S/, { timeout: 15000 });
 }
 
 async function clickTest(page, app) {
@@ -124,6 +134,11 @@ test.describe('CrowdSec 分頁（共用 server，沒有 CrowdSec 變數）', () 
     expect(json.obj.lapi).toBe('notConfigured');
     await expect(app.locator('.crowdsec-light')).toHaveAttribute('data-light', 'red');
     await expect(app.locator('.crowdsec-light')).toContainText(NOT_SET);
+  });
+
+  test('ASN 分頁在未設定 CrowdSec 時顯示「請先設定 CrowdSec」橫幅（對照組）', async ({ page }) => {
+    await openAsnTab(page);
+    await expect(page.locator('#asnCrowdsecBanner')).toBeVisible();
   });
 
   test('A11y：按鈕都是 type=button 且有名稱、頁面有 h1、沒有 javascript: 連結', async ({ page }) => {
@@ -222,9 +237,9 @@ test.describe('CrowdSec 分頁（帶金鑰與管理憑證的 server）', () => {
 
   test('金鑰與管理憑證只顯示遮罩值與來源', async () => {
     const app = await openTab(page);
-    await expect(app.locator('.crowdsec-bouncer')).toContainText('••••••91c2');
+    await expect(app.locator('.crowdsec-bouncer')).toContainText(MASK + BOUNCER_KEY.slice(-4));
     await expect(app.locator('.crowdsec-bouncer')).toContainText(SOURCE_ENV);
-    await expect(app.locator('.crowdsec-machine')).toContainText('••••••b5d7');
+    await expect(app.locator('.crowdsec-machine')).toContainText(MASK + MACHINE_PASSWORD.slice(-4));
     await expect(app.locator('.crowdsec-machine')).toContainText(SOURCE_ENV);
     await expect(app.locator('.crowdsec-lapi')).toHaveText('http://127.0.0.1:9');
     const html = await page.content();
@@ -254,5 +269,7 @@ test.describe('CrowdSec 分頁（帶金鑰與管理憑證的 server）', () => {
   test('ASN 分頁不再要求先設定 CrowdSec', async () => {
     const res = await page.request.get('/adminPage/asn/profile');
     expect((await res.json()).obj.crowdsecConfigured).toBe(true);
+    await openAsnTab(page);
+    await expect(page.locator('#asnCrowdsecBanner')).toBeHidden();
   });
 });
