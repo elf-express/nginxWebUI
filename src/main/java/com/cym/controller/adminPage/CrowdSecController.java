@@ -12,15 +12,15 @@ import org.slf4j.LoggerFactory;
 
 import com.cym.model.DenyAllow;
 import com.cym.service.CrowdSecClient;
+import com.cym.service.CrowdSecNginxConf;
 import com.cym.service.DenyAllowService;
 import com.cym.service.SettingService;
 import com.cym.utils.BaseController;
+import com.cym.utils.CrowdSecCredentials;
 import com.cym.utils.JsonResult;
 import com.cym.utils.NetGuard;
 
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.http.HttpRequest;
-import cn.hutool.http.HttpResponse;
 
 @Controller
 @Mapping("/adminPage/crowdsec")
@@ -35,63 +35,82 @@ public class CrowdSecController extends BaseController {
 	@Inject
 	CrowdSecClient crowdSecClient;
 	@Inject
+	CrowdSecNginxConf crowdSecNginxConf;
+	@Inject
 	DenyAllowService denyAllowService;
 
+	CrowdSecCredentials credentials = CrowdSecCredentials.system();
+
+	/**
+	 * 連線設定：位址（唯讀）、bouncer 金鑰與 machine 密碼（只回遮罩值與來源）、寬限秒數、Lua 包裝寫的狀態檔。
+	 * 不讀資料庫的 crowdsecUrl / crowdsecApiKey。
+	 */
 	@Mapping("getConfig")
 	public JsonResult getConfig() {
-		String url = settingService.get("crowdsecUrl");
-		String apiKey = settingService.get("crowdsecApiKey");
-		Map<String, String> config = new LinkedHashMap<String, String>();
-		config.put("url", url != null ? url : "");
-		if (StrUtil.isNotBlank(apiKey) && apiKey.length() > 8) {
-			config.put("apiKey", apiKey.substring(0, 4) + "****" + apiKey.substring(apiKey.length() - 4));
-		} else {
-			config.put("apiKey", "");
-		}
-		config.put("configured", crowdSecClient.isConfigured() ? "true" : "false");
+		Map<String, Object> config = new LinkedHashMap<>();
+		String lapiUrl = credentials.lapiUrl();
+		config.put("lapiUrl", lapiUrl == null ? "" : lapiUrl);
+		config.put("lapiUrlEnv", CrowdSecCredentials.LAPI_URL_ENV);
+		config.put("bouncerKey", secretView(credentials.bouncerKey(), CrowdSecCredentials.KEY_FILE_NAME,
+				CrowdSecCredentials.KEY_ENV));
+		config.put("machineId", credentials.machineId());
+		config.put("machinePassword", secretView(credentials.machinePassword(),
+				CrowdSecCredentials.MACHINE_PASSWORD_FILE_NAME, CrowdSecCredentials.MACHINE_PASSWORD_ENV));
+		config.put("graceSeconds", crowdSecNginxConf.graceSeconds());
+		config.put("state", crowdSecNginxConf.readState());
+		config.put("configured", crowdSecClient.isConfigured());
 		return renderSuccess(config);
 	}
 
-	@Mapping("saveConfig")
-	public JsonResult saveConfig(String url, String apiKey) {
-		settingService.set("crowdsecUrl", url);
-		if (StrUtil.isNotBlank(apiKey) && apiKey.contains("****")) {
-			return renderSuccess();
-		}
-		settingService.set("crowdsecApiKey", apiKey);
-		return renderSuccess();
+	static Map<String, Object> secretView(CrowdSecCredentials.Secret secret, String fileName, String envName) {
+		Map<String, Object> view = new LinkedHashMap<>();
+		view.put("masked", secret.masked());
+		view.put("source", secret.source().name());
+		view.put("configured", secret.isPresent());
+		view.put("file", CrowdSecCredentials.secretFilePath(fileName));
+		view.put("env", envName);
+		return view;
 	}
 
-	@Mapping("status")
-	public JsonResult status() {
-		String url = settingService.get("crowdsecUrl");
-		if (StrUtil.isBlank(url)) {
-			return renderSuccess("notConfigured");
+	/** 只存寬限秒數（10–3600 的整數）；套用設定時才寫進 nginx 設定 */
+	@Mapping("saveConfig")
+	public JsonResult saveConfig(String graceSeconds) {
+		Integer seconds = parseGrace(graceSeconds);
+		if (seconds == null) {
+			return renderError(msgOr("crowdsecStr.invalidGrace", "invalid_grace"));
+		}
+		settingService.set(CrowdSecNginxConf.GRACE_KEY, String.valueOf(seconds));
+		return renderSuccess(seconds);
+	}
+
+	static Integer parseGrace(String text) {
+		if (text == null) {
+			return null;
 		}
 		try {
-			HttpResponse resp = HttpRequest.get(trimBase(url) + "/v1/health").timeout(5000).execute();
-			if (resp.isOk()) {
-				return renderSuccess("connected");
-			} else {
-				return renderSuccess("disconnected");
+			int seconds = Integer.parseInt(text.trim());
+			if (seconds < CrowdSecNginxConf.MIN_GRACE || seconds > CrowdSecNginxConf.MAX_GRACE) {
+				return null;
 			}
-		} catch (Exception e) {
-			return renderSuccess("disconnected");
+			return seconds;
+		} catch (NumberFormatException e) {
+			return null;
 		}
+	}
+
+	/** 實際測 LAPI（bouncer 金鑰）與 machine 登入 */
+	@Mapping("status")
+	public JsonResult status() {
+		return renderSuccess(crowdSecClient.probe().toMap());
 	}
 
 	@Mapping("alerts")
 	public JsonResult alerts(int limit, int page) {
-		String url = settingService.get("crowdsecUrl");
-		String apiKey = settingService.get("crowdsecApiKey");
-		if (StrUtil.isBlank(url) || StrUtil.isBlank(apiKey)) {
+		if (!crowdSecClient.isConfigured()) {
 			return renderError("notConfigured");
 		}
 		try {
-			int offset = (page - 1) * limit;
-			HttpResponse resp = HttpRequest.get(trimBase(url) + "/v1/alerts?limit=" + limit + "&offset=" + offset)
-					.header("X-Api-Key", apiKey).timeout(10000).execute();
-			return renderSuccess(resp.body());
+			return renderSuccess(crowdSecClient.listAlertsRaw(limit));
 		} catch (Exception e) {
 			return fail(e);
 		}
@@ -165,7 +184,7 @@ public class CrowdSecController extends BaseController {
 	}
 
 	/**
-	 * Whitelist a single IP via LAPI {@code type=whitelist}.
+	 * Whitelist a single IP via a decision {@code type=whitelist}.
 	 * Optional {@code syncDenyAllow=true} also inserts a site-wide DenyAllow type=allow
 	 * for false-positive recovery (does not fail the CS whitelist if DenyAllow conflicts).
 	 *
@@ -298,9 +317,13 @@ public class CrowdSecController extends BaseController {
 	}
 
 	/**
-	 * Log full exception; map known NetGuard codes to i18n; never return e.getMessage() for unknown.
+	 * Log full exception; map known codes to i18n; never return e.getMessage() for unknown.
 	 */
 	private JsonResult fail(Exception e) {
+		if (e instanceof CrowdSecClient.MachineAuthException) {
+			logger.warn("crowdsec machine login rejected");
+			return renderError(msgOr("crowdsecStr.machineInvalid", CrowdSecClient.MachineAuthException.CODE));
+		}
 		logger.error("crowdsec api failed", e);
 		if (e instanceof IllegalArgumentException) {
 			String msg = e.getMessage();
@@ -328,15 +351,5 @@ public class CrowdSecController extends BaseController {
 			// fall through
 		}
 		return fallback;
-	}
-
-	private static String trimBase(String url) {
-		if (url == null) {
-			return "";
-		}
-		while (url.endsWith("/")) {
-			url = url.substring(0, url.length() - 1);
-		}
-		return url;
 	}
 }
