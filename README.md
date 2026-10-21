@@ -134,6 +134,7 @@ docker compose up -d                      # starts only nginxwebui + postgres
 git clone --branch release https://github.com/elf-express/nginxWebUI.git && cd nginxWebUI/docker
 cp .env.example .env
 openssl rand -hex 32                       # paste the output into CROWDSEC_BOUNCER_KEY= in .env
+openssl rand -hex 32                       # paste this second output into CROWDSEC_MACHINE_PASSWORD= in .env
 docker compose --profile security up -d
 # or set COMPOSE_PROFILES=security in .env, then docker compose up -d
 ```
@@ -213,16 +214,32 @@ Only HTTP sites are protected; stream (TCP / UDP) servers are not.
   safe on restart: the stale bouncer file is deleted at startup, so the bouncer stays inactive and traffic passes
   (no need to apply first).
 - To keep the key out of the container environment and `docker inspect`, use the secrets override instead of `.env`
-  (leave `CROWDSEC_BOUNCER_KEY` empty):
+  (leave `CROWDSEC_BOUNCER_KEY` and `CROWDSEC_MACHINE_PASSWORD` empty):
 
   ```bash
   mkdir -p secrets
   openssl rand -hex 32 | tr -d '\n' > secrets/crowdsec_bouncer_key
+  openssl rand -hex 32 | tr -d '\n' > secrets/crowdsec_machine_password
   docker compose -f docker-compose.yml -f docker-compose.secrets.yml --profile security up -d
   ```
 
 - To change the key, delete the registered bouncer first, because the crowdsec container does not re-register an
   existing name: `docker exec nginxwebui-crowdsec cscli bouncers delete nginx`, then `docker compose up -d`.
+
+**The management credentials (machine account)**
+
+- The admin backend adds and removes bans and pushes ASN bans through CrowdSec's machine API (JWT), separate from
+  the bouncer key. Generate a password with `openssl rand -hex 32` and put it in `CROWDSEC_MACHINE_PASSWORD` in
+  `docker/.env`, together with the `security` profile. The account name is `CROWDSEC_MACHINE_ID` (default `nginxwebui`).
+- The crowdsec container registers (or updates) this machine on every start, so changing the password only needs
+  `docker compose up -d`. With the secrets override, put it in `secrets/crowdsec_machine_password` instead.
+- Without it CrowdSec still blocks; only the backend cannot manage bans and the ASN push stays disabled.
+- The **CrowdSec** tab on the Protection & Certs page shows both credentials masked with their source, the CrowdSec
+  address, the grace period (editable; apply the configuration afterwards), a connection test with a status light and
+  the time of the last successful check by nginx.
+- Bans added from the backend use reasons starting with `nginxwebui:`. The `profiles.yaml` baked into the crowdsec
+  image is configured to exclude them from AbuseIPDB reporting; this is verified by checking the configuration file,
+  not by sending anything to AbuseIPDB.
 
 **Things to know**
 

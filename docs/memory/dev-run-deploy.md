@@ -81,6 +81,14 @@ LAPI 8080、AppSec 7422 只在 compose 網路內，不 publish。
 > 已存在就不重註冊 —— 換金鑰或從舊 traefik bouncer 升級時，沿用舊金鑰或先
 > `docker exec nginxwebui-crowdsec cscli bouncers delete nginx` 再 `docker compose up -d`；
 > 舊的 `nginxwebui-bouncer` 容器用 `--remove-orphans` 清掉。金鑰不想進環境變數：疊 `docker-compose.secrets.yml`（見檔頭）。
+> 注意：後台管理封鎖（CrowdSec 分頁、新增／刪除封鎖、ASN 推送）用另一組 machine 帳號：密碼 `CROWDSEC_MACHINE_PASSWORD`
+>（secrets 檔 `crowdsec_machine_password` 優先），帳號 `CROWDSEC_MACHINE_ID`（預設 `nginxwebui`）。crowdsec 容器每次啟動都以官方
+> `AGENT_USERNAME`／`AGENT_PASSWORD` 機制（`cscli machines add --force`，包裝腳本 `/nwu-start.sh` 先讀 secrets 檔）註冊或更新它。
+> Java 以 `POST /v1/watchers/login` 取 JWT（快取到 expire 前 60 秒，401 重登一次），新增封鎖走 `POST /v1/alerts`、刪除走
+> `DELETE /v1/decisions`，讀名單仍用 bouncer 金鑰。所有請求帶 `User-Agent: nginxWebUI/CrowdSec`（真實 LAPI 會拒絕不是「名稱/版本」形式的 UA）。
+> 後台加的封鎖 reason 一律 `nginxwebui:` 開頭（自訂 reason 會變成 `nginxwebui:manual:<reason>`），`profiles.yaml` 已設定排除它們、不送
+> AbuseIPDB（以設定檔檢查驗證，未對 AbuseIPDB 實際送測）。
+> 寬限秒數在 CrowdSec 分頁修改（setting `crowdsec.graceSeconds`），要再套用設定才寫進 nginx。
 > 注意：舊版 `docker/.env.example` 附過未註解的 `CROWDSEC_BOUNCER_KEY=your-bouncer-key-here`，`CrowdSecCredentials` 把這個
 > 範例值當成未設定（只 WARN 一次、不含金鑰）。只跑核心服務的部署請清空 `.env` 的 `CROWDSEC_BOUNCER_KEY`；`security` 部署若真的拿它當
 > 金鑰，要 `openssl rand -hex 32` 換新金鑰，再 `cscli bouncers delete nginx` → `docker compose up -d` → 套用設定。
@@ -89,6 +97,9 @@ LAPI 8080、AppSec 7422 只在 compose 網路內，不 publish。
 > 測試：`sh docker/test/lua-smoke.sh <image>`（Lua 載入、live 模式）、`sh docker/test/crowdsec-offline.sh <crowdsec image>`
 >（無網路啟動）、`sh docker/test/crowdsec-e2e.sh <nginxwebui image> <crowdsec image>`（整個 stack，stream 模式，
 > 約 10 分鐘；用獨立 project `nwu-e376-e2e` 與自己的 volume／網段，不碰既有部署）。
+> machine 帳號：`sh docker/test/crowdsec-machine.sh <crowdsec image>`（secrets 檔／環境變數註冊、重啟、可登入）、
+> `sh docker/test/crowdsec-admin-e2e.sh <nginxwebui image> <crowdsec image>`（後台新增／刪除封鎖、ASN 撤銷、錯誤密碼，約 3 分鐘，
+> 獨立 project `nwu-e390-e2e`）。
 > 注意：Loki / Promtail / Grafana monitoring profile 已於 2026-06-30 從本專案移除。
 > 若 server 上還有 `nginxwebui_loki_data` / `nginxwebui_grafana_data` volume 是歷史遺留，可手動 `docker volume rm` 清理。
 

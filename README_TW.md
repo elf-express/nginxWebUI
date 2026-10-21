@@ -134,6 +134,7 @@ docker compose up -d                      # 只起 nginxwebui + postgres
 git clone --branch release https://github.com/elf-express/nginxWebUI.git && cd nginxWebUI/docker
 cp .env.example .env
 openssl rand -hex 32                       # 把輸出貼到 .env 的 CROWDSEC_BOUNCER_KEY=
+openssl rand -hex 32                       # 第二組輸出貼到 .env 的 CROWDSEC_MACHINE_PASSWORD=
 docker compose --profile security up -d
 # 或在 .env 設 COMPOSE_PROFILES=security 後直接 docker compose up -d
 ```
@@ -209,16 +210,30 @@ bouncer 容器。`nginxwebui-crowdsec` image 已烤入日誌解析器與 AppSec 
   503 頁。
 - 金鑰不存進資料庫，也不寫進 nginx.conf，只寫在 `<home>/crowdsec/crowdsec-nginx-bouncer.conf`（權限 600）。
 - nginx.conf 是在套用設定時產生，不是在容器啟動時。新增或更換金鑰後，要再套用一次設定（介面上的套用／重新載入），nginx 才會載入 bouncer。移除金鑰後直接重啟容器也安全：啟動時會刪掉過期的 bouncer 設定檔，bouncer 不啟用、流量照常通過（不必先套用）。
-- 不想讓金鑰出現在容器環境變數與 `docker inspect`：改用 secrets 覆寫檔（`.env` 的 `CROWDSEC_BOUNCER_KEY` 留空）：
+- 不想讓金鑰出現在容器環境變數與 `docker inspect`：改用 secrets 覆寫檔（`.env` 的 `CROWDSEC_BOUNCER_KEY` 與 `CROWDSEC_MACHINE_PASSWORD` 留空）：
 
   ```bash
   mkdir -p secrets
   openssl rand -hex 32 | tr -d '\n' > secrets/crowdsec_bouncer_key
+  openssl rand -hex 32 | tr -d '\n' > secrets/crowdsec_machine_password
   docker compose -f docker-compose.yml -f docker-compose.secrets.yml --profile security up -d
   ```
 
 - 要更換金鑰：crowdsec 容器不會重新註冊已存在的名稱，所以先刪掉已註冊的 bouncer：
   `docker exec nginxwebui-crowdsec cscli bouncers delete nginx`，再 `docker compose up -d`。
+
+**管理憑證（machine 帳號）**
+
+- 後台新增／刪除封鎖與推送 ASN 封鎖，走 CrowdSec 的 machine API（JWT），與 bouncer 金鑰分開。用
+  `openssl rand -hex 32` 產生密碼，填進 `docker/.env` 的 `CROWDSEC_MACHINE_PASSWORD`，與 `security` profile 一起開。
+  帳號名稱是 `CROWDSEC_MACHINE_ID`（預設 `nginxwebui`）。
+- crowdsec 容器每次啟動都會註冊（或更新）這個帳號，換密碼只要 `docker compose up -d`。用 secrets 覆寫檔時改放在
+  `secrets/crowdsec_machine_password`。
+- 沒填時 CrowdSec 照常封鎖，只是後台不能管理封鎖、ASN 推送維持停用。
+- 「防護與憑證」頁的 **CrowdSec** 分頁會顯示兩組憑證的遮罩值與來源、CrowdSec 位址、寬限秒數（可改，改完要套用設定）、
+  測試連線與狀態燈，以及 nginx 最後一次成功檢查的時間。
+- 後台加的封鎖 reason 一律 `nginxwebui:` 開頭。crowdsec image 烤進去的 `profiles.yaml` 已設定排除它們、不通報給
+  AbuseIPDB；這點以設定檔檢查驗證，未對 AbuseIPDB 實際送測。
 
 **注意事項**
 

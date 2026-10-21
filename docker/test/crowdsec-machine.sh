@@ -61,7 +61,7 @@ start() {
 registered() { docker exec "$1" cscli machines list -o raw 2>/dev/null | grep -q '^nginxwebui,'; }
 
 # login <container> <password> : prints the LAPI login response (empty on HTTP error).
-# LAPI answers 401 to any request whose User-Agent is not crowdsec/<version>, so the probe has to send one.
+# The real LAPI rejects (401) requests whose User-Agent is not in a "name/version" form, so the probe has to send one.
 login() {
   docker exec "$1" busybox wget -q -O - -U crowdsec/v1.8.1 --header 'Content-Type: application/json' \
     --post-data "{\"machine_id\":\"nginxwebui\",\"password\":\"$2\"}" \
