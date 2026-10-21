@@ -126,7 +126,7 @@ public class AsnBlockService {
 	}
 
 	/**
-	 * CrowdSec configured = LAPI URL + API key present ({@link CrowdSecClient#isConfigured()}).
+	 * CrowdSec configured = LAPI URL + machine password present ({@link CrowdSecClient#isConfigured()}).
 	 */
 	public boolean isCrowdSecConfigured() {
 		return crowdSecClient != null && crowdSecClient.isConfigured();
@@ -273,6 +273,12 @@ public class AsnBlockService {
 			try {
 				crowdSecClient.banRange(cidr, duration, reason);
 				ok++;
+			} catch (CrowdSecClient.MachineAuthException e) {
+				// 管理憑證無效時其餘網段也會失敗：立即停止並記錄固定錯誤碼
+				intent.setStatus(AsBlockIntent.STATUS_FAILED);
+				intent.setLastError("machine_unauthorized");
+				sqlHelper.updateAllColumnById(intent);
+				throw e;
 			} catch (Exception e) {
 				fail++;
 				// Log full LAPI detail; never store raw body in lastError (admin UI surface)

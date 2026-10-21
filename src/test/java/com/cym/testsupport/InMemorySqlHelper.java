@@ -38,6 +38,16 @@ public class InMemorySqlHelper extends SqlHelper {
 	}
 
 	@Override
+	public void updateById(Object object) {
+		insertOrUpdate(object);
+	}
+
+	@Override
+	public void updateAllColumnById(Object object) {
+		insertOrUpdate(object);
+	}
+
+	@Override
 	@SuppressWarnings("unchecked")
 	public <T> T findById(String id, Class<T> type) {
 		return (T) rows.getOrDefault(type, new LinkedHashMap<>()).get(id);

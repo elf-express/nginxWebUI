@@ -15,6 +15,7 @@ import com.cym.model.AsMeta;
 import com.cym.model.AsnRule;
 import com.cym.service.AsnBlockService;
 import com.cym.service.AsnMetaService;
+import com.cym.service.CrowdSecClient;
 import com.cym.sqlhelper.bean.Page;
 import com.cym.sqlhelper.utils.ConditionAndWrapper;
 import com.cym.utils.BaseController;
@@ -244,6 +245,8 @@ public class AsnController extends BaseController {
 			}
 			int n = asnBlockService.revokeByReasonTag(reasonTag);
 			return renderSuccess(n);
+		} catch (CrowdSecClient.MachineAuthException e) {
+			return renderError(mapServiceError(e.getMessage()));
 		} catch (IllegalArgumentException e) {
 			return renderError(mapServiceError(e.getMessage()));
 		} catch (Exception e) {
@@ -345,6 +348,8 @@ public class AsnController extends BaseController {
 			return msgOr("asnStr.invalidReason", code);
 		case "reason_tag_required":
 			return msgOr("asnStr.reasonTagRequired", code);
+		case CrowdSecClient.MachineAuthException.CODE:
+			return msgOr("crowdsecStr.machineInvalid", code);
 		case "crowdsec_error":
 			return msgOr("crowdsecStr.error", code);
 		default:
