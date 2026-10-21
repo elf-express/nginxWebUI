@@ -3,12 +3,15 @@
 # 官方腳本在本機 LAPI 模式下看到兩者都有值時會執行
 #   cscli machines add "$AGENT_USERNAME" --password "$AGENT_PASSWORD" -f /dev/null --force
 # 每次啟動都重設密碼，可重複執行。
-# 密碼來源：secrets 檔 /run/secrets/crowdsec_machine_password（去掉空白後非空才採用）→ 環境變數 AGENT_PASSWORD。
+# 密碼來源：secrets 檔 /run/secrets/crowdsec_machine_password（去掉頭尾空白後非空才採用）→ 環境變數 AGENT_PASSWORD。
 set -e
 
 secret=/run/secrets/crowdsec_machine_password
 if [ -f "$secret" ]; then
-    from_file="$(tr -d ' \t\r\n' < "$secret")"
+    # 只去頭尾空白（含 CR/LF），與 Java CrowdSecCredentials 的 trim() 一致；密碼中間的空白保留
+    from_file="$(cat "$secret")"
+    from_file="${from_file#"${from_file%%[![:space:]]*}"}"
+    from_file="${from_file%"${from_file##*[![:space:]]}"}"
     if [ -n "$from_file" ]; then
         AGENT_PASSWORD="$from_file"
         export AGENT_PASSWORD

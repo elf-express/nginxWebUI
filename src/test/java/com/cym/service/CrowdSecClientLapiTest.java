@@ -207,6 +207,48 @@ class CrowdSecClientLapiTest {
 	}
 
 	@Test
+	void loginAndJwtRequestsCarryNginxWebuiUserAgent() {
+		lapi.decisionsJson = "[{\"id\":11,\"scenario\":\"nginxwebui:as-ban:AS1\"}]";
+		CrowdSecClient c = client();
+
+		c.banIp("192.0.2.1", "4h", "nginxwebui:t");
+		c.listAlertsRaw(5);
+		c.deleteDecision("11");
+		c.deleteDecisionsByReasonEquals("nginxwebui:t");
+		c.listDecisionsRaw(10, 0);
+		c.deleteDecisionsByReasonPrefix("nginxwebui:as-ban:AS");
+		c.probe();
+
+		assertFalse(lapi.loginUserAgents.isEmpty());
+		assertFalse(lapi.userAgents.isEmpty());
+		for (String ua : lapi.userAgents) {
+			assertTrue(ua.matches("^nginxWebUI/\\S+"), "User-Agent: " + ua);
+			assertTrue(FakeLapi.VALID_USER_AGENT.matcher(ua).matches(), "User-Agent: " + ua);
+		}
+	}
+
+	@Test
+	void fakeLapiLoginRejectsUserAgentWithoutNameAndVersion() throws Exception {
+		for (String ua : new String[] { "Hutool", "Wget", "crowdsecfoo",
+				"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/75.0.3770.142 Safari/537.36 Hutool" }) {
+			try (var resp = cn.hutool.http.HttpRequest.post(lapi.url() + "/v1/watchers/login")
+					.header("User-Agent", ua)
+					.header("Content-Type", "application/json")
+					.body("{\"machine_id\":\"" + MACHINE + "\",\"password\":\"" + PASSWORD + "\"}")
+					.execute()) {
+				assertEquals(401, resp.getStatus(), ua);
+			}
+		}
+		try (var resp = cn.hutool.http.HttpRequest.post(lapi.url() + "/v1/watchers/login")
+				.header("User-Agent", "crowdsec/v1.8.1")
+				.header("Content-Type", "application/json")
+				.body("{\"machine_id\":\"" + MACHINE + "\",\"password\":\"" + PASSWORD + "\"}")
+				.execute()) {
+			assertEquals(200, resp.getStatus());
+		}
+	}
+
+	@Test
 	void listDecisionsNeedsBouncerKey() {
 		env.remove("CROWDSEC_BOUNCER_KEY");
 

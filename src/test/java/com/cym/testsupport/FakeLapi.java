@@ -7,6 +7,7 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -21,6 +22,7 @@ import cn.hutool.json.JSONUtil;
  * 測試用的假 CrowdSec LAPI（JDK HttpServer，綁 127.0.0.1 隨機埠）。
  * 端點與驗證照 LAPI swagger：watchers/login 回 token＋expire；alerts 與 DELETE decisions 要 Bearer JWT；
  * GET decisions 要 X-Api-Key。
+ * 真實 LAPI 的 watchers/login 會拒絕 User-Agent 不是「名稱/版本」形式的請求（回 401），這裡照樣模擬。
  */
 public class FakeLapi implements AutoCloseable {
 	private final String machineId;
@@ -29,6 +31,13 @@ public class FakeLapi implements AutoCloseable {
 	private final HttpServer server;
 	private final Set<String> validTokens = ConcurrentHashMap.newKeySet();
 
+	/** 真實 LAPI 接受的 User-Agent 形式：整串為「名稱/版本」，不含空白（hutool 預設的 Mozilla/5.0 (...) Hutool 也會被拒） */
+	public static final Pattern VALID_USER_AGENT = Pattern.compile("^[A-Za-z0-9._-]+/\\S+");
+
+	/** 每個請求收到的 User-Agent（含登入與其他端點，依到達順序） */
+	public final List<String> userAgents = new CopyOnWriteArrayList<>();
+	/** watchers/login 請求收到的 User-Agent */
+	public final List<String> loginUserAgents = new CopyOnWriteArrayList<>();
 	public final AtomicInteger loginAttempts = new AtomicInteger();
 	public final AtomicInteger logins = new AtomicInteger();
 	public final List<String> alertBodies = new CopyOnWriteArrayList<>();
@@ -48,9 +57,18 @@ public class FakeLapi implements AutoCloseable {
 		this.password = password;
 		this.bouncerKey = bouncerKey;
 		server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-		server.createContext("/v1/watchers/login", this::login);
-		server.createContext("/v1/alerts", this::alerts);
-		server.createContext("/v1/decisions", this::decisions);
+		server.createContext("/v1/watchers/login", ex -> {
+			recordUserAgent(ex, loginUserAgents);
+			login(ex);
+		});
+		server.createContext("/v1/alerts", ex -> {
+			recordUserAgent(ex, null);
+			alerts(ex);
+		});
+		server.createContext("/v1/decisions", ex -> {
+			recordUserAgent(ex, null);
+			decisions(ex);
+		});
 		server.start();
 	}
 
@@ -68,9 +86,23 @@ public class FakeLapi implements AutoCloseable {
 		server.stop(0);
 	}
 
+	private void recordUserAgent(HttpExchange ex, List<String> also) {
+		String ua = ex.getRequestHeaders().getFirst("User-Agent");
+		String value = ua == null ? "" : ua;
+		userAgents.add(value);
+		if (also != null) {
+			also.add(value);
+		}
+	}
+
 	private void login(HttpExchange ex) throws IOException {
 		loginAttempts.incrementAndGet();
 		String text = read(ex);
+		String ua = ex.getRequestHeaders().getFirst("User-Agent");
+		if (ua == null || !VALID_USER_AGENT.matcher(ua).matches()) {
+			send(ex, 401, "{\"code\":401,\"message\":\"incorrect Username or Password\"}");
+			return;
+		}
 		JSONObject body = JSONUtil.isTypeJSONObject(text) ? JSONUtil.parseObj(text) : new JSONObject();
 		if (!"POST".equals(ex.getRequestMethod()) || !machineId.equals(body.getStr("machine_id"))
 				|| !password.equals(body.getStr("password"))) {

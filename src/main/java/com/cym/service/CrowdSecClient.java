@@ -50,6 +50,11 @@ public class CrowdSecClient {
 	public static final String DEFAULT_REASON = "nginxwebui:manual";
 	/** reason 不是 nginxwebui: 開頭時，scenario 加上的前綴 */
 	public static final String CUSTOM_REASON_PREFIX = "nginxwebui:manual:";
+	/**
+	 * 對 LAPI 所有請求帶的 User-Agent。LAPI 的 /v1/watchers/login 會拒絕不是「名稱/版本」形式的 User-Agent（回 401），
+	 * hutool 預設的 User-Agent 不符；命名沿用倉庫其他外部請求的 {@code nginxWebUI/<用途>}。
+	 */
+	public static final String USER_AGENT = "nginxWebUI/CrowdSec";
 	/** JWT 在 expire 前多久就重新登入 */
 	static final long TOKEN_RENEW_BEFORE_MS = 60_000;
 	/** 登入回應的 expire 無法解析時，token 視為有效的時間 */
@@ -280,6 +285,7 @@ public class CrowdSecClient {
 			body.set("machine_id", credentials.machineId());
 			body.set("password", credentials.machinePassword().value());
 			try (HttpResponse resp = HttpRequest.post(base() + "/v1/watchers/login")
+					.header("User-Agent", USER_AGENT)
 					.header("Content-Type", "application/json")
 					.body(body.toString())
 					.timeout(timeoutMs)
@@ -366,6 +372,7 @@ public class CrowdSecClient {
 		validatePostDecisionInputs(duration, scope, value);
 		String jsonBody = buildAlertBody(duration, reason, scope, value, type, Instant.ofEpochMilli(clock.getAsLong()));
 		try (HttpResponse resp = sendWithJwt(t -> HttpRequest.post(base() + "/v1/alerts")
+				.header("User-Agent", USER_AGENT)
 				.bearerAuth(t)
 				.header("Content-Type", "application/json")
 				.body(jsonBody)
@@ -400,7 +407,10 @@ public class CrowdSecClient {
 		requireWebuiReason(reason);
 		ensureConfigured();
 		String url = base() + "/v1/decisions?scenario=" + URLEncoder.encode(reason.trim(), StandardCharsets.UTF_8);
-		try (HttpResponse resp = sendWithJwt(t -> HttpRequest.delete(url).bearerAuth(t).timeout(DEFAULT_TIMEOUT_MS))) {
+		try (HttpResponse resp = sendWithJwt(t -> HttpRequest.delete(url)
+				.header("User-Agent", USER_AGENT)
+				.bearerAuth(t)
+				.timeout(DEFAULT_TIMEOUT_MS))) {
 			if (!resp.isOk()) {
 				throw new IllegalStateException("crowdsec deleteDecisions HTTP " + resp.getStatus() + " " + resp.body());
 			}
@@ -418,6 +428,7 @@ public class CrowdSecClient {
 		}
 		String id = decisionId.trim();
 		try (HttpResponse resp = sendWithJwt(t -> HttpRequest.delete(base() + "/v1/decisions/" + id)
+				.header("User-Agent", USER_AGENT)
 				.bearerAuth(t)
 				.timeout(DEFAULT_TIMEOUT_MS))) {
 			if (!resp.isOk()) {
@@ -449,6 +460,7 @@ public class CrowdSecClient {
 			url += "&scenarios_containing=" + URLEncoder.encode(scenariosContaining, StandardCharsets.UTF_8);
 		}
 		try (HttpResponse resp = HttpRequest.get(url)
+				.header("User-Agent", USER_AGENT)
 				.header("X-Api-Key", credentials.bouncerKey().value())
 				.timeout(DEFAULT_TIMEOUT_MS)
 				.execute()) {
@@ -464,6 +476,7 @@ public class CrowdSecClient {
 		ensureConfigured();
 		int size = limit <= 0 ? LIST_PAGE_SIZE : limit;
 		try (HttpResponse resp = sendWithJwt(t -> HttpRequest.get(base() + "/v1/alerts?limit=" + size)
+				.header("User-Agent", USER_AGENT)
 				.bearerAuth(t)
 				.timeout(DEFAULT_TIMEOUT_MS))) {
 			if (!resp.isOk()) {
@@ -523,6 +536,7 @@ public class CrowdSecClient {
 		String key = NOT_CONFIGURED;
 		if (hasKey) {
 			Integer status = statusOf(HttpRequest.get(lapi + "/v1/decisions?ip=127.0.0.1")
+					.header("User-Agent", USER_AGENT)
 					.header("X-Api-Key", credentials.bouncerKey().value()));
 			if (status == null) {
 				key = UNREACHABLE;
@@ -546,7 +560,7 @@ public class CrowdSecClient {
 			}
 		}
 		if (!hasKey && !hasMachine) {
-			reached = statusOf(HttpRequest.get(lapi + "/v1/decisions")) != null;
+			reached = statusOf(HttpRequest.get(lapi + "/v1/decisions").header("User-Agent", USER_AGENT)) != null;
 		}
 		return new Probe(reached ? OK : UNREACHABLE, key, machine);
 	}
