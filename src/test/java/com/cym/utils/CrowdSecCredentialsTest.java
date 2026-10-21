@@ -138,4 +138,68 @@ class CrowdSecCredentialsTest {
 		env.put("CROWDSEC_RESOLVER", "10.0.0.2");
 		assertEquals("10.0.0.2", creds().resolver());
 	}
+
+	@Test
+	void machinePasswordSecretFileWinsOverEnv() throws Exception {
+		Files.writeString(secrets.resolve("crowdsec_machine_password"), "pass-from-file\n");
+		env.put("CROWDSEC_MACHINE_PASSWORD", "pass-from-env");
+
+		CrowdSecCredentials.Secret secret = creds().machinePassword();
+
+		assertEquals("pass-from-file", secret.value());
+		assertEquals(CrowdSecCredentials.Source.SECRETS_FILE, secret.source());
+	}
+
+	@Test
+	void machinePasswordFromEnv() {
+		env.put("CROWDSEC_MACHINE_PASSWORD", " pass-from-env ");
+
+		CrowdSecCredentials.Secret secret = creds().machinePassword();
+
+		assertEquals("pass-from-env", secret.value());
+		assertEquals(CrowdSecCredentials.Source.ENV, secret.source());
+	}
+
+	@Test
+	void blankMachinePasswordFileFallsBackToEnv() throws Exception {
+		Files.writeString(secrets.resolve("crowdsec_machine_password"), "\n  \n");
+		env.put("CROWDSEC_MACHINE_PASSWORD", "pass-from-env");
+
+		assertEquals(CrowdSecCredentials.Source.ENV, creds().machinePassword().source());
+	}
+
+	@Test
+	void machinePasswordMissingIsNone() {
+		CrowdSecCredentials.Secret secret = creds().machinePassword();
+
+		assertFalse(secret.isPresent());
+		assertEquals(CrowdSecCredentials.Source.NONE, secret.source());
+		assertEquals("", secret.masked());
+	}
+
+	@Test
+	void machinePasswordIsIndependentOfBouncerKey() {
+		env.put("CROWDSEC_BOUNCER_KEY", "bouncer-only");
+		assertFalse(creds().machinePassword().isPresent());
+
+		env.clear();
+		env.put("CROWDSEC_MACHINE_PASSWORD", "machine-only");
+		assertFalse(creds().bouncerKey().isPresent());
+		assertTrue(creds().machinePassword().isPresent());
+	}
+
+	@Test
+	void machineIdDefaultsAndTrims() {
+		assertEquals("nginxwebui", creds().machineId());
+		env.put("CROWDSEC_MACHINE_ID", " webui-admin ");
+		assertEquals("webui-admin", creds().machineId());
+		env.put("CROWDSEC_MACHINE_ID", "   ");
+		assertEquals("nginxwebui", creds().machineId());
+	}
+
+	@Test
+	void secretFilePathPointsToRunSecrets() {
+		assertEquals("/run/secrets/crowdsec_machine_password", CrowdSecCredentials.secretFilePath("crowdsec_machine_password"));
+		assertEquals("/run/secrets/crowdsec_bouncer_key", CrowdSecCredentials.secretFilePath(CrowdSecCredentials.KEY_FILE_NAME));
+	}
 }
