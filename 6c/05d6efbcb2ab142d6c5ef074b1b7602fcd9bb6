@@ -1,0 +1,34 @@
+src/test/java/com/cym/testsupport/FakeLapi.java
+  s_960b3b5d07c9b0::t_885254ada3976a 43-44
+  s_960b3b5d07c9b0::t_a1c0f93ee29ac6 122-124
+src/test/java/com/cym/service/CrowdSecClientLapiTest.java
+  s_960b3b5d07c9b0::t_eb8c923f5811bd 143-171
+src/main/java/com/cym/service/CrowdSecClient.java
+  s_960b3b5d07c9b0::t_abab6a4c12544d 479
+  s_960b3b5d07c9b0::t_a8cf90a6c8161b 480-481
+  s_0ec1151c0ade5e::t_03a41fe8e91fd5 10,12,15,485-487
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6c05d6efbcb2ab142d6c5ef074b1b7602fcd9bb6",
+  "prompts": {},
+  "sessions": {
+    "s_0ec1151c0ade5e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a1a3073d079657c49",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    },
+    "s_960b3b5d07c9b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d4dab6de-0779-466b-b936-0b2a3db688cd",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
