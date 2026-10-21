@@ -48,7 +48,14 @@ export function statusKeys(probe: Probe | null): string[] {
   } else if (probe.machine === 'notConfigured') {
     keys.push('crowdsecStr.machineNotConfigured')
   }
-  return keys.length > 0 ? keys : ['crowdsecStr.statusOk']
+  if ((probe.bouncerKey === 'unreachable' || probe.machine === 'unreachable') && !keys.includes('crowdsecStr.statusUnreachable')) {
+    keys.push('crowdsecStr.statusUnreachable')
+  }
+  if (keys.length > 0) {
+    return keys
+  }
+  // 燈不是綠時不可顯示「正常」
+  return lightOf(probe) === 'green' ? ['crowdsecStr.statusOk'] : ['crowdsecStr.statusUnreachable']
 }
 
 export function sourceKey(source: SecretSource): string {

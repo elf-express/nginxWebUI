@@ -42,6 +42,40 @@ describe('statusKeys', () => {
   })
 })
 
+describe('statusKeys 與狀態燈一致', () => {
+  it('lapi 正常但單一憑證檢測連不到：橘燈、顯示連不到、不顯示正常', () => {
+    for (const probe of [
+      { lapi: 'ok', bouncerKey: 'ok', machine: 'unreachable' },
+      { lapi: 'ok', bouncerKey: 'unreachable', machine: 'ok' },
+    ] as const) {
+      expect(lightOf(probe)).toBe('orange')
+      const keys = statusKeys(probe)
+      expect(keys).toContain('crowdsecStr.statusUnreachable')
+      expect(keys).not.toContain('crowdsecStr.statusOk')
+    }
+  })
+
+  it('兩組憑證都連不到時 statusUnreachable 只出現一次', () => {
+    expect(statusKeys({ lapi: 'ok', bouncerKey: 'unreachable', machine: 'unreachable' })).toEqual([
+      'crowdsecStr.statusUnreachable',
+    ])
+  })
+
+  it('燈不是綠時絕不回 statusOk', () => {
+    const results = ['ok', 'invalid', 'unreachable', 'notConfigured', 'unchecked'] as const
+    for (const lapi of results) {
+      for (const bouncerKey of results) {
+        for (const machine of results) {
+          const probe = { lapi, bouncerKey, machine }
+          if (lightOf(probe) !== 'green') {
+            expect(statusKeys(probe)).not.toContain('crowdsecStr.statusOk')
+          }
+        }
+      }
+    }
+  })
+})
+
 describe('parseGrace', () => {
   it('接受 10 到 3600 的整數', () => {
     expect(parseGrace(10)).toBe(10)
