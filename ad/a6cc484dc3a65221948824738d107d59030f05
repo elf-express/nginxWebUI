@@ -1,0 +1,33 @@
+src/main/resources/messages_en_US.properties
+  s_960b3b5d07c9b0::t_3471d7c0dba9ad 859
+src/test/java/com/cym/service/AsnBlockServicePushTest.java
+  s_960b3b5d07c9b0::t_3eaf545b81f2a7 1-126
+src/main/resources/messages.properties
+  s_960b3b5d07c9b0::t_ab9868480946bf 859
+src/test/java/com/cym/controller/adminPage/AsnControllerTest.java
+  s_960b3b5d07c9b0::t_3c4b67cef84ba7 1-56
+src/main/resources/messages_zh_TW.properties
+  s_960b3b5d07c9b0::t_9c89bc0dee22e4 859
+src/main/java/com/cym/controller/adminPage/AsnController.java
+  s_960b3b5d07c9b0::t_df4cf46fad993c 18,248-249,351-352
+src/main/java/com/cym/service/AsnBlockService.java
+  s_960b3b5d07c9b0::t_0056b3a82ee90c 129,276-281
+src/test/java/com/cym/testsupport/InMemorySqlHelper.java
+  s_960b3b5d07c9b0::t_51225c35d7af72 40-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ada6cc484dc3a65221948824738d107d59030f05",
+  "prompts": {},
+  "sessions": {
+    "s_960b3b5d07c9b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d4dab6de-0779-466b-b936-0b2a3db688cd",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
