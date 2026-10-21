@@ -1,0 +1,33 @@
+frontend/src/pages/crowdsec/main.ts
+  s_960b3b5d07c9b0::t_5135569421b95d 1-11
+frontend/src/pages/crowdsec/CrowdSecTab.vue
+  s_960b3b5d07c9b0::t_20cf439e576e1e 1-180
+frontend/src/pages/crowdsec/store.ts
+  s_960b3b5d07c9b0::t_0b0c26c02aa7b9 1-67
+frontend/vite.config.ts
+  s_960b3b5d07c9b0::t_47bfdaa5f853b0 16
+frontend/src/pages/crowdsec/view.ts
+  s_960b3b5d07c9b0::t_d285536190d967 1-81
+frontend/src/pages/crowdsec/store.test.ts
+  s_960b3b5d07c9b0::t_dc19976e7f951f 1-76
+frontend/src/pages/crowdsec/view.test.ts
+  s_960b3b5d07c9b0::t_125d901607aef2 1-78
+src/main/resources/WEB-INF/view/adminPage/protectionCert/index.html
+  s_960b3b5d07c9b0::t_4dfb603e01fd00 5,87,541-545,913
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a4c32b5ffe74fdcb90476901a63eeba02b959643",
+  "prompts": {},
+  "sessions": {
+    "s_960b3b5d07c9b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d4dab6de-0779-466b-b936-0b2a3db688cd",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
