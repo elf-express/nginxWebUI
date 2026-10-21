@@ -1,0 +1,31 @@
+docker/.env.example
+  s_960b3b5d07c9b0::t_12f00c10cbec17 35-43
+docker/crowdsec/Dockerfile
+  s_960b3b5d07c9b0::t_c0a3eb5c4e29af 42-47
+docker/crowdsec/nwu-start.sh
+  s_960b3b5d07c9b0::t_e4061bbd19b12d 1-24
+docker/crowdsec/profiles.yaml
+  s_960b3b5d07c9b0::t_7ba93762cc0370 1-3,6,16
+docker/docker-compose.secrets.yml
+  s_960b3b5d07c9b0::t_2bc803e1f190ae 1-2,7,10-12,15,20,23,28,32,37-38
+docker/docker-compose.yml
+  s_960b3b5d07c9b0::t_e1dc2a8c9ebe92 25-29,87-90
+docker/test/crowdsec-machine.sh
+  s_960b3b5d07c9b0::t_8bf00f9488dcaa 1-148
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "236f43afd3ac0fdfdede1f6c265ca8e3bf68fad2",
+  "prompts": {},
+  "sessions": {
+    "s_960b3b5d07c9b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d4dab6de-0779-466b-b936-0b2a3db688cd",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
