@@ -43,7 +43,6 @@ IP_ENV=$SUBNET.61     # check 2
 IP_WAF=$SUBNET.62     # check 3
 IP_OTHER=$SUBNET.63   # check 4 control, check 5, check 6
 ADMIN=admin
-ADMIN_PASS=E2eAdmin1234
 CAPTCHA=1234
 HOME_DIR=/home/nginxWebUI
 NGINX_CONF=$HOME_DIR/nginx.conf
@@ -85,6 +84,10 @@ random_key() {
   fi
 }
 
+# Throwaway credentials, generated per run so no password lives in the repository.
+ADMIN_PASS="Aa1$(random_key | cut -c1-24)"
+PG_PASS="$(random_key)"
+
 write_env() {
   cat > "$WORK/e2e.env" <<EOF
 NGINX_WEBUI_VERSION=e2e
@@ -109,13 +112,15 @@ services:
         --spring.database.type=postgresql
         --spring.datasource.url=jdbc:postgresql://postgres:5432/nginxwebui
         --spring.datasource.username=nginxwebui
-        --spring.datasource.password=nginxwebui123
+        --spring.datasource.password=$PG_PASS
         --init.admin=$ADMIN
         --init.pass=$ADMIN_PASS
         --project.testCaptcha=$CAPTCHA
         --project.skipSeedFetch=true
   postgres:
     container_name: $PROJECT-postgres
+    environment:
+      - POSTGRES_PASSWORD=$PG_PASS
   crowdsec:
     image: \${E2E_CS_IMAGE}
     container_name: $CS
