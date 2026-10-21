@@ -3,3 +3,4 @@
 !Dockerfile
 !entrypoint.sh
 !scripts/
+!docker/lua/

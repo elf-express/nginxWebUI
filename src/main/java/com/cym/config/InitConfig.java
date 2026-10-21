@@ -32,6 +32,7 @@ import com.cym.model.Template;
 import com.cym.service.AsnBlockService;
 import com.cym.service.BasicService;
 import com.cym.service.ConfService;
+import com.cym.service.CrowdSecNginxConf;
 import com.cym.service.DenyAllowService;
 import com.cym.service.GeoipService;
 import com.cym.service.NginxDocService;
@@ -92,6 +93,8 @@ public class InitConfig {
 	GeoipService geoipService;
 	@Inject
 	NginxDocService nginxDocService;
+	@Inject
+	CrowdSecNginxConf crowdSecNginxConf;
 	@Inject
 	DataSourceEmbed dataSourceEmbed;
 	@Inject("${project.beanPackage}")
@@ -242,6 +245,14 @@ public class InitConfig {
 			migrateTemplateNameCn();
 			settingService.set("templateNameCnMigrated", "1");
 			logger.info("Migration: appended Chinese annotation to template names");
+		}
+
+		// 遷移：移除壞掉的舊「CrowdSec Auth Request」模板（auth_request 指向不存在的 /crowdsec-check）；
+		// 放在上面兩個改名遷移之後，新舊名稱都能處理
+		if (!"1".equals(settingService.get("crowdsecAuthRequestRemoved20261021"))) {
+			int removedTemplates = LegacyCrowdSecTemplateMigration.run(sqlHelper);
+			settingService.set("crowdsecAuthRequestRemoved20261021", "1");
+			logger.info("Migration: removed {} legacy CrowdSec Auth Request template(s)", removedTemplates);
 		}
 
 		// 遷移：既有庫補 stream 連線限制模板（參數不動舊四個 rateLimit；zone 名 s_conn_perip 與 http 隔離）
@@ -403,6 +414,13 @@ public class InitConfig {
 		if (settingService.get("asn.nginxMapEnabled") == null) {
 			settingService.set("asn.nginxMapEnabled", "false");
 		}
+		// CrowdSec Lua bouncer: seconds nginx waits for CrowdSec before showing the 503 page
+		if (settingService.get(CrowdSecNginxConf.GRACE_KEY) == null) {
+			settingService.set(CrowdSecNginxConf.GRACE_KEY, String.valueOf(CrowdSecNginxConf.DEFAULT_GRACE));
+		}
+		// CrowdSec Lua bouncer: key removed but nginx.conf still includes the bouncer conf -> drop the stale file
+		// before nginx is started below, so the Lua wrapper sees "not configured" and traffic passes
+		crowdSecNginxConf.removeStaleBouncerConf();
 
 		// 遷移：既有 enable=true 的 AsnRule → AsBlockIntent status=active（不自動推 CrowdSec）
 		if (!"1".equals(settingService.get("asnRuleToIntent20260812"))) {
@@ -695,12 +713,6 @@ public class InitConfig {
 		addTemplate("ASN Log Info (ASN 記錄資訊)", "", "geoip", new String[][] {
 			{ "add_header", "X-ASN $geoip2_data_asn" },
 			{ "add_header", "X-ASN-Org $geoip2_data_asn_org" },
-		});
-
-		// ── CrowdSec Bouncer ──
-		addTemplate("CrowdSec Auth Request (CrowdSec 認證請求)", "", "crowdsec", new String[][] {
-			{ "auth_request", "/crowdsec-check" },
-			{ "auth_request_set", "$auth_status $upstream_status" },
 		});
 
 		// 其餘開源模組社群範本（與 seedModuleCommunityTemplatesIfMissing 同源）

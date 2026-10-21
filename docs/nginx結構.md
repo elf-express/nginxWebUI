@@ -273,3 +273,42 @@ stream 無 HTTP rewrite 的 `if`。常見替代:
 | `server2` | stream **UDP** `server { }` |
 
 非法組合（如 HTTP `if` 勾 `stream`）由 `TemplateDefUtils` 禁用；細節見 `CLAUDE.md`「Parameter templates」。
+
+---
+
+## 十二、nginxWebUI 產生的 http 層 include 檔
+
+白名單、國家規則與 CrowdSec bouncer 的內容都寫在 `conf.d/` 的 include 檔，nginx.conf 的 `http { }` 只留 `include` 行，
+所以 nginx.conf 裡看不到 IP 清單與國家代碼。順序：`allowlist_http.conf` 一定在 `geo_http.conf` 之前（後者引用
+`$nwu_allowlist`）。
+
+| 檔案 | 何時產生 | 內容 |
+|---|---|---|
+| `conf.d/allowlist_http.conf` | **每次都產生**（白名單是空的也一樣） | `geo $nwu_allowlist { default 0; <IP 或 CIDR> 1; … }` |
+| `conf.d/geo_http.conf` | 有啟用且有國家的國家規則時 | 每條規則兩個 `map`：`$geo_block_<id>`（只看國家）與 `$geo_deny_<id>`（白名單 IP 一律 0） |
+| `conf.d/crowdsec_http.conf` | 有 bouncer 金鑰、`CROWDSEC_LAPI_URL`、ndk 與 lua 模組、image 內的 `nwu_crowdsec.lua` 都具備時 | Lua 路徑、`lua_shared_dict`、`resolver`（http 參數沒有時才加）、`init_by_lua_block`／`init_worker_by_lua_block`／`access_by_lua_block` |
+
+另有既有的 `conf.d/deny_http.conf`（`allow` / `deny` 中央黑白名單），與本節無關、行為不變。
+
+**變數**
+
+| 變數 | 宣告位置 | 值 | 誰在用 |
+|---|---|---|---|
+| `$nwu_allowlist` | `allowlist_http.conf`（`geo`） | `1` = 白名單 IP，其餘 `0` | `geo_http.conf` 的 `map`、Lua bouncer（`ngx.var.nwu_allowlist`） |
+| `$geo_block_<id>` | `geo_http.conf`（`map $geoip2_data_country_code`） | `1` = 國家判定封鎖 | 只給 `$geo_deny_<id>` 用 |
+| `$geo_deny_<id>` | `geo_http.conf`（`map "$nwu_allowlist:$geo_block_<id>"`） | 只有 `"0:1"`（非白名單且國家封鎖）是 `1` | server 內的 `if ($geo_deny_<id> = 1) { return 403; }` |
+
+`<id>` 是 `global`（全域規則）或 server id 去掉 `-` 後的前 12 碼。
+
+**CrowdSec bouncer 的請求階段**
+
+`access_by_lua_block` 寫在 http 層，所有 HTTP server／location 繼承，依序：`$nwu_allowlist = 1` 放行 →
+CrowdSec 連不到超過寬限秒數回 503 → IP decision 回 444 → AppSec 擋下回 403。
+
+- **access 階段比 rewrite 階段晚。** 國家封鎖的 `if … return 403` 在 rewrite 階段先發生；只靠 `return` 回應的
+  location（例如轉址）在 access 階段前就結束，bouncer 不會看到這些請求。
+- **`access_by_lua_*` 不跨層合併。** server 或 location 自己寫了 `access_by_lua_*`，該範圍就不再繼承 http 層的 bouncer；
+  要保留防護，自己的區塊開頭呼叫 `require("nwu_crowdsec").access()`。
+- **只有 http。** image 只裝 http 的 Lua 模組，`*_by_lua*` 不能用在 stream；TCP／UDP 不受 CrowdSec 保護，也不要把這些指令放進 stream 模板。
+- **白名單的重複與主機位元。** 同一個 IP 同時列 `10.0.0.1` 與 `10.0.0.1/32`，或寫成 `203.0.113.5/24` 這種帶主機位元的
+  CIDR，`nginx -t` 只會 `[warn]`（`duplicate network` / `low address bits … are meaningless`），不會失敗。

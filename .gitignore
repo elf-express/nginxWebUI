@@ -83,3 +83,6 @@ test-home-param/
 ### Orca worktree (added 2026-10-08) ###
 # Orca 的「工作樹位置」設為 .ocrca\worktrees,worktree 開在 repo 內。docker build context 是白名單(.dockerignore),不受影響。
 /.ocrca/
+
+# CrowdSec bouncer 金鑰檔（docker-compose.secrets.yml 用）
+docker/secrets/

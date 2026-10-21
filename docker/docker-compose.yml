@@ -16,6 +16,12 @@ services:
       - nginxwebui_geoip:/etc/nginx/geoip  # MMDB ~80 MB，restart 不重抓；crontab 每週三六自動更新
     environment:
       JVM_XMX: 256m
+      # CrowdSec（profile security）：nginx 內的 Lua bouncer 直接問 crowdsec 容器，不經第三方 bouncer。
+      # CROWDSEC_BOUNCER_KEY 留空 = 不載入 bouncer；有值時務必同時啟用 security profile（見 .env.example）。
+      # 金鑰也可改走 secrets 檔（docker-compose.secrets.yml），nginxWebUI 優先讀 /run/secrets/crowdsec_bouncer_key。
+      CROWDSEC_LAPI_URL: http://crowdsec:8080
+      CROWDSEC_APPSEC_URL: http://crowdsec:7422
+      CROWDSEC_BOUNCER_KEY: ${CROWDSEC_BOUNCER_KEY:-}
       # 首次啟動會在 web UI 引導設定管理員密碼（原作者設計）。
       # 自動化部署需跳過精靈時，在 .env 設 INIT_ADMIN/INIT_PASS 並把
       #   --init.admin=${INIT_ADMIN} --init.pass=${INIT_PASS}
@@ -64,14 +70,15 @@ services:
     container_name: nginxwebui-crowdsec
     restart: unless-stopped
     profiles: ["security"]
-    # config（acquis/profiles/abuseipdb）已烤進自建 image（見 docker/crowdsec/Dockerfile），
-    # 不再 bind mount，升版跟著 image 走。runtime secret 仍走 .env。
+    # config（acquis/profiles/abuseipdb）與 hub 內容（nginx 日誌解析、AppSec WAF 規則）都烤進自建 image
+    # （見 docker/crowdsec/Dockerfile），不再 bind mount，升版跟著 image 走。runtime secret 仍走 .env。
+    # LAPI 8080、AppSec 7422 只在 compose 網路內，不 publish。
     volumes:
       - nginxwebui_log:/var/log/nginx:ro
       - crowdsec_data:/var/lib/crowdsec/data
     environment:
-      - COLLECTIONS=crowdsecurity/nginx crowdsecurity/http-cve crowdsecurity/base-http-scenarios
-      - BOUNCER_KEY_nginx=${CROWDSEC_BOUNCER_KEY}
+      # 向 LAPI 註冊名為 nginx 的 bouncer；留空則不註冊
+      - BOUNCER_KEY_nginx=${CROWDSEC_BOUNCER_KEY:-}
       - ABUSEIPDB_API_KEY=${ABUSEIPDB_API_KEY}
     healthcheck:
       test: ["CMD", "cscli", "version"]
@@ -79,19 +86,6 @@ services:
       timeout: 5s
       start_period: 30s
       retries: 3
-
-  crowdsec-bouncer:
-    image: fbonalair/traefik-crowdsec-bouncer:0.5.0
-    container_name: nginxwebui-bouncer
-    restart: unless-stopped
-    profiles: ["security"]
-    environment:
-      - CROWDSEC_BOUNCER_API_KEY=${CROWDSEC_BOUNCER_KEY}
-      - CROWDSEC_AGENT_HOST=crowdsec:8080
-      - PORT=8181
-    depends_on:
-      crowdsec:
-        condition: service_healthy
 
 volumes:
   nginxwebui_data:
