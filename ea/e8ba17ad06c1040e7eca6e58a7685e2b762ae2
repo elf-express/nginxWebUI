@@ -1,0 +1,21 @@
+src/test/java/com/cym/utils/CrowdSecCredentialsTest.java
+  s_960b3b5d07c9b0::t_d0ad42910f3fc9 141-204
+src/main/java/com/cym/utils/CrowdSecCredentials.java
+  s_960b3b5d07c9b0::t_b6baf3a005b1a9 16-17,20,23-26,76-81,86-100,103,106,114-115
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "eae8ba17ad06c1040e7eca6e58a7685e2b762ae2",
+  "prompts": {},
+  "sessions": {
+    "s_960b3b5d07c9b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d4dab6de-0779-466b-b936-0b2a3db688cd",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
