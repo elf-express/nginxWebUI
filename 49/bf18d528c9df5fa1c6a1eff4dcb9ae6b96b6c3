@@ -1,0 +1,23 @@
+tests/e2e/39-crowdsec-tab.spec.js
+  s_960b3b5d07c9b0::t_c4e7959f6f1b49 1-258
+tests/e2e/16-protection-cert.spec.js
+  s_960b3b5d07c9b0::t_7c6f436b1b1588 17,22
+tests/e2e/32-firewall-ip-tabs.spec.js
+  s_960b3b5d07c9b0::t_a5dde347a387ce 4,11,13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "49bf18d528c9df5fa1c6a1eff4dcb9ae6b96b6c3",
+  "prompts": {},
+  "sessions": {
+    "s_960b3b5d07c9b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d4dab6de-0779-466b-b936-0b2a3db688cd",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
