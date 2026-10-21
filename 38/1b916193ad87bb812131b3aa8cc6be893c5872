@@ -1,0 +1,29 @@
+README.md
+  s_960b3b5d07c9b0::t_fd5a10d6b9ecfe 137,217,222,229-243
+README_TW.md
+  s_960b3b5d07c9b0::t_ac5bda580930be 137,213,218,225-237
+docker/test/crowdsec-admin-e2e.sh
+  s_960b3b5d07c9b0::t_8645c4892f59b3 1-272
+docker/test/crowdsec-machine.sh
+  s_960b3b5d07c9b0::t_028b8580a6a084 64
+docs/memory/conventions.md
+  s_960b3b5d07c9b0::t_ee6fefa6b10246 16,34-35
+docs/memory/dev-run-deploy.md
+  s_960b3b5d07c9b0::t_b46a1fea9627c8 84-91,100-102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "381b916193ad87bb812131b3aa8cc6be893c5872",
+  "prompts": {},
+  "sessions": {
+    "s_960b3b5d07c9b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d4dab6de-0779-466b-b936-0b2a3db688cd",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
