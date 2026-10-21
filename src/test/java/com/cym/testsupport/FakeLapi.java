@@ -40,6 +40,8 @@ public class FakeLapi implements AutoCloseable {
 	public volatile String decisionsJson = "null";
 	/** 登入回應的 expire（RFC 3339） */
 	public volatile String expire = "2099-01-01T00:00:00Z";
+	/** 為 true 時登入照常成功，但所有需要 JWT 的端點一律回 401 */
+	public volatile boolean rejectAllJwt = false;
 
 	public FakeLapi(String machineId, String password, String bouncerKey) throws IOException {
 		this.machineId = machineId;
@@ -117,6 +119,9 @@ public class FakeLapi implements AutoCloseable {
 	}
 
 	private boolean jwtOk(HttpExchange ex) {
+		if (rejectAllJwt) {
+			return false;
+		}
 		String auth = ex.getRequestHeaders().getFirst("Authorization");
 		return auth != null && auth.startsWith("Bearer ") && validTokens.contains(auth.substring(7));
 	}

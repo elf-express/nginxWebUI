@@ -141,6 +141,35 @@ class CrowdSecClientLapiTest {
 	}
 
 	@Test
+	void persistentUnauthorizedAfterRelogin() {
+		lapi.rejectAllJwt = true;
+
+		CrowdSecClient.MachineAuthException e = assertThrows(CrowdSecClient.MachineAuthException.class,
+				() -> client().banIp("192.0.2.1", "4h", "nginxwebui:t"));
+
+		assertEquals("crowdsec_machine_unauthorized", e.getMessage());
+		assertEquals(2, lapi.loginAttempts.get());
+		assertTrue(lapi.alertBodies.isEmpty());
+	}
+
+	@Test
+	void deleteByReasonPrefixDedupesWhenLapiIgnoresPaging() {
+		StringBuilder sb = new StringBuilder("[");
+		for (int i = 1; i <= 150; i++) {
+			sb.append(i > 1 ? "," : "").append("{\"id\":").append(i).append(",\"scenario\":\"nginxwebui:as-ban:AS")
+					.append(i).append("\"}");
+		}
+		lapi.decisionsJson = sb.append("]").toString();
+
+		int n = client().deleteDecisionsByReasonPrefix("nginxwebui:as-ban:AS");
+
+		assertEquals(150, n);
+		assertEquals(150, lapi.deletes.size());
+		assertEquals(150, lapi.deletes.stream().distinct().count());
+		assertTrue(lapi.decisionQueries.size() <= 2, lapi.decisionQueries.toString());
+	}
+
+	@Test
 	void deleteDecisionUsesJwt() {
 		client().deleteDecision("42");
 

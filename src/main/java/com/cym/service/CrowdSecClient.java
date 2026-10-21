@@ -7,9 +7,12 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 
@@ -473,10 +476,15 @@ public class CrowdSecClient {
 	int deleteMatching(String reasonPrefix) {
 		ensureConfigured();
 		// Collect ids across pages first, then delete — avoids offset shift while deleting.
-		List<String> toDelete = new ArrayList<>();
+		// 用 LinkedHashSet 去重；LAPI 若忽略 limit/offset 而每頁回同一份清單，某頁沒有新 id 就停止。
+		Set<String> toDelete = new LinkedHashSet<>();
+		Set<String> seen = new HashSet<>();
 		for (int page = 0; page < LIST_MAX_PAGES; page++) {
 			String body = listDecisions(LIST_PAGE_SIZE, page * LIST_PAGE_SIZE, reasonPrefix);
 			toDelete.addAll(matchDecisionIds(body, reasonPrefix, null, false));
+			if (!seen.addAll(matchDecisionIds(body, "", null, false))) {
+				break;
+			}
 			if (StrUtil.isBlank(body) || "null".equalsIgnoreCase(body.trim()) || !JSONUtil.isTypeJSONArray(body)) {
 				break;
 			}
