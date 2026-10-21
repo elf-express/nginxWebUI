@@ -22,6 +22,11 @@ services:
       CROWDSEC_LAPI_URL: http://crowdsec:8080
       CROWDSEC_APPSEC_URL: http://crowdsec:7422
       CROWDSEC_BOUNCER_KEY: ${CROWDSEC_BOUNCER_KEY:-}
+      # 後台管理封鎖用的 CrowdSec machine 帳號（JWT）。密碼留空 = 後台不能新增／刪除封鎖、不能推送 ASN，
+      # CrowdSec 照常封鎖。crowdsec 容器每次啟動都用同一組密碼註冊（或更新）這個帳號。
+      # 密碼也可改走 secrets 檔（docker-compose.secrets.yml），nginxWebUI 優先讀 /run/secrets/crowdsec_machine_password。
+      CROWDSEC_MACHINE_ID: ${CROWDSEC_MACHINE_ID:-nginxwebui}
+      CROWDSEC_MACHINE_PASSWORD: ${CROWDSEC_MACHINE_PASSWORD:-}
       # 首次啟動會在 web UI 引導設定管理員密碼（原作者設計）。
       # 自動化部署需跳過精靈時，在 .env 設 INIT_ADMIN/INIT_PASS 並把
       #   --init.admin=${INIT_ADMIN} --init.pass=${INIT_PASS}
@@ -79,6 +84,10 @@ services:
     environment:
       # 向 LAPI 註冊名為 nginx 的 bouncer；留空則不註冊
       - BOUNCER_KEY_nginx=${CROWDSEC_BOUNCER_KEY:-}
+      # 註冊 nginxWebUI 後台用的 machine 帳號（官方啟動腳本 AGENT_USERNAME + AGENT_PASSWORD → cscli machines add --force）；
+      # 密碼留空則不註冊
+      - AGENT_USERNAME=${CROWDSEC_MACHINE_ID:-nginxwebui}
+      - AGENT_PASSWORD=${CROWDSEC_MACHINE_PASSWORD:-}
       - ABUSEIPDB_API_KEY=${ABUSEIPDB_API_KEY}
     healthcheck:
       test: ["CMD", "cscli", "version"]

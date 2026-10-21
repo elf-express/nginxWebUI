@@ -39,3 +39,9 @@ COPY acquis.yml     /etc/crowdsec/acquis.yaml
 COPY appsec.yaml    /etc/crowdsec/acquis.d/appsec.yaml
 COPY profiles.yaml  /etc/crowdsec/profiles.yaml
 COPY abuseipdb.yaml /etc/crowdsec/notifications/abuseipdb.yaml
+
+# Start wrapper: hands the nginxWebUI machine password (secrets file or env) to the official start script,
+# which registers the machine with `cscli machines add --force` on every start.
+COPY nwu-start.sh /nwu-start.sh
+RUN chmod 755 /nwu-start.sh
+ENTRYPOINT ["/bin/bash", "/nwu-start.sh"]
