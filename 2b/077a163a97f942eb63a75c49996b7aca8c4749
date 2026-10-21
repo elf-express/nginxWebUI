@@ -1,0 +1,21 @@
+frontend/src/pages/crowdsec/view.test.ts
+  s_960b3b5d07c9b0::t_2cb97af52b65b9 45-78
+frontend/src/pages/crowdsec/view.ts
+  s_960b3b5d07c9b0::t_ef079ed55e0e1b 51-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2b077a163a97f942eb63a75c49996b7aca8c4749",
+  "prompts": {},
+  "sessions": {
+    "s_960b3b5d07c9b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d4dab6de-0779-466b-b936-0b2a3db688cd",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
