@@ -1,0 +1,36 @@
+src/test/java/com/cym/service/CrowdSecClientLapiTest.java
+  s_960b3b5d07c9b0::t_001879f7653848 297-366
+src/test/java/com/cym/controller/adminPage/CrowdSecControllerTest.java
+  s_960b3b5d07c9b0::t_6644b9c6be52af 212-261
+src/main/java/com/cym/service/AsnBlockService.java
+  s_960b3b5d07c9b0::t_b4188f6ff72e30 282-287
+src/test/java/com/cym/service/AsnBlockServicePushTest.java
+  s_960b3b5d07c9b0::t_605b515cb2a22d 56
+  s_960b3b5d07c9b0::t_9f7b3466c67090 46-49
+  s_960b3b5d07c9b0::t_90eba212c5c2a3 115-128
+  s_960b3b5d07c9b0::t_94545cb3f68349 114
+src/main/java/com/cym/controller/adminPage/AsnController.java
+  s_960b3b5d07c9b0::t_67e74ff4433ce7 170-172,215,251-253,325-336,369-374
+src/main/java/com/cym/controller/adminPage/CrowdSecController.java
+  s_960b3b5d07c9b0::t_637f7dc4d0c9f8 109-111,122-124,141-143,184-186,216-218,294-296,308-310,322-337,365-373
+src/main/java/com/cym/service/CrowdSecClient.java
+  s_960b3b5d07c9b0::t_d17fd436a0af10 79-105,285-289,292,297-298,319-330,336,532,534,557
+src/test/java/com/cym/controller/adminPage/AsnControllerTest.java
+  s_960b3b5d07c9b0::t_d2007215a49845 86-180
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "54f370521e34751687c890f7c7d9f0554ff9bab6",
+  "prompts": {},
+  "sessions": {
+    "s_960b3b5d07c9b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d4dab6de-0779-466b-b936-0b2a3db688cd",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
