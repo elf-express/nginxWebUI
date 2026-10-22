@@ -106,8 +106,9 @@ public class CrowdSecController extends BaseController {
 
 	@Mapping("alerts")
 	public JsonResult alerts(int limit, int page) {
-		if (!crowdSecClient.isConfigured()) {
-			return renderError("notConfigured");
+		JsonResult missing = missingCredentials(true, false);
+		if (missing != null) {
+			return missing;
 		}
 		try {
 			return renderSuccess(crowdSecClient.listAlertsRaw(limit));
@@ -118,8 +119,9 @@ public class CrowdSecController extends BaseController {
 
 	@Mapping("decisions")
 	public JsonResult decisions(int limit, int page) {
-		if (!crowdSecClient.isConfigured()) {
-			return renderError("notConfigured");
+		JsonResult missing = missingCredentials(false, true);
+		if (missing != null) {
+			return missing;
 		}
 		try {
 			int offset = (page - 1) * limit;
@@ -136,8 +138,9 @@ public class CrowdSecController extends BaseController {
 	 */
 	@Mapping("addDecision")
 	public JsonResult addDecision(String ip, String duration, String reason) {
-		if (!crowdSecClient.isConfigured()) {
-			return renderError("notConfigured");
+		JsonResult missing = missingCredentials(true, false);
+		if (missing != null) {
+			return missing;
 		}
 		JsonResult gate = gateIpAndDuration(ip, duration);
 		if (gate != null) {
@@ -178,8 +181,9 @@ public class CrowdSecController extends BaseController {
 	 */
 	@Mapping("addRangeDecision")
 	public JsonResult addRangeDecision(String range, String duration, String reason) {
-		if (!crowdSecClient.isConfigured()) {
-			return renderError("notConfigured");
+		JsonResult missing = missingCredentials(true, false);
+		if (missing != null) {
+			return missing;
 		}
 		JsonResult gate = gateIpAndDuration(range, duration);
 		if (gate != null) {
@@ -209,8 +213,9 @@ public class CrowdSecController extends BaseController {
 	 */
 	@Mapping("whitelistIp")
 	public JsonResult whitelistIp(String ip, String duration, String reason, String syncDenyAllow) {
-		if (!crowdSecClient.isConfigured()) {
-			return renderError("notConfigured");
+		JsonResult missing = missingCredentials(true, false);
+		if (missing != null) {
+			return missing;
 		}
 		if (StrUtil.isBlank(ip)) {
 			return renderError("ip_required");
@@ -286,8 +291,9 @@ public class CrowdSecController extends BaseController {
 	 */
 	@Mapping("deleteByReason")
 	public JsonResult deleteByReason(String reasonPrefix) {
-		if (!crowdSecClient.isConfigured()) {
-			return renderError("notConfigured");
+		JsonResult missing = missingCredentials(true, true);
+		if (missing != null) {
+			return missing;
 		}
 		try {
 			int n = crowdSecClient.deleteDecisionsByReasonPrefix(reasonPrefix);
@@ -299,8 +305,9 @@ public class CrowdSecController extends BaseController {
 
 	@Mapping("deleteDecision")
 	public JsonResult deleteDecision(String decisionId) {
-		if (!crowdSecClient.isConfigured()) {
-			return renderError("notConfigured");
+		JsonResult missing = missingCredentials(true, false);
+		if (missing != null) {
+			return missing;
 		}
 		try {
 			crowdSecClient.deleteDecision(decisionId);
@@ -311,6 +318,22 @@ public class CrowdSecController extends BaseController {
 	}
 
 	// ── validation / error helpers ──────────────────────────────────────
+
+	/**
+	 * 依端點實際用到的憑證檢查：machine（新增、刪除）要 LAPI 位址＋machine 密碼，bouncer（讀名單）要 LAPI 位址＋bouncer 金鑰。
+	 *
+	 * @return null if OK; otherwise a renderError JsonResult 指出缺哪一種
+	 */
+	private JsonResult missingCredentials(boolean needMachine, boolean needBouncerKey) {
+		if (needMachine && !crowdSecClient.isConfigured()) {
+			return renderError(msgOr("crowdsecStr.machineNotConfigured", CrowdSecClient.NotConfiguredException.MACHINE));
+		}
+		if (needBouncerKey && !crowdSecClient.canRead()) {
+			return renderError(
+					msgOr("crowdsecStr.bouncerKeyNotConfigured", CrowdSecClient.NotConfiguredException.BOUNCER_KEY));
+		}
+		return null;
+	}
 
 	/**
 	 * Shared pre-check for addDecision / addRangeDecision: CIDR + duration (blank → default later).
@@ -338,6 +361,15 @@ public class CrowdSecController extends BaseController {
 		if (e instanceof CrowdSecClient.MachineAuthException) {
 			logger.warn("crowdsec machine login rejected");
 			return renderError(msgOr("crowdsecStr.machineInvalid", CrowdSecClient.MachineAuthException.CODE));
+		}
+		if (e instanceof CrowdSecClient.LapiUnavailableException) {
+			logger.warn("crowdsec lapi unavailable: {}", e.getMessage());
+			return renderError(msgOr("crowdsecStr.statusUnreachable", CrowdSecClient.LapiUnavailableException.CODE));
+		}
+		if (e instanceof CrowdSecClient.NotConfiguredException) {
+			return e.getMessage().equals(CrowdSecClient.NotConfiguredException.BOUNCER_KEY)
+					? renderError(msgOr("crowdsecStr.bouncerKeyNotConfigured", e.getMessage()))
+					: renderError(msgOr("crowdsecStr.machineNotConfigured", e.getMessage()));
 		}
 		logger.error("crowdsec api failed", e);
 		if (e instanceof IllegalArgumentException) {

@@ -76,6 +76,33 @@ public class CrowdSecClient {
 		}
 	}
 
+	/** LAPI 暫時無法使用：登入回 401／403 以外的狀態碼（5xx、429 等）或連線失敗。訊息只含狀態碼，不含密碼與回應內容 */
+	public static class LapiUnavailableException extends IllegalStateException {
+		private static final long serialVersionUID = 1L;
+		public static final String CODE = "crowdsec_lapi_unavailable";
+
+		public LapiUnavailableException(String message) {
+			super(message);
+		}
+
+		public LapiUnavailableException(String message, Throwable cause) {
+			super(message, cause);
+		}
+	}
+
+	/** 端點需要的憑證沒設定；訊息是固定錯誤碼，指出缺的是哪一種 */
+	public static class NotConfiguredException extends IllegalStateException {
+		private static final long serialVersionUID = 1L;
+		/** 缺 LAPI 位址或 bouncer 金鑰（讀名單） */
+		public static final String BOUNCER_KEY = "notConfigured.bouncerKey";
+		/** 缺 LAPI 位址或 machine 密碼（新增、刪除封鎖） */
+		public static final String MACHINE = "notConfigured.machine";
+
+		public NotConfiguredException(String code) {
+			super(code);
+		}
+	}
+
 	/** 測試連線結果：每項為 ok / invalid / unreachable / notConfigured / unchecked */
 	public record Probe(String lapi, String bouncerKey, String machine) {
 		public Map<String, Object> toMap() {
@@ -255,15 +282,20 @@ public class CrowdSecClient {
 		return url == null ? "" : url;
 	}
 
+	/** 可以讀名單：LAPI 位址與 bouncer 金鑰都有值 */
+	public boolean canRead() {
+		return credentials.lapiUrl() != null && credentials.bouncerKey().isPresent();
+	}
+
 	void ensureConfigured() {
 		if (!isConfigured()) {
-			throw new IllegalStateException("notConfigured");
+			throw new NotConfiguredException(NotConfiguredException.MACHINE);
 		}
 	}
 
 	void ensureBouncerKey() {
-		if (credentials.lapiUrl() == null || !credentials.bouncerKey().isPresent()) {
-			throw new IllegalStateException("notConfigured");
+		if (!canRead()) {
+			throw new NotConfiguredException(NotConfiguredException.BOUNCER_KEY);
 		}
 	}
 
@@ -284,18 +316,24 @@ public class CrowdSecClient {
 			JSONObject body = new JSONObject();
 			body.set("machine_id", credentials.machineId());
 			body.set("password", credentials.machinePassword().value());
-			try (HttpResponse resp = HttpRequest.post(base() + "/v1/watchers/login")
-					.header("User-Agent", USER_AGENT)
-					.header("Content-Type", "application/json")
-					.body(body.toString())
-					.timeout(timeoutMs)
-					.execute()) {
+			HttpResponse loginResp;
+			try {
+				loginResp = HttpRequest.post(base() + "/v1/watchers/login")
+						.header("User-Agent", USER_AGENT)
+						.header("Content-Type", "application/json")
+						.body(body.toString())
+						.timeout(timeoutMs)
+						.execute();
+			} catch (RuntimeException e) {
+				throw new LapiUnavailableException("crowdsec machine login unreachable", e);
+			}
+			try (HttpResponse resp = loginResp) {
 				int status = resp.getStatus();
 				if (status == 401 || status == 403) {
 					throw new MachineAuthException();
 				}
 				if (status != 200) {
-					throw new IllegalStateException("crowdsec machine login HTTP " + status);
+					throw new LapiUnavailableException("crowdsec machine login HTTP " + status);
 				}
 				String text = resp.body();
 				JSONObject o = JSONUtil.isTypeJSONObject(text) ? JSONUtil.parseObj(text) : new JSONObject();
@@ -491,7 +529,9 @@ public class CrowdSecClient {
 	}
 
 	int deleteMatching(String reasonPrefix) {
+		// 列名單要 bouncer 金鑰、刪除要 machine JWT：先確認兩者都有，缺的在送出任何請求前就回報
 		ensureConfigured();
+		ensureBouncerKey();
 		// Collect ids across pages first, then delete — avoids offset shift while deleting.
 		// 用 LinkedHashSet 去重；LAPI 若忽略 limit/offset 而每頁回同一份清單，某頁沒有新 id 就停止。
 		Set<String> toDelete = new LinkedHashSet<>();
@@ -514,7 +554,7 @@ public class CrowdSecClient {
 			try {
 				deleteDecision(id);
 				deleted++;
-			} catch (MachineAuthException e) {
+			} catch (MachineAuthException | LapiUnavailableException e) {
 				throw e;
 			} catch (IllegalStateException e) {
 				// continue remaining; caller sees partial count

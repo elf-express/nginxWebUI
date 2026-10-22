@@ -279,6 +279,12 @@ public class AsnBlockService {
 				intent.setLastError("machine_unauthorized");
 				sqlHelper.updateAllColumnById(intent);
 				throw e;
+			} catch (CrowdSecClient.LapiUnavailableException e) {
+				// LAPI 暫時無法登入時其餘網段也會失敗：不逐個重登，立即停止並記錄固定錯誤碼
+				intent.setStatus(AsBlockIntent.STATUS_FAILED);
+				intent.setLastError("lapi_unavailable");
+				sqlHelper.updateAllColumnById(intent);
+				throw e;
 			} catch (Exception e) {
 				fail++;
 				// Log full LAPI detail; never store raw body in lastError (admin UI surface)

@@ -43,13 +43,17 @@ class AsnBlockServicePushTest {
 	}
 
 	private AsnBlockService service(String machinePassword) {
+		return service(machinePassword, List.of("198.51.100.0/24", "2001:db8::/32"));
+	}
+
+	private AsnBlockService service(String machinePassword, List<String> cidrs) {
 		CrowdSecClient client = new CrowdSecClient();
 		Map<String, String> env = Map.of("CROWDSEC_LAPI_URL", lapi.url(), "CROWDSEC_MACHINE_PASSWORD", machinePassword);
 		client.credentials = new CrowdSecCredentials(env::get, tmp.resolve("no-secrets"));
 		AsnBlockService service = new AsnBlockService() {
 			@Override
 			List<String> fetchAggregatedCidrs(String asn) {
-				return List.of("198.51.100.0/24", "2001:db8::/32");
+				return cidrs;
 			}
 		};
 		ReflectUtil.setFieldValue(service, "sqlHelper", sql);
@@ -105,6 +109,21 @@ class AsnBlockServicePushTest {
 		AsBlockIntent saved = sql.findById(id, AsBlockIntent.class);
 		assertEquals(AsBlockIntent.STATUS_FAILED, saved.getStatus());
 		assertEquals("machine_unauthorized", saved.getLastError());
+	}
+
+	@Test
+	void lapiUnavailableAtLoginStopsPushAfterOneLoginAttempt() {
+		String id = intent();
+		lapi.loginStatus = 503;
+
+		CrowdSecClient.LapiUnavailableException e = assertThrows(CrowdSecClient.LapiUnavailableException.class,
+				() -> service(PASSWORD, List.of("198.51.100.0/24", "203.0.113.0/24", "2001:db8::/32")).pushIntent(id));
+
+		assertEquals(1, lapi.loginAttempts.get());
+		assertTrue(lapi.alertBodies.isEmpty());
+		AsBlockIntent saved = sql.findById(id, AsBlockIntent.class);
+		assertEquals(AsBlockIntent.STATUS_FAILED, saved.getStatus());
+		assertEquals("lapi_unavailable", saved.getLastError());
 	}
 
 	@Test

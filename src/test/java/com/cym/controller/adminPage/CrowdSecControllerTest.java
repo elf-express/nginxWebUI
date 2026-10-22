@@ -209,6 +209,56 @@ class CrowdSecControllerTest {
 	}
 
 	@Test
+	void decisionsAndDeleteByReasonWithoutBouncerKeyReportBouncerKeyNotConfigured() throws Exception {
+		try (FakeLapi lapi = new FakeLapi("nginxwebui", PASS, KEY)) {
+			useLapi(lapi, PASS);
+
+			JsonResult list = controller.decisions(10, 1);
+			JsonResult delete = controller.deleteByReason("nginxwebui:as-ban:AS");
+
+			assertFalse(list.isSuccess());
+			assertEquals(CrowdSecClient.NotConfiguredException.BOUNCER_KEY, list.getMsg());
+			assertFalse(delete.isSuccess());
+			assertEquals(CrowdSecClient.NotConfiguredException.BOUNCER_KEY, delete.getMsg());
+			assertEquals(0, lapi.loginAttempts.get());
+		}
+	}
+
+	@Test
+	void writesWithoutMachinePasswordReportMachineNotConfiguredButListWorks() throws Exception {
+		try (FakeLapi lapi = new FakeLapi("nginxwebui", PASS, KEY)) {
+			env.put("CROWDSEC_LAPI_URL", lapi.url());
+			env.put("CROWDSEC_BOUNCER_KEY", KEY);
+
+			JsonResult add = controller.addDecision("192.0.2.1", "4h", "nginxwebui:t");
+			JsonResult range = controller.addRangeDecision("198.51.100.0/24", "4h", "nginxwebui:t");
+			JsonResult delete = controller.deleteDecision("1");
+			JsonResult list = controller.decisions(10, 1);
+
+			assertEquals(CrowdSecClient.NotConfiguredException.MACHINE, add.getMsg());
+			assertEquals(CrowdSecClient.NotConfiguredException.MACHINE, range.getMsg());
+			assertEquals(CrowdSecClient.NotConfiguredException.MACHINE, delete.getMsg());
+			assertFalse(add.isSuccess());
+			assertTrue(list.isSuccess());
+			assertEquals(1, lapi.decisionQueries.size());
+		}
+	}
+
+	@Test
+	void addDecisionReportsLapiUnavailableWhenLoginFailsServerSide() throws Exception {
+		try (FakeLapi lapi = new FakeLapi("nginxwebui", PASS, KEY)) {
+			useLapi(lapi, PASS);
+			lapi.loginStatus = 503;
+
+			JsonResult result = controller.addDecision("192.0.2.1", "4h", "nginxwebui:t");
+
+			assertFalse(result.isSuccess());
+			assertEquals(CrowdSecClient.LapiUnavailableException.CODE, result.getMsg());
+			assertFalse(JSONUtil.toJsonStr(result).contains(PASS));
+		}
+	}
+
+	@Test
 	void addDecisionWithCidrWritesRangeScope() throws Exception {
 		try (FakeLapi lapi = new FakeLapi("nginxwebui", PASS, KEY)) {
 			useLapi(lapi, PASS);

@@ -295,6 +295,76 @@ class CrowdSecClientLapiTest {
 	}
 
 	@Test
+	void loginTemporaryFailureThrowsLapiUnavailable() {
+		for (int status : new int[] { 503, 500, 429 }) {
+			lapi.loginStatus = status;
+
+			CrowdSecClient.LapiUnavailableException e = assertThrows(CrowdSecClient.LapiUnavailableException.class,
+					() -> client().token());
+
+			assertTrue(e.getMessage().contains(String.valueOf(status)), e.getMessage());
+			assertFalse(e.getMessage().contains(PASSWORD), e.getMessage());
+		}
+		assertEquals("crowdsec_lapi_unavailable", CrowdSecClient.LapiUnavailableException.CODE);
+	}
+
+	@Test
+	void loginConnectionFailureThrowsLapiUnavailable() throws Exception {
+		int closedPort;
+		try (ServerSocket socket = new ServerSocket(0)) {
+			closedPort = socket.getLocalPort();
+		}
+		env.put("CROWDSEC_LAPI_URL", "http://127.0.0.1:" + closedPort);
+
+		CrowdSecClient.LapiUnavailableException e = assertThrows(CrowdSecClient.LapiUnavailableException.class,
+				() -> client().token());
+
+		assertFalse(e.getMessage().contains(PASSWORD), e.getMessage());
+	}
+
+	@Test
+	void deleteByReasonPrefixStopsAtOnceWhenLoginUnavailable() {
+		lapi.decisionsJson = "[{\"id\":11,\"scenario\":\"nginxwebui:as-ban:AS64500\"},"
+				+ "{\"id\":12,\"scenario\":\"nginxwebui:as-ban:AS64500\"}]";
+		lapi.loginStatus = 503;
+
+		assertThrows(CrowdSecClient.LapiUnavailableException.class,
+				() -> client().deleteDecisionsByReasonPrefix("nginxwebui:as-ban:AS"));
+
+		assertEquals(1, lapi.loginAttempts.get());
+	}
+
+	@Test
+	void missingCredentialsReportWhichOneIsMissing() {
+		env.remove("CROWDSEC_BOUNCER_KEY");
+		CrowdSecClient.NotConfiguredException read = assertThrows(CrowdSecClient.NotConfiguredException.class,
+				() -> client().listDecisionsRaw(10, 0));
+		assertEquals(CrowdSecClient.NotConfiguredException.BOUNCER_KEY, read.getMessage());
+		assertEquals("notConfigured.bouncerKey", CrowdSecClient.NotConfiguredException.BOUNCER_KEY);
+
+		env.put("CROWDSEC_BOUNCER_KEY", KEY);
+		env.remove("CROWDSEC_MACHINE_PASSWORD");
+		CrowdSecClient.NotConfiguredException write = assertThrows(CrowdSecClient.NotConfiguredException.class,
+				() -> client().banIp("192.0.2.1", "4h", "nginxwebui:t"));
+		assertEquals(CrowdSecClient.NotConfiguredException.MACHINE, write.getMessage());
+		assertEquals("notConfigured.machine", CrowdSecClient.NotConfiguredException.MACHINE);
+		assertTrue(client().canRead());
+		assertFalse(client().isConfigured());
+	}
+
+	@Test
+	void deleteByReasonPrefixNeedsBothCredentialsBeforeAnyRequest() {
+		env.remove("CROWDSEC_BOUNCER_KEY");
+
+		CrowdSecClient.NotConfiguredException e = assertThrows(CrowdSecClient.NotConfiguredException.class,
+				() -> client().deleteDecisionsByReasonPrefix("nginxwebui:as-ban:AS"));
+
+		assertEquals(CrowdSecClient.NotConfiguredException.BOUNCER_KEY, e.getMessage());
+		assertEquals(0, lapi.loginAttempts.get());
+		assertTrue(lapi.deletes.isEmpty());
+	}
+
+	@Test
 	void loginForbiddenIsMachineAuthFailure() {
 		lapi.loginStatus = 403;
 
