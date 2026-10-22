@@ -120,6 +120,26 @@ class AsnControllerTest {
 	}
 
 	@Test
+	void revokeIntentReportsMissingMachineCredentials() {
+		AsnController controller = controller(new AsnBlockService() {
+			@Override
+			public boolean isCrowdSecConfigured() {
+				return true;
+			}
+
+			@Override
+			public int revokeByReasonTag(String reasonTag) {
+				throw new CrowdSecClient.NotConfiguredException(CrowdSecClient.NotConfiguredException.MACHINE);
+			}
+		});
+
+		JsonResult result = controller.revokeIntent(null, "nginxwebui:as-ban:AS64500");
+
+		assertFalse(result.isSuccess());
+		assertEquals(CrowdSecClient.NotConfiguredException.MACHINE, result.getMsg());
+	}
+
+	@Test
 	void setProfileToLightReportsMissingBouncerKey() {
 		AsnController controller = controller(new AsnBlockService() {
 			@Override

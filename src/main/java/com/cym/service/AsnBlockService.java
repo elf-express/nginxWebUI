@@ -228,6 +228,10 @@ public class AsnBlockService {
 	 * Profile must be manual|strict; CrowdSec must be configured.
 	 *
 	 * @throws IllegalStateException profile_disallows_push | crowdsec_not_configured
+	 * @throws CrowdSecClient.MachineAuthException 管理憑證被 LAPI 拒絕
+	 * @throws CrowdSecClient.LapiUnavailableException LAPI 登入暫時失敗（5xx、429、連線失敗）。
+	 *         與 MachineAuthException 一樣立即停止推送、intent 標 failed（lastError 為
+	 *         lapi_unavailable／machine_unauthorized）；中途失敗前已推送的 decision 仍留在 LAPI，可用撤銷清除
 	 * @throws IllegalArgumentException intent_not_found
 	 */
 	public void pushIntent(String intentId) {

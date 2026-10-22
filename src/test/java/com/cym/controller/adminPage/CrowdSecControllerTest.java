@@ -245,6 +245,25 @@ class CrowdSecControllerTest {
 	}
 
 	@Test
+	void alertsWhitelistAndDeleteDecisionWithoutMachinePasswordSendNoRequest() throws Exception {
+		try (FakeLapi lapi = new FakeLapi("nginxwebui", PASS, KEY)) {
+			env.put("CROWDSEC_LAPI_URL", lapi.url());
+			env.put("CROWDSEC_BOUNCER_KEY", KEY);
+
+			JsonResult alerts = controller.alerts(10, 1);
+			JsonResult whitelist = controller.whitelistIp("192.0.2.1", "4h", "nginxwebui:t", "false");
+			JsonResult delete = controller.deleteDecision("1");
+
+			for (JsonResult result : new JsonResult[] { alerts, whitelist, delete }) {
+				assertFalse(result.isSuccess());
+				assertEquals(CrowdSecClient.NotConfiguredException.MACHINE, result.getMsg());
+			}
+			assertEquals(0, lapi.loginAttempts.get());
+			assertTrue(lapi.userAgents.isEmpty(), "no LAPI request expected: " + lapi.userAgents);
+		}
+	}
+
+	@Test
 	void addDecisionReportsLapiUnavailableWhenLoginFailsServerSide() throws Exception {
 		try (FakeLapi lapi = new FakeLapi("nginxwebui", PASS, KEY)) {
 			useLapi(lapi, PASS);
