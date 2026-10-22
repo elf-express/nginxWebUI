@@ -1,0 +1,23 @@
+src/main/java/com/cym/service/AsnBlockService.java
+  s_960b3b5d07c9b0::t_46eb777cd88a71 231-234
+src/test/java/com/cym/controller/adminPage/AsnControllerTest.java
+  s_960b3b5d07c9b0::t_eb3a5e9d9a050c 122-141
+src/test/java/com/cym/controller/adminPage/CrowdSecControllerTest.java
+  s_960b3b5d07c9b0::t_af9d5b156fd69b 247-265
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "eb7bf26b318c26d47f6f27e0e850eb4075b2ca5a",
+  "prompts": {},
+  "sessions": {
+    "s_960b3b5d07c9b0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d4dab6de-0779-466b-b936-0b2a3db688cd",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
