@@ -1,0 +1,67 @@
+docker/lua/test/challenge_policy_test.lua
+  s_a28b699e4790bd::t_2c3a528b50a497 35-55
+docker/test/challenge-smoke.sh
+  s_a28b699e4790bd::t_8a9a52403c42ee 184-185,202-203,215-222,228,237-239
+  s_a28b699e4790bd::t_454edf418168cd 227
+  s_a28b699e4790bd::t_15da16bc133c82 183
+  s_a28b699e4790bd::t_3ba3af75f17f67 223-226
+  s_a28b699e4790bd::t_05ed9f45710f81 240
+  s_a7bf1cec5200b2::t_4e5f971222e258 7,10-11,13-16,72-82,95,103-107,136-146,164-165,260-285
+docker/crowdsec/nwu-challenge-fail.yaml
+  s_a28b699e4790bd::t_07586d4afe681c 33,36
+  s_a28b699e4790bd::t_817759eb2a1ce2 2-4,8,11
+docker/crowdsec/profiles.yaml
+  s_a28b699e4790bd::t_2cfa1d37345a54 4-5
+  s_a28b699e4790bd::t_543699e93fe057 27-37
+Dockerfile
+  s_a28b699e4790bd::t_330f4d67fe9691 76-82
+docker/test/crowdsec-challenge-e2e.sh
+  s_a28b699e4790bd::t_6836332cc2d085 460-468
+  s_a28b699e4790bd::t_59237c7616b2eb 503-514
+  s_a28b699e4790bd::t_9634c39120b613 97
+  s_a28b699e4790bd::t_be2ee145e45063 24-25
+  s_a28b699e4790bd::t_1e7bcc83c9c9fd 327
+  s_a28b699e4790bd::t_9fae066376867b 71
+  s_a28b699e4790bd::t_3d02e930046f1a 32
+docker/lua/nwu_crowdsec.lua
+  s_a28b699e4790bd::t_3dcdef2968dcde 209
+  s_a28b699e4790bd::t_3aa4c38c451636 7-8
+docs/crowdsec-challenge.md
+  s_a28b699e4790bd::t_4f663440f26e84 14-15,17-22,26-33
+  s_a28b699e4790bd::t_9c8a86db4f30d7 64-69
+  s_a28b699e4790bd::t_b8620c2027261e 34,105
+docker/lua/nwu_challenge.lua
+  s_a28b699e4790bd::t_6db3be20c89d3b 180
+  s_a28b699e4790bd::t_18f4c9886e9ad9 4-6
+  s_a28b699e4790bd::t_7da23127999878 159-162,164
+  s_a28b699e4790bd::t_784d34c1765a0b 234-254,256-259,265-267,271,278-280,285
+docker/lua/nwu_challenge_policy.lua
+  s_a28b699e4790bd::t_81b361b7c27e9f 102-132
+docker/lua/patches/cs-stream-delete-by-type.sh
+  s_a28b699e4790bd::t_1fc96ca9ee4774 42-52,54-56
+  s_a28b699e4790bd::t_20e7da799bf48e 1-41,53,57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2f45bcc3d8ccfe11152e050cf454ae11bdcee7d7",
+  "prompts": {},
+  "sessions": {
+    "s_a28b699e4790bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "195abc9b-fbd8-4977-9ae6-70d5fcc76908",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    },
+    "s_a7bf1cec5200b2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5ec896ab-5e78-4e2b-9171-67ef526d1edf",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
