@@ -252,7 +252,7 @@ function _M.handle(ip)
     return pass(ip, args.r)
   end
   if uri == policy.PREFIX .. "callback" and (method == "GET" or method == "HEAD")
-      and (cfg.TICKET_SECRET or "") ~= "" then
+      and cfg.MODE == "external" then
     return callback(ip)
   end
   return ngx.exit(ngx.HTTP_NOT_FOUND)

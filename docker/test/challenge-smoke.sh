@@ -48,7 +48,7 @@ cat > $W/builtin.conf <<CONF
 MODE=builtin
 TTL_SECONDS=3600
 COOKIE_SECRET=$COOKIE_SECRET
-TICKET_SECRET=
+TICKET_SECRET=$TICKET_SECRET
 EXTERNAL_URL=
 CONF
 cat > $W/external.conf <<CONF
@@ -140,6 +140,9 @@ stop() {
   i=0; while [ -f $W/nginx.pid ] && [ "$i" -lt 20 ]; do sleep 0.5; i=$((i + 1)); done
 }
 
+NOW=$(date +%s)
+sign() { $LUA /t/ticket_sign.lua "$@"; }
+
 # ---------- builtin mode ----------
 start $W/builtin.conf
 expect "sha256 in nginx" "$($C $S/sha)" "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
@@ -173,6 +176,7 @@ expect "whitelist decision" "$(code 127.0.0.4 -H "Accept: text/html" $S/)" "200 
 expect "clean IP" "$(code 127.0.0.5 -H "Accept: text/html" $S/)" "200 "
 expect "altcha.js" "$(code 127.0.0.5 $S/.well-known/nwu-challenge/altcha.js)" "200 "
 expect "unknown reserved path" "$(code 127.0.0.5 $S/.well-known/nwu-challenge/x)" "404 "
+expect "callback is external-only" "$(code 127.0.0.3 "$S/.well-known/nwu-challenge/callback?token=$(sign $TICKET_SECRET resp $((NOW + 60)) 127.0.0.3 shop.test / nb1)")" "404 "
 stop
 
 # ---------- external mode ----------
@@ -182,7 +186,6 @@ case "$r" in "302 https://verify.example/check?t="*) pass "external redirect" ;;
 TOKEN="${r#*?t=}"
 expect "request ticket" "$($LUA /t/ticket_verify.lua $TICKET_SECRET "$TOKEN")" "127.0.0.3 shop.test /cart?id=1"
 NOW=$(date +%s)
-sign() { $LUA /t/ticket_sign.lua "$@"; }
 T1="$(sign $TICKET_SECRET resp $((NOW + 60)) 127.0.0.3 shop.test "/cart?id=1" n1)"
 $C --interface 127.0.0.3 -D $W/cb.h -o /dev/null "$S/.well-known/nwu-challenge/callback?token=$T1"
 expect "callback status" "$(head -1 $W/cb.h | cut -d" " -f2)" "303"
