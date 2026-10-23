@@ -1,0 +1,33 @@
+src/main/java/com/cym/service/CrowdSecChallenge.java
+  s_a28b699e4790bd::t_c1f1f2afac926e 1-308
+src/main/resources/crowdsec/challenge-message.html
+  s_a28b699e4790bd::t_f169147270ca52 1-38
+src/main/resources/crowdsec/challenge-page.html
+  s_a28b699e4790bd::t_5faf9f69f220ff 1-54
+src/main/resources/messages.properties
+  s_a28b699e4790bd::t_332736ae42a986 1081-1128
+src/main/resources/messages_en_US.properties
+  s_a28b699e4790bd::t_eba762216e65ed 1081-1128
+src/main/resources/messages_zh_TW.properties
+  s_a28b699e4790bd::t_f184edfc89b82c 1081-1128
+src/test/java/com/cym/service/CrowdSecChallengeTest.java
+  s_a28b699e4790bd::t_fa458dc9aee8aa 1-222
+src/test/java/com/cym/testsupport/TestMessages.java
+  s_a28b699e4790bd::t_c4b0597f70b411 1-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f8b5e5821f65ff355fce49ca4615b6ddaf00db06",
+  "prompts": {},
+  "sessions": {
+    "s_a28b699e4790bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "195abc9b-fbd8-4977-9ae6-70d5fcc76908",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
