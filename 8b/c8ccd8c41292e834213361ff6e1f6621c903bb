@@ -1,0 +1,31 @@
+Dockerfile
+  s_a28b699e4790bd::t_0903ba8ccf907c 55-56,60-62,76-89
+docker/lua/nwu_challenge.lua
+  s_a28b699e4790bd::t_e9fed2925821f7 1-261
+docker/lua/nwu_crowdsec.lua
+  s_a28b699e4790bd::t_6c04ecd161fb22 3-7,9,19,41,75-81,199-200,203-213
+docker/lua/test/altcha_solve.lua
+  s_a28b699e4790bd::t_cf655d90afa3a7 1-37
+docker/lua/test/ticket_sign.lua
+  s_a28b699e4790bd::t_8b0ca67d9b5d0f 1-10
+docker/lua/test/ticket_verify.lua
+  s_a28b699e4790bd::t_2a86c222df272e 1-12
+docker/test/challenge-smoke.sh
+  s_a28b699e4790bd::t_6cb9c66701f922 1-209
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8bc8ccd8c41292e834213361ff6e1f6621c903bb",
+  "prompts": {},
+  "sessions": {
+    "s_a28b699e4790bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "195abc9b-fbd8-4977-9ae6-70d5fcc76908",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
