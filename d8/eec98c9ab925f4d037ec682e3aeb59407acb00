@@ -1,0 +1,21 @@
+docker/test/challenge-browser.cjs
+  s_a28b699e4790bd::t_48e29559b5193a 1-50
+docker/test/crowdsec-challenge-e2e.sh
+  s_a28b699e4790bd::t_7b74057d0fbef7 1-516
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d8eec98c9ab925f4d037ec682e3aeb59407acb00",
+  "prompts": {},
+  "sessions": {
+    "s_a28b699e4790bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "195abc9b-fbd8-4977-9ae6-70d5fcc76908",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
