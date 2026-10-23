@@ -1,0 +1,19 @@
+src/test/java/com/cym/task/ScheduleTaskGeoipFetchModeTest.java
+  s_a7bf1cec5200b2::t_9e3d77b070cc84 1-33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3d62121796db4188e0c84ad60453420f27c1b6e8",
+  "prompts": {},
+  "sessions": {
+    "s_a7bf1cec5200b2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5ec896ab-5e78-4e2b-9171-67ef526d1edf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
