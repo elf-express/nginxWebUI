@@ -38,6 +38,8 @@ RUN sed -i '/cscli_if_clean parsers install crowdsecurity\/\(docker\|cri\)-logs/
 COPY acquis.yml     /etc/crowdsec/acquis.yaml
 COPY appsec.yaml    /etc/crowdsec/acquis.d/appsec.yaml
 COPY profiles.yaml  /etc/crowdsec/profiles.yaml
+# nginxwebui/challenge-fail(-answer): clients that do not pass the nginxWebUI challenge page (E-387)
+COPY nwu-challenge-fail.yaml /etc/crowdsec/scenarios/nwu-challenge-fail.yaml
 COPY abuseipdb.yaml /etc/crowdsec/notifications/abuseipdb.yaml
 
 # Start wrapper: hands the nginxWebUI machine password (secrets file or env) to the official start script,

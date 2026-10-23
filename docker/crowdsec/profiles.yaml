@@ -1,6 +1,27 @@
+# Profiles run in order and the first match wins (on_success: break).
+# The nginx bouncer keeps one decision per IP and a later decision replaces an earlier one, so "ban beats captcha"
+# is kept by the order here: an IP that already had a decision in the last 24 hours always gets a ban.
 # Bans added by the nginxWebUI admin backend (manual bans, ASN pushes) carry scenarios starting with "nginxwebui:".
 # They already contain their decisions, so these profiles only decide notifications for them; excluding them keeps
 # admin bans out of the AbuseIPDB reports.
+name: repeat_offender_ban
+filters:
+ - Alert.Remediation == true && Alert.GetScope() == "Ip" && not (Alert.GetScenario() startsWith "nginxwebui:") && GetDecisionsSinceCount(Alert.GetValue(), "24h") > 0
+decisions:
+ - type: ban
+   duration: 4h
+on_success: break
+---
+# Crawling, bad user agents and probing are only suspicious: send the client to the challenge page (captcha decision)
+# and do not report it to AbuseIPDB.
+name: suspicious_ip_challenge
+filters:
+ - Alert.Remediation == true && Alert.GetScope() == "Ip" && Alert.GetScenario() in ["crowdsecurity/http-crawl-non_statics", "crowdsecurity/http-bad-user-agent", "crowdsecurity/http-probing"]
+decisions:
+ - type: captcha
+   duration: 4h
+on_success: break
+---
 name: default_ip_remediation
 filters:
  - Alert.Remediation == true && Alert.GetScope() == "Ip" && not (Alert.GetScenario() startsWith "nginxwebui:")
