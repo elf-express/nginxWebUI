@@ -395,13 +395,6 @@ public class CrowdSecClient {
 	}
 
 	/**
-	 * Whitelist a single IP via a decision {@code type=whitelist}, {@code scope=ip}.
-	 */
-	public void whitelistIp(String ip, String duration, String reason) {
-		postDecision(duration, reason, "ip", ip, "whitelist");
-	}
-
-	/**
 	 * Pure input gates for {@link #postDecision} — unit-tested so removing call-site gates fails CI.
 	 * Ban reason is free text; duration always; CIDR for ip/range.
 	 */

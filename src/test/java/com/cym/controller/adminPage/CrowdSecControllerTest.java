@@ -4,16 +4,20 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import com.cym.model.Admin;
 import com.cym.service.CrowdSecClient;
 import com.cym.service.CrowdSecNginxConf;
+import com.cym.service.CrowdSecWhitelistService;
 import com.cym.service.SettingService;
 import com.cym.testsupport.FakeLapi;
 import com.cym.utils.CrowdSecCredentials;
@@ -245,22 +249,66 @@ class CrowdSecControllerTest {
 	}
 
 	@Test
-	void alertsWhitelistAndDeleteDecisionWithoutMachinePasswordSendNoRequest() throws Exception {
+	void alertsAndDeleteDecisionWithoutMachinePasswordSendNoRequest() throws Exception {
 		try (FakeLapi lapi = new FakeLapi("nginxwebui", PASS, KEY)) {
 			env.put("CROWDSEC_LAPI_URL", lapi.url());
 			env.put("CROWDSEC_BOUNCER_KEY", KEY);
 
 			JsonResult alerts = controller.alerts(10, 1);
-			JsonResult whitelist = controller.whitelistIp("192.0.2.1", "4h", "nginxwebui:t", "false");
 			JsonResult delete = controller.deleteDecision("1");
 
-			for (JsonResult result : new JsonResult[] { alerts, whitelist, delete }) {
+			for (JsonResult result : new JsonResult[] { alerts, delete }) {
 				assertFalse(result.isSuccess());
 				assertEquals(CrowdSecClient.NotConfiguredException.MACHINE, result.getMsg());
 			}
 			assertEquals(0, lapi.loginAttempts.get());
 			assertTrue(lapi.userAgents.isEmpty(), "no LAPI request expected: " + lapi.userAgents);
 		}
+	}
+
+	private CrowdSecController controllerWithWhitelist(CrowdSecWhitelistService service) {
+		CrowdSecController c = new CrowdSecController() {
+			@Override
+			public Admin getAdmin() {
+				Admin admin = new Admin();
+				admin.setName("boss");
+				return admin;
+			}
+		};
+		ReflectUtil.setFieldValue(c, "crowdSecWhitelistService", service);
+		return c;
+	}
+
+	@Test
+	void whitelistIpDelegatesToWhitelistServiceWithoutNeedingMachinePassword() {
+		List<String> calls = new ArrayList<>();
+		CrowdSecWhitelistService service = new CrowdSecWhitelistService() {
+			@Override
+			public Outcome whitelist(String ip, String adminName) {
+				calls.add(ip + "|" + adminName);
+				return new Outcome("added", "notConfigured", 0, 0, null);
+			}
+		};
+
+		JsonResult result = controllerWithWhitelist(service).whitelistIp("192.0.2.1", "4h", "ignored", "true");
+
+		assertTrue(result.isSuccess());
+		assertEquals(List.of("192.0.2.1|boss"), calls);
+		assertEquals("added", ((CrowdSecWhitelistService.Outcome) result.getObj()).denyAllow());
+	}
+
+	@Test
+	void whitelistIpRejectsNonSingleIp() {
+		CrowdSecWhitelistService service = new CrowdSecWhitelistService() {
+			@Override
+			public Outcome whitelist(String ip, String adminName) {
+				throw new IllegalArgumentException("invalid_ip");
+			}
+		};
+
+		JsonResult result = controllerWithWhitelist(service).whitelistIp("192.0.2.0/24", null, null, null);
+
+		assertFalse(result.isSuccess());
 	}
 
 	@Test

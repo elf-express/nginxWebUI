@@ -25,6 +25,8 @@ import com.cym.model.Remote;
 import com.cym.model.Upstream;
 import com.cym.model.UpstreamServer;
 import com.cym.service.AsnMetaService;
+import com.cym.service.CrowdSecClient;
+import com.cym.service.CrowdSecWhitelistService;
 import com.cym.service.DenyAllowService;
 import com.cym.service.GeoipService;
 import com.cym.service.HttpService;
@@ -86,6 +88,18 @@ public class ScheduleTask {
 	BLogFileTailer bLogFileTailer;
 	@Inject
 	VersionConfig versionConfig;
+	@Inject
+	CrowdSecWhitelistService crowdSecWhitelistService;
+	@Inject
+	CrowdSecClient crowdSecClient;
+
+	// 舊版「CrowdSec 白名單」建立的 type=whitelist decision 清除一次（E-385）；CrowdSec 未設定或連不上就下次再試
+	@Scheduled(cron = "0 */5 * * * ?")
+	public void cleanupLegacyCrowdSecWhitelist() {
+		if (crowdSecClient.isConfigured() && crowdSecClient.canRead()) {
+			crowdSecWhitelistService.cleanupLegacyWhitelistDecisions();
+		}
+	}
 
 	// 检查更新
 	@Scheduled(cron = "0 0 0 * * ?")
