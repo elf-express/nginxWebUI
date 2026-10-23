@@ -13,7 +13,7 @@
 
 - 所有使用者可見字串一律走 `t()`（`src/shared/i18n.ts`），字典來源仍是三份 `messages*.properties`。`t()` 只支援 `{0}`/`{1}` 取代；不用 vue-i18n，因為它的編譯器把 `@ | {` 當語法，而既有 property 值含這些字元。
 - 保留 `?legacy=1` 逃生口與舊模板／舊 `static/js`；`bootstrap.ts` 在字典載入或掛載失敗時自動退回 `?legacy=1`。
-- 嵌在 Layui 舊頁裡的 Vue 分頁（`protectionCert` 的 CrowdSec 分頁，入口 `crowdsec`）：`bootstrap(Root, '#crowdsecApp', onFail)` 傳自訂 `onFail`，失敗時在容器顯示 `data-load-failed` 的文字，不轉 `?legacy=1`（整頁不是 SPA）；CSS 以 `<link href="/js/spa/<entry>.css">` 掛在 head，分頁內用 `<h2>`（頁面已有 `<h1>`）。
+- 嵌在 Layui 舊頁裡的 Vue 頁（「CrowdSec 防護」頁 `/adminPage/crowdsecGuard`，入口 `crowdsecGuard`）：`bootstrap(GuardPage, '#crowdsecGuardApp', onFail)` 傳自訂 `onFail`，失敗時在容器顯示 `data-load-failed` 的文字，不轉 `?legacy=1`（整頁不是 SPA）；CSS 以 `<link href="/js/spa/<entry>.css">` 掛在 head，分頁內用 `<h2>`（頁面已有 `<h1>`）。
 - `#app` 內要有 `<h1>`；純圖示按鈕要有文字或 `aria-label`（A11y 底線）。
 - antd 會在兩個 CJK 字之間插空格（「提交」的 accessible name 是「提 交」），Playwright 用 `/提\s*交/`。antd `Space` 換行模式會用 CSS-in-JS 給 `margin-bottom:-8px`，蓋掉 scoped 的 margin，間距放在外層 wrapper div。
 

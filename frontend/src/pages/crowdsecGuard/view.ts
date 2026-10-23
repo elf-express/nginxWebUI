@@ -1,3 +1,5 @@
+import type { WhitelistOutcome } from './api'
+
 export type TabKey = 'ip' | 'bans' | 'conn'
 export const TABS: TabKey[] = ['ip', 'bans', 'conn']
 
@@ -62,6 +64,50 @@ export function layerStateKey(layer: LayerName, state: string): string {
 export function blockedByKey(blockedBy: string): string {
   const cap = blockedBy.charAt(0).toUpperCase() + blockedBy.slice(1)
   return `crowdsecGuardStr.verdict${cap}`
+}
+
+export type VerdictType = 'success' | 'warning' | 'error'
+
+/** 總結提示的樣式：沒被擋與白名單放行是綠色，有層查不到結果（undetermined）是警告，被某層擋下是紅色 */
+export function verdictType(blockedBy: string): VerdictType {
+  if (blockedBy === 'none' || blockedBy === 'allowlist') {
+    return 'success'
+  }
+  return blockedBy === 'undetermined' ? 'warning' : 'error'
+}
+
+/** CrowdSec 刪除失敗的錯誤碼對應文案：管理憑證被拒、連不上，其他用通用文案 */
+export function crowdsecErrorKey(error: string | null | undefined): string {
+  if (error === 'crowdsec_machine_unauthorized') {
+    return 'crowdsecStr.machineInvalid'
+  }
+  if (error === 'crowdsec_lapi_unavailable') {
+    return 'crowdsecStr.statusUnreachable'
+  }
+  return 'crowdsecGuardStr.wlCrowdsecFailed'
+}
+
+export type Translate = (key: string, ...args: (string | number)[]) => string
+
+/** 「加入白名單」成功後的訊息：IP 查詢與封鎖名單兩個分頁共用 */
+export function whitelistMessage(o: WhitelistOutcome, tr: Translate): { type: 'success' | 'warning'; text: string } {
+  const parts = [tr(o.denyAllow === 'added' ? 'crowdsecGuardStr.wlAdded' : 'crowdsecGuardStr.wlExists')]
+  if (o.crowdsec === 'ok') {
+    parts.push(tr('crowdsecGuardStr.wlDeleted', o.deleted))
+    if (o.rangesKept > 0) {
+      parts.push(tr('crowdsecGuardStr.wlRangesKept', o.rangesKept))
+    }
+  } else if (o.crowdsec === 'failed') {
+    parts.push(tr(crowdsecErrorKey(o.error)))
+  } else {
+    parts.push(tr('crowdsecGuardStr.wlCrowdsecNotConfigured'))
+  }
+  const conflicts = o.denyConflicts ?? []
+  if (conflicts.length > 0) {
+    parts.push(tr('crowdsecGuardStr.wlDenyConflict', conflicts.join('、')))
+  }
+  parts.push(tr('crowdsecGuardStr.wlNeedApply'))
+  return { type: o.crowdsec === 'failed' || conflicts.length > 0 ? 'warning' : 'success', text: parts.join(' ') }
 }
 
 export function formatTime(ms: number | null | undefined): string {

@@ -5,7 +5,7 @@ import { SessionExpiredError } from '../../shared/http'
 import { t } from '../../shared/i18n'
 import { notifyError } from '../../shared/notify'
 import { banIp, fetchBans, unban, whitelistIp, type BansPage, type Decision } from './api'
-import { formatTime, sourceKeyOf } from './view'
+import { formatTime, sourceKeyOf, whitelistMessage } from './view'
 
 const lookupIp = inject<(ip: string) => void>('lookupIp', () => {})
 const scope = ref<'local' | 'community'>('local')
@@ -65,11 +65,11 @@ async function doUnban(d: Decision) {
 async function doWhitelist(d: Decision) {
   try {
     const o = await whitelistIp(d.value)
-    const text = `${t(o.denyAllow === 'added' ? 'crowdsecGuardStr.wlAdded' : 'crowdsecGuardStr.wlExists')} ${t('crowdsecGuardStr.wlNeedApply')}`
-    if (o.crowdsec === 'failed') {
-      message.warning(`${t('crowdsecGuardStr.wlCrowdsecFailed')} ${text}`)
+    const m = whitelistMessage(o, t)
+    if (m.type === 'warning') {
+      message.warning(m.text, 8)
     } else {
-      message.success(text)
+      message.success(m.text)
     }
     await load()
   } catch (err) {
@@ -139,9 +139,15 @@ onMounted(load)
 
     <Modal v-model:open="banOpen" :title="t('crowdsecGuardStr.manualBan')" :confirm-loading="banning" @ok="doBan">
       <Form layout="vertical">
-        <FormItem :label="t('crowdsecGuardStr.ipOrRange')"><Input v-model:value="banForm.ip" class="ban-ip" /></FormItem>
-        <FormItem :label="t('crowdsecGuardStr.duration')"><Input v-model:value="banForm.duration" class="ban-duration" /></FormItem>
-        <FormItem :label="t('crowdsecGuardStr.reason')"><Input v-model:value="banForm.reason" class="ban-reason" /></FormItem>
+        <FormItem :label="t('crowdsecGuardStr.ipOrRange')" html-for="ban-ip">
+          <Input id="ban-ip" v-model:value="banForm.ip" class="ban-ip" :aria-label="t('crowdsecGuardStr.ipOrRange')" />
+        </FormItem>
+        <FormItem :label="t('crowdsecGuardStr.duration')" html-for="ban-duration">
+          <Input id="ban-duration" v-model:value="banForm.duration" class="ban-duration" :aria-label="t('crowdsecGuardStr.duration')" />
+        </FormItem>
+        <FormItem :label="t('crowdsecGuardStr.reason')" html-for="ban-reason">
+          <Input id="ban-reason" v-model:value="banForm.reason" class="ban-reason" :aria-label="t('crowdsecGuardStr.reason')" />
+        </FormItem>
       </Form>
     </Modal>
   </section>

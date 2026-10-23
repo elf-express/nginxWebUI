@@ -599,12 +599,19 @@ public class CrowdSecClient {
 		return deleted;
 	}
 
+	/** 連線失敗（連不上、逾時）丟 LapiUnavailableException，訊息不含金鑰；LAPI 有回應但狀態碼不是 2xx 仍丟 IllegalStateException */
 	private String getDecisions(String query) {
-		try (HttpResponse resp = HttpRequest.get(base() + "/v1/decisions?" + query)
-				.header("User-Agent", USER_AGENT)
-				.header("X-Api-Key", credentials.bouncerKey().value())
-				.timeout(DEFAULT_TIMEOUT_MS)
-				.execute()) {
+		HttpResponse response;
+		try {
+			response = HttpRequest.get(base() + "/v1/decisions?" + query)
+					.header("User-Agent", USER_AGENT)
+					.header("X-Api-Key", credentials.bouncerKey().value())
+					.timeout(DEFAULT_TIMEOUT_MS)
+					.execute();
+		} catch (RuntimeException e) {
+			throw new LapiUnavailableException("crowdsec decisions unreachable", e);
+		}
+		try (HttpResponse resp = response) {
 			if (!resp.isOk()) {
 				throw new IllegalStateException("crowdsec decisions HTTP " + resp.getStatus());
 			}

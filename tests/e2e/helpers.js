@@ -81,6 +81,8 @@ async function startApp() {
   const args = [
     '-jar',
     '-Dfile.encoding=UTF-8',
+    // GeoIP 資料庫目錄指到測試資料夾：不讀也不寫本機 /etc/nginx/geoip，E2E 一律在「沒有 mmdb」的環境跑
+    `-Dgeoip.dir=${TEST_DATA_DIR}/geoip/`,
     JAR_PATH,
     `--server.port=${TEST_PORT}`,
     `--project.home=${TEST_DATA_DIR}/`,

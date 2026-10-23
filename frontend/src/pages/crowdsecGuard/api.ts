@@ -63,6 +63,8 @@ export interface WhitelistOutcome {
   deleted: number
   rangesKept: number
   error?: string | null
+  /** 有一行剛好是這個 IP 的黑名單名稱；沒有時後端省略 */
+  denyConflicts?: string[] | null
 }
 
 export const lookupIp = (ip: string) => get<LookupResult>(`${BASE}/ipLookup`, { ip })

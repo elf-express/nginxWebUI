@@ -104,6 +104,43 @@ class CrowdSecWhitelistServiceTest {
 	}
 
 	@Test
+	void lapiUnavailableFailureCarriesItsOwnErrorCode() {
+		failure = new CrowdSecClient.LapiUnavailableException("down");
+		CrowdSecWhitelistService.Outcome o = svc.whitelist("203.0.113.5", "admin");
+		assertEquals("failed", o.crowdsec());
+		assertEquals(CrowdSecClient.LapiUnavailableException.CODE, o.error());
+	}
+
+	private void deny(String name, String ips) {
+		DenyAllow da = new DenyAllow();
+		da.setType("deny");
+		da.setName(name);
+		da.setIp(ips);
+		sql.insertOrUpdate(da);
+	}
+
+	@Test
+	void reportsDenylistsHoldingTheExactIpWithoutTouchingThem() {
+		deny("bad ips", "198.51.100.1\n203.0.113.5\n");
+		deny("bad range", "203.0.113.0/24");
+		deny("other", "203.0.113.50");
+		CrowdSecWhitelistService.Outcome o = svc.whitelist("203.0.113.5", "admin");
+		assertEquals(List.of("bad ips"), o.denyConflicts());
+		assertEquals("added", o.denyAllow());
+		// 不改使用者的黑名單
+		List<String> denyIps = sql.findAll(DenyAllow.class).stream().filter(d -> "deny".equals(d.getType()))
+				.map(DenyAllow::getIp).toList();
+		assertTrue(denyIps.contains("198.51.100.1\n203.0.113.5\n"));
+		assertEquals(3, denyIps.size());
+	}
+
+	@Test
+	void noDenyConflictsWhenNoListHasTheExactIp() {
+		deny("bad range", "203.0.113.0/24");
+		assertTrue(svc.whitelist("203.0.113.5", "admin").denyConflicts().isEmpty());
+	}
+
+	@Test
 	void rejectsCidrAndGarbage() {
 		assertThrows(IllegalArgumentException.class, () -> svc.whitelist("203.0.113.0/24", "admin"));
 		assertThrows(IllegalArgumentException.class, () -> svc.whitelist("example.com", "admin"));

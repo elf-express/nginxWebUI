@@ -36,7 +36,7 @@ public class IpLookupService {
 	@Inject
 	CrowdSecClient crowdSecClient;
 
-	Function<String, Optional<String>> countryOf;
+	Function<String, GeoLookup.Country> countryOf;
 	Function<String, Optional<GeoLookup.Asn>> asnOf;
 	BooleanSupplier canReadCrowdSec;
 	Function<String, String> decisionsOf;
@@ -54,7 +54,7 @@ public class IpLookupService {
 			List<Map<String, Object>> decisions, String reason) {
 	}
 
-	/** blockedBy：第一個擋下的層（allowlist 表示白名單放行）或 none */
+	/** blockedBy：第一個擋下的層（allowlist 表示白名單放行）、none，或 undetermined（沒有層擋下，但有層查不到結果） */
 	public record Result(String ip, String country, GeoLookup.Asn asn, List<Layer> layers, String blockedBy) {
 	}
 
@@ -63,7 +63,8 @@ public class IpLookupService {
 			throw new IllegalArgumentException("invalid_ip");
 		}
 		String target = ip.trim();
-		String country = countryOf.apply(target).orElse(null);
+		GeoLookup.Country geoCountry = countryOf.apply(target);
+		String country = geoCountry.code();
 		GeoLookup.Asn asn = asnOf.apply(target).orElse(null);
 
 		List<String> allowLists = matchingLists("allow", target);
@@ -76,17 +77,22 @@ public class IpLookupService {
 			layers.add(skipped("crowdsec"));
 			return new Result(target, country, asn, layers, "allowlist");
 		}
-		layers.add(geoLayer(country));
+		layers.add(geoLayer(geoCountry));
 		List<String> denyLists = matchingLists("deny", target);
 		layers.add(new Layer("denylist", denyLists.isEmpty() ? "none" : "match", denyLists, List.of(), List.of(), null));
 		layers.add(crowdsecLayer(target));
 
 		String blockedBy = "none";
+		boolean undetermined = false;
 		for (Layer l : layers) {
 			if ("blocked".equals(l.state()) || ("denylist".equals(l.layer()) && "match".equals(l.state()))) {
 				blockedBy = l.layer();
 				break;
 			}
+			undetermined |= "unknown".equals(l.state()) || "unavailable".equals(l.state());
+		}
+		if ("none".equals(blockedBy) && undetermined) {
+			blockedBy = "undetermined";
 		}
 		return new Result(target, country, asn, layers, blockedBy);
 	}
@@ -111,22 +117,28 @@ public class IpLookupService {
 		return names;
 	}
 
-	/** 與 ConfService 相同：有 server 專屬規則用它，否則用全域規則；每條啟用的規則各列一筆 */
-	private Layer geoLayer(String country) {
+	/**
+	 * 與 ConfService 相同：有 server 專屬規則用它，否則用全域規則；每條啟用的規則各列一筆。
+	 * 資料庫有、但查不到這個 IP 的國家時，國家代碼視為空字串（nginx 的 $geoip2_data_country_code 為空），
+	 * 不在任何清單內：白名單模式（mode 0）封鎖、黑名單模式放行。只有資料庫不可用才是 unknown。
+	 */
+	private Layer geoLayer(GeoLookup.Country geoCountry) {
 		List<Map<String, Object>> details = new ArrayList<>();
 		boolean anyRule = false;
 		boolean blocked = false;
+		String country = geoCountry.code() == null ? "" : geoCountry.code();
 		for (GeoRule rule : sqlHelper.findAll(GeoRule.class)) {
 			if (rule.getEnable() == null || !rule.getEnable() || StrUtil.isEmpty(rule.getCountries())) {
 				continue;
 			}
 			anyRule = true;
-			if (country == null) {
+			if (!geoCountry.available()) {
 				continue;
 			}
 			boolean listed = false;
 			for (String c : rule.getCountries().split(",")) {
-				listed |= c.trim().equalsIgnoreCase(country);
+				String code = c.trim();
+				listed |= !code.isEmpty() && code.equalsIgnoreCase(country);
 			}
 			boolean ruleBlocks = rule.getMode() != null && rule.getMode() == 0 ? !listed : listed;
 			blocked |= ruleBlocks;
@@ -136,7 +148,7 @@ public class IpLookupService {
 			d.put("blocked", ruleBlocks);
 			details.add(d);
 		}
-		String state = !anyRule ? "allowed" : country == null ? "unknown" : blocked ? "blocked" : "allowed";
+		String state = !anyRule ? "allowed" : !geoCountry.available() ? "unknown" : blocked ? "blocked" : "allowed";
 		return new Layer("geo", state, List.of(), details, List.of(), null);
 	}
 
@@ -154,7 +166,9 @@ public class IpLookupService {
 					decisions.add(new LinkedHashMap<>(o));
 				}
 			}
-			return new Layer("crowdsec", decisions.isEmpty() ? "none" : "blocked", List.of(), List.of(), decisions, null);
+			// bouncer 只對 ban 類型的 decision 斷線；其他類型（captcha、舊版 whitelist）照列但不判定擋下
+			boolean banned = decisions.stream().anyMatch(d -> "ban".equalsIgnoreCase(String.valueOf(d.get("type"))));
+			return new Layer("crowdsec", banned ? "blocked" : "none", List.of(), List.of(), decisions, null);
 		} catch (CrowdSecClient.LapiUnavailableException e) {
 			return new Layer("crowdsec", "unavailable", List.of(), List.of(), List.of(), CrowdSecClient.LapiUnavailableException.CODE);
 		} catch (RuntimeException e) {

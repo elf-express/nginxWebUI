@@ -1,6 +1,7 @@
 package com.cym.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -52,6 +53,22 @@ class CrowdSecClientGuardTest {
 		String body = client().decisionsForIpRaw("203.0.113.5");
 		assertTrue(body.contains("\"id\":7"));
 		assertEquals("ip=203.0.113.5", lapi.decisionQueries.get(0));
+	}
+
+	@Test
+	void decisionsForIpWrapsConnectionFailureAsLapiUnavailable() {
+		lapi.close();
+		CrowdSecClient.LapiUnavailableException e = assertThrows(CrowdSecClient.LapiUnavailableException.class,
+				() -> client().decisionsForIpRaw("203.0.113.5"));
+		assertTrue(e.getMessage() != null && !e.getMessage().contains(KEY));
+	}
+
+	@Test
+	void decisionsForIpKeepsHttpErrorAsPlainFailure() {
+		// LAPI 有回應（403 金鑰不對）時仍是一般失敗，不能被當成連不上
+		env.put("CROWDSEC_BOUNCER_KEY", "wrong-key-0123456789");
+		IllegalStateException e = assertThrows(IllegalStateException.class, () -> client().decisionsForIpRaw("203.0.113.5"));
+		assertFalse(e instanceof CrowdSecClient.LapiUnavailableException);
 	}
 
 	@Test

@@ -58,6 +58,7 @@ test.describe('CrowdSec 防護頁', () => {
     await page.goto('/adminPage/crowdsecGuard#ip=203.0.113.10');
     await expect(page.locator('.ip-layer[data-layer="allowlist"]')).toHaveAttribute('data-state', 'match');
     await expect(page.locator('.ip-layer[data-layer="crowdsec"]')).toHaveAttribute('data-state', 'skipped');
+    await expect(page.locator('.ip-verdict')).toHaveAttribute('data-verdict', 'success');
   });
 
   test('黑名單 IP（網段）：黑名單層命中', async ({ page }) => {
@@ -65,6 +66,15 @@ test.describe('CrowdSec 防護頁', () => {
     await page.goto('/adminPage/crowdsecGuard#ip=198.51.100.9');
     await expect(page.locator('.ip-layer[data-layer="denylist"]')).toHaveAttribute('data-state', 'match');
     await expect(page.locator('.ip-verdict')).toContainText(/黑名單|黑名单|denylist/);
+    await expect(page.locator('.ip-verdict')).toHaveAttribute('data-verdict', 'error');
+  });
+
+  test('有層查不到結果且沒有任何層擋下：總結是警告，不是綠色「沒有被擋」', async ({ page }) => {
+    // 測試環境沒有 GeoIP 資料庫也沒有 CrowdSec，所以國家與 CrowdSec 兩層都查不到
+    await page.goto('/adminPage/crowdsecGuard#ip=203.0.113.21');
+    await expect(page.locator('.ip-layer[data-layer="geo"]')).toHaveAttribute('data-state', 'unknown');
+    await expect(page.locator('.ip-verdict')).toHaveAttribute('data-verdict', 'warning');
+    await expect(page.locator('.ip-verdict')).toContainText(/無法完整判斷|无法完整判断|cannot be fully determined/);
   });
 
   test('國家封鎖：測試環境沒有 GeoIP 資料庫時顯示查不到國家', async ({ page }) => {
@@ -88,6 +98,25 @@ test.describe('CrowdSec 防護頁', () => {
     await expect(page.locator('.ant-message')).toContainText(/白名單|白名单|allowlist/i);
     await page.goto('/adminPage/protectionCert');
     await expect(page.locator('body')).toContainText('203.0.113.40');
+  });
+
+  test('加入白名單時黑名單有同一個 IP：提示衝突的黑名單名稱，不改黑名單', async ({ page }) => {
+    await addList(page, 'deny', 'e385-conflict', '203.0.113.50');
+    await page.goto('/adminPage/crowdsecGuard#ip=203.0.113.50');
+    await page.locator('.ip-whitelist').click();
+    await page.locator('.ant-popconfirm .ant-btn-primary').click();
+    await expect(page.locator('.ant-message')).toContainText('e385-conflict');
+    // 黑名單照舊在「防護與憑證」頁，沒有被改動
+    await page.goto('/adminPage/protectionCert');
+    await expect(page.locator('body')).toContainText('e385-conflict');
+  });
+
+  test('手動封鎖視窗的三個欄位都有可存取名稱', async ({ page }) => {
+    await page.goto('/adminPage/crowdsecGuard#bans');
+    await page.locator('.bans-add').click();
+    for (const name of [/IP.*(網段|网段|range)/i, /封鎖時長|封锁时长|Duration/i, /原因|Reason/i]) {
+      await expect(page.getByRole('dialog').getByRole('textbox', { name })).toBeVisible();
+    }
   });
 
   test('最近被擋下的 IP：讀不到日誌時顯示空表，不報錯', async ({ page }) => {

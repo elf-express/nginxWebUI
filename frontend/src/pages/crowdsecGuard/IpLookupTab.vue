@@ -5,7 +5,7 @@ import { t } from '../../shared/i18n'
 import { notifyError } from '../../shared/notify'
 import { lookupIp, whitelistIp, type LookupResult } from './api'
 import BlockedIps from './BlockedIps.vue'
-import { blockedByKey, layerStateKey, sourceKeyOf } from './view'
+import { blockedByKey, layerStateKey, sourceKeyOf, verdictType, whitelistMessage } from './view'
 
 const ip = defineModel<string>('ip', { default: '' })
 // 從空字串開始：分頁第一次掛載時 ip 可能已有值（網址 hash 或其他分頁帶來），要讓 watch 立刻查
@@ -16,7 +16,7 @@ const whitelisting = ref(false)
 
 const BLOCKED_STATES = ['blocked', 'match']
 const layers = computed(() => data.value?.result.layers ?? [])
-const verdictBlocked = computed(() => !['none', 'allowlist'].includes(data.value?.result.blockedBy ?? 'none'))
+const verdict = computed(() => verdictType(data.value?.result.blockedBy ?? 'none'))
 
 function color(layer: string, state: string): string {
   if (state === 'skipped' || state === 'none' || state === 'allowed') {
@@ -56,22 +56,12 @@ async function addWhitelist() {
   whitelisting.value = true
   try {
     const o = await whitelistIp(data.value.result.ip)
-    const parts = [t(o.denyAllow === 'added' ? 'crowdsecGuardStr.wlAdded' : 'crowdsecGuardStr.wlExists')]
-    if (o.crowdsec === 'ok') {
-      parts.push(t('crowdsecGuardStr.wlDeleted', o.deleted))
-      if (o.rangesKept > 0) {
-        parts.push(t('crowdsecGuardStr.wlRangesKept', o.rangesKept))
-      }
-    } else if (o.crowdsec === 'failed') {
-      parts.push(t('crowdsecGuardStr.wlCrowdsecFailed'))
+    const m = whitelistMessage(o, t)
+    // 警告訊息較長（失敗原因、黑名單衝突），多停留一會兒
+    if (m.type === 'warning') {
+      message.warning(m.text, 8)
     } else {
-      parts.push(t('crowdsecGuardStr.wlCrowdsecNotConfigured'))
-    }
-    parts.push(t('crowdsecGuardStr.wlNeedApply'))
-    if (o.crowdsec === 'failed') {
-      message.warning(parts.join(' '))
-    } else {
-      message.success(parts.join(' '))
+      message.success(m.text)
     }
     await run(data.value.result.ip)
   } catch (err) {
@@ -112,7 +102,8 @@ watch(
     <div v-if="data" class="ip-result">
       <Alert
         class="ip-verdict"
-        :type="verdictBlocked ? 'error' : 'success'"
+        :type="verdict"
+        :data-verdict="verdict"
         show-icon
         :message="t(blockedByKey(data.result.blockedBy), data.result.ip)"
       >

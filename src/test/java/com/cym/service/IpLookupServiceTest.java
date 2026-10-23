@@ -1,9 +1,13 @@
 package com.cym.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -12,12 +16,14 @@ import org.junit.jupiter.api.Test;
 import com.cym.model.DenyAllow;
 import com.cym.model.GeoRule;
 import com.cym.model.Server;
+import com.cym.testsupport.FakeLapi;
 import com.cym.testsupport.InMemorySqlHelper;
+import com.cym.utils.CrowdSecCredentials;
 
 class IpLookupServiceTest {
 	private InMemorySqlHelper sql;
 	private IpLookupService svc;
-	private String country = "CN";
+	private GeoLookup.Country country = GeoLookup.Country.of("CN");
 	private String decisions = "null";
 	private boolean canRead = true;
 
@@ -29,7 +35,7 @@ class IpLookupServiceTest {
 		svc = new IpLookupService();
 		svc.sqlHelper = sql;
 		svc.denyAllowService = das;
-		svc.countryOf = ip -> Optional.ofNullable(country);
+		svc.countryOf = ip -> country;
 		svc.asnOf = ip -> Optional.of(new GeoLookup.Asn(4134, "Chinanet"));
 		svc.canReadCrowdSec = () -> canRead;
 		svc.decisionsOf = ip -> decisions;
@@ -92,9 +98,58 @@ class IpLookupServiceTest {
 
 	@Test
 	void unknownCountryWhenNoMmdb() {
-		country = null;
+		country = GeoLookup.Country.unavailable();
 		geo(null, 0, "TW");
-		assertEquals("unknown", layer(svc.lookup("203.0.113.5"), "geo").state());
+		IpLookupService.Result r = svc.lookup("203.0.113.5");
+		assertEquals("unknown", layer(r, "geo").state());
+		assertNull(r.country());
+	}
+
+	@Test
+	void noCountryRecordInAllowModeIsBlocked() {
+		// 資料庫有、但查不到這個 IP 的國家：nginx 的 $geoip2_data_country_code 是空字串，白名單模式走 default 1（封鎖）
+		country = GeoLookup.Country.none();
+		geo(null, 0, "TW,JP");
+		IpLookupService.Result r = svc.lookup("203.0.113.5");
+		assertEquals("blocked", layer(r, "geo").state());
+		assertEquals("geo", r.blockedBy());
+		assertNull(r.country());
+	}
+
+	@Test
+	void noCountryRecordInDenyModeIsAllowed() {
+		// 黑名單模式 default 0（放行）
+		country = GeoLookup.Country.none();
+		geo(null, 1, "CN,RU");
+		IpLookupService.Result r = svc.lookup("203.0.113.5");
+		assertEquals("allowed", layer(r, "geo").state());
+		assertEquals("none", r.blockedBy());
+	}
+
+	@Test
+	void blankEntryInCountryListNeverMatchesMissingCountry() {
+		// ConfService 會略過空白項目，所以空字串國家不會因為清單有空項目而命中
+		country = GeoLookup.Country.none();
+		geo(null, 1, "CN,,RU");
+		assertEquals("allowed", layer(svc.lookup("203.0.113.5"), "geo").state());
+	}
+
+	@Test
+	void layerUnknownOrUnavailableWithoutAnyBlockIsUndetermined() {
+		country = GeoLookup.Country.unavailable();
+		geo(null, 0, "TW");
+		assertEquals("undetermined", svc.lookup("203.0.113.5").blockedBy());
+
+		country = GeoLookup.Country.of("TW");
+		canRead = false;
+		assertEquals("undetermined", svc.lookup("203.0.113.5").blockedBy());
+	}
+
+	@Test
+	void realBlockWinsOverUndetermined() {
+		canRead = false;
+		list("deny", "bad", "203.0.113.5");
+		assertEquals("denylist", svc.lookup("203.0.113.5").blockedBy());
 	}
 
 	@Test
@@ -113,6 +168,41 @@ class IpLookupServiceTest {
 		assertEquals("blocked", layer(r, "crowdsec").state());
 		assertEquals(1, layer(r, "crowdsec").decisions().size());
 		assertEquals("crowdsec", r.blockedBy());
+	}
+
+	@Test
+	void onlyBanDecisionsBlock() {
+		decisions = "[{\"id\":8,\"type\":\"captcha\",\"scope\":\"Ip\",\"value\":\"203.0.113.5\",\"origin\":\"crowdsec\"},"
+				+ "{\"id\":9,\"type\":\"whitelist\",\"scope\":\"Ip\",\"value\":\"203.0.113.5\",\"origin\":\"cscli\"}]";
+		IpLookupService.Result r = svc.lookup("203.0.113.5");
+		assertEquals("none", layer(r, "crowdsec").state());
+		assertEquals(2, layer(r, "crowdsec").decisions().size());
+		assertEquals("none", r.blockedBy());
+
+		decisions = "[{\"id\":8,\"type\":\"captcha\",\"scope\":\"Ip\",\"value\":\"203.0.113.5\"},"
+				+ "{\"id\":7,\"type\":\"Ban\",\"scope\":\"Ip\",\"value\":\"203.0.113.5\"}]";
+		r = svc.lookup("203.0.113.5");
+		assertEquals("blocked", layer(r, "crowdsec").state());
+		assertEquals("crowdsec", r.blockedBy());
+	}
+
+	@Test
+	void unreachableLapiGivesLapiUnavailableReason() throws Exception {
+		// 用真的 CrowdSecClient 連到已關閉的 LAPI：連線失敗要歸為 crowdsec_lapi_unavailable，不是 crowdsec_error
+		FakeLapi lapi = new FakeLapi("nginxwebui", "machine-pass-0123456789", "bouncer-key-0123456789");
+		Map<String, String> env = new HashMap<>();
+		env.put("CROWDSEC_LAPI_URL", lapi.url());
+		env.put("CROWDSEC_BOUNCER_KEY", "bouncer-key-0123456789");
+		lapi.close();
+		CrowdSecClient client = new CrowdSecClient();
+		client.credentials = new CrowdSecCredentials(env::get, Path.of("target", "no-secrets-ip-lookup"));
+		svc.canReadCrowdSec = client::canRead;
+		svc.decisionsOf = client::decisionsForIpRaw;
+
+		IpLookupService.Layer c = layer(svc.lookup("203.0.113.5"), "crowdsec");
+
+		assertEquals("unavailable", c.state());
+		assertEquals(CrowdSecClient.LapiUnavailableException.CODE, c.reason());
 	}
 
 	@Test

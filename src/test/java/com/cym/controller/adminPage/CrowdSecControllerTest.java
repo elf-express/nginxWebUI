@@ -286,7 +286,7 @@ class CrowdSecControllerTest {
 			@Override
 			public Outcome whitelist(String ip, String adminName) {
 				calls.add(ip + "|" + adminName);
-				return new Outcome("added", "notConfigured", 0, 0, null);
+				return new Outcome("added", "notConfigured", 0, 0, null, List.of());
 			}
 		};
 

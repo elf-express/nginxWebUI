@@ -1,5 +1,7 @@
 package com.cym.service;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.function.IntSupplier;
@@ -45,8 +47,12 @@ public class CrowdSecWhitelistService {
 		deleteLegacy = () -> crowdSecClient.deleteLegacyWhitelistDecisions();
 	}
 
-	/** denyAllow：added／exists；crowdsec：ok／notConfigured／failed（error 為錯誤碼） */
-	public record Outcome(String denyAllow, String crowdsec, int deleted, int rangesKept, String error) {
+	/**
+	 * denyAllow：added／exists；crowdsec：ok／notConfigured／failed（error 為錯誤碼）；
+	 * denyConflicts：有一行剛好是這個 IP 的黑名單名稱（白名單優先生效，但之後編輯那份黑名單會因黑白衝突被擋，要先移除此 IP）。
+	 */
+	public record Outcome(String denyAllow, String crowdsec, int deleted, int rangesKept, String error,
+			List<String> denyConflicts) {
 	}
 
 	public Outcome whitelist(String ip, String adminName) {
@@ -75,7 +81,24 @@ public class CrowdSecWhitelistService {
 		String denyAllow = alreadyAllowed(target) ? "exists" : addAllow(target);
 		operateLogService.addLog("", "[CrowdSec] whitelist " + target + " (decisions deleted: " + deleted
 				+ ", ranges kept: " + ranges + ", allowlist: " + denyAllow + ", crowdsec: " + crowdsec + ")", adminName);
-		return new Outcome(denyAllow, crowdsec, deleted, ranges, error);
+		return new Outcome(denyAllow, crowdsec, deleted, ranges, error, denyConflictsOf(target));
+	}
+
+	/** 黑名單中有一行（去掉前後空白後）等於這個 IP 的名單名稱；只讀，不改使用者的黑名單 */
+	private List<String> denyConflictsOf(String ip) {
+		List<String> names = new ArrayList<>();
+		for (DenyAllow d : denyAllowService.listByType("deny")) {
+			if (d.getIp() == null) {
+				continue;
+			}
+			for (String line : d.getIp().split("\n")) {
+				if (ip.equals(line.trim())) {
+					names.add(d.getName());
+					break;
+				}
+			}
+		}
+		return names;
 	}
 
 	private boolean alreadyAllowed(String ip) {
