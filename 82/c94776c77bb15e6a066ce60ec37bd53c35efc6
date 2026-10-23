@@ -1,0 +1,66 @@
+docker/test/crowdsec-guard-e2e.sh
+  s_a7bf1cec5200b2::t_ce07d7298e7c54 15-16
+  s_a7bf1cec5200b2::t_503b5c584e8ce6 1-14,17-204,214-254,259-332,335-336,338-339,341-369,386-387
+  s_a7bf1cec5200b2::t_3828b6971ccd5b 333-334,337,340
+  s_a7bf1cec5200b2::t_4b33d25797c58e 205-213
+  s_a7bf1cec5200b2::t_654f128c21addc 370-385
+  s_a7bf1cec5200b2::t_93eb6d205c2f0b 255-258
+tests/e2e/32-firewall-ip-tabs.spec.js
+  s_a7bf1cec5200b2::t_5546a9a87908d1 11,13
+  s_a7bf1cec5200b2::t_721c2c5b6af92b 4
+tests/e2e/16-protection-cert.spec.js
+  s_a7bf1cec5200b2::t_366b959bb72360 17,22
+frontend/src/pages/crowdsecGuard/IpLookupTab.vue
+  s_a7bf1cec5200b2::t_329a45e17d5f83 139
+src/main/resources/messages.properties
+  s_a7bf1cec5200b2::t_3485a739007b8b 859
+  s_a7bf1cec5200b2::t_7e76907cb39cbc 1108
+  s_a7bf1cec5200b2::t_1a8de6483b50c2 844-849
+  s_a7bf1cec5200b2::t_a9376b07c33417 890
+tests/e2e/39-crowdsec-tab.spec.js
+  s_a7bf1cec5200b2::t_0e2d223946baf5 34-36
+  s_a7bf1cec5200b2::t_1d334f25598355 9
+src/main/resources/messages_en_US.properties
+  s_a7bf1cec5200b2::t_ec30442a5c9591 859
+  s_a7bf1cec5200b2::t_ceeb45a595589c 1108
+  s_a7bf1cec5200b2::t_fbede49fcb36d3 844-849
+  s_a7bf1cec5200b2::t_b246c7a402c004 890
+src/main/resources/WEB-INF/view/adminPage/protectionCert/index.html
+  s_a7bf1cec5200b2::t_4290589dd9e413 282
+  s_a7bf1cec5200b2::t_7da05cbf0512b9 379
+  s_a7bf1cec5200b2::t_587c69fdea83b6 272
+  s_a7bf1cec5200b2::t_7a4a261c7c1170 378
+src/test/java/com/cym/controller/adminPage/I18nControllerTest.java
+  s_a7bf1cec5200b2::t_a8afa1542604f0 4
+  s_a7bf1cec5200b2::t_aa4113f689958d 47-59
+tests/e2e/40-crowdsec-guard.spec.js
+  s_a7bf1cec5200b2::t_ffe8d372a49626 1-27,30-31,39-40,43-49,54-79,82-95,98-113,137
+  s_a7bf1cec5200b2::t_983b3153d113e6 28-29,33-35,37-38,41-42,50-53
+  s_a7bf1cec5200b2::t_02dfb6610bd75e 32,36
+  s_a7bf1cec5200b2::t_86ce46332bcbae 80-81
+  s_a7bf1cec5200b2::t_bda63f8a9a76f1 96-97
+  s_a7bf1cec5200b2::t_8794468f038095 114-136
+src/main/resources/messages_zh_TW.properties
+  s_a7bf1cec5200b2::t_6291b22e232dd6 859
+  s_a7bf1cec5200b2::t_1f7dfe81db5f1b 890
+  s_a7bf1cec5200b2::t_c830324381233e 1108
+  s_a7bf1cec5200b2::t_0bb413d738ad3a 844-849
+src/main/resources/static/js/adminPage/denyAllow/asn.js
+  s_a7bf1cec5200b2::t_b81382b8f3d614 55-56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "82c94776c77bb15e6a066ce60ec37bd53c35efc6",
+  "prompts": {},
+  "sessions": {
+    "s_a7bf1cec5200b2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5ec896ab-5e78-4e2b-9171-67ef526d1edf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
