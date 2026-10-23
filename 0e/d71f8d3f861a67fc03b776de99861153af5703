@@ -1,0 +1,20 @@
+docs/superpowers/state/E-386.yaml
+  s_5f272b590b1f6b::t_ef89f83d32a516 2-5
+  s_5f272b590b1f6b::t_d74f8f7e196041 1,6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0ed71f8d3f861a67fc03b776de99861153af5703",
+  "prompts": {},
+  "sessions": {
+    "s_5f272b590b1f6b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1fecda68-6cda-4dff-9645-5a96d9d2bafc",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
