@@ -1,9 +1,12 @@
 -- nginxWebUI wrapper around the official CrowdSec lua-cs-bouncer.
 -- Provides: init(opts), init_worker(), access().
---   opts = { conf = <bouncer conf path>, grace = <seconds>, state = <state file path>, page = <503 page path> }
--- Decisions: IP ban -> ngx.exit(444); AppSec block -> ngx.exit(403);
--- CrowdSec unreachable longer than grace -> 503 page. Allowlisted clients ($nwu_allowlist = "1") bypass everything.
+--   opts = { conf = <bouncer conf path>, grace = <seconds>, state = <state file path>, page = <503 page path>,
+--            challenge = <optional nwu_challenge opts> }
+-- Decisions: IP ban -> ngx.exit(444); captcha -> nwu_challenge; CrowdSec whitelist -> pass everything;
+-- AppSec block -> ngx.exit(403); CrowdSec unreachable longer than grace -> 503 page.
+-- Allowlisted clients ($nwu_allowlist = "1") bypass everything. Banned clients get 444 on the reserved path too.
 local policy = require "nwu_crowdsec_policy"
+local challenge_policy = require "nwu_challenge_policy"
 
 local _M = {}
 
@@ -13,6 +16,7 @@ local PROBE_TIMEOUT_MS = 2000
 local DICT_NAME = "nwu_crowdsec"
 
 local cs            -- the official crowdsec module
+local challenge     -- nwu_challenge when opts.challenge is given and its init succeeded
 local cfg = {}      -- parsed bouncer conf
 local opts = {}     -- opts given to init()
 local page_html     -- content of the 503 page
@@ -34,6 +38,7 @@ function _M.init(o)
   opts.grace = tonumber(opts.grace) or 120
   ready = false
   configured = true
+  challenge = nil
 
   local text, errno = read_file(opts.conf or "")
   if policy.conf_missing(text, errno) then
@@ -65,6 +70,13 @@ function _M.init(o)
   if res == "Disabled" then
     ngx.log(ngx.WARN, "[nwu_crowdsec] bouncer is disabled in conf (ENABLED=false)")
     return false
+  end
+
+  if opts.challenge then
+    local mod = require "nwu_challenge"
+    if mod.init(opts.challenge) then
+      challenge = mod
+    end
   end
 
   ready = true
@@ -184,8 +196,20 @@ function _M.access()
 
   local ip = ngx.var.remote_addr
   local ok, remediation = cs.allowIp(ip)
-  if policy.is_ban(ok, remediation) then
+  local action = policy.remediation(ok, remediation)
+  if action == "ban" then
     return ngx.exit(444)
+  end
+  if action == "allow" then
+    return
+  end
+  if challenge then
+    if challenge_policy.is_reserved(ngx.var.uri) then
+      return challenge.handle(ip)
+    end
+    if action == "captcha" and not challenge.has_valid_cookie(ip) then
+      return challenge.challenge(ip)
+    end
   end
 
   if cfg.APPSEC_URL and cfg.APPSEC_URL ~= "" then
