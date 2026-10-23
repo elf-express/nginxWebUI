@@ -1,0 +1,23 @@
+docker/lua/test/crypto_ffi.lua
+  s_a28b699e4790bd::t_868aa77df17161 1-40
+docker/lua/test/ticket-vectors.json
+  s_a28b699e4790bd::t_d2b068a9617f65 1-18
+docker/lua/test/ticket_vectors_test.lua
+  s_a28b699e4790bd::t_bcce19d7c4317b 1-26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "34dd979313059cc59ed1dc4b82d5169e9acdaad9",
+  "prompts": {},
+  "sessions": {
+    "s_a28b699e4790bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "195abc9b-fbd8-4977-9ae6-70d5fcc76908",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
