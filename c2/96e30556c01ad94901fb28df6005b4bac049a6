@@ -1,0 +1,21 @@
+docker/lua/nwu_challenge.lua
+  s_a28b699e4790bd::t_daa496d9c840cc 255
+docker/test/challenge-smoke.sh
+  s_a28b699e4790bd::t_b6f7166b56cdac 51,143-145,179
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c296e30556c01ad94901fb28df6005b4bac049a6",
+  "prompts": {},
+  "sessions": {
+    "s_a28b699e4790bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "195abc9b-fbd8-4977-9ae6-70d5fcc76908",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
