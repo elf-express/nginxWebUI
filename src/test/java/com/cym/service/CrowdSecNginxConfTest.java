@@ -27,6 +27,8 @@ import com.cym.model.Location;
 import com.cym.model.Param;
 import com.cym.model.Server;
 import com.cym.testsupport.InMemorySqlHelper;
+import com.cym.testsupport.TestMessages;
+import com.cym.utils.ChallengeSecrets;
 import com.cym.utils.CrowdSecCredentials;
 
 import cn.hutool.core.util.ReflectUtil;
@@ -389,6 +391,52 @@ class CrowdSecNginxConfTest {
 		Files.writeString(state, "not json");
 
 		assertNull(crowdsec.readState());
+	}
+
+	private void useChallenge() throws Exception {
+		CrowdSecChallenge challenge = new CrowdSecChallenge();
+		HomeConfig homeConfig = new HomeConfig();
+		homeConfig.home = home;
+		ReflectUtil.setFieldValue(challenge, "homeConfig", homeConfig);
+		ReflectUtil.setFieldValue(challenge, "settingService", ReflectUtil.getFieldValue(crowdsec, "settingService"));
+		ReflectUtil.setFieldValue(challenge, "messageUtils", TestMessages.load());
+		ReflectUtil.setFieldValue(challenge, "secrets", new ChallengeSecrets(env::get, tmp.resolve("no-secrets"),
+				Path.of(home + "crowdsec/challenge_cookie_secret")));
+		Path altcha = tmp.resolve("altcha.js");
+		Files.writeString(altcha, "// altcha");
+		ReflectUtil.setFieldValue(challenge, "altchaPath", altcha.toString());
+		ReflectUtil.setFieldValue(crowdsec, "challenge", challenge);
+	}
+
+	@Test
+	void challengeReadyTakesCaptchaDecisions() throws Exception {
+		useChallenge();
+
+		ConfExt ext = conf.buildConf(true, false);
+
+		String inc = file(ext, "crowdsec_http.conf");
+		assertTrue(inc.contains("lua_shared_dict nwu_challenge 10m;"), inc);
+		assertTrue(inc.contains("        challenge = {"), inc);
+		assertTrue(inc.contains("conf = \"" + home + "crowdsec/challenge.conf\","), inc);
+		assertTrue(inc.contains("pages = \"" + home + "crowdsec/challenge/\","), inc);
+		assertTrue(inc.contains("altcha = \"/usr/local/lib/nginxwebui/html/altcha.js\","), inc);
+		assertFalse(inc.contains("COOKIE_SECRET"), inc);
+		assertTrue(Files.readString(Path.of(crowdsec.bouncerConfPath())).contains("BOUNCING_ON_TYPE=all\n"));
+		assertTrue(Files.exists(Path.of(home + "crowdsec/challenge.conf")));
+	}
+
+	@Test
+	void challengeNotReadyKeepsBanOnly() throws Exception {
+		useChallenge();
+		settings.put(CrowdSecChallenge.MODE_KEY, "external");
+		settings.put(CrowdSecChallenge.EXTERNAL_URL_KEY, "https://verify.example/");
+
+		ConfExt ext = conf.buildConf(true, false);
+
+		String inc = file(ext, "crowdsec_http.conf");
+		assertFalse(inc.contains("nwu_challenge"), inc);
+		assertFalse(inc.contains("challenge = {"), inc);
+		assertTrue(Files.readString(Path.of(crowdsec.bouncerConfPath())).contains("BOUNCING_ON_TYPE=ban\n"));
 	}
 
 	private void assertInactive() {
