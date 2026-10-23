@@ -1,0 +1,27 @@
+docker/lua/nwu_challenge_policy.lua
+  s_a28b699e4790bd::t_cb95005075eb9b 1-242
+docker/lua/nwu_crowdsec_policy.lua
+  s_a28b699e4790bd::t_7b7114959eb26e 53-68
+docker/lua/test/challenge_policy_test.lua
+  s_a28b699e4790bd::t_49f877144de1c2 1-88
+docker/lua/test/policy_test.lua
+  s_a28b699e4790bd::t_bd61f962fdaa6d 26-33
+docker/test/lua-unit.sh
+  s_a28b699e4790bd::t_c180133d1711d8 1-16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "994eae1c1c4f7622243b660d84af02832976d521",
+  "prompts": {},
+  "sessions": {
+    "s_a28b699e4790bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "195abc9b-fbd8-4977-9ae6-70d5fcc76908",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
