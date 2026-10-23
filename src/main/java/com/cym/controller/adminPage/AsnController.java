@@ -15,6 +15,7 @@ import com.cym.model.AsMeta;
 import com.cym.model.AsnRule;
 import com.cym.service.AsnBlockService;
 import com.cym.service.AsnMetaService;
+import com.cym.service.CrowdSecClient;
 import com.cym.sqlhelper.bean.Page;
 import com.cym.sqlhelper.utils.ConditionAndWrapper;
 import com.cym.utils.BaseController;
@@ -166,6 +167,9 @@ public class AsnController extends BaseController {
 				int n = asnBlockService.revokeAllWebuiAsnBans();
 				asnBlockService.setProfile(next);
 				return renderSuccess(n);
+			} catch (CrowdSecClient.MachineAuthException | CrowdSecClient.NotConfiguredException
+					| CrowdSecClient.LapiUnavailableException e) {
+				return renderError(mapException(e));
 			} catch (Exception e) {
 				logger.error("revoke on setProfile light failed", e);
 				// profile unchanged (still previous); never leak internals
@@ -208,7 +212,7 @@ public class AsnController extends BaseController {
 			AsBlockIntent intent = sqlHelper.findById(id, AsBlockIntent.class);
 			return renderSuccess(intent);
 		} catch (IllegalStateException e) {
-			return renderError(mapServiceError(e.getMessage()));
+			return renderError(mapException(e));
 		} catch (IllegalArgumentException e) {
 			return renderError(mapServiceError(e.getMessage()));
 		} catch (Exception e) {
@@ -244,6 +248,9 @@ public class AsnController extends BaseController {
 			}
 			int n = asnBlockService.revokeByReasonTag(reasonTag);
 			return renderSuccess(n);
+		} catch (CrowdSecClient.MachineAuthException | CrowdSecClient.NotConfiguredException
+				| CrowdSecClient.LapiUnavailableException e) {
+			return renderError(mapException(e));
 		} catch (IllegalArgumentException e) {
 			return renderError(mapServiceError(e.getMessage()));
 		} catch (Exception e) {
@@ -316,6 +323,18 @@ public class AsnController extends BaseController {
 	// ── error helpers ──────────────────────────────────────────────────
 
 	/**
+	 * Service 丟出的 IllegalStateException 轉成訊息。LapiUnavailableException 的訊息帶 HTTP 狀態碼，
+	 * 所以依型別對應固定錯誤碼，不把例外訊息回給前端。
+	 */
+	private String mapException(IllegalStateException e) {
+		if (e instanceof CrowdSecClient.LapiUnavailableException) {
+			logger.warn("crowdsec lapi unavailable: {}", e.getMessage());
+			return mapServiceError(CrowdSecClient.LapiUnavailableException.CODE);
+		}
+		return mapServiceError(e.getMessage());
+	}
+
+	/**
 	 * Prefer i18n key when present; otherwise return English service error code.
 	 */
 	private String mapServiceError(String code) {
@@ -345,6 +364,14 @@ public class AsnController extends BaseController {
 			return msgOr("asnStr.invalidReason", code);
 		case "reason_tag_required":
 			return msgOr("asnStr.reasonTagRequired", code);
+		case CrowdSecClient.MachineAuthException.CODE:
+			return msgOr("crowdsecStr.machineInvalid", code);
+		case CrowdSecClient.LapiUnavailableException.CODE:
+			return msgOr("crowdsecStr.statusUnreachable", code);
+		case CrowdSecClient.NotConfiguredException.BOUNCER_KEY:
+			return msgOr("crowdsecStr.bouncerKeyNotConfigured", code);
+		case CrowdSecClient.NotConfiguredException.MACHINE:
+			return msgOr("crowdsecStr.machineNotConfigured", code);
 		case "crowdsec_error":
 			return msgOr("crowdsecStr.error", code);
 		default:

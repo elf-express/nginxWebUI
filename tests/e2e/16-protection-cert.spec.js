@@ -14,12 +14,12 @@ test.describe('防護與證書（合併頁面）', () => {
     await expect(tab).toBeVisible();
   });
 
-  test('有六個 Tab：IP資料庫、黑名單、白名單、國家、ASN、證書', async ({ page }) => {
+  test('有七個 Tab：IP資料庫、黑名單、白名單、國家、ASN、證書、CrowdSec', async ({ page }) => {
     await page.goto('/adminPage/protectionCert');
     await page.waitForSelector('.layui-tab');
 
     const tabs = page.locator('.layui-tab-title li');
-    await expect(tabs).toHaveCount(6);
+    await expect(tabs).toHaveCount(7);
   });
 
   test('Tab 可切換到國家存取控制（#geoTabContent）', async ({ page }) => {

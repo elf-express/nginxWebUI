@@ -1,11 +1,24 @@
 package com.cym.service;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.function.LongSupplier;
 
 import org.noear.solon.annotation.Component;
-import org.noear.solon.annotation.Inject;
 
+import com.cym.utils.CrowdSecCredentials;
 import com.cym.utils.NetGuard;
 
 import cn.hutool.core.util.StrUtil;
@@ -16,10 +29,10 @@ import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 
 /**
- * CrowdSec Local API (LAPI) HTTP client.
+ * CrowdSec Local API (LAPI) client.
  * <p>
- * Uses SettingService keys {@code crowdsecUrl} + {@code crowdsecApiKey}.
- * Decision bodies are built via hutool {@link JSONObject} (no string-concat JSON).
+ * 寫入（新增封鎖 POST /v1/alerts、刪除 DELETE /v1/decisions）用 machine 帳號登入取得的 JWT；
+ * 讀封鎖名單（GET /v1/decisions）用 bouncer 金鑰。位址與憑證來自 {@link CrowdSecCredentials}，不讀資料庫。
  * <p>
  * Hard gates (NetGuard) run before any HTTP: duration/CIDR on post, webui reason on delete-by-reason.
  */
@@ -27,12 +40,86 @@ import cn.hutool.json.JSONUtil;
 public class CrowdSecClient {
 
 	public static final int DEFAULT_TIMEOUT_MS = 15_000;
+	public static final int PROBE_TIMEOUT_MS = 3_000;
 	public static final int LIST_PAGE_SIZE = 100;
 	/** Cap pages when scanning for delete-by-reason to avoid infinite loops. */
 	public static final int LIST_MAX_PAGES = 100;
+	/** 與 cscli decisions add 相同的 decision origin */
+	public static final String ORIGIN = "cscli";
+	/** reason 空白時使用的 scenario */
+	public static final String DEFAULT_REASON = "nginxwebui:manual";
+	/** reason 不是 nginxwebui: 開頭時，scenario 加上的前綴 */
+	public static final String CUSTOM_REASON_PREFIX = "nginxwebui:manual:";
+	/**
+	 * 對 LAPI 所有請求帶的 User-Agent。LAPI 的 /v1/watchers/login 會拒絕不是「名稱/版本」形式的 User-Agent（回 401），
+	 * hutool 預設的 User-Agent 不符；命名沿用倉庫其他外部請求的 {@code nginxWebUI/<用途>}。
+	 */
+	public static final String USER_AGENT = "nginxWebUI/CrowdSec";
+	/** JWT 在 expire 前多久就重新登入 */
+	static final long TOKEN_RENEW_BEFORE_MS = 60_000;
+	/** 登入回應的 expire 無法解析時，token 視為有效的時間 */
+	static final long TOKEN_FALLBACK_TTL_MS = 10 * 60_000;
 
-	@Inject
-	SettingService settingService;
+	public static final String OK = "ok";
+	public static final String INVALID = "invalid";
+	public static final String UNREACHABLE = "unreachable";
+	public static final String NOT_CONFIGURED = "notConfigured";
+	public static final String UNCHECKED = "unchecked";
+
+	/** machine 帳號登入被 LAPI 拒絕（401／403），或重新登入後 LAPI 仍拒絕 JWT */
+	public static class MachineAuthException extends IllegalStateException {
+		private static final long serialVersionUID = 1L;
+		public static final String CODE = "crowdsec_machine_unauthorized";
+
+		public MachineAuthException() {
+			super(CODE);
+		}
+	}
+
+	/** LAPI 暫時無法使用：登入回 401／403 以外的狀態碼（5xx、429 等）或連線失敗。訊息只含狀態碼，不含密碼與回應內容 */
+	public static class LapiUnavailableException extends IllegalStateException {
+		private static final long serialVersionUID = 1L;
+		public static final String CODE = "crowdsec_lapi_unavailable";
+
+		public LapiUnavailableException(String message) {
+			super(message);
+		}
+
+		public LapiUnavailableException(String message, Throwable cause) {
+			super(message, cause);
+		}
+	}
+
+	/** 端點需要的憑證沒設定；訊息是固定錯誤碼，指出缺的是哪一種 */
+	public static class NotConfiguredException extends IllegalStateException {
+		private static final long serialVersionUID = 1L;
+		/** 缺 LAPI 位址或 bouncer 金鑰（讀名單） */
+		public static final String BOUNCER_KEY = "notConfigured.bouncerKey";
+		/** 缺 LAPI 位址或 machine 密碼（新增、刪除封鎖） */
+		public static final String MACHINE = "notConfigured.machine";
+
+		public NotConfiguredException(String code) {
+			super(code);
+		}
+	}
+
+	/** 測試連線結果：每項為 ok / invalid / unreachable / notConfigured / unchecked */
+	public record Probe(String lapi, String bouncerKey, String machine) {
+		public Map<String, Object> toMap() {
+			Map<String, Object> map = new LinkedHashMap<>();
+			map.put("lapi", lapi);
+			map.put("bouncerKey", bouncerKey);
+			map.put("machine", machine);
+			return map;
+		}
+	}
+
+	CrowdSecCredentials credentials = CrowdSecCredentials.system();
+	LongSupplier clock = System::currentTimeMillis;
+
+	private final Object tokenLock = new Object();
+	private String token;
+	private long tokenExpiresAt;
 
 	// ── pure helpers (unit-testable) ───────────────────────────────────
 
@@ -61,21 +148,63 @@ public class CrowdSecClient {
 	}
 
 	/**
-	 * Build a CrowdSec decision POST body as JSON.
-	 * Uses JSONObject so reason/value with quotes or control chars are escaped.
+	 * POST /v1/alerts 的 body：一個 alert 帶一個 decision，欄位值與 cscli decisions add 相同。
+	 * scenario 規則：reason 空白 → {@code nginxwebui:manual}；trim 後已以 {@code nginxwebui:} 開頭 → 照用；
+	 * 其他 → {@code nginxwebui:manual:<reason>}（讓自訂 reason 的手動封鎖也帶 nginxwebui: 前綴）。
+	 * 用 JSONObject 組裝，reason 內的引號會正確跳脫。
 	 */
-	public static String buildDecisionBody(String duration, String reason, String scope, String value, String type) {
-		JSONObject body = new JSONObject();
-		body.set("duration", duration);
-		body.set("reason", reason);
-		body.set("scope", scope);
-		body.set("value", value);
-		body.set("type", type);
+	public static String buildAlertBody(String duration, String reason, String scope, String value, String type,
+			Instant now) {
+		String scenario = scenarioOf(reason);
+		String time = DateTimeFormatter.ISO_INSTANT.format(now.truncatedTo(ChronoUnit.SECONDS));
+
+		JSONObject decision = new JSONObject();
+		decision.set("duration", duration);
+		decision.set("origin", ORIGIN);
+		decision.set("scenario", scenario);
+		decision.set("scope", scope);
+		decision.set("type", type);
+		decision.set("value", value);
+		JSONArray decisions = new JSONArray();
+		decisions.add(decision);
+
+		JSONObject source = new JSONObject();
+		source.set("scope", scope);
+		source.set("value", value);
+		source.set("ip", value);
+
+		JSONObject alert = new JSONObject();
+		alert.set("scenario", scenario);
+		alert.set("scenario_hash", "");
+		alert.set("scenario_version", "");
+		alert.set("message", scenario);
+		alert.set("events_count", 1);
+		alert.set("events", new JSONArray());
+		alert.set("capacity", 0);
+		alert.set("leakspeed", "0");
+		alert.set("simulated", false);
+		alert.set("remediation", true);
+		alert.set("start_at", time);
+		alert.set("stop_at", time);
+		alert.set("source", source);
+		alert.set("decisions", decisions);
+
+		JSONArray body = new JSONArray();
+		body.add(alert);
 		return body.toString();
 	}
 
+	/** reason 轉成 scenario（規則見 {@link #buildAlertBody}） */
+	static String scenarioOf(String reason) {
+		if (StrUtil.isBlank(reason)) {
+			return DEFAULT_REASON;
+		}
+		String trimmed = reason.trim();
+		return trimmed.startsWith("nginxwebui:") ? trimmed : CUSTOM_REASON_PREFIX + trimmed;
+	}
+
 	/**
-	 * Collect decision ids whose {@code reason} matches prefix and/or equals mode.
+	 * Collect decision ids whose {@code scenario} (LAPI 的 reason 欄位) matches prefix and/or equals mode.
 	 *
 	 * @param decisionsJson raw GET /v1/decisions body (JSON array, or null/blank)
 	 * @param reasonPrefix  if non-blank and {@code equalsOnly==false}, match startsWith
@@ -98,15 +227,15 @@ public class CrowdSecClient {
 			if (o == null) {
 				continue;
 			}
-			String reason = o.getStr("reason");
-			if (reason == null) {
-				reason = "";
+			String scenario = o.getStr("scenario");
+			if (scenario == null) {
+				scenario = "";
 			}
 			boolean match;
 			if (equalsOnly) {
-				match = reasonEquals != null && reasonEquals.equals(reason);
+				match = reasonEquals != null && reasonEquals.equals(scenario);
 			} else {
-				match = reasonPrefix != null && reason.startsWith(reasonPrefix);
+				match = reasonPrefix != null && scenario.startsWith(reasonPrefix);
 			}
 			if (!match) {
 				continue;
@@ -123,33 +252,124 @@ public class CrowdSecClient {
 		return ids;
 	}
 
+	/** watchers/login 回應的 expire（RFC 3339）轉 epoch 毫秒；無法解析時 now + 10 分鐘 */
+	static long parseExpire(String expire, long now) {
+		try {
+			return OffsetDateTime.parse(expire).toInstant().toEpochMilli();
+		} catch (RuntimeException e) {
+			return now + TOKEN_FALLBACK_TTL_MS;
+		}
+	}
+
+	/** DeleteDecisionResponse 的 nbDeleted（字串）轉整數；無法解析時 0 */
+	static int parseDeleted(String body) {
+		try {
+			return Integer.parseInt(JSONUtil.parseObj(body).getStr("nbDeleted", "0").trim());
+		} catch (RuntimeException e) {
+			return 0;
+		}
+	}
+
 	// ── config ─────────────────────────────────────────────────────────
 
+	/** 可以寫入（新增／刪除封鎖）：LAPI 位址與 machine 密碼都有值 */
 	public boolean isConfigured() {
-		return StrUtil.isNotBlank(base()) && StrUtil.isNotBlank(apiKey());
+		return credentials.lapiUrl() != null && credentials.machinePassword().isPresent();
 	}
 
 	String base() {
-		String url = settingService.get("crowdsecUrl");
-		if (url == null) {
-			return "";
-		}
-		// strip trailing slash for consistent path join
-		while (url.endsWith("/")) {
-			url = url.substring(0, url.length() - 1);
-		}
-		return url;
+		String url = credentials.lapiUrl();
+		return url == null ? "" : url;
 	}
 
-	String apiKey() {
-		String key = settingService.get("crowdsecApiKey");
-		return key != null ? key : "";
+	/** 可以讀名單：LAPI 位址與 bouncer 金鑰都有值 */
+	public boolean canRead() {
+		return credentials.lapiUrl() != null && credentials.bouncerKey().isPresent();
 	}
 
 	void ensureConfigured() {
 		if (!isConfigured()) {
-			throw new IllegalStateException("notConfigured");
+			throw new NotConfiguredException(NotConfiguredException.MACHINE);
 		}
+	}
+
+	void ensureBouncerKey() {
+		if (!canRead()) {
+			throw new NotConfiguredException(NotConfiguredException.BOUNCER_KEY);
+		}
+	}
+
+	// ── machine JWT ────────────────────────────────────────────────────
+
+	String token() {
+		return token(DEFAULT_TIMEOUT_MS);
+	}
+
+	/** 快取中的 JWT 離 expire 超過 60 秒就沿用，否則 POST /v1/watchers/login 重新取得 */
+	String token(int timeoutMs) {
+		synchronized (tokenLock) {
+			long now = clock.getAsLong();
+			if (token != null && now < tokenExpiresAt - TOKEN_RENEW_BEFORE_MS) {
+				return token;
+			}
+			token = null;
+			JSONObject body = new JSONObject();
+			body.set("machine_id", credentials.machineId());
+			body.set("password", credentials.machinePassword().value());
+			HttpResponse loginResp;
+			try {
+				loginResp = HttpRequest.post(base() + "/v1/watchers/login")
+						.header("User-Agent", USER_AGENT)
+						.header("Content-Type", "application/json")
+						.body(body.toString())
+						.timeout(timeoutMs)
+						.execute();
+			} catch (RuntimeException e) {
+				throw new LapiUnavailableException("crowdsec machine login unreachable", e);
+			}
+			try (HttpResponse resp = loginResp) {
+				int status = resp.getStatus();
+				if (status == 401 || status == 403) {
+					throw new MachineAuthException();
+				}
+				if (status != 200) {
+					throw new LapiUnavailableException("crowdsec machine login HTTP " + status);
+				}
+				String text = resp.body();
+				JSONObject o = JSONUtil.isTypeJSONObject(text) ? JSONUtil.parseObj(text) : new JSONObject();
+				String t = o.getStr("token");
+				if (StrUtil.isBlank(t)) {
+					throw new MachineAuthException();
+				}
+				token = t;
+				tokenExpiresAt = parseExpire(o.getStr("expire"), now);
+				return token;
+			}
+		}
+	}
+
+	void invalidateToken() {
+		synchronized (tokenLock) {
+			token = null;
+			tokenExpiresAt = 0;
+		}
+	}
+
+	/** 帶 JWT 送出；回 401 時重新登入並重送一次，仍 401 就丟 MachineAuthException */
+	private HttpResponse sendWithJwt(Function<String, HttpRequest> request) {
+		HttpResponse resp = request.apply(token()).execute();
+		if (resp.getStatus() != 401) {
+			return resp;
+		}
+		resp.close();
+		invalidateToken();
+		resp = request.apply(token()).execute();
+		if (resp.getStatus() == 401) {
+			resp.close();
+			invalidateToken();
+			throw new MachineAuthException();
+		}
+		return resp;
 	}
 
 	// ── ban / whitelist ────────────────────────────────────────────────
@@ -162,15 +382,14 @@ public class CrowdSecClient {
 	}
 
 	/**
-	 * Ban a single IP ({@code scope=ip}) — same shape as legacy addDecision.
+	 * Ban a single IP ({@code scope=ip}).
 	 */
 	public void banIp(String ip, String duration, String reason) {
 		postDecision(duration, reason, "ip", ip, "ban");
 	}
 
 	/**
-	 * Whitelist a single IP via LAPI decision {@code type=whitelist}, {@code scope=ip}.
-	 * CrowdSec LAPI accepts whitelist decisions the same way as ban.
+	 * Whitelist a single IP via a decision {@code type=whitelist}, {@code scope=ip}.
 	 */
 	public void whitelistIp(String ip, String duration, String reason) {
 		postDecision(duration, reason, "ip", ip, "whitelist");
@@ -193,117 +412,209 @@ public class CrowdSecClient {
 		ensureConfigured();
 		// Hard gates before HTTP — ban reason is free text (manual add OK); duration/CIDR always.
 		validatePostDecisionInputs(duration, scope, value);
-		String jsonBody = buildDecisionBody(duration, reason, scope, value, type);
-		HttpResponse resp = HttpRequest.post(base() + "/v1/decisions")
-				.header("X-Api-Key", apiKey())
+		String jsonBody = buildAlertBody(duration, reason, scope, value, type, Instant.ofEpochMilli(clock.getAsLong()));
+		try (HttpResponse resp = sendWithJwt(t -> HttpRequest.post(base() + "/v1/alerts")
+				.header("User-Agent", USER_AGENT)
+				.bearerAuth(t)
 				.header("Content-Type", "application/json")
 				.body(jsonBody)
-				.timeout(DEFAULT_TIMEOUT_MS)
-				.execute();
-		if (!resp.isOk()) {
-			throw new IllegalStateException(
-					"crowdsec " + type + " " + scope + " HTTP " + resp.getStatus() + " " + resp.body());
+				.timeout(DEFAULT_TIMEOUT_MS))) {
+			if (!resp.isOk()) {
+				throw new IllegalStateException(
+						"crowdsec " + type + " " + scope + " HTTP " + resp.getStatus() + " " + resp.body());
+			}
 		}
 	}
 
-	// ── delete by reason ───────────────────────────────────────────────
+	// ── delete ─────────────────────────────────────────────────────────
 
 	/**
-	 * Delete all decisions whose reason starts with {@code reasonPrefix}.
-	 * Prefix must be an allowed webui reason ({@code nginxwebui:*}).
+	 * Delete all decisions whose reason (scenario) starts with {@code reasonPrefix}:
+	 * 用 bouncer 金鑰列出名單，再以 JWT 逐筆刪除。Prefix must be {@code nginxwebui:*}.
 	 *
 	 * @return number of successfully deleted decisions
 	 */
 	public int deleteDecisionsByReasonPrefix(String reasonPrefix) {
 		requireWebuiReason(reasonPrefix);
-		return deleteMatching(reasonPrefix, null, false);
+		return deleteMatching(reasonPrefix.trim());
 	}
 
 	/**
-	 * Delete all decisions whose reason equals {@code reason} exactly.
-	 * Reason must be an allowed webui reason ({@code nginxwebui:*}).
+	 * Delete all decisions whose reason (scenario) equals {@code reason}:
+	 * {@code DELETE /v1/decisions?scenario=<reason>}. Reason must be {@code nginxwebui:*}.
 	 *
-	 * @return number of successfully deleted decisions
+	 * @return nbDeleted reported by LAPI
 	 */
 	public int deleteDecisionsByReasonEquals(String reason) {
 		requireWebuiReason(reason);
-		return deleteMatching(null, reason, true);
+		ensureConfigured();
+		String url = base() + "/v1/decisions?scenario=" + URLEncoder.encode(reason.trim(), StandardCharsets.UTF_8);
+		try (HttpResponse resp = sendWithJwt(t -> HttpRequest.delete(url)
+				.header("User-Agent", USER_AGENT)
+				.bearerAuth(t)
+				.timeout(DEFAULT_TIMEOUT_MS))) {
+			if (!resp.isOk()) {
+				throw new IllegalStateException("crowdsec deleteDecisions HTTP " + resp.getStatus() + " " + resp.body());
+			}
+			return parseDeleted(resp.body());
+		}
 	}
 
 	/**
-	 * Delete a single decision by id (LAPI {@code DELETE /v1/decisions/{id}}).
+	 * Delete a single decision by id (LAPI {@code DELETE /v1/decisions/{id}}, JWT).
 	 */
 	public void deleteDecision(String decisionId) {
 		ensureConfigured();
-		if (StrUtil.isBlank(decisionId)) {
-			throw new IllegalArgumentException("empty decisionId");
-		}
-		// id is path segment — reject path injection
-		if (decisionId.indexOf('/') >= 0 || decisionId.indexOf('?') >= 0 || decisionId.indexOf('#') >= 0) {
+		if (StrUtil.isBlank(decisionId) || !decisionId.trim().matches("\\d+")) {
 			throw new IllegalArgumentException("invalid decisionId");
 		}
-		HttpResponse resp = HttpRequest.delete(base() + "/v1/decisions/" + decisionId)
-				.header("X-Api-Key", apiKey())
-				.timeout(DEFAULT_TIMEOUT_MS)
-				.execute();
-		if (!resp.isOk()) {
-			throw new IllegalStateException(
-					"crowdsec deleteDecision HTTP " + resp.getStatus() + " " + resp.body());
+		String id = decisionId.trim();
+		try (HttpResponse resp = sendWithJwt(t -> HttpRequest.delete(base() + "/v1/decisions/" + id)
+				.header("User-Agent", USER_AGENT)
+				.bearerAuth(t)
+				.timeout(DEFAULT_TIMEOUT_MS))) {
+			if (!resp.isOk()) {
+				throw new IllegalStateException(
+						"crowdsec deleteDecision HTTP " + resp.getStatus() + " " + resp.body());
+			}
 		}
 	}
 
+	// ── read ───────────────────────────────────────────────────────────
+
 	/**
-	 * GET one page of decisions (raw body). Used by controller + internal scan.
+	 * GET one page of decisions with the bouncer key (raw body). Used by controller + internal scan.
 	 */
 	public String listDecisionsRaw(int limit, int offset) {
-		ensureConfigured();
+		return listDecisions(limit, offset, null);
+	}
+
+	String listDecisions(int limit, int offset, String scenariosContaining) {
+		ensureBouncerKey();
 		if (limit <= 0) {
 			limit = LIST_PAGE_SIZE;
 		}
 		if (offset < 0) {
 			offset = 0;
 		}
-		HttpResponse resp = HttpRequest.get(base() + "/v1/decisions?limit=" + limit + "&offset=" + offset)
-				.header("X-Api-Key", apiKey())
-				.timeout(DEFAULT_TIMEOUT_MS)
-				.execute();
-		if (!resp.isOk()) {
-			throw new IllegalStateException(
-					"crowdsec listDecisions HTTP " + resp.getStatus() + " " + resp.body());
+		String url = base() + "/v1/decisions?limit=" + limit + "&offset=" + offset;
+		if (StrUtil.isNotBlank(scenariosContaining)) {
+			url += "&scenarios_containing=" + URLEncoder.encode(scenariosContaining, StandardCharsets.UTF_8);
 		}
-		return resp.body();
+		try (HttpResponse resp = HttpRequest.get(url)
+				.header("User-Agent", USER_AGENT)
+				.header("X-Api-Key", credentials.bouncerKey().value())
+				.timeout(DEFAULT_TIMEOUT_MS)
+				.execute()) {
+			if (!resp.isOk()) {
+				throw new IllegalStateException("crowdsec listDecisions HTTP " + resp.getStatus() + " " + resp.body());
+			}
+			return resp.body();
+		}
 	}
 
-	int deleteMatching(String reasonPrefix, String reasonEquals, boolean equalsOnly) {
+	/** GET /v1/alerts?limit= with JWT (raw body). */
+	public String listAlertsRaw(int limit) {
 		ensureConfigured();
-		int deleted = 0;
+		int size = limit <= 0 ? LIST_PAGE_SIZE : limit;
+		try (HttpResponse resp = sendWithJwt(t -> HttpRequest.get(base() + "/v1/alerts?limit=" + size)
+				.header("User-Agent", USER_AGENT)
+				.bearerAuth(t)
+				.timeout(DEFAULT_TIMEOUT_MS))) {
+			if (!resp.isOk()) {
+				throw new IllegalStateException("crowdsec listAlerts HTTP " + resp.getStatus() + " " + resp.body());
+			}
+			return resp.body();
+		}
+	}
+
+	int deleteMatching(String reasonPrefix) {
+		// 列名單要 bouncer 金鑰、刪除要 machine JWT：先確認兩者都有，缺的在送出任何請求前就回報
+		ensureConfigured();
+		ensureBouncerKey();
 		// Collect ids across pages first, then delete — avoids offset shift while deleting.
-		List<String> toDelete = new ArrayList<>();
+		// 用 LinkedHashSet 去重；LAPI 若忽略 limit/offset 而每頁回同一份清單，某頁沒有新 id 就停止。
+		Set<String> toDelete = new LinkedHashSet<>();
+		Set<String> seen = new HashSet<>();
 		for (int page = 0; page < LIST_MAX_PAGES; page++) {
-			int offset = page * LIST_PAGE_SIZE;
-			String body = listDecisionsRaw(LIST_PAGE_SIZE, offset);
-			List<String> pageIds = matchDecisionIds(body, reasonPrefix, reasonEquals, equalsOnly);
-			toDelete.addAll(pageIds);
-			// stop when page shorter than limit (or empty / non-array)
-			if (StrUtil.isBlank(body) || "null".equalsIgnoreCase(body.trim())) {
+			String body = listDecisions(LIST_PAGE_SIZE, page * LIST_PAGE_SIZE, reasonPrefix);
+			toDelete.addAll(matchDecisionIds(body, reasonPrefix, null, false));
+			if (!seen.addAll(matchDecisionIds(body, "", null, false))) {
 				break;
 			}
-			if (!JSONUtil.isTypeJSONArray(body)) {
+			if (StrUtil.isBlank(body) || "null".equalsIgnoreCase(body.trim()) || !JSONUtil.isTypeJSONArray(body)) {
 				break;
 			}
-			JSONArray arr = JSONUtil.parseArray(body);
-			if (arr.size() < LIST_PAGE_SIZE) {
+			if (JSONUtil.parseArray(body).size() < LIST_PAGE_SIZE) {
 				break;
 			}
 		}
+		int deleted = 0;
 		for (String id : toDelete) {
 			try {
 				deleteDecision(id);
 				deleted++;
+			} catch (MachineAuthException | LapiUnavailableException e) {
+				throw e;
 			} catch (IllegalStateException e) {
 				// continue remaining; caller sees partial count
 			}
 		}
 		return deleted;
+	}
+
+	// ── probe ──────────────────────────────────────────────────────────
+
+	/**
+	 * 測試連線：有 bouncer 金鑰就 GET /v1/decisions?ip=127.0.0.1（200 為 ok，其他狀態碼為 invalid）；
+	 * 有 machine 密碼就重新登入一次。只要收到任何 HTTP 回應就算 LAPI 連得到。
+	 */
+	public Probe probe() {
+		String lapi = credentials.lapiUrl();
+		boolean hasKey = credentials.bouncerKey().isPresent();
+		boolean hasMachine = credentials.machinePassword().isPresent();
+		if (lapi == null) {
+			return new Probe(NOT_CONFIGURED, hasKey ? UNCHECKED : NOT_CONFIGURED, hasMachine ? UNCHECKED : NOT_CONFIGURED);
+		}
+		boolean reached = false;
+		String key = NOT_CONFIGURED;
+		if (hasKey) {
+			Integer status = statusOf(HttpRequest.get(lapi + "/v1/decisions?ip=127.0.0.1")
+					.header("User-Agent", USER_AGENT)
+					.header("X-Api-Key", credentials.bouncerKey().value()));
+			if (status == null) {
+				key = UNREACHABLE;
+			} else {
+				reached = true;
+				key = status == 200 ? OK : INVALID;
+			}
+		}
+		String machine = NOT_CONFIGURED;
+		if (hasMachine) {
+			invalidateToken();
+			try {
+				token(PROBE_TIMEOUT_MS);
+				machine = OK;
+				reached = true;
+			} catch (MachineAuthException e) {
+				machine = INVALID;
+				reached = true;
+			} catch (RuntimeException e) {
+				machine = UNREACHABLE;
+			}
+		}
+		if (!hasKey && !hasMachine) {
+			reached = statusOf(HttpRequest.get(lapi + "/v1/decisions").header("User-Agent", USER_AGENT)) != null;
+		}
+		return new Probe(reached ? OK : UNREACHABLE, key, machine);
+	}
+
+	/** 回 HTTP 狀態碼；連不上或逾時回 null */
+	private static Integer statusOf(HttpRequest request) {
+		try (HttpResponse resp = request.timeout(PROBE_TIMEOUT_MS).execute()) {
+			return resp.getStatus();
+		} catch (RuntimeException e) {
+			return null;
+		}
 	}
 }

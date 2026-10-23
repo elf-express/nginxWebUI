@@ -363,6 +363,34 @@ class CrowdSecNginxConfTest {
 		assertFalse(crowdsec.removeStaleBouncerConf());
 	}
 
+	@Test
+	void readStateParsesLuaStateFile() throws Exception {
+		Path state = Path.of(crowdsec.stateFilePath());
+		Files.createDirectories(state.getParent());
+		Files.writeString(state, "{\"lastOk\":1761123456,\"lapiOk\":true,\"appsecOk\":false,\"checkedAt\":1761123460}");
+
+		Map<String, Object> result = crowdsec.readState();
+
+		assertEquals(1761123456L, result.get("lastOk"));
+		assertEquals(1761123460L, result.get("checkedAt"));
+		assertEquals(Boolean.TRUE, result.get("lapiOk"));
+		assertEquals(Boolean.FALSE, result.get("appsecOk"));
+	}
+
+	@Test
+	void readStateMissingIsNull() {
+		assertNull(crowdsec.readState());
+	}
+
+	@Test
+	void readStateGarbageIsNull() throws Exception {
+		Path state = Path.of(crowdsec.stateFilePath());
+		Files.createDirectories(state.getParent());
+		Files.writeString(state, "not json");
+
+		assertNull(crowdsec.readState());
+	}
+
 	private void assertInactive() {
 		assertFalse(crowdsec.isActive());
 		ConfExt ext = conf.buildConf(true, false);

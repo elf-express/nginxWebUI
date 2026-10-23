@@ -1,16 +1,16 @@
 const { test, expect } = require('@playwright/test');
 const { login } = require('./helpers');
 
-test.describe('防火牆管理 — 6 tab + IP 資料庫交叉驗證', () => {
+test.describe('防火牆管理 — 7 tab + IP 資料庫交叉驗證', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
     await page.goto('/adminPage/protectionCert');
     await page.waitForSelector('.layui-tab-title');
   });
 
-  test('① 6 個頂層 tab 存在', async ({ page }) => {
+  test('① 7 個頂層 tab 存在', async ({ page }) => {
     const tabs = page.locator('.layui-tab-title > li');
-    await expect(tabs).toHaveCount(6);
+    await expect(tabs).toHaveCount(7);
     const texts = (await tabs.allTextContents()).join('|');
     expect(texts).toMatch(/IP\s?資料庫|IP\s?数据库|IP Database/);
     expect(texts).toMatch(/黑名單|黑名单|Blacklist/);

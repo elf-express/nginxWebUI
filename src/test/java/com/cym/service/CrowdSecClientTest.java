@@ -2,6 +2,7 @@ package com.cym.service;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.time.Instant;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -81,43 +82,89 @@ public class CrowdSecClientTest {
 	}
 
 	@Test
-	public void buildDecisionBody_basicFields() {
-		String json = CrowdSecClient.buildDecisionBody("24h", "nginxwebui:as-ban:AS51167", "range",
-				"1.2.3.0/24", "ban");
-		JSONObject o = JSONUtil.parseObj(json);
-		assertEquals("24h", o.getStr("duration"));
-		assertEquals("nginxwebui:as-ban:AS51167", o.getStr("reason"));
-		assertEquals("range", o.getStr("scope"));
-		assertEquals("1.2.3.0/24", o.getStr("value"));
-		assertEquals("ban", o.getStr("type"));
+	public void buildAlertBody_isArrayWithOneAlert() {
+		String json = CrowdSecClient.buildAlertBody("24h", "nginxwebui:as-ban:AS51167", "range", "1.2.3.0/24", "ban",
+				Instant.parse("2026-10-22T09:00:00.123Z"));
+		assertTrue(JSONUtil.isTypeJSONArray(json));
+		JSONObject alert = JSONUtil.parseArray(json).getJSONObject(0);
+		assertEquals("2026-10-22T09:00:00Z", alert.getStr("start_at"));
+		JSONObject d = alert.getJSONArray("decisions").getJSONObject(0);
+		assertEquals("24h", d.getStr("duration"));
+		assertEquals("nginxwebui:as-ban:AS51167", d.getStr("scenario"));
+		assertEquals("range", d.getStr("scope"));
+		assertEquals("1.2.3.0/24", d.getStr("value"));
+		assertEquals("ban", d.getStr("type"));
 	}
 
 	@Test
-	public void buildDecisionBody_escapesQuotesInReason() {
-		String json = CrowdSecClient.buildDecisionBody("4h", "say \"hi\" \\and\\", "ip", "10.0.0.1", "ban");
-		// Must be valid JSON and round-trip the reason verbatim
-		JSONObject o = JSONUtil.parseObj(json);
-		assertEquals("say \"hi\" \\and\\", o.getStr("reason"));
-		assertEquals("10.0.0.1", o.getStr("value"));
-		assertEquals("ip", o.getStr("scope"));
-		// raw string must not embed unescaped " that would break JSON
-		assertFalse(json.contains("\"reason\":\"say \"hi\""));
+	public void buildAlertBody_escapesQuotesInReason() {
+		String json = CrowdSecClient.buildAlertBody("4h", "say \"hi\" \\and\\", "ip", "10.0.0.1", "ban", Instant.EPOCH);
+		JSONObject alert = JSONUtil.parseArray(json).getJSONObject(0);
+		String expected = "nginxwebui:manual:say \"hi\" \\and\\";
+		assertEquals(expected, alert.getStr("scenario"));
+		assertEquals(expected, alert.getJSONArray("decisions").getJSONObject(0).getStr("scenario"));
 	}
 
 	@Test
-	public void buildDecisionBody_whitelistType() {
-		String json = CrowdSecClient.buildDecisionBody("1h", "false-positive", "ip", "8.8.8.8", "whitelist");
-		JSONObject o = JSONUtil.parseObj(json);
-		assertEquals("whitelist", o.getStr("type"));
-		assertEquals("ip", o.getStr("scope"));
+	public void buildAlertBody_blankReasonUsesDefaultScenario() {
+		for (String reason : new String[] { null, "", "   " }) {
+			String json = CrowdSecClient.buildAlertBody("4h", reason, "ip", "10.0.0.1", "ban", Instant.EPOCH);
+			JSONObject alert = JSONUtil.parseArray(json).getJSONObject(0);
+			assertEquals("nginxwebui:manual", alert.getStr("scenario"));
+			assertEquals("nginxwebui:manual", alert.getJSONArray("decisions").getJSONObject(0).getStr("scenario"));
+		}
+	}
+
+	@Test
+	public void buildAlertBody_keepsWebuiPrefixedReason() {
+		String json = CrowdSecClient.buildAlertBody("4h", "  nginxwebui:as-ban:AS1  ", "range", "10.0.0.0/8", "ban",
+				Instant.EPOCH);
+		JSONObject alert = JSONUtil.parseArray(json).getJSONObject(0);
+		assertEquals("nginxwebui:as-ban:AS1", alert.getStr("scenario"));
+		assertEquals("nginxwebui:as-ban:AS1", alert.getJSONArray("decisions").getJSONObject(0).getStr("scenario"));
+	}
+
+	@Test
+	public void buildAlertBody_prefixesCustomReason() {
+		String json = CrowdSecClient.buildAlertBody("4h", " spam bot ", "ip", "10.0.0.1", "ban", Instant.EPOCH);
+		JSONObject alert = JSONUtil.parseArray(json).getJSONObject(0);
+		assertEquals("nginxwebui:manual:spam bot", alert.getStr("scenario"));
+		assertEquals("nginxwebui:manual:spam bot", alert.getStr("message"));
+		assertEquals("nginxwebui:manual:spam bot",
+				alert.getJSONArray("decisions").getJSONObject(0).getStr("scenario"));
+	}
+
+	@Test
+	public void buildAlertBody_whitelistType() {
+		String json = CrowdSecClient.buildAlertBody("1h", "nginxwebui:fp-whitelist", "ip", "8.8.8.8", "whitelist", Instant.EPOCH);
+		JSONObject d = JSONUtil.parseArray(json).getJSONObject(0).getJSONArray("decisions").getJSONObject(0);
+		assertEquals("whitelist", d.getStr("type"));
+		assertEquals("ip", d.getStr("scope"));
+	}
+
+	@Test
+	public void parseExpire_readsRfc3339AndFallsBack() {
+		assertEquals(Instant.parse("2026-10-22T10:00:00Z").toEpochMilli(),
+				CrowdSecClient.parseExpire("2026-10-22T10:00:00Z", 0));
+		assertEquals(Instant.parse("2026-10-22T02:00:00Z").toEpochMilli(),
+				CrowdSecClient.parseExpire("2026-10-22T10:00:00+08:00", 0));
+		assertEquals(1000 + CrowdSecClient.TOKEN_FALLBACK_TTL_MS, CrowdSecClient.parseExpire("garbage", 1000));
+		assertEquals(1000 + CrowdSecClient.TOKEN_FALLBACK_TTL_MS, CrowdSecClient.parseExpire(null, 1000));
+	}
+
+	@Test
+	public void parseDeleted_readsStringCount() {
+		assertEquals(3, CrowdSecClient.parseDeleted("{\"nbDeleted\":\"3\"}"));
+		assertEquals(0, CrowdSecClient.parseDeleted("not json"));
+		assertEquals(0, CrowdSecClient.parseDeleted(null));
 	}
 
 	@Test
 	public void matchDecisionIds_prefix() {
 		String body = "["
-				+ "{\"id\":11,\"reason\":\"nginxwebui:as-ban:AS1\"},"
-				+ "{\"id\":22,\"reason\":\"nginxwebui:as-ban:AS2\"},"
-				+ "{\"id\":33,\"reason\":\"other\"}"
+				+ "{\"id\":11,\"scenario\":\"nginxwebui:as-ban:AS1\"},"
+				+ "{\"id\":22,\"scenario\":\"nginxwebui:as-ban:AS2\"},"
+				+ "{\"id\":33,\"scenario\":\"other\"}"
 				+ "]";
 		List<String> ids = CrowdSecClient.matchDecisionIds(body, "nginxwebui:as-ban:", null, false);
 		assertEquals(2, ids.size());
@@ -129,8 +176,8 @@ public class CrowdSecClientTest {
 	@Test
 	public void matchDecisionIds_equalsOnly() {
 		String body = "["
-				+ "{\"id\":11,\"reason\":\"nginxwebui:as-ban:AS1\"},"
-				+ "{\"id\":22,\"reason\":\"nginxwebui:as-ban:AS11\"}"
+				+ "{\"id\":11,\"scenario\":\"nginxwebui:as-ban:AS1\"},"
+				+ "{\"id\":22,\"scenario\":\"nginxwebui:as-ban:AS11\"}"
 				+ "]";
 		List<String> ids = CrowdSecClient.matchDecisionIds(body, null, "nginxwebui:as-ban:AS1", true);
 		assertEquals(1, ids.size());

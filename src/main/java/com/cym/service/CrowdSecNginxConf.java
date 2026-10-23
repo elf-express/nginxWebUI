@@ -10,7 +10,9 @@ import java.nio.file.Paths;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.noear.solon.annotation.Component;
@@ -22,6 +24,8 @@ import com.cym.config.HomeConfig;
 import com.cym.utils.CrowdSecCredentials;
 
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONObject;
+import cn.hutool.json.JSONUtil;
 
 /**
  * 產生 CrowdSec nginx Lua bouncer 的設定：bouncer 設定檔（含金鑰，權限 600）與 http 層 include。
@@ -31,8 +35,8 @@ import cn.hutool.core.util.StrUtil;
 public class CrowdSecNginxConf {
 	public static final String GRACE_KEY = "crowdsec.graceSeconds";
 	public static final int DEFAULT_GRACE = 120;
-	static final int MIN_GRACE = 10;
-	static final int MAX_GRACE = 3600;
+	public static final int MIN_GRACE = 10;
+	public static final int MAX_GRACE = 3600;
 	private static final Logger logger = LoggerFactory.getLogger(CrowdSecNginxConf.class);
 
 	static final String MARKER_PATH = "/usr/local/lib/nginxwebui/lua/nwu_crowdsec.lua";
@@ -100,8 +104,34 @@ public class CrowdSecNginxConf {
 		}
 	}
 
-	String stateFilePath() {
+	public String stateFilePath() {
 		return homeConfig.home + "crowdsec/state/crowdsec_state.json";
+	}
+
+	/**
+	 * 讀 Lua 包裝寫的狀態檔（{"lastOk","lapiOk","appsecOk","checkedAt"}）。
+	 * 檔案不存在、讀不到或不是 JSON 物件時回 null。
+	 */
+	public Map<String, Object> readState() {
+		try {
+			Path file = Paths.get(stateFilePath());
+			if (!Files.isRegularFile(file)) {
+				return null;
+			}
+			String text = Files.readString(file, StandardCharsets.UTF_8);
+			if (!JSONUtil.isTypeJSONObject(text)) {
+				return null;
+			}
+			JSONObject o = JSONUtil.parseObj(text);
+			Map<String, Object> state = new LinkedHashMap<>();
+			state.put("lastOk", o.getLong("lastOk", 0L));
+			state.put("checkedAt", o.getLong("checkedAt", 0L));
+			state.put("lapiOk", o.getBool("lapiOk", false));
+			state.put("appsecOk", o.getBool("appsecOk", false));
+			return state;
+		} catch (IOException | RuntimeException e) {
+			return null;
+		}
 	}
 
 	/** bouncer 設定檔內容，每行一個設定 */

@@ -1,6 +1,9 @@
+# Bans added by the nginxWebUI admin backend (manual bans, ASN pushes) carry scenarios starting with "nginxwebui:".
+# They already contain their decisions, so these profiles only decide notifications for them; excluding them keeps
+# admin bans out of the AbuseIPDB reports.
 name: default_ip_remediation
 filters:
- - Alert.Remediation == true && Alert.GetScope() == "Ip"
+ - Alert.Remediation == true && Alert.GetScope() == "Ip" && not (Alert.GetScenario() startsWith "nginxwebui:")
 decisions:
  - type: ban
    duration: 4h
@@ -10,7 +13,7 @@ on_success: break
 ---
 name: default_range_remediation
 filters:
- - Alert.Remediation == true && Alert.GetScope() == "Range"
+ - Alert.Remediation == true && Alert.GetScope() == "Range" && not (Alert.GetScenario() startsWith "nginxwebui:")
 decisions:
  - type: ban
    duration: 4h

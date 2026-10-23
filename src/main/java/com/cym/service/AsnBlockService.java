@@ -126,7 +126,7 @@ public class AsnBlockService {
 	}
 
 	/**
-	 * CrowdSec configured = LAPI URL + API key present ({@link CrowdSecClient#isConfigured()}).
+	 * CrowdSec configured = LAPI URL + machine password present ({@link CrowdSecClient#isConfigured()}).
 	 */
 	public boolean isCrowdSecConfigured() {
 		return crowdSecClient != null && crowdSecClient.isConfigured();
@@ -228,6 +228,10 @@ public class AsnBlockService {
 	 * Profile must be manual|strict; CrowdSec must be configured.
 	 *
 	 * @throws IllegalStateException profile_disallows_push | crowdsec_not_configured
+	 * @throws CrowdSecClient.MachineAuthException 管理憑證被 LAPI 拒絕
+	 * @throws CrowdSecClient.LapiUnavailableException LAPI 登入暫時失敗（5xx、429、連線失敗）。
+	 *         與 MachineAuthException 一樣立即停止推送、intent 標 failed（lastError 為
+	 *         lapi_unavailable／machine_unauthorized）；中途失敗前已推送的 decision 仍留在 LAPI，可用撤銷清除
 	 * @throws IllegalArgumentException intent_not_found
 	 */
 	public void pushIntent(String intentId) {
@@ -273,6 +277,18 @@ public class AsnBlockService {
 			try {
 				crowdSecClient.banRange(cidr, duration, reason);
 				ok++;
+			} catch (CrowdSecClient.MachineAuthException e) {
+				// 管理憑證無效時其餘網段也會失敗：立即停止並記錄固定錯誤碼
+				intent.setStatus(AsBlockIntent.STATUS_FAILED);
+				intent.setLastError("machine_unauthorized");
+				sqlHelper.updateAllColumnById(intent);
+				throw e;
+			} catch (CrowdSecClient.LapiUnavailableException e) {
+				// LAPI 暫時無法登入時其餘網段也會失敗：不逐個重登，立即停止並記錄固定錯誤碼
+				intent.setStatus(AsBlockIntent.STATUS_FAILED);
+				intent.setLastError("lapi_unavailable");
+				sqlHelper.updateAllColumnById(intent);
+				throw e;
 			} catch (Exception e) {
 				fail++;
 				// Log full LAPI detail; never store raw body in lastError (admin UI surface)
