@@ -1,0 +1,23 @@
+src/test/java/com/cym/controller/adminPage/CrowdSecGuardControllerTest.java
+  s_a7bf1cec5200b2::t_af8b8baf17ed6c 1-94
+src/main/java/com/cym/controller/adminPage/CrowdSecGuardController.java
+  s_a7bf1cec5200b2::t_6e0bc860a11cd2 96,99
+  s_a7bf1cec5200b2::t_d161753a31ab88 137
+  s_a7bf1cec5200b2::t_030a4fdb6d6b1a 119-136,138-143
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "241bd2d4602d8757ff68813ee4316e6e270a122c",
+  "prompts": {},
+  "sessions": {
+    "s_a7bf1cec5200b2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5ec896ab-5e78-4e2b-9171-67ef526d1edf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
