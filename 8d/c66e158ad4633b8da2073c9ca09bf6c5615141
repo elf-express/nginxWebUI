@@ -1,0 +1,19 @@
+tests/e2e/39-crowdsec-tab.spec.js
+  s_a28b699e4790bd::t_0e7d56d5dc8495 14-15,24-30,39,46,53-63,105,107,127,139,179-217,262,330-387
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8dc66e158ad4633b8da2073c9ca09bf6c5615141",
+  "prompts": {},
+  "sessions": {
+    "s_a28b699e4790bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "195abc9b-fbd8-4977-9ae6-70d5fcc76908",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
