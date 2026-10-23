@@ -1,0 +1,47 @@
+src/main/resources/WEB-INF/view/adminPage/crowdsecGuard/index.html
+  s_a7bf1cec5200b2::t_3705e2d90a4ab8 1-22
+src/main/resources/messages_en_US.properties
+  s_a7bf1cec5200b2::t_28122496de7164 1082-1164
+src/main/resources/WEB-INF/view/adminPage/menu.html
+  s_a7bf1cec5200b2::t_532a435b77cc87 48-50
+src/main/resources/messages.properties
+  s_a7bf1cec5200b2::t_44fee47804c9a8 1082-1164
+frontend/src/pages/crowdsecGuard/BlocklistTab.vue
+  s_a7bf1cec5200b2::t_00118ab9f9491d 1-164
+src/main/resources/messages_zh_TW.properties
+  s_a7bf1cec5200b2::t_2c6ca6103a4184 1082-1164
+frontend/src/pages/crowdsecGuard/BlockedIps.vue
+  s_a7bf1cec5200b2::t_d06a1ddec6e1c9 1-103
+frontend/src/pages/crowdsecGuard/GuardPage.vue
+  s_a7bf1cec5200b2::t_5e43c3de6a64f3 1-76
+frontend/src/pages/crowdsecGuard/IpLookupTab.vue
+  s_a7bf1cec5200b2::t_aa937ef2287555 1-192
+frontend/src/pages/crowdsecGuard/api.test.ts
+  s_a7bf1cec5200b2::t_2933c3badab78b 1-30
+frontend/src/pages/crowdsecGuard/api.ts
+  s_a7bf1cec5200b2::t_db59faa0f991cb 1-75
+frontend/src/pages/crowdsecGuard/main.ts
+  s_a7bf1cec5200b2::t_0b19db1977e8bb 2,4-6
+frontend/src/pages/crowdsecGuard/view.test.ts
+  s_a7bf1cec5200b2::t_dd6c90b05c22bf 1-47
+frontend/src/pages/crowdsecGuard/view.ts
+  s_a7bf1cec5200b2::t_2e9f84c4fc8ccf 1-74
+frontend/vite.config.ts
+  s_a7bf1cec5200b2::t_475fd8ae69ffbe 16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c54345d1513622a7d7bd1ad0f74bf46024eed67a",
+  "prompts": {},
+  "sessions": {
+    "s_a7bf1cec5200b2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5ec896ab-5e78-4e2b-9171-67ef526d1edf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
