@@ -1,0 +1,27 @@
+frontend/src/pages/crowdsec/CrowdSecTab.vue
+  s_a28b699e4790bd::t_bef41420092b27 2-16,20-31,37-43,55-72,83-96,109,118,139-174,255-358,384-387
+frontend/src/pages/crowdsec/store.test.ts
+  s_a28b699e4790bd::t_b86ea77633f5df 10,77-118
+frontend/src/pages/crowdsec/store.ts
+  s_a28b699e4790bd::t_ff4703305c29e9 4,32-54,69,84-90
+frontend/src/pages/crowdsec/view.test.ts
+  s_a28b699e4790bd::t_a70b1949d49316 2-11,122-162
+frontend/src/pages/crowdsec/view.ts
+  s_a28b699e4790bd::t_459395d77ff5e2 7-8,70-72,85-122
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "72a98bc071196add4f869c967a2d71f5347ac7c6",
+  "prompts": {},
+  "sessions": {
+    "s_a28b699e4790bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "195abc9b-fbd8-4977-9ae6-70d5fcc76908",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
