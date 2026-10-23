@@ -1,0 +1,39 @@
+src/main/resources/messages.properties
+  s_a7bf1cec5200b2::t_9fb4cada52101f 1081
+src/main/java/com/cym/controller/adminPage/CrowdSecGuardController.java
+  s_a7bf1cec5200b2::t_540b23f46f3ba5 1-212
+src/test/java/com/cym/controller/adminPage/CrowdSecControllerTest.java
+  s_a7bf1cec5200b2::t_6355cb52ce3a8a 7,10
+  s_a7bf1cec5200b2::t_de16bda14f6698 17,20
+  s_a7bf1cec5200b2::t_9e85b9b7af901c 252,260
+  s_a7bf1cec5200b2::t_61982c7262037a 269-313
+src/main/resources/messages_zh_TW.properties
+  s_a7bf1cec5200b2::t_84c508ec7dea69 1081
+src/main/java/com/cym/service/CrowdSecWhitelistService.java
+  s_a7bf1cec5200b2::t_2d14ba3a75b199 1-119
+src/main/resources/messages_en_US.properties
+  s_a7bf1cec5200b2::t_657ce250ab454c 1081
+src/main/java/com/cym/task/ScheduleTask.java
+  s_a7bf1cec5200b2::t_7ea53c351a5085 28-29
+  s_a7bf1cec5200b2::t_dfc3cab91a6366 91-102
+src/test/java/com/cym/service/CrowdSecWhitelistServiceTest.java
+  s_a7bf1cec5200b2::t_5eb51aaa69f0e8 1-126
+src/main/java/com/cym/controller/adminPage/CrowdSecController.java
+  s_a7bf1cec5200b2::t_9b13132935952c 14,38,204-205,210-212
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f316f826d1e53fdfeca92ca13cf51dabc51973c1",
+  "prompts": {},
+  "sessions": {
+    "s_a7bf1cec5200b2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5ec896ab-5e78-4e2b-9171-67ef526d1edf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
