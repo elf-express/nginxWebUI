@@ -129,21 +129,35 @@ public class ScheduleTask {
 	// 下載走背景執行緒（City 約 60MB），避免卡住排程；同時只允許一個下載進行。
 	private final java.util.concurrent.atomic.AtomicBoolean geoipDownloading = new java.util.concurrent.atomic.AtomicBoolean(false);
 
+	// --project.skipGeoipFetch=true 關閉自動下載（E2E、離線環境用），預設開啟。
+	@Inject("${project.skipGeoipFetch:false}")
+	Boolean skipGeoipFetch;
+
+	/** 這一分鐘該做什麼：all＝下載全部、stale＝只補缺檔／過期、null＝不下載（關閉或不在時段） */
+	static String geoipFetchMode(boolean skip, String fetchTime, String nowHHmm) {
+		if (skip) {
+			return null;
+		}
+		if (nowHHmm.equals(fetchTime)) {
+			return "all";
+		}
+		return nowHHmm.endsWith(":00") ? "stale" : null;
+	}
+
 	@Scheduled(cron = "0 * * * * ?")
 	public void fetchGeoip() {
 		String fetchTime = geoipService.getFetchTime(); // 已驗證 HH:mm，無效則 03:00（code review I-1）
 		String nowHHmm = DateUtil.format(new Date(), "HH:mm");
 
-		boolean scheduled = nowHHmm.equals(fetchTime);
-		boolean hourly = !scheduled && nowHHmm.endsWith(":00");
-		if (!scheduled && !hourly) {
+		String mode = geoipFetchMode(Boolean.TRUE.equals(skipGeoipFetch), fetchTime, nowHHmm);
+		if (mode == null) {
 			return;
 		}
 
 		if (!geoipDownloading.compareAndSet(false, true)) {
 			return; // 已有下載進行中，跳過
 		}
-		final boolean doAll = scheduled;
+		final boolean doAll = "all".equals(mode);
 		new Thread(() -> {
 			try {
 				if (doAll) {

@@ -43,6 +43,15 @@ function cleanTestData() {
   if (fs.existsSync(dbFile)) {
     fs.unlinkSync(dbFile);
   }
+  // 清掉 geoip 目錄裡的 mmdb 與下載中途的 .tmp：E2E 一律在「沒有 mmdb」的環境起跑
+  const geoipDir = path.join(TEST_DATA_DIR, 'geoip');
+  if (fs.existsSync(geoipDir)) {
+    for (const name of fs.readdirSync(geoipDir)) {
+      if (name.endsWith('.mmdb') || name.endsWith('.tmp')) {
+        fs.rmSync(path.join(geoipDir, name), { force: true });
+      }
+    }
+  }
 }
 
 /**
@@ -91,6 +100,8 @@ async function startApp() {
     `--project.testCaptcha=${TEST_CAPTCHA}`,
     '--project.skipSeedFetch=true',
     '--project.skipKillSelf=true',
+    // 排程不要在整點補抓 mmdb（約 75 MB），否則 geoip 目錄會被污染
+    '--project.skipGeoipFetch=true',
   ];
 
   // PG smoke 模式:E2E_DB=postgresql 時連 PostgreSQL(容器由 global-setup-pg.js 啟動,fresh DB)

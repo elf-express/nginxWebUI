@@ -141,7 +141,34 @@ class IpLookupServiceTest {
 		assertEquals("undetermined", svc.lookup("203.0.113.5").blockedBy());
 
 		country = GeoLookup.Country.of("TW");
+		svc.decisionsOf = ip -> {
+			throw new CrowdSecClient.LapiUnavailableException("down");
+		};
+		assertEquals("undetermined", svc.lookup("203.0.113.5").blockedBy());
+
+		svc.decisionsOf = ip -> {
+			throw new IllegalStateException("boom");
+		};
+		IpLookupService.Result r = svc.lookup("203.0.113.5");
+		assertEquals("crowdsec_error", layer(r, "crowdsec").reason());
+		assertEquals("undetermined", r.blockedBy());
+	}
+
+	@Test
+	void bouncerKeyNotConfiguredIsNotUndetermined() {
+		// 沒設 bouncer 金鑰時 nginx 不載入 bouncer，CrowdSec 不可能擋人；CrowdSec 層照舊顯示無法查詢，但整體結果是確定的
 		canRead = false;
+		IpLookupService.Result r = svc.lookup("203.0.113.5");
+		assertEquals("unavailable", layer(r, "crowdsec").state());
+		assertEquals(CrowdSecClient.NotConfiguredException.BOUNCER_KEY, layer(r, "crowdsec").reason());
+		assertEquals("none", r.blockedBy());
+	}
+
+	@Test
+	void bouncerKeyNotConfiguredStillUndeterminedWhenCountryUnknown() {
+		canRead = false;
+		country = GeoLookup.Country.unavailable();
+		geo(null, 0, "TW");
 		assertEquals("undetermined", svc.lookup("203.0.113.5").blockedBy());
 	}
 

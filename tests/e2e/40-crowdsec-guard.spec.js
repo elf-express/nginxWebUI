@@ -70,7 +70,8 @@ test.describe('CrowdSec 防護頁', () => {
   });
 
   test('有層查不到結果且沒有任何層擋下：總結是警告，不是綠色「沒有被擋」', async ({ page }) => {
-    // 測試環境沒有 GeoIP 資料庫也沒有 CrowdSec，所以國家與 CrowdSec 兩層都查不到
+    // 測試環境沒有 GeoIP 資料庫，國家層查不到才是「無法完整判斷」的來源；
+    // 沒設定 CrowdSec 不算（nginx 不載入 bouncer，結果是確定的），那個情況由 IpLookupServiceTest 驗證
     await page.goto('/adminPage/crowdsecGuard#ip=203.0.113.21');
     await expect(page.locator('.ip-layer[data-layer="geo"]')).toHaveAttribute('data-state', 'unknown');
     await expect(page.locator('.ip-verdict')).toHaveAttribute('data-verdict', 'warning');

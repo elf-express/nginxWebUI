@@ -89,7 +89,10 @@ public class IpLookupService {
 				blockedBy = l.layer();
 				break;
 			}
-			undetermined |= "unknown".equals(l.state()) || "unavailable".equals(l.state());
+			// 沒設 bouncer 金鑰時 nginx 不載入 bouncer，CrowdSec 不可能擋人，不算查不到
+			boolean bouncerNotConfigured = "crowdsec".equals(l.layer())
+					&& CrowdSecClient.NotConfiguredException.BOUNCER_KEY.equals(l.reason());
+			undetermined |= "unknown".equals(l.state()) || ("unavailable".equals(l.state()) && !bouncerNotConfigured);
 		}
 		if ("none".equals(blockedBy) && undetermined) {
 			blockedBy = "undetermined";
