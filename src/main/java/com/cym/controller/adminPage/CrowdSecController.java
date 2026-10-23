@@ -7,15 +7,18 @@ import java.util.Map;
 import org.noear.solon.annotation.Controller;
 import org.noear.solon.annotation.Inject;
 import org.noear.solon.annotation.Mapping;
+import org.noear.solon.core.handle.Context;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.cym.model.DenyAllow;
+import com.cym.service.CrowdSecChallenge;
 import com.cym.service.CrowdSecClient;
 import com.cym.service.CrowdSecNginxConf;
 import com.cym.service.DenyAllowService;
 import com.cym.service.SettingService;
 import com.cym.utils.BaseController;
+import com.cym.utils.ChallengeSecrets;
 import com.cym.utils.CrowdSecCredentials;
 import com.cym.utils.JsonResult;
 import com.cym.utils.NetGuard;
@@ -38,6 +41,8 @@ public class CrowdSecController extends BaseController {
 	CrowdSecNginxConf crowdSecNginxConf;
 	@Inject
 	DenyAllowService denyAllowService;
+	@Inject
+	CrowdSecChallenge crowdSecChallenge;
 
 	CrowdSecCredentials credentials = CrowdSecCredentials.system();
 
@@ -96,6 +101,62 @@ public class CrowdSecController extends BaseController {
 		} catch (NumberFormatException e) {
 			return null;
 		}
+	}
+
+	/**
+	 * 驗證頁設定：方式、樣式、外部網址、有效時間、兩把金鑰（只回遮罩值與來源）、目前能否套用、上次套用的失敗原因。
+	 * enabled = bouncer 金鑰與 LAPI 位址都有（CrowdSec 未設定時畫面整區停用）。
+	 */
+	@Mapping("getChallenge")
+	public JsonResult getChallenge() {
+		Map<String, Object> view = new LinkedHashMap<>();
+		view.put("enabled", credentials.bouncerKey().isPresent() && credentials.lapiUrl() != null);
+		view.put("mode", crowdSecChallenge.mode());
+		view.put("style", crowdSecChallenge.style());
+		view.put("externalUrl", crowdSecChallenge.externalUrl());
+		view.put("ttlMinutes", crowdSecChallenge.ttlMinutes());
+		ChallengeSecrets secrets = crowdSecChallenge.secrets();
+		view.put("cookieSecret", secretView(secrets.peekCookieSecret(), ChallengeSecrets.COOKIE_FILE_NAME,
+				ChallengeSecrets.COOKIE_ENV));
+		view.put("ticketSecret", secretView(secrets.ticketSecret(), ChallengeSecrets.TICKET_FILE_NAME,
+				ChallengeSecrets.TICKET_ENV));
+		view.put("problem", crowdSecChallenge.problem());
+		view.put("lastError", crowdSecChallenge.lastError());
+		return renderSuccess(view);
+	}
+
+	/** 存驗證頁設定；套用設定時才寫進 nginx。選外部驗證站時網址必須合法且已設定交接票金鑰 */
+	@Mapping("saveChallenge")
+	public JsonResult saveChallenge(String mode, String style, String externalUrl, String ttlMinutes) {
+		boolean external = CrowdSecChallenge.MODE_EXTERNAL.equals(mode);
+		if (!external && !CrowdSecChallenge.MODE_BUILTIN.equals(mode)
+				|| !CrowdSecChallenge.STYLE_AUTO.equals(style) && !CrowdSecChallenge.STYLE_CHECKBOX.equals(style)) {
+			return renderError(msgOr("crowdsecStr.invalidChallengeOption", "invalid_option"));
+		}
+		Integer ttl = CrowdSecChallenge.parseTtl(ttlMinutes);
+		if (ttl == null) {
+			return renderError(msgOr("crowdsecStr.invalidTtl", "invalid_ttl"));
+		}
+		String url = externalUrl == null ? "" : externalUrl.trim();
+		if ((external || !url.isEmpty()) && !CrowdSecChallenge.validExternalUrl(url)) {
+			return renderError(msgOr("crowdsecStr.invalidExternalUrl", "invalid_external_url"));
+		}
+		if (external && !crowdSecChallenge.secrets().ticketSecret().isPresent()) {
+			return renderError(msgOr("crowdsecStr.ticketSecretRequired", "ticket_secret_required"));
+		}
+		settingService.set(CrowdSecChallenge.MODE_KEY, mode);
+		settingService.set(CrowdSecChallenge.STYLE_KEY, style);
+		settingService.set(CrowdSecChallenge.EXTERNAL_URL_KEY, url);
+		settingService.set(CrowdSecChallenge.TTL_KEY, String.valueOf(ttl));
+		return renderSuccess();
+	}
+
+	/** 預覽驗證頁：與 nginx 送出的同一份 HTML，題目是空的、不能通過 */
+	@Mapping("challengePreview")
+	public void challengePreview(Context ctx, String style) {
+		ctx.contentType("text/html;charset=utf-8");
+		ctx.output(crowdSecChallenge.previewHtml(
+				CrowdSecChallenge.STYLE_CHECKBOX.equals(style) ? CrowdSecChallenge.STYLE_CHECKBOX : CrowdSecChallenge.STYLE_AUTO));
 	}
 
 	/** 實際測 LAPI（bouncer 金鑰）與 machine 登入 */
