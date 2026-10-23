@@ -98,4 +98,54 @@ class ChallengeSecretsTest {
 		assertFalse(cs.ticketSecret().toString().contains("ticket-plaintext"));
 		assertEquals("••••••9f3c", cs.ticketSecret().masked());
 	}
+
+	@Test
+	void blankGeneratedFileIsReplaced() throws Exception {
+		Files.createDirectories(generated.getParent());
+		Files.writeString(generated, "   ");
+		Secret secret = cs.cookieSecret();
+		assertEquals(Source.GENERATED, secret.source());
+		assertTrue(secret.value().matches("[0-9a-f]{64}"), secret.masked());
+		assertEquals(secret.value(), Files.readString(generated).trim());
+	}
+
+	@Test
+	void unreadableGeneratedFileIsNotOverwritten() throws Exception {
+		// 讀目錄會丟 IOException，用來模擬「存在但讀不到」
+		Files.createDirectories(generated);
+		assertThrows(java.io.IOException.class, () -> cs.cookieSecret());
+		assertTrue(Files.isDirectory(generated), "existing path must be left untouched");
+		assertEquals(Source.NONE, cs.peekCookieSecret().source());
+	}
+
+	@Test
+	void concurrentAppliesShareOneKey() throws Exception {
+		int n = 8;
+		java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(n);
+		try {
+			java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
+			java.util.List<java.util.concurrent.Future<Secret>> futures = new java.util.ArrayList<>();
+			for (int i = 0; i < n; i++) {
+				futures.add(pool.submit(() -> {
+					start.await();
+					return cs.cookieSecret();
+				}));
+			}
+			start.countDown();
+			String content = null;
+			for (java.util.concurrent.Future<Secret> f : futures) {
+				Secret secret = f.get(30, java.util.concurrent.TimeUnit.SECONDS);
+				if (content == null) {
+					content = secret.value();
+				}
+				assertEquals(content, secret.value());
+			}
+			assertEquals(content, Files.readString(generated).trim());
+			try (var files = Files.list(generated.getParent())) {
+				assertEquals(1, files.count(), "no temp files left behind");
+			}
+		} finally {
+			pool.shutdownNow();
+		}
+	}
 }

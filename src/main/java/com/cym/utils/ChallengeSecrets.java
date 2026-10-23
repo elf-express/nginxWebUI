@@ -2,10 +2,12 @@ package com.cym.utils;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.security.SecureRandom;
 import java.util.function.Function;
@@ -43,21 +45,32 @@ public class ChallengeSecrets {
 				Paths.get(home + "crowdsec/challenge_cookie_secret"));
 	}
 
-	/** 畫面顯示用，不產生檔案：自動產生的檔案還不存在時回 NONE */
+	/** 畫面顯示用，不產生檔案：自動產生的檔案還不存在或讀不到時回 NONE */
 	public Secret peekCookieSecret() {
 		Secret secret = read(COOKIE_FILE_NAME, COOKIE_ENV);
 		if (secret.isPresent()) {
 			return secret;
 		}
-		String generated = readGenerated();
-		return generated == null ? new Secret("", Source.NONE) : new Secret(generated, Source.GENERATED);
+		try {
+			String generated = readGenerated();
+			return generated == null ? new Secret("", Source.NONE) : new Secret(generated, Source.GENERATED);
+		} catch (IOException e) {
+			return new Secret("", Source.NONE);
+		}
 	}
 
-	/** 套用設定用：沒有 secrets 檔與環境變數時讀自動產生的檔案，檔案不存在就產生 */
-	public Secret cookieSecret() throws IOException {
-		Secret secret = peekCookieSecret();
+	/**
+	 * 套用設定用：沒有 secrets 檔與環境變數時讀自動產生的檔案，檔案不存在或內容為空才產生。
+	 * 自動產生的檔案存在但讀不到時丟 IOException，不覆蓋既有金鑰。
+	 */
+	public synchronized Secret cookieSecret() throws IOException {
+		Secret secret = read(COOKIE_FILE_NAME, COOKIE_ENV);
 		if (secret.isPresent()) {
 			return secret;
+		}
+		String generated = readGenerated();
+		if (generated != null) {
+			return new Secret(generated, Source.GENERATED);
 		}
 		return new Secret(generate(), Source.GENERATED);
 	}
@@ -92,31 +105,38 @@ public class ChallengeSecrets {
 		return !value.isEmpty() && value.indexOf('\n') < 0 && value.indexOf('\r') < 0;
 	}
 
-	private String readGenerated() {
-		try {
-			if (Files.isRegularFile(generatedFile)) {
-				String text = Files.readString(generatedFile, StandardCharsets.UTF_8).trim();
-				return usable(text) ? text : null;
-			}
-		} catch (IOException | RuntimeException e) {
-			// 當作還沒產生
+	/** 檔案不存在或內容不可用回 null；檔案存在但讀不到丟 IOException */
+	private String readGenerated() throws IOException {
+		if (!Files.exists(generatedFile)) {
+			return null;
 		}
-		return null;
+		String text = Files.readString(generatedFile, StandardCharsets.UTF_8).trim();
+		return usable(text) ? text : null;
 	}
 
 	private String generate() throws IOException {
 		byte[] bytes = new byte[32];
 		new SecureRandom().nextBytes(bytes);
 		String value = HexUtil.encodeHexStr(bytes);
-		Files.createDirectories(generatedFile.getParent());
-		Files.deleteIfExists(generatedFile);
+		Path dir = generatedFile.toAbsolutePath().getParent();
+		Files.createDirectories(dir);
+		Path temp;
 		if (FileSystems.getDefault().supportedFileAttributeViews().contains("posix")) {
-			Files.createFile(generatedFile,
+			temp = Files.createTempFile(dir, ".challenge_secret", ".tmp",
 					PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
 		} else {
-			Files.createFile(generatedFile);
+			temp = Files.createTempFile(dir, ".challenge_secret", ".tmp");
 		}
-		Files.writeString(generatedFile, value, StandardCharsets.UTF_8);
+		try {
+			Files.writeString(temp, value, StandardCharsets.UTF_8);
+			try {
+				Files.move(temp, generatedFile, StandardCopyOption.ATOMIC_MOVE);
+			} catch (AtomicMoveNotSupportedException e) {
+				Files.move(temp, generatedFile, StandardCopyOption.REPLACE_EXISTING);
+			}
+		} finally {
+			Files.deleteIfExists(temp);
+		}
 		return value;
 	}
 }
