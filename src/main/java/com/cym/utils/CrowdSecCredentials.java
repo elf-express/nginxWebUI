@@ -37,7 +37,7 @@ public class CrowdSecCredentials {
 	private static final String MASK = "••••••";
 
 	public enum Source {
-		SECRETS_FILE, ENV, NONE
+		SECRETS_FILE, ENV, GENERATED, NONE
 	}
 
 	public record Secret(String value, Source source) {
