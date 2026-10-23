@@ -32,6 +32,27 @@ check(p.safe_return("/a\r\nSet-Cookie: x") == "/", "CRLF")
 check(p.safe_return("/.well-known/nwu-challenge/?r=/") == "/", "no loop into the reserved path")
 check(p.safe_return(nil) == "/" and p.safe_return("") == "/" and p.safe_return("/" .. string.rep("a", 2048)) == "/")
 
+-- reserved path routes
+local R = p.PREFIX
+check(p.reserved_route("GET", R .. "altcha.js") == "altcha" and p.reserved_route("POST", R .. "altcha.js") == "altcha")
+check(p.reserved_route("GET", R) == "page" and p.reserved_route("HEAD", R) == "page")
+check(p.reserved_route("POST", R) == nil, "POST to the page")
+check(p.reserved_route("POST", R .. "verify") == "verify" and p.reserved_route("GET", R .. "verify") == nil)
+check(p.reserved_route("GET", R .. "callback") == "callback" and p.reserved_route("HEAD", R .. "callback") == "callback")
+check(p.reserved_route("POST", R .. "callback") == nil and p.reserved_route("GET", R .. "x") == nil)
+
+-- where a client without a captcha decision is sent from the reserved path
+check(p.bounce_target("page", "/cart?id=1") == "/cart?id=1")
+check(p.bounce_target("page", "//evil.example/") == "/" and p.bounce_target("page", nil) == "/")
+check(p.bounce_target("verify", "/cart") == "/cart" and p.bounce_target("verify", nil) == "/")
+check(p.bounce_target("verify", R .. "?r=/") == "/", "no loop into the reserved path")
+local bt = p.make_ticket(p.ticket_payload({ kind = "resp", exp = 1, ip = "x", host = "h", path = "/back", nonce = "n" }), "sig")
+check(p.bounce_target("callback", nil, bt) == "/back", "ticket path, signature not needed")
+local evil = p.make_ticket(p.ticket_payload({ kind = "resp", exp = 1, ip = "x", host = "h", path = "https://evil.example/", nonce = "n" }), "s")
+check(p.bounce_target("callback", nil, evil) == "/", "foreign ticket path")
+check(p.bounce_target("callback", nil, "garbage") == "/" and p.bounce_target("callback", nil, nil) == "/")
+check(p.bounce_target(nil, "/cart") == "/", "unknown reserved path")
+
 -- page request classification
 check(p.is_page_request("GET", "text/html,application/xhtml+xml"))
 check(p.is_page_request("HEAD", "TEXT/HTML"))

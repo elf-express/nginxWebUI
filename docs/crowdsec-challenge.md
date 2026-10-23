@@ -11,11 +11,26 @@ CrowdSec 判定為「可疑」的 IP 不直接封鎖，而是先送到驗證頁�
 |---|---|---|
 | 1 | 同一 IP 24 小時內已有決策，又被判可疑 | 封鎖 4 小時（不給驗證機會） |
 | 2 | 爬取非靜態頁（`crowdsecurity/http-crawl-non_statics`）、惡意 User-Agent（`crowdsecurity/http-bad-user-agent`）、掃描（`crowdsecurity/http-probing`） | 送驗證（captcha 決策）4 小時，不通報 AbuseIPDB |
-| 3 | 其他情境 | 封鎖 4 小時並通報 AbuseIPDB |
+| 3 | 驗證不通過（`nginxwebui/challenge-fail`、`nginxwebui/challenge-fail-answer`），且 24 小時內沒有其他決策 | 封鎖 4 小時，不通報 AbuseIPDB |
+| 4 | 其他情境 | 封鎖 4 小時並通報 AbuseIPDB |
 
-驗證不通過的計數由 `docker/crowdsec/nwu-challenge-fail.yaml` 從 nginx access log 統計：同一 IP 約 10 分鐘內開驗證頁超過 10 次，或送出答案或交接票超過 5 次（POST `verify`、GET/HEAD `callback` 都算），就封鎖。
+驗證不通過的計數由 `docker/crowdsec/nwu-challenge-fail.yaml` 從 nginx access log 依狀態碼統計：同一 IP 約 10 分鐘內看到驗證頁（回應 200）超過 10 次，
+或答案、交接票被拒（回應 429）超過 5 次（POST `verify`、GET/HEAD `callback` 都算），就封鎖。通過驗證（303）不計數。
+正常情況下驗證不通過的 IP 已經有驗證決策，會由第 1 條封鎖；第 3 條只接住其餘情況，兩者都不通報 AbuseIPDB。
+
+沒有驗證決策的 IP 不出題：在保留路徑上除了 `altcha.js` 照常提供之外，一律 303 導回同網域路徑（頁面與 `verify` 導回表單的 `r`，`callback` 導回交接票內的路徑，其他導回 `/`），
+不出題、不驗答、不發 cookie，也不計數。這樣第三方網頁就算讓訪客的瀏覽器反覆開驗證頁或送答案，也無法讓訪客被封鎖或被通報。
 
 白名單（站點白名單與後台「白名單 IP」）永遠不進驗證頁；被封鎖的 IP 連驗證頁也是 444。
+
+## bouncer 補丁
+
+nginx image 在安裝官方 lua-cs-bouncer（`CS_NGINX_BOUNCER_VERSION=v1.2.3`）後，會用 `docker/lua/patches/cs-stream-delete-by-type.sh` 修改它的 `plugins/crowdsec/stream.lua`。
+原版在 stream 模式處理到期或刪除的決策時只看 IP，不看類型；同一 IP 先拿到驗證決策、之後又被封鎖時，驗證決策到期會連同封鎖一起從 bouncer 快取刪掉，封鎖提早結束（最多少 4 小時）。
+補丁後只有快取中的決策類型和被刪的決策相同時才刪除。
+
+補丁腳本會先檢查 bouncer 版本是 `v1.2.3`、要替換的原始程式碼恰好出現一次，補丁後再確認新內容存在，任何一項不符就讓 image build 失敗。
+升級 bouncer 版本時 build 會在這裡停下，請對照新版 `stream.lua` 重新確認補丁（或上游已修正就移除補丁），再更新腳本裡的版本。
 
 ## 兩種驗證方式
 
@@ -45,6 +60,12 @@ npx wrangler secret put NWU_CHALLENGE_TICKET_SECRET   # 在 Worker 專案貼上�
 ```
 
 交接票金鑰外洩時，拿到它的人能替自己的 IP 簽出交接票、換到 cookie，等同繞過驗證，請立即更換。
+
+## 升級後要套用設定一次
+
+升級 nginxwebui 與 crowdsec image 後，請到後台按一次**套用設定**。新的 crowdsec image 一啟動，爬取、惡意 User-Agent、掃描這三類可疑 IP 就改發驗證決策，
+但 nginx 在套用設定之前仍沿用舊的 bouncer 設定（只處理封鎖決策），所以這段期間這三類可疑 IP 既不會被封鎖、也不會被送去驗證。
+驗證頁無法載入而退回的期間（image 缺 ALTCHA、外部模式缺交接票金鑰，後台狀態欄會說明原因）也一樣，這三類 IP 不會被擋。
 
 ## 部署前要注意的三件事
 
@@ -81,5 +102,5 @@ payload = "nwu1" \n kind \n exp \n ip \n host \n path \n nonce                  
 ```bash
 sh docker/test/lua-unit.sh <nginxwebui image>          # Lua 純函式、交接票測試資料
 sh docker/test/challenge-smoke.sh <nginxwebui image>   # image 內 nginx：出題、驗答、cookie、交接票（stub LAPI）
-sh docker/test/crowdsec-challenge-e2e.sh <nginxwebui image> <crowdsec image>   # 整個 stack、無網路，約 3 分鐘
+sh docker/test/crowdsec-challenge-e2e.sh <nginxwebui image> <crowdsec image>   # 整個 stack、無網路，約 5 分鐘
 ```

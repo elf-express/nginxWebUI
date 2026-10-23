@@ -21,13 +21,15 @@
 #      the generated cookie key shows source GENERATED in the admin API
 #   13 external mode with a fake external site: request ticket valid; signed response ticket -> cookie -> 200;
 #      replayed / tampered / expired / other-IP tickets -> 429
+#   14 a client without any decision (as if pushed there by a third-party page) opens the challenge page 11 times and
+#      posts 6 answers: 303 back, and after more than the decision wait no decision and no challenge-fail alert
 #   B  with --browser: the network is not internal and https is published on 127.0.0.1:18443; real Chromium from
 #      the host (docker/test/challenge-browser.cjs) passes the auto and the checkbox style, loads nothing from outside
 #      and is not challenged again with the cookie. Check 11 then only checks the page and altcha.js.
 # Also runs nginx -t against the generated config after every apply.
 #
 # Nothing of an existing deployment is touched: project nwu-e387-e2e, own container names, volumes and network,
-# no published ports (except 127.0.0.1:18443 with --browser). Everything is removed on exit. Takes about 3 minutes.
+# no published ports (except 127.0.0.1:18443 with --browser). Everything is removed on exit. Takes about 5 minutes.
 #
 # Usage: sh docker/test/crowdsec-challenge-e2e.sh <nginxwebui image> <nginxwebui-crowdsec image> [--browser]
 set -u
@@ -66,6 +68,7 @@ IP_OTHER=$SUBNET.66    # 3
 IP_BAN=$SUBNET.67      # 9
 IP_HTTP=$SUBNET.68     # 10
 IP_EXT=$SUBNET.69      # 13
+IP_XSITE=$SUBNET.70    # 14
 ADMIN=admin
 CAPTCHA=1234
 HOME_DIR=/home/nginxWebUI
@@ -91,7 +94,7 @@ now() { date +%s; }
 
 dc() { docker compose -p "$PROJECT" --env-file "$ENVF" -f "$BASE" -f "$OVR" "$@"; }
 
-CLIENTS="allow cap box pages answers repeat first other ban http ext"
+CLIENTS="allow cap box pages answers repeat first other ban http ext xsite"
 cleanup() {
   for c in $CLIENTS; do
     docker rm -f "$PROJECT-client-$c" >/dev/null 2>&1 || true
@@ -321,7 +324,7 @@ api /adminPage/geo/addOver --data-urlencode "id=$GEO_ID" -d mode=0 --data-urlenc
 apply || { fail setup "apply config"; exit 1; }
 
 for pair in "allow $IP_ALLOW" "cap $IP_CAP" "box $IP_BOX" "pages $IP_PAGES" "answers $IP_ANSWERS" "repeat $IP_REPEAT" \
-  "first $IP_FIRST" "other $IP_OTHER" "ban $IP_BAN" "http $IP_HTTP" "ext $IP_EXT"; do
+  "first $IP_FIRST" "other $IP_OTHER" "ban $IP_BAN" "http $IP_HTTP" "ext $IP_EXT" "xsite $IP_XSITE"; do
   start_client $pair
 done
 for ip in $IP_ALLOW $IP_CAP $IP_BOX $IP_PAGES $IP_ANSWERS $IP_OTHER $IP_HTTP $IP_EXT; do
@@ -454,6 +457,15 @@ browser() {
 }
 [ "$BROWSER" = 1 ] && browser auto
 
+# ---------- 14. a client without a decision on the reserved path (sent here, checked after 7 / 8) ----------
+xs_page="$(code xsite "https://nginxwebui${P}?r=%2Fcart")"
+xs_verify="$(code xsite -d altcha=Zm9v --data-urlencode "r=/cart" "https://nginxwebui${P}verify")"
+i=1
+while [ "$i" -lt 11 ]; do c xsite -o /dev/null "https://nginxwebui${P}?r=%2F"; i=$((i + 1)); done
+i=1
+while [ "$i" -lt 6 ]; do c xsite -o /dev/null -d altcha=Zm9v "https://nginxwebui${P}verify"; i=$((i + 1)); done
+T_XSITE=$(now)
+
 # ---------- 5. too many challenge page views ----------
 i=0
 while [ "$i" -lt 11 ]; do c pages -o /dev/null "https://nginxwebui${P}?r=%2F"; i=$((i + 1)); done
@@ -486,6 +498,18 @@ if [ "$r8" = ok ] && ! echo "$d8" | grep -q ban; then
   pass 8 "first bad user agent -> captcha only ($d8)"
 else
   fail 8 "decisions for $IP_FIRST: $d8"
+fi
+
+# ---------- 14. (check) no ban and no report for the client without a decision ----------
+left=$((95 - ($(now) - T_XSITE)))   # longer than wait_decision (30 x 3s)
+[ "$left" -gt 0 ] && sleep "$left"
+xs_dec="$(decisions $IP_XSITE)"
+xs_alerts="$(cscli alerts list -i $IP_XSITE -o raw 2>/dev/null | grep -c 'challenge-fail')"
+if [ "$xs_page" = "0 303 https://nginxwebui/cart" ] && [ "$xs_verify" = "0 303 https://nginxwebui/cart" ] \
+  && [ -z "$xs_dec" ] && [ "$xs_alerts" = "0" ]; then
+  pass 14 "no decision: 11 page views + 6 answers -> 303 back; after $(($(now) - T_XSITE))s no decision, no challenge-fail alert"
+else
+  fail 14 "page=[$xs_page] verify=[$xs_verify] decisions=[$xs_dec] challenge-fail alerts=$xs_alerts"
 fi
 
 # ---------- 2. checkbox style ----------

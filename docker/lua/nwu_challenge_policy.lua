@@ -99,6 +99,37 @@ function _M.safe_return(path)
   return path
 end
 
+-- What a request on the reserved path is: "altcha", "page", "verify", "callback"; nil for anything else.
+function _M.reserved_route(method, uri)
+  local get = method == "GET" or method == "HEAD"
+  if uri == _M.PREFIX .. "altcha.js" then
+    return "altcha"
+  end
+  if uri == _M.PREFIX and get then
+    return "page"
+  end
+  if uri == _M.PREFIX .. "verify" and method == "POST" then
+    return "verify"
+  end
+  if uri == _M.PREFIX .. "callback" and get then
+    return "callback"
+  end
+  return nil
+end
+
+-- Where a client without a captcha decision is sent from the reserved path (route from reserved_route, not altcha).
+-- r: the return path of the page or the verify form; token: the callback ticket, only its path is used.
+function _M.bounce_target(route, r, token)
+  if route == "page" or route == "verify" then
+    return _M.safe_return(r)
+  end
+  if route == "callback" then
+    local f = _M.parse_ticket(token)
+    return _M.safe_return(f and f.path)
+  end
+  return "/"
+end
+
 -- A browser page load: GET/HEAD with an Accept header that asks for HTML.
 function _M.is_page_request(method, accept)
   if method ~= "GET" and method ~= "HEAD" then

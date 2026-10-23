@@ -4,7 +4,8 @@
 --            challenge = <optional nwu_challenge opts> }
 -- Decisions: IP ban -> ngx.exit(444); captcha -> nwu_challenge; CrowdSec whitelist -> pass everything;
 -- AppSec block -> ngx.exit(403); CrowdSec unreachable longer than grace -> 503 page.
--- Allowlisted clients ($nwu_allowlist = "1") bypass everything. Banned clients get 444 on the reserved path too.
+-- Allowlisted clients ($nwu_allowlist = "1") bypass everything. Banned clients get 444 on the reserved path too;
+-- clients without a decision are only redirected back from it.
 local policy = require "nwu_crowdsec_policy"
 local challenge_policy = require "nwu_challenge_policy"
 
@@ -205,7 +206,7 @@ function _M.access()
   end
   if challenge then
     if challenge_policy.is_reserved(ngx.var.uri) then
-      return challenge.handle(ip)
+      return challenge.handle(ip, action == "captcha")
     end
     if action == "captcha" and not challenge.has_valid_cookie(ip) then
       return challenge.challenge(ip)

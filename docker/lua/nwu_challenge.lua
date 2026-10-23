@@ -1,7 +1,9 @@
 -- nwu challenge: serves the reserved path /.well-known/nwu-challenge/ and decides what a client with a
 -- CrowdSec captcha decision gets. Used by nwu_crowdsec when its init opts carry a challenge table.
 --   init(opts)  opts = { conf = <challenge conf>, pages = <dir of generated pages, ends with />, altcha = <altcha.js> }
---   enabled(), has_valid_cookie(ip), challenge(ip), handle(ip)
+--   enabled(), has_valid_cookie(ip), challenge(ip), handle(ip, captcha)
+-- A client without a captcha decision gets only altcha.js on the reserved path; everything else is a 303 back to a
+-- same-site path, so a third-party page cannot make visitors fail the challenge.
 -- Builtin mode: ALTCHA proof of work (SHA-256) on the reserved path, POST verify issues the nwu_pass cookie.
 -- External mode: 302 to the external site with a signed request ticket; its response ticket comes back to callback.
 -- Plain http sites never get a challenge: they get the 429 page (ALTCHA needs crypto.subtle, i.e. https).
@@ -154,7 +156,12 @@ local function to_external(ip, path)
     kind = "req", exp = ngx.time() + REQUEST_TICKET_TTL, ip = ip, host = ngx.var.host, path = path,
     nonce = random_hex(16),
   })
+  if not payload then
+    -- empty $host (HTTP/1.0 without Host on a server without server_name): no ticket can be made
+    return send_page(429, pages.callback)
+  end
   local token = policy.make_ticket(payload, sign(cfg.TICKET_SECRET, payload))
+  ngx.header["Cache-Control"] = "no-store"
   return ngx.redirect(policy.append_query(cfg.EXTERNAL_URL, "t", token), 302)
 end
 
@@ -170,6 +177,7 @@ function _M.challenge(ip)
   if cfg.MODE == "external" then
     return to_external(ip, path)
   end
+  ngx.header["Cache-Control"] = "no-store"
   return ngx.redirect(policy.PREFIX .. "?r=" .. ngx.escape_uri(path), 302)
 end
 
@@ -223,36 +231,58 @@ local function callback(ip)
   return pass(ip, f.path)
 end
 
+-- The form fields of POST verify; nil when the body cannot be read as arguments (e.g. buffered to a temp file).
+local function post_args()
+  ngx.req.read_body()
+  return ngx.req.get_post_args(10)
+end
+
+-- A client without a captcha decision on the reserved path: no challenge, no check, no cookie, back to a same-site path.
+local function bounce(route)
+  local r, token
+  if route == "page" then
+    r = ngx.var.arg_r and ngx.unescape_uri(ngx.var.arg_r)
+  elseif route == "verify" then
+    local args = post_args()
+    r = args and args.r
+  elseif route == "callback" then
+    token = ngx.var.arg_token
+  end
+  ngx.header["Cache-Control"] = "no-store"
+  return ngx.redirect(policy.bounce_target(route, r, token), 303)
+end
+
 -- Every request on the reserved path from a client that is not allowlisted and not banned.
-function _M.handle(ip)
-  local uri = ngx.var.uri
-  local method = ngx.req.get_method()
-  if uri == policy.PREFIX .. "altcha.js" then
+-- captcha: the client has a captcha decision; without one it only gets altcha.js and redirects back.
+function _M.handle(ip, captcha)
+  local route = policy.reserved_route(ngx.req.get_method(), ngx.var.uri)
+  if route == "altcha" then
     ngx.header["Content-Type"] = "application/javascript; charset=utf-8"
     ngx.header["Cache-Control"] = "public, max-age=86400"
     ngx.print(altcha_js)
     return ngx.exit(ngx.HTTP_OK)
   end
+  if not captcha then
+    return bounce(route)
+  end
   if ngx.var.scheme ~= "https" then
     return send_page(429, pages.http)
   end
-  if uri == policy.PREFIX and (method == "GET" or method == "HEAD") then
+  if route == "page" then
     local path = policy.safe_return(ngx.var.arg_r and ngx.unescape_uri(ngx.var.arg_r))
     if cfg.MODE == "external" then
       return to_external(ip, path)
     end
     return show_challenge(ip, path)
   end
-  if uri == policy.PREFIX .. "verify" and method == "POST" and cfg.MODE == "builtin" then
-    ngx.req.read_body()
-    local args = ngx.req.get_post_args(10)
-    if not verify_altcha(args.altcha, ip) then
+  if route == "verify" and cfg.MODE == "builtin" then
+    local args = post_args()
+    if not args or not verify_altcha(args.altcha, ip) then
       return send_page(429, pages.verify)
     end
     return pass(ip, args.r)
   end
-  if uri == policy.PREFIX .. "callback" and (method == "GET" or method == "HEAD")
-      and cfg.MODE == "external" then
+  if route == "callback" and cfg.MODE == "external" then
     return callback(ip)
   end
   return ngx.exit(ngx.HTTP_NOT_FOUND)

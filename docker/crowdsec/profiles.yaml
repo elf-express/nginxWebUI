@@ -1,6 +1,8 @@
 # Profiles run in order and the first match wins (on_success: break).
 # The nginx bouncer keeps one decision per IP and a later decision replaces an earlier one, so "ban beats captcha"
 # is kept by the order here: an IP that already had a decision in the last 24 hours always gets a ban.
+# The nginxwebui image patches the bouncer so the expiry of the earlier captcha does not delete that later ban
+# (docker/lua/patches/cs-stream-delete-by-type.sh).
 # Bans added by the nginxWebUI admin backend (manual bans, ASN pushes) carry scenarios starting with "nginxwebui:".
 # They already contain their decisions, so these profiles only decide notifications for them; excluding them keeps
 # admin bans out of the AbuseIPDB reports.
@@ -19,6 +21,17 @@ filters:
  - Alert.Remediation == true && Alert.GetScope() == "Ip" && Alert.GetScenario() in ["crowdsecurity/http-crawl-non_statics", "crowdsecurity/http-bad-user-agent", "crowdsecurity/http-probing"]
 decisions:
  - type: captcha
+   duration: 4h
+on_success: break
+---
+# Failing the nginxWebUI challenge (nginxwebui/challenge-fail, nginxwebui/challenge-fail-answer) is banned but never
+# reported to AbuseIPDB. Such an IP normally has a captcha decision already and is caught by repeat_offender_ban; this
+# profile catches the rest (e.g. the captcha was deleted by hand) so no visitor is reported for the challenge alone.
+name: challenge_fail_ban
+filters:
+ - Alert.Remediation == true && Alert.GetScope() == "Ip" && Alert.GetScenario() startsWith "nginxwebui/challenge-fail"
+decisions:
+ - type: ban
    duration: 4h
 on_success: break
 ---

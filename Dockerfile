@@ -73,6 +73,13 @@ RUN curl -fL --retry 3 -o /tmp/cs-nginx-bouncer.tgz \
     && cp -r /tmp/cs-nginx-bouncer/lua-mod/lib/. /usr/local/lib/crowdsec/lua/ \
     && cp -r /tmp/cs-nginx-bouncer/lua-mod/templates/. /var/lib/crowdsec/lua/templates/ \
     && rm -rf /tmp/cs-nginx-bouncer /tmp/cs-nginx-bouncer.tgz
+# Bouncer patch: in stream mode the expiry of a captcha decision must not delete a later ban of the same IP from the
+# bouncer cache (stream.lua deletes by IP only). The script checks the bouncer version and the exact source lines
+# and fails the build otherwise, so upgrading CS_NGINX_BOUNCER_VERSION means re-checking the patch.
+COPY docker/lua/patches/cs-stream-delete-by-type.sh /tmp/nwu-patches/
+RUN sh /tmp/nwu-patches/cs-stream-delete-by-type.sh "${CS_NGINX_BOUNCER_VERSION}" \
+        /usr/local/lib/crowdsec/lua/plugins/crowdsec/stream.lua \
+    && rm -rf /tmp/nwu-patches
 # ALTCHA widget (MIT) for the self-hosted challenge page, pinned + sha256 verified. Lua serves it on the reserved path
 # /.well-known/nwu-challenge/altcha.js, so the challenge page loads nothing from outside.
 ARG ALTCHA_VERSION=2.3.0
