@@ -52,6 +52,8 @@ function loadAsnList() {
 
 		$('#asnTableBody').html(html);
 		if (asnForm) asnForm.render(null, 'asnForm');
+		// 舊版 ASN 規則：有資料才顯示整區（只有「防護與憑證」頁有這個區塊）
+		$('#asnLegacySection').toggle(list.length > 0);
 	});
 }
 

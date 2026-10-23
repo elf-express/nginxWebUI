@@ -136,7 +136,7 @@ watch(
             <strong>{{ t(`crowdsecGuardStr.layer_${l.layer}`) }}</strong>
             <Tag :color="color(l.layer, l.state)">{{ t(layerStateKey(l.layer, l.state)) }}</Tag>
             <span v-if="l.lists?.length">{{ l.lists.join('、') }}</span>
-            <span v-if="l.reason" class="ip-reason">{{ t(`crowdsecGuardStr.reason_${l.reason}`) }}</span>
+            <span v-if="l.reason" class="ip-reason">{{ t(`crowdsecGuardStr.reason_${l.reason.replace(/\./g, '_')}`) }}</span>
           </Space>
           <ul v-if="l.layer === 'geo' && l.details?.length" class="ip-detail">
             <li v-for="d in l.details" :key="d.scope">
