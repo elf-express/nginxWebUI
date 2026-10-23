@@ -1,0 +1,29 @@
+docker/.env.example
+  s_a28b699e4790bd::t_902e8817316a82 44-51
+docker/crowdsec/Dockerfile
+  s_a28b699e4790bd::t_8b14fa9695252e 41-42
+docker/crowdsec/acquis.yml
+  s_a28b699e4790bd::t_6def1b36446d53 1-2,6
+docker/crowdsec/nwu-challenge-fail.yaml
+  s_a28b699e4790bd::t_0f9293d7ea297e 1-47
+docker/crowdsec/profiles.yaml
+  s_a28b699e4790bd::t_d154ee4d39aee8 1-3,7-24
+docker/docker-compose.yml
+  s_a28b699e4790bd::t_c88d6c910e37df 30-34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "39757bbd9fe7280cd753ed73adc7c8863e0abf68",
+  "prompts": {},
+  "sessions": {
+    "s_a28b699e4790bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "195abc9b-fbd8-4977-9ae6-70d5fcc76908",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
