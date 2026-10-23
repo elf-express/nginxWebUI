@@ -101,7 +101,7 @@ LAPI 8080、AppSec 7422 只在 compose 網路內，不 publish。
 > 約 10 分鐘；用獨立 project `nwu-e376-e2e` 與自己的 volume／網段，不碰既有部署）。
 > 驗證頁：`sh docker/test/lua-unit.sh <image>`（Lua 純函式與交接票測試資料）、`sh docker/test/challenge-smoke.sh <image>`
 >（image 內 nginx 出題／驗答／交接票）、`sh docker/test/crowdsec-challenge-e2e.sh <nginxwebui image> <crowdsec image>`
->（整個 stack 跑在 internal 網路上，約 4 分鐘，獨立 project `nwu-e387-e2e`）。
+>（整個 stack 跑在 internal 網路上，約 3 分鐘，獨立 project `nwu-e387-e2e`）。
 > machine 帳號：`sh docker/test/crowdsec-machine.sh <crowdsec image>`（secrets 檔／環境變數註冊、重啟、可登入）、
 > `sh docker/test/crowdsec-admin-e2e.sh <nginxwebui image> <crowdsec image>`（後台新增／刪除封鎖、ASN 撤銷、錯誤密碼，約 3 分鐘，
 > 獨立 project `nwu-e390-e2e`）。

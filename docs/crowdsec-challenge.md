@@ -13,9 +13,9 @@ CrowdSec 判定為「可疑」的 IP 不直接封鎖，而是先送到驗證頁�
 | 2 | 爬取非靜態頁（`crowdsecurity/http-crawl-non_statics`）、惡意 User-Agent（`crowdsecurity/http-bad-user-agent`）、掃描（`crowdsecurity/http-probing`） | 送驗證（captcha 決策）4 小時，不通報 AbuseIPDB |
 | 3 | 其他情境 | 封鎖 4 小時並通報 AbuseIPDB |
 
-驗證不通過的計數由 `docker/crowdsec/nwu-challenge-fail.yaml` 從 nginx access log 統計：同一 IP 約 10 分鐘內開驗證頁超過 10 次，或送出答案超過 5 次，就封鎖。
+驗證不通過的計數由 `docker/crowdsec/nwu-challenge-fail.yaml` 從 nginx access log 統計：同一 IP 約 10 分鐘內開驗證頁超過 10 次，或送出答案或交接票超過 5 次（POST `verify`、GET/HEAD `callback` 都算），就封鎖。
 
-白名單（站點白名單與後台「加入白名單」）永遠不進驗證頁；被封鎖的 IP 連驗證頁也是 444。
+白名單（站點白名單與後台「白名單 IP」）永遠不進驗證頁；被封鎖的 IP 連驗證頁也是 444。
 
 ## 兩種驗證方式
 
@@ -40,7 +40,7 @@ CrowdSec 判定為「可疑」的 IP 不直接封鎖，而是先送到驗證頁�
 產生交接票金鑰並交給 Worker：
 
 ```bash
-openssl rand -hex 32            # 填到 docker/.env 的 NWU_CHALLENGE_TICKET_SECRET，docker compose up -d
+openssl rand -hex 32            # 隨機字串，填到 docker/.env 的 NWU_CHALLENGE_TICKET_SECRET，docker compose up -d
 npx wrangler secret put NWU_CHALLENGE_TICKET_SECRET   # 在 Worker 專案貼上同一把
 ```
 
@@ -50,10 +50,11 @@ npx wrangler secret put NWU_CHALLENGE_TICKET_SECRET   # 在 Worker 專案貼上�
 
 1. **純 HTTP 站台不出題**：瀏覽器只在 HTTPS 提供驗證需要的 `crypto.subtle`，所以 `http://` 站台遇到有驗證決策的訪客一律回 429 說明頁（附訪客 IP 與時間，請真人聯絡管理者加白名單）。
    前面有 TLS 終結代理（反向代理把 HTTPS 轉成 HTTP 給 nginxWebUI）的站台，nginx 看到的也是 HTTP，會走這條規則。
-2. **站台開 Cloudflare 代理時要先設 `real_ip`**：否則 nginx 看到的是 Cloudflare 的 IP，cookie 與交接票的 IP 比對會失敗、無法通過。
-   在 http 參數加 `include /etc/nginx/geoip/realip.conf;`（Cloudflare IP 清單由「GeoIP」頁的 Cloudflare 下載與每週排程維護，
-   內含 `set_real_ip_from` 與 `real_ip_header CF-Connecting-IP`）。外部驗證站（Worker）本身不需要這個設定。
-3. **外部驗證站先預覽再實測**：後台「預覽驗證頁」會直接開外部網址；確認頁面正常後，用 `cscli decisions add -i <測試 IP> -t captcha -d 10m` 對自己的 IP 實際走一次。
+2. **站台開 Cloudflare 代理時，確認 `real_ip` 已生效**：否則 nginx 看到的是 Cloudflare 的 IP，cookie 與交接票的 IP 比對會失敗、無法通過。
+   http 參數預設已包含 `include /etc/nginx/geoip/realip.conf;`（鎖定的 `realip` 群組，不用也不能重複加，重複會讓 `real_ip_header` 重複而使 `nginx -t` 失敗）。
+   要做的是兩件事：確認 Cloudflare IP 清單已下載（「GeoIP」頁的 Cloudflare 下載；cron 每週三、六也會更新，7 天內已更新則跳過），
+   以及自訂模板沒有把 `realip` 群組移掉。`realip.conf` 內含 `set_real_ip_from` 與 `real_ip_header CF-Connecting-IP`。外部驗證站（Worker）本身不需要這個設定。
+3. **外部驗證站先預覽再實測**：後台「預覽驗證頁」會直接開外部網址；確認頁面正常後，在 crowdsec 容器內執行 `docker compose exec crowdsec cscli decisions add -i <測試 IP> -t captcha -d 10m`，對自己的 IP 實際走一次。
 
 ## 交接票格式（給外部驗證站實作）
 
@@ -65,13 +66,14 @@ payload = "nwu1" \n kind \n exp \n ip \n host \n path \n nonce                  
 | 欄位 | 請求票（nginx → 外部站，`?t=`） | 回應票（外部站 → nginx，`callback?token=`） |
 |---|---|---|
 | kind | `req` | `resp` |
-| exp | 現在 + 300 秒（epoch 秒） | 現在 + 60 秒；nginx 不接受超過 300 秒後到期的票 |
+| exp | 現在 + 300 秒（epoch 秒） | 建議現在 + 60 秒；nginx 只檢查未過期，且到期時間不晚於現在 + 300 秒 |
 | ip | 訪客 IP（nginx 看到的） | 照抄請求票（外部站不比對訪客 IP：瀏覽器連兩邊可能分走 IPv4／IPv6） |
 | host | 原網域（`$host`） | 照抄請求票 |
 | path | 要導回的同網域路徑 | 照抄請求票 |
 | nonce | 隨機 32 位 hex | 外部站新產生的隨機值，nginx 記錄後不接受重送 |
 
 外部站驗證請求票（簽章、`kind=req`、未過期）並完成人機驗證後，轉址到 `https://<host>/.well-known/nwu-challenge/callback?token=<回應票>`。
+交接票金鑰的文字本身就是 HMAC 金鑰，兩端都直接取這串文字的位元組，不做 hex 解碼；`openssl rand -hex 32` 只是產生一串安全的隨機字串。
 兩端共用的測試資料在 `docker/lua/test/ticket-vectors.json`。
 
 ## 測試
@@ -79,5 +81,5 @@ payload = "nwu1" \n kind \n exp \n ip \n host \n path \n nonce                  
 ```bash
 sh docker/test/lua-unit.sh <nginxwebui image>          # Lua 純函式、交接票測試資料
 sh docker/test/challenge-smoke.sh <nginxwebui image>   # image 內 nginx：出題、驗答、cookie、交接票（stub LAPI）
-sh docker/test/crowdsec-challenge-e2e.sh <nginxwebui image> <crowdsec image>   # 整個 stack、無網路，約 4 分鐘
+sh docker/test/crowdsec-challenge-e2e.sh <nginxwebui image> <crowdsec image>   # 整個 stack、無網路，約 3 分鐘
 ```
