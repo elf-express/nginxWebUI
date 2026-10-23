@@ -1,0 +1,22 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<#include "/adminPage/common.html"/>
+<link href="${ctx}/js/spa/crowdsecGuard.css?v=${jsrandom}" rel="stylesheet" />
+</head>
+<body class="layui-layout-body">
+	<div class="layui-layout layui-layout-admin">
+
+		<#include "/adminPage/header.html"/>
+		<#include "/adminPage/menu.html"/>
+
+		<div class="layui-body">
+			<!-- 內容由 Vue 掛載（frontend/src/pages/crowdsecGuard/）；載入失敗時顯示 data-load-failed -->
+			<div id="crowdsecGuardApp" data-load-failed="${spaStr.loadFailed}"></div>
+		</div>
+	</div>
+
+	<#include '/adminPage/script.html'/>
+	<script type="module" src="${ctx}/js/spa/crowdsecGuard.js?v=${jsrandom}" onerror="var el=document.getElementById('crowdsecGuardApp');el.textContent=el.getAttribute('data-load-failed');"></script>
+</body>
+</html>
