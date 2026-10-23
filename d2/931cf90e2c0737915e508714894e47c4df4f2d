@@ -1,0 +1,21 @@
+src/main/java/com/cym/controller/adminPage/CrowdSecController.java
+  s_a28b699e4790bd::t_1434296975b9ad 10,15,21,44-45,106-161
+src/test/java/com/cym/controller/adminPage/CrowdSecChallengeControllerTest.java
+  s_a28b699e4790bd::t_759baa4864b105 1-160
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d2931cf90e2c0737915e508714894e47c4df4f2d",
+  "prompts": {},
+  "sessions": {
+    "s_a28b699e4790bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "195abc9b-fbd8-4977-9ae6-70d5fcc76908",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
