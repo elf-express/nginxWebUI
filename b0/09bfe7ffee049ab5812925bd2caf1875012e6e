@@ -1,0 +1,21 @@
+src/main/java/com/cym/service/CrowdSecNginxConf.java
+  s_a28b699e4790bd::t_f4191a7854aac5 53-54,58-59,149,163-165,178-184,197-198,201
+src/test/java/com/cym/service/CrowdSecNginxConfTest.java
+  s_a28b699e4790bd::t_8de3265fb08805 30-31,396-441
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b009bfe7ffee049ab5812925bd2caf1875012e6e",
+  "prompts": {},
+  "sessions": {
+    "s_a28b699e4790bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "195abc9b-fbd8-4977-9ae6-70d5fcc76908",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
