@@ -5,14 +5,17 @@
 #   1  captcha decision: page request -> 302 to the reserved path; the page is solved like a browser (auto style)
 #      -> 303 back with the nwu_pass cookie -> 200; the cookie keeps working
 #   2  checkbox style (saved through the admin API, applied): page carries data-style="checkbox", solved -> 200
-#   3  the cookie of another captcha IP and a tampered cookie -> challenged again (302)
+#   3  the cookie of another captcha IP, a tampered cookie and an expired cookie (forged with the real key) ->
+#      challenged again (302); the same forging with a future expiry -> 200
 #   4  POST and JSON requests with a captcha decision -> 429, no redirect
 #   5  11 challenge page views -> nginxwebui/challenge-fail -> ban -> 444
 #   6  6 wrong answers -> nginxwebui/challenge-fail-answer -> ban -> 444
 #   7  an IP that already had a decision and is flagged again (bad user agent) -> ban, not captcha
 #   8  a first bad user agent -> captcha only
-#   9  allowlisted IP with a captcha decision -> 200 without challenge; banned IP on the reserved path -> 444
-#   10 plain http site: 429 page with the client IP and no challenge; 15 reloads -> still only the captcha decision
+#   9  allowlisted IP with a captcha decision -> 200 without challenge; banned IP (once the bouncer pulled the ban)
+#      on the reserved path -> 444
+#   10 plain http site: 429 page with the client IP and the time, no challenge; 15 reloads -> still only the captcha
+#      decision
 #   11 offline: no internet in the stack, the challenge page references no outside URL, altcha.js comes from nginx
 #   12 files: challenge.conf is 600, keys are not in nginx.conf / crowdsec_http.conf, BOUNCING_ON_TYPE=all,
 #      the generated cookie key shows source GENERATED in the admin API
@@ -359,13 +362,20 @@ fi
 
 # ---------- 3. cookie bound to the IP, tampered cookie ----------
 other="$(code other -b "nwu_pass=$COOKIE" -H 'Accept: text/html' https://nginxwebui/ | cut -d' ' -f1-2)"
+# expired cookie: forged for $IP_CAP with the real key; a future expiry must work (proves the forging), a past one must not
+CK="$(docker exec "$NWU" sed -n 's/^COOKIE_SECRET=//p' $HOME_DIR/crowdsec/challenge.conf)"
+NOW_S="$(docker exec "$NWU" date +%s)"
+fresh="$(lua cap /t/test/cookie_sign.lua "$CK" $((NOW_S + 60)) $IP_CAP)"
+stale="$(lua cap /t/test/cookie_sign.lua "$CK" $((NOW_S - 10)) $IP_CAP)"
+forged_ok="$(code cap -b "nwu_pass=$fresh" -H 'Accept: text/html' https://nginxwebui/ | cut -d' ' -f1-2)"
+expired="$(code cap -b "nwu_pass=$stale" -H 'Accept: text/html' https://nginxwebui/ | cut -d' ' -f1-2)"
 BAD="$(echo "$COOKIE" | sed 's/.$/A/')"
 [ "$BAD" = "$COOKIE" ] && BAD="$(echo "$COOKIE" | sed 's/.$/B/')"
 tampered="$(code cap -b "nwu_pass=$BAD" -H 'Accept: text/html' https://nginxwebui/ | cut -d' ' -f1-2)"
-if [ "$other" = "0 302" ] && [ "$tampered" = "0 302" ]; then
-  pass 3 "cookie used from $IP_OTHER -> 302; tampered cookie -> 302"
+if [ "$other" = "0 302" ] && [ "$tampered" = "0 302" ] && [ "$forged_ok" = "0 200" ] && [ "$expired" = "0 302" ]; then
+  pass 3 "cookie used from $IP_OTHER -> 302; tampered cookie -> 302; forged cookie with future expiry -> 200, expired -> 302"
 else
-  fail 3 "other IP=$other tampered=$tampered (want 302 / 302)"
+  fail 3 "other IP=$other tampered=$tampered forged(exp+60)=$forged_ok expired(exp-10)=$expired (want 302 / 302 / 200 / 302)"
 fi
 
 # ---------- 4. non-page requests ----------
@@ -379,7 +389,13 @@ fi
 
 # ---------- 9. allowlist and ban ----------
 allow="$(wait_status allow "0 200" -H 'Accept: text/html' https://nginxwebui/ && echo "0 200")"
-ban="$(code ban "http://nginxwebui${P}" | cut -d' ' -f1)"
+i=0
+while [ "$i" -lt 20 ]; do   # the bouncer pulls the ban with the stream (10s)
+  ban="$(code ban "http://nginxwebui${P}" | cut -d' ' -f1)"
+  [ "$ban" = "52" ] || [ "$ban" = "56" ] && break
+  i=$((i + 1))
+  sleep 3
+done
 if [ "$allow" = "0 200" ] && { [ "$ban" = "52" ] || [ "$ban" = "56" ]; }; then
   pass 9 "allowlisted IP with a captcha decision -> 200; banned IP on the reserved path -> connection closed (curl $ban)"
 else
@@ -395,8 +411,10 @@ last="$(code http -H 'Accept: text/html' http://nginxwebui/ | cut -d' ' -f1-2)"
 dec="$(decisions $IP_HTTP)"
 case "$body" in
 *"$IP_HTTP"*" 429")
-  if [ "$last" = "0 429" ] && [ "$dec" = "captcha," ]; then
-    pass 10 "plain http: 429 page with the client IP, no challenge; after 15 reloads still 429 and only a captcha decision"
+  if ! echo "$body" | grep -Eq '[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}'; then
+    fail 10 "429 page has no timestamp: $(echo "$body" | tail -c 200)"
+  elif [ "$last" = "0 429" ] && [ "$dec" = "captcha," ]; then
+    pass 10 "plain http: 429 page with the client IP and the time, no challenge; after 15 reloads still 429 and only a captcha decision"
   else
     fail 10 "after reloads: $last, decisions: $dec"
   fi
