@@ -1,0 +1,105 @@
+src/main/java/com/cym/service/CrowdSecWhitelistService.java
+  s_a7bf1cec5200b2::t_37cd92bfcfcf92 3-4
+  s_a7bf1cec5200b2::t_816a351bd3ac37 84-101
+  s_a7bf1cec5200b2::t_45912b525db0f8 50-55
+src/test/java/com/cym/controller/adminPage/CrowdSecControllerTest.java
+  s_a7bf1cec5200b2::t_451fb0f3776756 289
+frontend/src/pages/crowdsecGuard/BlocklistTab.vue
+  s_a7bf1cec5200b2::t_698ab65cbb6f45 8
+  s_a7bf1cec5200b2::t_430c70914aa922 68-70,72
+  s_a7bf1cec5200b2::t_d5e725c28d0f20 142-150
+src/test/java/com/cym/service/CrowdSecWhitelistServiceTest.java
+  s_a7bf1cec5200b2::t_e02c2f6f86108a 106-142
+tests/e2e/helpers.js
+  s_a7bf1cec5200b2::t_8f11ac3d54b23e 84-85
+README.md
+  s_a7bf1cec5200b2::t_1eb5e9c37b885c 78
+  s_a7bf1cec5200b2::t_bdb7cf38ec5dd5 238
+docs/memory/dev-run-deploy.md
+  s_a7bf1cec5200b2::t_390088b4a66236 91
+  s_a7bf1cec5200b2::t_b4575d7312679c 84
+src/main/resources/messages.properties
+  s_a7bf1cec5200b2::t_4bea1f5634a358 1116
+  s_a7bf1cec5200b2::t_d180444a35eea3 1129
+frontend/src/pages/crowdsecGuard/api.ts
+  s_a7bf1cec5200b2::t_15baac2667478e 66-67
+frontend/src/pages/crowdsecGuard/view.ts
+  s_a7bf1cec5200b2::t_67d2f8253d00c5 69-112
+  s_a7bf1cec5200b2::t_13badfa02fcd78 1-2
+src/main/resources/messages_zh_TW.properties
+  s_a7bf1cec5200b2::t_b89d353cf8ff43 1116
+  s_a7bf1cec5200b2::t_672e8d087bd0bc 1129
+src/test/java/com/cym/service/CrowdSecClientGuardTest.java
+  s_a7bf1cec5200b2::t_e4907a25d87438 68,71
+  s_a7bf1cec5200b2::t_9ac6066cfd6768 58-67,69-70,72-73
+  s_a7bf1cec5200b2::t_5bd3b1cfc58fa6 4
+src/main/java/com/cym/service/CrowdSecClient.java
+  s_a7bf1cec5200b2::t_f6ccffdd487599 602,604-614
+src/main/resources/messages_en_US.properties
+  s_a7bf1cec5200b2::t_fa514fb0a8a473 1116
+  s_a7bf1cec5200b2::t_f02d4f3ff237bb 1129
+src/test/java/com/cym/service/GeoLookupTest.java
+  s_a7bf1cec5200b2::t_e0e769cfaf9cd4 4-5
+  s_a7bf1cec5200b2::t_094175ecae81f7 89-90,94
+  s_a7bf1cec5200b2::t_1102324e1a089b 30-31,35-65
+  s_a7bf1cec5200b2::t_401163dbb33cdd 66,101-105,108
+  s_a7bf1cec5200b2::t_8cf59ef31a186f 67
+frontend/src/pages/crowdsecGuard/view.test.ts
+  s_a7bf1cec5200b2::t_878782420b9841 54-108
+  s_a7bf1cec5200b2::t_c55413db1248ca 2-10
+docs/memory/conventions.md
+  s_a7bf1cec5200b2::t_242ad9546cf0f8 16
+README_TW.md
+  s_a7bf1cec5200b2::t_9645b771100b41 78
+  s_a7bf1cec5200b2::t_334d6efbd6faf0 234
+src/test/java/com/cym/service/IpLookupServiceTest.java
+  s_a7bf1cec5200b2::t_0118af714e0352 38
+  s_a7bf1cec5200b2::t_64a1937d3a114c 19,21
+  s_a7bf1cec5200b2::t_e2241e380fdc2a 26
+  s_a7bf1cec5200b2::t_e6d41f2f7d751b 101,103-152
+  s_a7bf1cec5200b2::t_33a4beeb382c0c 173-207
+  s_a7bf1cec5200b2::t_5eee6c59e4c0d7 4,7-8,10
+frontend/src/pages/crowdsecGuard/IpLookupTab.vue
+  s_a7bf1cec5200b2::t_677ace48690d56 19
+  s_a7bf1cec5200b2::t_88cad2b9cfa672 105-106
+  s_a7bf1cec5200b2::t_e84e7b7ce44f2e 8
+  s_a7bf1cec5200b2::t_70959b3a6914e3 59-62,64
+src/main/java/com/cym/service/IpLookupService.java
+  s_a7bf1cec5200b2::t_6104d41ce6c013 39
+  s_a7bf1cec5200b2::t_0dc48d69892d0b 66-67
+  s_a7bf1cec5200b2::t_55758a4ede12e9 151
+  s_a7bf1cec5200b2::t_1da7ff696f2537 57
+  s_a7bf1cec5200b2::t_60211fa8b7a33f 86,92-95
+  s_a7bf1cec5200b2::t_ffabf5499d09d7 169-171
+  s_a7bf1cec5200b2::t_d251aeb165427d 120-125,129,135,140-141
+  s_a7bf1cec5200b2::t_708ce96870a9b8 80
+src/main/java/com/cym/service/GeoLookup.java
+  s_a7bf1cec5200b2::t_7d80a2208399a7 18-19
+  s_a7bf1cec5200b2::t_46196b5a659b74 52-53,56-57,71
+  s_a7bf1cec5200b2::t_e585fee2b4672c 99,102
+  s_a7bf1cec5200b2::t_1c8a10363749f1 79,81,85
+  s_a7bf1cec5200b2::t_aefda41123eaec 34-51,54-55,58-62,65,67
+  s_a7bf1cec5200b2::t_116c347bfe8674 63
+tests/e2e/40-crowdsec-guard.spec.js
+  s_a7bf1cec5200b2::t_ce2d73fd8d35a6 109-111
+  s_a7bf1cec5200b2::t_812f9163c4018d 117
+  s_a7bf1cec5200b2::t_4531fda9f43bf4 69-77
+  s_a7bf1cec5200b2::t_70d58193d6abe6 103-108,112-116,118-121
+  s_a7bf1cec5200b2::t_4650eea0f6edd0 61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "09ad5cb975fa6b06f6ac4395e39699eed49cbe3c",
+  "prompts": {},
+  "sessions": {
+    "s_a7bf1cec5200b2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5ec896ab-5e78-4e2b-9171-67ef526d1edf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
