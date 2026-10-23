@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { formatEpochSeconds, lightOf, parseGrace, sourceKey, statusKeys } from './view'
+import {
+  challengeProblemKey,
+  formatEpochSeconds,
+  isValidExternalUrl,
+  lightOf,
+  parseGrace,
+  parseTtl,
+  sourceKey,
+  statusKeys,
+} from './view'
 
 describe('lightOf', () => {
   it('尚未檢測為灰', () => {
@@ -108,5 +117,46 @@ describe('sourceKey', () => {
     expect(sourceKey('SECRETS_FILE')).toBe('crowdsecStr.sourceSecretsFile')
     expect(sourceKey('ENV')).toBe('crowdsecStr.sourceEnv')
     expect(sourceKey('NONE')).toBe('crowdsecStr.notConfigured')
+  })
+})
+
+describe('parseTtl', () => {
+  it('5 到 1440 的整數才接受', () => {
+    expect(parseTtl(5)).toBe(5)
+    expect(parseTtl(' 1440 ')).toBe(1440)
+    expect(parseTtl(4)).toBeNull()
+    expect(parseTtl(1441)).toBeNull()
+    expect(parseTtl(1.5)).toBeNull()
+    expect(parseTtl('')).toBeNull()
+    expect(parseTtl(undefined)).toBeNull()
+  })
+})
+
+describe('isValidExternalUrl', () => {
+  it('http(s) 完整網址才接受', () => {
+    expect(isValidExternalUrl('https://verify.example.workers.dev/')).toBe(true)
+    expect(isValidExternalUrl(' http://fake-ext:8090/check?site=a ')).toBe(true)
+    expect(isValidExternalUrl('ftp://verify.example/')).toBe(false)
+    expect(isValidExternalUrl('https://')).toBe(false)
+    expect(isValidExternalUrl('https://verify.example/a b')).toBe(false)
+    expect(isValidExternalUrl('https://verify.example/#x')).toBe(false)
+    expect(isValidExternalUrl('javascript:alert(1)')).toBe(false)
+  })
+})
+
+describe('challengeProblemKey', () => {
+  it('失敗代碼對應 i18n key，沒有問題回 null', () => {
+    expect(challengeProblemKey('TICKET_SECRET_MISSING')).toBe('crowdsecStr.challengeErrTicket')
+    expect(challengeProblemKey('EXTERNAL_URL_MISSING')).toBe('crowdsecStr.challengeErrUrl')
+    expect(challengeProblemKey('ALTCHA_MISSING')).toBe('crowdsecStr.challengeErrAltcha')
+    expect(challengeProblemKey('WRITE_FAILED')).toBe('crowdsecStr.challengeErrWrite')
+    expect(challengeProblemKey(null)).toBeNull()
+    expect(challengeProblemKey('other')).toBeNull()
+  })
+})
+
+describe('sourceKey GENERATED', () => {
+  it('自動產生的金鑰顯示來源', () => {
+    expect(sourceKey('GENERATED')).toBe('crowdsecStr.sourceGenerated')
   })
 })
