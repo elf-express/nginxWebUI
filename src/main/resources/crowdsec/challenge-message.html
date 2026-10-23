@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title data-i18n="@@TITLE_KEY@@">@@TITLE@@</title>
+<style>
+body{font-family:sans-serif;background:#f5f5f5;color:#333;margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh}
+main{background:#fff;border:1px solid #ddd;border-radius:6px;padding:32px 40px;max-width:560px;text-align:center}
+h1{font-size:22px;margin:0 0 12px}
+p{margin:6px 0;line-height:1.6}
+.nwu-meta{color:#888;font-size:12px;margin-top:20px}
+</style>
+</head>
+<body>
+<main>
+<h1 data-i18n="@@TITLE_KEY@@">@@TITLE@@</h1>
+<p data-i18n="@@BODY_KEY@@">@@BODY@@</p>
+@@RETRY@@
+<p class="nwu-meta"><span data-i18n="challengeStr.yourIp">IP</span>: <span class="nwu-ip">{{IP}}</span> · <span data-i18n="challengeStr.time">Time</span>: <span class="nwu-time">{{TIME}}</span></p>
+</main>
+<script>
+(function () {
+  var S = @@STRINGS@@;
+  var lang = (navigator.language || "en").toLowerCase();
+  var code = lang.indexOf("zh") === 0 ? (/tw|hk|mo|hant/.test(lang) ? "zh-TW" : "zh-CN") : "en";
+  var s = S[code] || S.en;
+  document.documentElement.lang = code;
+  var nodes = document.querySelectorAll("[data-i18n]");
+  for (var i = 0; i < nodes.length; i++) {
+    var v = s[nodes[i].getAttribute("data-i18n")];
+    if (v) { nodes[i].textContent = v; }
+  }
+})();
+</script>
+</body>
+</html>
