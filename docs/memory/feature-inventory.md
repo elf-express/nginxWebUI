@@ -28,6 +28,11 @@ CrowdSec 誤判白名單可選擇同步到 DenyAllow allow）·
 `since`／`until` 秒數，重疊 5 分鐘、alert id 去重）寫入 `WafEvent`＋`WafEventRule`；同請求（IP＋方法＋網址＋秒）的 vpatch 與 CRS 併一列；
 保留 `crowdsecWafRetentionDays`（預設 30）每天 03:40 清理；缺口判斷見 `WafEventSyncService` 類別註解；crowdsec image 的
 `config.yaml.local` 把 `db_config.flush.max_items` 調到 50000 ·
+**CrowdSec 防護頁 WAF 規則（E-395）：** 分類（已知漏洞依產品、CRS 依攻擊類型）與單條規則的處理方式（已知漏洞：擋／只記錄／停用；CRS：記錄並累計／只記錄／停用）、
+站台排除（站台的 `server_name` 展開成 `req.Host` 條件）；預設只列近 7 天有命中的規則。設定正本在 `WafRuleSetting`，`WafTuningService` 產生自訂 appsec-config
+`nginxwebui/custom` 寫進共用 volume `nginxwebui_waf`（nginxwebui 掛 `/home/nginxWebUI/crowdsec-waf`、crowdsec 掛 `/nwu-waf`），crowdsec 容器內的 `nwu-waf-watch.sh`
+用 `crowdsec -t` 驗證通過才 SIGHUP 重新載入，失敗還原並把原因寫回 `result.json` 顯示在畫面；WAF 事件分頁的「誤判？調整規則」跳到該規則，只記錄的 vpatch 規則在同步事件顯示為「只記錄」；
+規則調整寫入操作日誌 ·
 **防火牆頁 = 6 個 tab**（IP 資料庫／黑名單／白名單／GeoIP 國家／ASN／Protection Cert）。
 
 **GeoIP DB 模組（v5.2.0+）：** header 以 2×2 grid 顯示 Country/City/ASN/Cloudflare 狀態

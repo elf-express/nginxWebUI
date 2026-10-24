@@ -75,7 +75,7 @@ docker compose up -d          # image 預設拉 :latest，永遠跟最新 releas
 - **GeoIP2 國家封鎖** — 預設白名單 17 國（CN/JP/HK/KR/SG/TH/MY/TW/VN/GB/FR/DE/GR/CA/US/MO/LA），用戶可自訂
 - **ASN 封鎖** — 按 Autonomous System Number 封整段網路
 - **CrowdSec 整合** — 官方 nginx Lua bouncer 直接在 nginx 裡執行：被封鎖的 IP 直接斷線（444）、被 AppSec WAF 擋下的請求回 403、白名單 IP 跳過所有防護層（見 [CrowdSec 防護](#crowdsec-防護)）
-- **CrowdSec 防護頁** — 一頁查出某個 IP 被哪一層擋下（白名單、國家封鎖、黑名單、CrowdSec 封鎖）、列出最近被擋下的 IP、管理 CrowdSec 封鎖名單（手動封鎖、解除、加入白名單）、列出 WAF 事件（存在 nginxWebUI 資料庫保留 30 天，可依站台、類別、結果篩選），並放 CrowdSec 連線設定
+- **CrowdSec 防護頁** — 一頁查出某個 IP 被哪一層擋下（白名單、國家封鎖、黑名單、CrowdSec 封鎖）、列出最近被擋下的 IP、管理 CrowdSec 封鎖名單（手動封鎖、解除、加入白名單）、列出 WAF 事件（存在 nginxWebUI 資料庫保留 30 天，可依站台、類別、結果篩選）、調整 WAF 規則（依分類或逐條設定擋下、只記錄或停用，可排除站台，按「套用」就生效；設定被 CrowdSec 拒絕時自動回復上一份），並放 CrowdSec 連線設定
 - **防爬蟲憑證** — 「防護與憑證」頁面集中管理
 
 ### 🌐 反向代理 / 負載均衡
