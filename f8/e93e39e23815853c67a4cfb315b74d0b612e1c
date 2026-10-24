@@ -1,0 +1,21 @@
+src/main/java/com/cym/service/WafEventSyncService.java
+  s_fbddda1be869be::t_4b105254cba92b 115,128-129,174-175,180,240-246
+src/test/java/com/cym/service/WafEventSyncServiceTest.java
+  s_fbddda1be869be::t_a4fcdae865848a 368-385
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f8e93e39e23815853c67a4cfb315b74d0b612e1c",
+  "prompts": {},
+  "sessions": {
+    "s_fbddda1be869be": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3e7779be-a10c-42c4-bc5a-4ffe39cec920",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
