@@ -34,7 +34,15 @@ check(p.safe_return(nil) == "/" and p.safe_return("") == "/" and p.safe_return("
 
 -- reserved path routes
 local R = p.PREFIX
-check(p.reserved_route("GET", R .. "altcha.js") == "altcha" and p.reserved_route("POST", R .. "altcha.js") == "altcha")
+for _, name in ipairs({ "altcha.js", "altcha.css", "altcha-worker.js", "page.js", "page.css" }) do
+  local route, asset = p.reserved_route("GET", R .. name)
+  check(route == "asset" and asset == name, "asset " .. name)
+  check(p.reserved_route("POST", R .. name) == "asset", "asset " .. name .. " for any method")
+end
+check(p.reserved_route("GET", R .. "page.html") == nil and p.reserved_route("GET", R .. "altcha.LICENSE.txt") == nil)
+check(p.reserved_route("GET", R .. "x/page.js") == nil and p.reserved_route("GET", "/page.js") == nil)
+check(p.ASSETS["page.js"]:find("javascript", 1, true) and p.ASSETS["altcha-worker.js"]:find("javascript", 1, true))
+check(p.ASSETS["page.css"]:find("text/css", 1, true) and p.ASSETS["altcha.css"]:find("text/css", 1, true))
 check(p.reserved_route("GET", R) == "page" and p.reserved_route("HEAD", R) == "page")
 check(p.reserved_route("POST", R) == nil, "POST to the page")
 check(p.reserved_route("POST", R .. "verify") == "verify" and p.reserved_route("GET", R .. "verify") == nil)

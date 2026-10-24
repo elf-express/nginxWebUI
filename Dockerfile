@@ -81,14 +81,20 @@ RUN sh /tmp/nwu-patches/cs-stream-delete-by-type.sh "${CS_NGINX_BOUNCER_VERSION}
         /usr/local/lib/crowdsec/lua/plugins/crowdsec/stream.lua \
     && rm -rf /tmp/nwu-patches
 # ALTCHA widget (MIT) for the self-hosted challenge page, pinned + sha256 verified. Lua serves it on the reserved path
-# /.well-known/nwu-challenge/altcha.js, so the challenge page loads nothing from outside.
+# /.well-known/nwu-challenge/ (altcha.js, altcha.css, altcha-worker.js), so the challenge page loads nothing from
+# outside. The dist_external build keeps the styles and the Web Worker in their own same-origin files (the default
+# build injects a <style> element and starts the Worker from a blob: URL), so the page also works on a site that sends
+# Content-Security-Policy "default-src 'self'"; the page points the widget at the worker with workerurl.
 ARG ALTCHA_VERSION=2.3.0
 ARG ALTCHA_SHA256=559c584cd1fa932767c51497b56b2955282a7cbc08c1a3bb943665e572b45d3f
 RUN curl -fL --retry 3 -o /tmp/altcha.tgz "https://registry.npmjs.org/altcha/-/altcha-${ALTCHA_VERSION}.tgz" \
     && echo "${ALTCHA_SHA256}  /tmp/altcha.tgz" | sha256sum -c - \
     && mkdir -p /tmp/altcha /usr/local/lib/nginxwebui/html \
-    && tar xzf /tmp/altcha.tgz -C /tmp/altcha package/dist/altcha.umd.cjs package/LICENSE.txt \
-    && cp /tmp/altcha/package/dist/altcha.umd.cjs /usr/local/lib/nginxwebui/html/altcha.js \
+    && tar xzf /tmp/altcha.tgz -C /tmp/altcha package/dist_external/altcha.umd.cjs package/dist_external/altcha.css \
+       package/dist_external/worker.js package/LICENSE.txt \
+    && cp /tmp/altcha/package/dist_external/altcha.umd.cjs /usr/local/lib/nginxwebui/html/altcha.js \
+    && cp /tmp/altcha/package/dist_external/altcha.css /usr/local/lib/nginxwebui/html/altcha.css \
+    && cp /tmp/altcha/package/dist_external/worker.js /usr/local/lib/nginxwebui/html/altcha-worker.js \
     && cp /tmp/altcha/package/LICENSE.txt /usr/local/lib/nginxwebui/html/altcha.LICENSE.txt \
     && rm -rf /tmp/altcha /tmp/altcha.tgz
 # nwu wrapper (nwu_crowdsec / nwu_crowdsec_policy), nwu challenge, Lua path snippet and 503 page

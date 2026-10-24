@@ -4,20 +4,31 @@
 #     page request -> 302 to the reserved path; challenge page -> solved like a browser -> POST verify -> 303 back to
 #     the page with a Secure nwu_pass cookie -> 200 with the cookie; replayed answer, garbage answer -> 429;
 #     tampered cookie, the cookie from another captcha IP (127.0.0.6) -> challenged again; POST / -> 429, no redirect
-#     redirects to the challenge carry Cache-Control: no-store; an answer too big for the body buffer -> 429
+#     redirects to the challenge carry Cache-Control: no-store; an answer too big for the body buffer -> 429;
+#     GET with Accept: text/html and X-Requested-With: XMLHttpRequest -> 429, no redirect
 #   plain http: captcha IP -> 429 page with the client IP, no challenge
 #   banned IP 127.0.0.2 -> 444 on the reserved path too; CrowdSec whitelist decision 127.0.0.4 -> 200, no challenge
-#   IP without a decision 127.0.0.5 on the reserved path: altcha.js -> 200; page, POST verify, callback and unknown
-#     paths -> 303 back to a same-site path (no challenge, no check, no cookie)
+#   page assets on the reserved path (altcha.js, altcha.css, altcha-worker.js from the image, page.js, page.css from the
+#     pages dir) -> 200 with their content type, for the captcha IP and for an IP without a decision
+#   IP without a decision 127.0.0.5 on the reserved path: page, POST verify, callback and unknown paths -> 303 back to a
+#     same-site path (no challenge, no check, no cookie)
 #   external mode: page request -> 302 to the external URL with a valid request ticket; callback with a signed response
 #     ticket -> cookie; replayed / tampered / expired / other-IP / other-host tickets -> 429; POST verify -> 404;
 #     HTTP/1.0 without Host on a server without server_name (empty $host) -> 429
 #   bouncer loaded without the challenge, both the old conf before apply (no challenge in init) and fallback mode (the
-#     challenge init fails): reserved path page, POST verify, callback and unknown paths -> 303 back, altcha.js -> 404,
-#     the site never sees the reserved path; ban still 444, whitelist still reaches the site
+#     challenge init fails): reserved path page, POST verify, callback and unknown paths -> 303 back, the page assets ->
+#     404, the site never sees the reserved path; ban still 444, whitelist still reaches the site
 #   no redirect loop: return targets inside the reserved path (r=/.well-known/nwu-challenge/..., ticket path) -> "/"
-#   stream mode (stub /v1/decisions/stream, IP 127.0.0.3): captcha -> covering /24 ban still blocks with a pass cookie ->
-#     the captcha is deleted -> still banned (the image patches deletion by decision type) -> the ban is deleted -> 200
+#   stream mode (stub /v1/decisions/stream, the image patches the bouncer stream.lua):
+#     IP 127.0.0.7: captcha -> ban of the same IP -> the expired captcha is deleted -> still banned (deletion by decision
+#       type) -> the ban is deleted -> 200
+#     IP 127.0.8.7 with its own captcha inside a banned 127.0.8.0/24 (the bouncer stops at the IP's captcha): 444 with a
+#       valid nwu_pass cookie and on the reserved path; captcha IP 127.0.9.7 outside the range still challenged / 200
+#       with its cookie; captcha IP 127.0.8.200 inside a whitelisted 127.0.8.128/25 passes like a whitelist (200, the
+#       reserved path reaches the site too); deleting the
+#       IP captcha keeps the range ban, deleting the range ban -> 200
+#     IP 127.0.0.10: an active ban (143h left) is not replaced by a newer captcha of the same IP; the captcha expires ->
+#       still banned; the ban is deleted -> 200
 #   resty.sha256 inside nginx gives the known SHA-256 vector; no [error] lines besides the bouncer's captcha plugin
 # Usage: sh docker/test/challenge-smoke.sh <image>
 set -eu
@@ -35,10 +46,20 @@ INNER='
 set -u
 W=/tmp/cs
 mkdir -p $W/logs $W/pages && chmod 777 $W $W/logs
+PASS_N=0
+FAIL_N=0
+pass() { PASS_N=$((PASS_N + 1)); echo "PASS $1"; }
+fail() { FAIL_N=$((FAIL_N + 1)); echo "FAIL $1"; }
+expect() { # expect <name> <actual> <wanted>
+  if [ "$2" = "$3" ]; then pass "$1: $2"; else fail "$1: got [$2] want [$3]"; fi
+}
 for f in /usr/local/lib/nginxwebui/lua/nwu_challenge.lua /usr/local/lib/nginxwebui/lua/nwu_challenge_policy.lua \
          /usr/share/lua/common/resty/sha.lua /usr/share/lua/common/resty/sha256.lua \
          /usr/local/lib/nginxwebui/html/altcha.js; do
   [ -f "$f" ] || { echo "FAIL: missing $f"; exit 1; }
+done
+for f in altcha.css altcha-worker.js; do
+  [ -f /usr/local/lib/nginxwebui/html/$f ] && pass "image has $f" || fail "image has no $f"
 done
 LUA="luajit -e package.path=\"/t/?.lua;/usr/local/lib/nginxwebui/lua/?.lua;\"..package.path;package.cpath=\"/usr/lib/lua/5.1/?.so;\"..package.cpath"
 COOKIE_SECRET=smoke-cookie-secret
@@ -72,6 +93,8 @@ echo "<altcha-widget challengejson=\"{{CHALLENGE}}\"></altcha-widget><input name
 echo "<h1>http blocked</h1><p>{{IP}} {{TIME}}</p>" > $W/pages/http-blocked.html
 echo "<h1>verify failed</h1><p>{{IP}}</p>" > $W/pages/verify-failed.html
 echo "<h1>callback failed</h1><p>{{IP}}</p>" > $W/pages/callback-failed.html
+echo "/* smoke page.js */" > $W/pages/page.js
+echo "/* smoke page.css */" > $W/pages/page.css
 
 cat > $W/stream.conf <<CONF
 ENABLED=true
@@ -157,13 +180,6 @@ http {
 CONF
 }
 
-PASS_N=0
-FAIL_N=0
-pass() { PASS_N=$((PASS_N + 1)); echo "PASS $1"; }
-fail() { FAIL_N=$((FAIL_N + 1)); echo "FAIL $1"; }
-expect() { # expect <name> <actual> <wanted>
-  if [ "$2" = "$3" ]; then pass "$1: $2"; else fail "$1: got [$2] want [$3]"; fi
-}
 S=https://shop.test:18443
 H=http://shop.test:18080
 C="curl -sk --resolve shop.test:18443:127.0.0.1 --resolve shop.test:18080:127.0.0.1 -m 10"
@@ -191,6 +207,29 @@ no_loop() {
   expect "$1: callback path=reserved" "$(code $2 "$S/.well-known/nwu-challenge/callback?token=$(sign $TICKET_SECRET resp $(($(date +%s) + 60)) $2 shop.test "/.well-known/nwu-challenge/?r=/a" "nl$1")")" "303 $S/"
 }
 
+# closed <label> <ip> <curl args...> : the connection is closed without an answer (444)
+closed() {
+  n="$1"; ip="$2"; shift 2
+  rc=0; $C --interface $ip -o /dev/null "$@" || rc=$?
+  case "$rc" in 52|56) pass "$n: connection closed (curl exit $rc)" ;; *) fail "$n: curl exit $rc, want 52 or 56" ;; esac
+}
+# forge <ip> : a valid nwu_pass cookie for the IP, signed with the cookie key like the challenge does
+forge() { $LUA /t/cookie_sign.lua $COOKIE_SECRET $(($(date +%s) + 600)) $1; }
+ASSETS="altcha.js:application/javascript altcha.css:text/css altcha-worker.js:application/javascript page.js:application/javascript page.css:text/css"
+# asset_checks <label> <ip> : every page asset is served on the reserved path with its content type and its content
+asset_checks() {
+  for a in $ASSETS; do
+    expect "$1: ${a%%:*}" "$($C --interface $2 -o /dev/null -w "%{http_code} %{content_type}" "$S/.well-known/nwu-challenge/${a%%:*}" | cut -d";" -f1)"       "200 ${a#*:}"
+  done
+  expect "$1: page.js is the generated file" "$($C --interface $2 "$S/.well-known/nwu-challenge/page.js")" "/* smoke page.js */"
+  expect "$1: page.css is the generated file" "$($C --interface $2 "$S/.well-known/nwu-challenge/page.css")" "/* smoke page.css */"
+  for a in altcha.js altcha.css altcha-worker.js; do
+    expect "$1: $a is the image file" "$($C --interface $2 "$S/.well-known/nwu-challenge/$a" | cksum)"       "$(cksum < /usr/local/lib/nginxwebui/html/$a 2>/dev/null)"
+  done
+  $C --interface $2 -D $W/asset.h -o /dev/null "$S/.well-known/nwu-challenge/page.js"
+  ! grep -qi "^set-cookie:" $W/asset.h && pass "$1: no cookie with an asset" || fail "$1: asset headers: $(cat $W/asset.h)"
+}
+
 # ---------- builtin mode ----------
 start $W/builtin.conf
 expect "sha256 in nginx" "$($C $S/sha)" "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
@@ -201,6 +240,9 @@ grep -qi "^cache-control: no-store" $W/r302.h && pass "redirect to the challenge
   || fail "redirect to the challenge: no-store: $(cat $W/r302.h)"
 expect "captcha POST" "$(code 127.0.0.3 -X POST -H "Accept: text/html" -d a=1 $S/cart)" "429 "
 expect "captcha json request" "$(code 127.0.0.3 -H "Accept: application/json" $S/api)" "429 "
+expect "captcha AJAX page request" "$(code 127.0.0.3 -H "Accept: text/html" -H "X-Requested-With: XMLHttpRequest" "$S/cart")" "429 "
+asset_checks "assets, captcha IP" 127.0.0.3
+asset_checks "assets, no decision" 127.0.0.5
 expect "challenge page" "$($C --interface 127.0.0.3 -o $W/page.html -w "%{http_code}" "$S/.well-known/nwu-challenge/?r=%2Fcart%3Fid%3D1")" "200"
 grep -q "value=\"/cart?id=1\"" $W/page.html && pass "return path in page" || fail "return path in page: $(cat $W/page.html)"
 grep -q "127.0.0.3" $W/page.html && pass "client IP in page" || fail "client IP in page"
@@ -297,7 +339,9 @@ unloaded_checks() { # unloaded_checks <label>
     "303 $S/cart?id=1"
   expect "$n: unknown reserved path" "$(code 127.0.0.5 $S/.well-known/nwu-challenge/x)" "303 $S/"
   expect "$n: plain http page" "$(code 127.0.0.5 "$H/.well-known/nwu-challenge/?r=%2Fa")" "303 $H/a"
-  expect "$n: altcha.js" "$(code 127.0.0.5 $S/.well-known/nwu-challenge/altcha.js)" "404 "
+  for a in $ASSETS; do
+    expect "$n: ${a%%:*}" "$(code 127.0.0.5 $S/.well-known/nwu-challenge/${a%%:*})" "404 "
+  done
   no_loop "$n" 127.0.0.5
   $C --interface 127.0.0.5 -D $W/nc.h -o /dev/null "$S/.well-known/nwu-challenge/?r=%2Fa"
   head -1 $W/nc.h | grep -q " 303 " && grep -qi "^cache-control: no-store" $W/nc.h && ! grep -qi "^set-cookie:" $W/nc.h \
@@ -318,15 +362,11 @@ grep -q "external mode needs TICKET_SECRET and EXTERNAL_URL" $W/logs/error.log &
 unloaded_checks "fallback"
 stop
 
-# ---------- stream mode: overlapping captcha and range ban, and captcha expiry ----------
-X=127.0.0.3
-decision() { # decision <id> <type>
-  echo "{\"id\":$1,\"origin\":\"crowdsec\",\"type\":\"$2\",\"scope\":\"Ip\",\"value\":\"$X\",\"duration\":\"1h\",\"scenario\":\"smoke\"}"
+# ---------- stream mode (the image patches the bouncer stream.lua) ----------
+dec() { # dec <id> <type> <scope> <value> [duration]
+  echo "{\"id\":$1,\"origin\":\"crowdsec\",\"type\":\"$2\",\"scope\":\"$3\",\"value\":\"$4\",\"duration\":\"${5:-1h}\",\"scenario\":\"smoke\"}"
 }
-range_decision() { # range_decision <id> <type> <range>
-  echo "{\"id\":$1,\"origin\":\"crowdsec\",\"type\":\"$2\",\"scope\":\"Range\",\"value\":\"$3\",\"duration\":\"1h\",\"scenario\":\"smoke\"}"
-}
-# phase <json> : serve the stream answer, then wait until the bouncer fetched it at least twice after the switch
+# phase <json> : serve the stream answer, then wait until the bouncer fetched it at least three times after the switch
 phase() {
   echo "$1" > $W/stream.json
   n0=$(cat $W/logs/lapi.log 2>/dev/null | wc -l)
@@ -334,25 +374,56 @@ phase() {
   while [ "$(cat $W/logs/lapi.log 2>/dev/null | wc -l)" -lt $((n0 + 3)) ] && [ "$i" -lt 40 ]; do sleep 0.5; i=$((i + 1)); done
   sleep 0.5
 }
-st() { code $X -H "Accept: text/html" $S/ | cut -d" " -f1; }
-st_cookie() { code $X -H "Accept: text/html" -b "nwu_pass=$COOKIE" $S/ | cut -d" " -f1; }
+# st <ip> [curl args...] : status of a page request ("000" when the connection is closed)
+st() { ip=$1; shift; code $ip -H "Accept: text/html" "$@" $S/ | cut -d" " -f1; }
 echo "{\"new\":[],\"deleted\":[]}" > $W/stream.json
 start $W/builtin.conf $W/stream.conf
-phase "{\"new\":[$(decision 11 captcha)],\"deleted\":[]}"
-expect "stream: captcha" "$(st)" "302"
-phase "{\"new\":[$(range_decision 12 ban 127.0.0.0/24)],\"deleted\":[]}"
-expect "stream: range ban overrides captcha despite pass cookie" "$(st_cookie)" "000"
-phase "{\"new\":[],\"deleted\":[$(decision 11 captcha)]}"
-expect "stream: expired IP captcha leaves range ban" "$(st_cookie)" "000"
-phase "{\"new\":[],\"deleted\":[$(range_decision 12 ban 127.0.0.0/24)]}"
-expect "stream: deleted range ban" "$(st_cookie)" "200"
-# A 143h remainder models a 168h ban created 25h earlier, outside the 24h profile lookback.
-phase "{\"new\":[{\"id\":13,\"origin\":\"crowdsec\",\"type\":\"ban\",\"scope\":\"Ip\",\"value\":\"$X\",\"duration\":\"143h\",\"scenario\":\"smoke\"}],\"deleted\":[]}"
-expect "stream: active 143h IP ban blocks" "$(st_cookie)" "000"
-phase "{\"new\":[$(decision 14 captcha)],\"deleted\":[]}"
-expect "stream: newer captcha cannot replace active IP ban" "$(st_cookie)" "000"
-phase "{\"new\":[],\"deleted\":[{\"id\":13,\"origin\":\"crowdsec\",\"type\":\"ban\",\"scope\":\"Ip\",\"value\":\"$X\",\"duration\":\"143h\",\"scenario\":\"smoke\"}]}"
-expect "stream: deleted IP ban" "$(st_cookie)" "200"
+
+# The expiry of a captcha does not delete a later ban of the same IP (same cache key; the patch deletes by type).
+X=127.0.0.7
+phase "{\"new\":[$(dec 11 captcha Ip $X)],\"deleted\":[]}"
+expect "stream: captcha" "$(st $X)" "302"
+phase "{\"new\":[$(dec 12 ban Ip $X)],\"deleted\":[]}"
+expect "stream: ban replaces the captcha" "$(st $X)" "000"
+phase "{\"new\":[],\"deleted\":[$(dec 11 captcha Ip $X)]}"
+expect "stream: expired captcha leaves the ban" "$(st $X)" "000"
+phase "{\"new\":[],\"deleted\":[$(dec 12 ban Ip $X)]}"
+expect "stream: deleted ban" "$(st $X)" "200"
+
+# A captcha of the IP itself does not hide a ban on a range around it (the bouncer stops at the first cached prefix).
+# 127.0.8.0/24 covers no other test IP; 127.0.9.7 is a captcha IP outside it; 127.0.8.128/25 is whitelisted.
+RX=127.0.8.7; RO=127.0.9.7; RW=127.0.8.200; RN=127.0.8.9
+CX="$(forge $RX)"; CO="$(forge $RO)"
+phase "{\"new\":[$(dec 21 captcha Ip $RX),$(dec 22 captcha Ip $RO),$(dec 23 captcha Ip $RW)],\"deleted\":[]}"
+expect "range: captcha IP before the range ban" "$(st $RX)" "302"
+expect "range: its cookie works before the range ban" "$(st $RX -b nwu_pass=$CX)" "200"
+phase "{\"new\":[$(dec 24 ban Range 127.0.8.0/24),$(dec 25 whitelist Range 127.0.8.128/25)],\"deleted\":[]}"
+closed "range: captcha IP inside the banned range" $RX -H "Accept: text/html" "$S/cart"
+closed "range: valid cookie inside the banned range" $RX -H "Accept: text/html" -b "nwu_pass=$CX" "$S/cart"
+closed "range: reserved page inside the banned range" $RX "$S/.well-known/nwu-challenge/?r=%2Fcart"
+closed "range: reserved verify inside the banned range" $RX -d altcha=Zm9v --data-urlencode "r=/cart" $S/.well-known/nwu-challenge/verify
+closed "range: altcha.js inside the banned range" $RX $S/.well-known/nwu-challenge/altcha.js
+closed "range: IP without own decision inside the range" $RN -H "Accept: text/html" "$S/cart"
+expect "range: captcha IP outside the range" "$(code $RO -H "Accept: text/html" "$S/cart")" "302 $S/.well-known/nwu-challenge/?r=%2Fcart"
+expect "range: its cookie works outside the range" "$(st $RO -b nwu_pass=$CO)" "200"
+expect "range: captcha IP in a whitelisted subrange passes without a challenge" "$(st $RW)" "200"
+expect "range: reserved page in the whitelisted subrange reaches the site" "$($C --interface $RW "$S/.well-known/nwu-challenge/?r=%2Fcart")" "ok"
+phase "{\"new\":[],\"deleted\":[$(dec 21 captcha Ip $RX)]}"
+closed "range: deleted IP captcha leaves the range ban" $RX -H "Accept: text/html" -b "nwu_pass=$CX" "$S/cart"
+phase "{\"new\":[],\"deleted\":[$(dec 24 ban Range 127.0.8.0/24),$(dec 25 whitelist Range 127.0.8.128/25)]}"
+expect "range: deleted range ban" "$(st $RX -b nwu_pass=$CX)" "200"
+
+# A newer captcha does not replace an active ban of the same IP: 143h left models a 168h ban created 25h earlier,
+# outside the 24h lookback of the repeat offender profile.
+X=127.0.0.10
+phase "{\"new\":[$(dec 31 ban Ip $X 143h)],\"deleted\":[]}"
+expect "long ban: blocks" "$(st $X -b nwu_pass=$(forge $X))" "000"
+phase "{\"new\":[$(dec 32 captcha Ip $X)],\"deleted\":[]}"
+expect "long ban: a newer captcha does not replace it" "$(st $X -b nwu_pass=$(forge $X))" "000"
+phase "{\"new\":[],\"deleted\":[$(dec 32 captcha Ip $X)]}"
+expect "long ban: the expired captcha leaves it" "$(st $X -b nwu_pass=$(forge $X))" "000"
+phase "{\"new\":[],\"deleted\":[$(dec 31 ban Ip $X 143h)]}"
+expect "long ban: deleted" "$(st $X)" "200"
 stop
 
 grep -v "no file" $W/logs/error.log | grep -E "\[(error|emerg|alert|crit)\]" | grep -v "error loading captcha plugin" \

@@ -6,7 +6,9 @@
 -- AppSec block -> ngx.exit(403); CrowdSec unreachable longer than grace -> 503 page.
 -- Allowlisted clients ($nwu_allowlist = "1") bypass everything. Banned clients get 444 on the reserved path too;
 -- clients without a decision are only redirected back from it. Without a loaded challenge the reserved path is still
--- answered here (303 back, altcha.js 404), never by the site.
+-- answered here (303 back, page assets 404), never by the site. In stream mode a captcha of the IP itself does not hide
+-- a whitelist or a ban on a range around it (action_behind_captcha): the next decision by prefix decides, a whitelist
+-- passes like the allowlist, a ban gets 444 (also with a valid nwu_pass cookie).
 local policy = require "nwu_crowdsec_policy"
 local challenge_policy = require "nwu_challenge_policy"
 local decision_utils = require "plugins.crowdsec.utils"
@@ -137,17 +139,24 @@ local function probe_appsec()
   return res ~= nil and (res.status == 200 or res.status == 403)
 end
 
-local function has_matching_ban(ip)
+-- Stream mode: cs.allowIp walks the cached prefixes of ip from the most specific (/32, /128) to /0 and returns the first
+-- decision, so the IP's own captcha hides a whitelist or a ban on a range around it. Called when that walk returned a
+-- captcha: walks the same prefixes in the same order, skips captchas and returns the action of the first other decision
+-- ("allow" for a whitelist, "ban" for any other type), or "captcha" when there is none. Besides captchas, ban and
+-- whitelist are thus decided by the most specific prefix, as without the challenge. Cache keys and netmasks as in
+-- lua-cs-bouncer v1.2.3 crowdsec.lua.
+local function action_behind_captcha(ip)
   local key, ip_version = decision_utils.item_to_string(ip, "Ip")
   if key == nil then
-    return false
+    return "captcha"
   end
-
-  -- The pinned bouncer stops at the first matching prefix; a captcha there must not hide a broader ban.
-  local key_type, _, address = key:match("^([^_]+)_([^_]+)_(.+)$")
-  local netmasks = iputils.netmasks_by_key_type[key_type]
+  local address = key:match("^[^_]+_[^_]+_(.+)$")
+  local netmasks = iputils.netmasks_by_key_type[ip_version]
+  if address == nil or netmasks == nil then
+    return "captcha"
+  end
   local cache = ngx.shared.crowdsec_cache
-  for _, netmask in pairs(netmasks) do
+  for _, netmask in ipairs(netmasks) do
     local item
     if ip_version == "ipv4" then
       item = ip_version .. "_" .. netmask .. "_" .. iputils.ipv4_band(address, netmask)
@@ -155,12 +164,15 @@ local function has_matching_ban(ip)
       item = ip_version .. "_" .. table.concat(netmask, ":") .. "_" .. iputils.ipv6_band(address, netmask)
     end
     local value, flag = cache:get("decision_cache/" .. item)
-    local remediation = value and value:match("^([^/]+)")
-    if flag ~= 1 and remediation and policy.remediation(false, remediation) == "ban" then
-      return true
+    local remediation = type(value) == "string" and value ~= "none" and flag ~= 1 and value:match("^([^/]+)")
+    if remediation then
+      local action = policy.remediation(false, remediation)
+      if action ~= "captcha" then
+        return action
+      end
     end
   end
-  return false
+  return "captcha"
 end
 
 local function probe(premature)
@@ -227,8 +239,8 @@ function _M.access()
   local ip = ngx.var.remote_addr
   local ok, remediation = cs.allowIp(ip)
   local action = policy.remediation(ok, remediation)
-  if action == "captcha" and has_matching_ban(ip) then
-    action = "ban"
+  if action == "captcha" then
+    action = action_behind_captcha(ip)
   end
   if action == "ban" then
     return ngx.exit(444)

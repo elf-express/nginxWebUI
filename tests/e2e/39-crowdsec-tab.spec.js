@@ -213,7 +213,32 @@ test.describe('CrowdSec 分頁（共用 server，沒有 CrowdSec 變數）', () 
       expect(html).toContain(`data-style="${style}"`);
       expect(html.includes('auto="onload"')).toBe(style === 'auto');
       expect(html).not.toMatch(/https?:\/\//);
+      // 預覽引用後台網址（需登入）而不是 nginx 的保留路徑，後台沒有那條路徑
+      for (const asset of ['altcha.js', 'altcha.css', 'altcha-worker.js', 'page.js', 'page.css']) {
+        expect(html).toContain(`"/adminPage/crowdsec/challengeAsset?name=${asset}"`);
+        expect(html).not.toContain(`/.well-known/nwu-challenge/${asset}`);
+      }
     }
+    // page.js / page.css 隨 jar 提供；ALTCHA 檔在 image 內，本機測試 server 沒有 → 404，預覽其他內容照常
+    const js = await page.request.get('/adminPage/crowdsec/challengeAsset?name=page.js');
+    expect(js.status()).toBe(200);
+    expect(js.headers()['content-type']).toContain('javascript');
+    expect(await js.text()).toContain('nwu-strings');
+    const css = await page.request.get('/adminPage/crowdsec/challengeAsset?name=page.css');
+    expect(css.status()).toBe(200);
+    expect(css.headers()['content-type']).toContain('text/css');
+    expect(await css.text()).toContain('#666');
+    for (const name of ['altcha.js', '../challenge.conf', 'challenge.html']) {
+      expect((await page.request.get(`/adminPage/crowdsec/challengeAsset?name=${encodeURIComponent(name)}`)).status(),
+        name).toBe(404);
+    }
+  });
+
+  test('預覽用的驗證頁檔案需要登入', async ({ playwright, baseURL }) => {
+    const anon = await playwright.request.newContext({ baseURL });
+    const res = await anon.get('/adminPage/crowdsec/challengeAsset?name=page.js', { maxRedirects: 0 });
+    expect(await res.text()).not.toContain('nwu-strings');
+    await anon.dispose();
   });
 
   test('整頁與分頁操作都不請求外網 CDN', async ({ page }) => {

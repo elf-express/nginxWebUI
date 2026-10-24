@@ -1,9 +1,10 @@
 -- nwu challenge: serves the reserved path /.well-known/nwu-challenge/ and decides what a client with a
 -- CrowdSec captcha decision gets. Used by nwu_crowdsec when its init opts carry a challenge table.
 --   init(opts)  opts = { conf = <challenge conf>, pages = <dir of generated pages, ends with />, altcha = <altcha.js> }
+--               altcha.css and altcha-worker.js are read next to altcha.js, page.js and page.css from the pages dir
 --   enabled(), has_valid_cookie(ip), challenge(ip), handle(ip, captcha), handle_unloaded() (works without init)
--- A client without a captcha decision gets only altcha.js on the reserved path; everything else is a 303 back to a
--- same-site path, so a third-party page cannot make visitors fail the challenge.
+-- A client without a captcha decision gets only the static assets (policy.ASSETS) on the reserved path; everything else
+-- is a 303 back to a same-site path, so a third-party page cannot make visitors fail the challenge.
 -- Builtin mode: ALTCHA proof of work (SHA-256) on the reserved path, POST verify issues the nwu_pass cookie.
 -- External mode: 302 to the external site with a signed request ticket; its response ticket comes back to callback.
 -- Plain http sites never get a challenge: they get the 429 page (ALTCHA needs crypto.subtle, i.e. https).
@@ -23,9 +24,15 @@ local PAGE_FILES = {
   callback = "callback-failed.html",
 }
 
+-- Where each asset of policy.ASSETS is read from: "altcha" = the directory of opts.altcha (image), "pages" = opts.pages.
+local ASSET_DIRS = {
+  ["altcha.js"] = "altcha", ["altcha.css"] = "altcha", ["altcha-worker.js"] = "altcha",
+  ["page.js"] = "pages", ["page.css"] = "pages",
+}
+
 local cfg = {}
 local pages = {}
-local altcha_js
+local assets = {}
 local enabled = false
 local sha256, to_hex, cjson
 
@@ -69,9 +76,13 @@ function _M.init(o)
       return fail_init("cannot read page", (o.pages or "") .. name)
     end
   end
-  altcha_js = read_file(o.altcha or "")
-  if not altcha_js then
-    return fail_init("cannot read altcha.js", o.altcha)
+  local altcha_dir = (o.altcha or ""):match("^(.*/)") or ""
+  for name in pairs(policy.ASSETS) do
+    local path = ASSET_DIRS[name] == "pages" and (o.pages or "") .. name or altcha_dir .. name
+    assets[name] = read_file(path)
+    if not assets[name] then
+      return fail_init("cannot read " .. name, path)
+    end
   end
   local ok1, sha = pcall(require, "resty.sha256")
   local ok2, str = pcall(require, "resty.string")
@@ -256,23 +267,23 @@ end
 
 -- The reserved path while the challenge is not loaded (old bouncer conf before apply, fallback mode): answered here
 -- and never handed to the site, so a site that answers 200 everywhere cannot have it counted as a failed challenge.
--- altcha.js is not served.
+-- The assets are not served.
 function _M.handle_unloaded()
   local route = policy.reserved_route(ngx.req.get_method(), ngx.var.uri)
-  if route == "altcha" then
+  if route == "asset" then
     return ngx.exit(ngx.HTTP_NOT_FOUND)
   end
   return bounce(route)
 end
 
 -- Every request on the reserved path from a client that is not allowlisted and not banned.
--- captcha: the client has a captcha decision; without one it only gets altcha.js and redirects back.
+-- captcha: the client has a captcha decision; without one it only gets the assets and redirects back.
 function _M.handle(ip, captcha)
-  local route = policy.reserved_route(ngx.req.get_method(), ngx.var.uri)
-  if route == "altcha" then
-    ngx.header["Content-Type"] = "application/javascript; charset=utf-8"
+  local route, name = policy.reserved_route(ngx.req.get_method(), ngx.var.uri)
+  if route == "asset" then
+    ngx.header["Content-Type"] = policy.ASSETS[name]
     ngx.header["Cache-Control"] = "public, max-age=86400"
-    ngx.print(altcha_js)
+    ngx.print(assets[name])
     return ngx.exit(ngx.HTTP_OK)
   end
   if not captcha then

@@ -99,11 +99,23 @@ function _M.safe_return(path)
   return path
 end
 
--- What a request on the reserved path is: "altcha", "page", "verify", "callback"; nil for anything else.
+-- Static files on the reserved path (name -> content type): the ALTCHA widget, its styles and its Web Worker from the
+-- image, page.js / page.css written with the pages. The pages carry no inline script or style, so the challenge still
+-- works on a site that sends Content-Security-Policy "default-src 'self'".
+_M.ASSETS = {
+  ["altcha.js"] = "application/javascript; charset=utf-8",
+  ["altcha.css"] = "text/css; charset=utf-8",
+  ["altcha-worker.js"] = "application/javascript; charset=utf-8",
+  ["page.js"] = "application/javascript; charset=utf-8",
+  ["page.css"] = "text/css; charset=utf-8",
+}
+
+-- What a request on the reserved path is: "asset" (second value: the file name), "page", "verify", "callback";
+-- nil for anything else.
 function _M.reserved_route(method, uri)
   local get = method == "GET" or method == "HEAD"
-  if uri == _M.PREFIX .. "altcha.js" then
-    return "altcha"
+  if _M.is_reserved(uri) and _M.ASSETS[uri:sub(#_M.PREFIX + 1)] then
+    return "asset", uri:sub(#_M.PREFIX + 1)
   end
   if uri == _M.PREFIX and get then
     return "page"
@@ -117,7 +129,7 @@ function _M.reserved_route(method, uri)
   return nil
 end
 
--- Where a client without a captcha decision is sent from the reserved path (route from reserved_route, not altcha).
+-- Where a client without a captcha decision is sent from the reserved path (route from reserved_route, not asset).
 -- r: the return path of the page or the verify form; token: the callback ticket, only its path is used.
 function _M.bounce_target(route, r, token)
   if route == "page" or route == "verify" then

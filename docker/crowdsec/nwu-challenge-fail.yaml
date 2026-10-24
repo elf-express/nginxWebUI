@@ -1,6 +1,8 @@
 # Clients that do not pass the nginxWebUI challenge (E-387). Both buckets count requests on the reserved path
 # /.well-known/nwu-challenge/ in the nginx access log by status code: only a client with a captcha decision gets the
 # challenge page (200) or a rejected answer (429); a client without one is sent back with 303 and is never counted.
+# The static assets of the page (altcha.js, altcha.css, altcha-worker.js, page.js, page.css; nwu_challenge_policy.lua
+# ASSETS) are 200 for every client and never counted.
 # The alerts become bans (not reported to AbuseIPDB) in profiles.yaml.
 type: leaky
 format: 2.0
@@ -12,6 +14,10 @@ filter: |
   && evt.Meta.http_verb in ['GET', 'HEAD']
   && evt.Meta.http_path startsWith '/.well-known/nwu-challenge/'
   && not (evt.Meta.http_path startsWith '/.well-known/nwu-challenge/altcha.js')
+  && not (evt.Meta.http_path startsWith '/.well-known/nwu-challenge/altcha.css')
+  && not (evt.Meta.http_path startsWith '/.well-known/nwu-challenge/altcha-worker.js')
+  && not (evt.Meta.http_path startsWith '/.well-known/nwu-challenge/page.js')
+  && not (evt.Meta.http_path startsWith '/.well-known/nwu-challenge/page.css')
   && not (evt.Meta.http_path startsWith '/.well-known/nwu-challenge/callback')
 groupby: evt.Meta.source_ip
 capacity: 10

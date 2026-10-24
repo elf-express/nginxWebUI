@@ -7,8 +7,12 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,6 +46,8 @@ class CrowdSecChallengeTest {
 		Files.createDirectories(tmp.resolve("home"));
 		altcha = tmp.resolve("altcha.js");
 		Files.writeString(altcha, "// altcha");
+		Files.writeString(tmp.resolve("altcha.css"), "/* altcha */");
+		Files.writeString(tmp.resolve("altcha-worker.js"), "// worker");
 		HomeConfig homeConfig = new HomeConfig();
 		homeConfig.home = home;
 		SettingService settingService = new SettingService() {
@@ -124,6 +130,9 @@ class CrowdSecChallengeTest {
 		for (String page : new String[] { "challenge.html", "http-blocked.html", "verify-failed.html", "callback-failed.html" }) {
 			assertTrue(Files.isRegularFile(Path.of(challenge.pagesDir() + page)), page);
 		}
+		for (Map.Entry<String, String> asset : challenge.assets().entrySet()) {
+			assertEquals(asset.getValue(), read(challenge.pagesDir() + asset.getKey()), asset.getKey());
+		}
 	}
 
 	@Test
@@ -159,6 +168,17 @@ class CrowdSecChallengeTest {
 	@Test
 	void prepareRefusesWithoutAltcha() throws Exception {
 		Files.delete(altcha);
+		assertFalse(challenge.prepare());
+		assertEquals(CrowdSecChallenge.ERR_ALTCHA, challenge.lastError());
+	}
+
+	@Test
+	void prepareRefusesWithoutAltchaStylesOrWorker() throws Exception {
+		Files.delete(tmp.resolve("altcha-worker.js"));
+		assertFalse(challenge.prepare());
+		assertEquals(CrowdSecChallenge.ERR_ALTCHA, challenge.lastError());
+		Files.writeString(tmp.resolve("altcha-worker.js"), "// worker");
+		Files.delete(tmp.resolve("altcha.css"));
 		assertFalse(challenge.prepare());
 		assertEquals(CrowdSecChallenge.ERR_ALTCHA, challenge.lastError());
 	}
@@ -213,6 +233,73 @@ class CrowdSecChallengeTest {
 		assertFalse(html.contains("{{"), html);
 		assertTrue(html.contains("203.0.113.10"));
 		assertTrue(html.contains("challengejson=\"\""));
+	}
+
+	/** 網站送 Content-Security-Policy "default-src 'self'" 時頁面仍要能用：沒有 inline script、style 與事件屬性 */
+	@Test
+	void pagesWorkUnderDefaultSrcSelf() {
+		for (String style : new String[] { "auto", "checkbox" }) {
+			for (Map.Entry<String, String> page : challenge.buildPages(style).entrySet()) {
+				String name = style + " " + page.getKey();
+				String html = page.getValue();
+				assertFalse(html.contains("<style"), name);
+				assertFalse(Pattern.compile("\\sstyle=").matcher(html).find(), name);
+				assertFalse(Pattern.compile("\\son[a-z]+=").matcher(html).find(), name);
+				Matcher script = Pattern.compile("<script([^>]*)>").matcher(html);
+				while (script.find()) {
+					String attrs = script.group(1);
+					assertTrue(attrs.matches(" src=\"/\\.well-known/nwu-challenge/[a-z.-]+\" defer")
+							|| attrs.equals(" type=\"application/json\" id=\"nwu-strings\""), name + ": " + script.group());
+				}
+				assertTrue(html.contains("<link rel=\"stylesheet\" href=\"/.well-known/nwu-challenge/page.css\">"), name);
+				assertTrue(html.contains("<script src=\"/.well-known/nwu-challenge/page.js\" defer></script>"), name);
+				assertTrue(html.contains("id=\"nwu-strings\">{\"zh-TW\""), name);
+			}
+		}
+		String page = challenge.buildPages("auto").get("challenge.html");
+		assertTrue(page.contains("<link rel=\"stylesheet\" href=\"/.well-known/nwu-challenge/altcha.css\">"), page);
+		assertTrue(page.contains("workerurl=\"/.well-known/nwu-challenge/altcha-worker.js\""), page);
+		assertTrue(page.indexOf("nwu-challenge/page.js") < page.indexOf("nwu-challenge/altcha.js"),
+				"page.js listens for the widget before altcha.js defines it");
+	}
+
+	@Test
+	void assetsCarryTheScriptAndTheStyles() {
+		Map<String, String> assets = challenge.assets();
+		assertEquals(Set.of("page.js", "page.css"), assets.keySet());
+		String js = assets.get("page.js");
+		assertTrue(js.contains("nwu-strings") && js.contains("\"verified\"") && js.contains("nwu-form"), js);
+		assertFalse(js.contains("@@"));
+		String css = assets.get("page.css");
+		assertTrue(css.contains(".nwu-meta{color:#666;"), css);
+		assertFalse(css.contains("#888"), css);
+	}
+
+	@Test
+	void previewUsesAdminAssetUrls() {
+		for (String style : new String[] { "auto", "checkbox" }) {
+			String html = challenge.previewHtml(style);
+			for (String asset : new String[] { "altcha.js", "altcha.css", "altcha-worker.js", "page.js", "page.css" }) {
+				assertTrue(html.contains("\"/adminPage/crowdsec/challengeAsset?name=" + asset + "\""), style + " " + asset);
+				assertFalse(html.contains("/.well-known/nwu-challenge/" + asset), style + " " + asset);
+			}
+		}
+	}
+
+	@Test
+	void previewAssetsComeFromTheImageAndTheJar() throws Exception {
+		CrowdSecChallenge.Asset js = challenge.previewAsset("page.js");
+		assertEquals("application/javascript; charset=utf-8", js.contentType());
+		assertEquals(challenge.assets().get("page.js"), new String(js.body(), StandardCharsets.UTF_8));
+		assertEquals("text/css; charset=utf-8", challenge.previewAsset("page.css").contentType());
+		assertEquals("// altcha", new String(challenge.previewAsset("altcha.js").body(), StandardCharsets.UTF_8));
+		assertEquals("text/css; charset=utf-8", challenge.previewAsset("altcha.css").contentType());
+		assertEquals("// worker", new String(challenge.previewAsset("altcha-worker.js").body(), StandardCharsets.UTF_8));
+		Files.delete(tmp.resolve("altcha.css"));
+		assertNull(challenge.previewAsset("altcha.css"), "missing image file -> 404");
+		for (String bad : new String[] { null, "", "../altcha.js", "altcha.LICENSE.txt", "challenge.html", "page.js/" }) {
+			assertNull(challenge.previewAsset(bad), String.valueOf(bad));
+		}
 	}
 
 	@Test

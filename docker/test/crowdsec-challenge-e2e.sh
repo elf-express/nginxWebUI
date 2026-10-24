@@ -22,10 +22,14 @@
 #   13 external mode with a fake external site: request ticket valid; signed response ticket -> cookie -> 200;
 #      replayed / tampered / expired / other-IP tickets -> 429
 #   14 a client without any decision (as if pushed there by a third-party page) opens the challenge page 11 times and
-#      posts 6 answers: 303 back, and after more than the decision wait no decision and no challenge-fail alert
+#      posts 6 answers (303 back) and loads each page asset 11 times (200): after more than the decision wait no
+#      decision and no challenge-fail alert
+#   15 the https site sends Content-Security-Policy "default-src 'self'" (Security Headers template): the challenge page
+#      carries it, has no inline script or style, and its assets (altcha.js / .css / -worker.js, page.js / .css) are 200
 #   B  with --browser: the network is not internal and https is published on 127.0.0.1:18443; real Chromium from
-#      the host (docker/test/challenge-browser.cjs) passes the auto and the checkbox style, loads nothing from outside
-#      and is not challenged again with the cookie. Check 11 then only checks the page and altcha.js.
+#      the host (docker/test/challenge-browser.cjs) passes the auto and the checkbox style under that CSP without CSP
+#      violations, loads nothing from outside and is not challenged again with the cookie. Check 11 then only checks
+#      the page and altcha.js.
 # Also runs nginx -t against the generated config after every apply.
 #
 # Nothing of an existing deployment is touched: project nwu-e387-e2e, own container names, volumes and network,
@@ -305,13 +309,17 @@ docker exec "$NWU" sh -c "mkdir -p $HOME_DIR/e2e-www $HOME_DIR/e2e-cert && echo 
   && openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj /CN=nginxwebui \
      -keyout $HOME_DIR/e2e-cert/key.pem -out $HOME_DIR/e2e-cert/cert.pem >/dev/null 2>&1"
 LOC_JSON="[{\"enable\":1,\"path\":\"/\",\"type\":1,\"rootType\":\"root\",\"rootPath\":\"$HOME_DIR/e2e-www\",\"rootPage\":\"index.html\",\"header\":0,\"websocket\":0,\"cros\":0,\"returnPath\":0,\"locationParamJson\":\"\"}]"
-for site in \
-  '{"proxyType":"0","listen":"80","def":"1","ipv6":"0","serverName":"e2e.test","ssl":"0","rewrite":"0","http2":"0","proxyProtocol":"0","protocols":"TLSv1.2 TLSv1.3","enable":true}' \
-  "{\"proxyType\":\"0\",\"listen\":\"443\",\"def\":\"1\",\"ipv6\":\"0\",\"serverName\":\"e2e.test\",\"ssl\":\"1\",\"pem\":\"$HOME_DIR/e2e-cert/cert.pem\",\"key\":\"$HOME_DIR/e2e-cert/key.pem\",\"rewrite\":\"0\",\"http2\":\"0\",\"proxyProtocol\":\"0\",\"protocols\":\"TLSv1.2 TLSv1.3\",\"enable\":true}"; do
-  r="$(api /adminPage/server/addOver --data-urlencode "serverJson=$site" --data-urlencode "serverParamJson=" \
+# The https site sends the CSP of the built-in Security Headers template (default-src 'self'); the challenge page has to
+# work under it (15, B).
+CSP_PARAM="[{\"name\":\"add_header\",\"value\":\"Content-Security-Policy \\\"default-src 'self'\\\"\"}]"
+add_site() { # add_site <server json> <server param json>
+  r="$(api /adminPage/server/addOver --data-urlencode "serverJson=$1" --data-urlencode "serverParamJson=$2" \
     --data-urlencode "locationJson=$LOC_JSON")"
   case "$r" in *'"success":true'*) ;; *) fail setup "server addOver: $r"; exit 1 ;; esac
-done
+}
+add_site '{"proxyType":"0","listen":"80","def":"1","ipv6":"0","serverName":"e2e.test","ssl":"0","rewrite":"0","http2":"0","proxyProtocol":"0","protocols":"TLSv1.2 TLSv1.3","enable":true}' ""
+add_site "{\"proxyType\":\"0\",\"listen\":\"443\",\"def\":\"1\",\"ipv6\":\"0\",\"serverName\":\"e2e.test\",\"ssl\":\"1\",\"pem\":\"$HOME_DIR/e2e-cert/cert.pem\",\"key\":\"$HOME_DIR/e2e-cert/key.pem\",\"rewrite\":\"0\",\"http2\":\"0\",\"proxyProtocol\":\"0\",\"protocols\":\"TLSv1.2 TLSv1.3\",\"enable\":true}" \
+  "$CSP_PARAM"
 r="$(api /adminPage/denyAllow/addOver --data-urlencode "id=" --data-urlencode "name=E2E-allowlist" \
   --data-urlencode "type=allow" --data-urlencode "ip=$IP_ALLOW")"
 case "$r" in *'"success":true'*) ;; *) fail setup "allowlist addOver: $r"; exit 1 ;; esac
@@ -436,6 +444,21 @@ else
   fail 11 "internet=$inet outside URL in page: $(echo "$page" | grep -Eo 'https?://[^"]*' | head -1) altcha.js=$js"
 fi
 
+# ---------- 15. the challenge page under the site's CSP ----------
+csp="$(c cap -D - -o /dev/null "https://nginxwebui${P}?r=%2F" | grep -i '^content-security-policy:' | tr -d '\r')"
+inline="$(echo "$page" | grep -o '<script[^>]*>' | grep -v ' src=' | grep -v 'type="application/json"' | head -1)"
+styles="$(echo "$page" | grep -c -e '<style' -e ' style=')"
+assets=""
+for a in altcha.js altcha.css altcha-worker.js page.js page.css; do
+  assets="$assets $a=$(code cap "https://nginxwebui${P}$a" | cut -d' ' -f2)"
+done
+if echo "$csp" | grep -q "default-src 'self'" && [ -z "$inline" ] && [ "$styles" = "0" ] \
+  && [ "$assets" = " altcha.js=200 altcha.css=200 altcha-worker.js=200 page.js=200 page.css=200" ]; then
+  pass 15 "challenge page carries the site CSP ($csp), no inline script or style, assets served:$assets"
+else
+  fail 15 "csp=[$csp] inline script=[$inline] inline styles=$styles assets:$assets"
+fi
+
 # ---------- B. real browser, auto style ----------
 # browser <style> : captcha decision for the address the host's requests arrive from, then Chromium through the page
 browser() {
@@ -450,7 +473,7 @@ browser() {
   done
   out="$(node "$(native "$HERE/challenge-browser.cjs")" https://localhost:18443 "$1" 2>&1)"
   if [ "$out" = "ok $1" ]; then
-    pass B "real Chromium from the host ($gw): $1 style passes, cookie keeps working, nothing loaded from outside"
+    pass B "real Chromium from the host ($gw): $1 style passes under the site CSP without CSP violations, cookie keeps working, nothing loaded from outside"
   else
     fail B "$1 style: $out"
   fi
@@ -464,6 +487,10 @@ i=1
 while [ "$i" -lt 11 ]; do c xsite -o /dev/null "https://nginxwebui${P}?r=%2F"; i=$((i + 1)); done
 i=1
 while [ "$i" -lt 6 ]; do c xsite -o /dev/null -d altcha=Zm9v "https://nginxwebui${P}verify"; i=$((i + 1)); done
+# the page assets are 200 for everyone and must not count either: 11 of each
+xs_assets="$(docker exec "$PROJECT-client-xsite" sh -c "i=0; while [ \$i -lt 11 ]; do \
+  for a in altcha.js altcha.css altcha-worker.js page.js page.css; do \
+    curl -gsk -m 10 -o /dev/null -w '%{http_code}\n' https://nginxwebui${P}\$a; done; i=\$((i + 1)); done" | sort | uniq -c | tr -s ' ')"
 T_XSITE=$(now)
 
 # ---------- 5. too many challenge page views ----------
@@ -516,10 +543,11 @@ fi
 xs_dec="$(echo "$xs_dec_raw" | awk -F, 'NR > 1 { print $5 }' | tr '\n' ',')"
 xs_alerts="$(echo "$xs_al_raw" | grep -c 'challenge-fail')"
 if [ "$xs_cscli" = ok ] && [ "$xs_page" = "0 303 https://nginxwebui/cart" ] \
-  && [ "$xs_verify" = "0 303 https://nginxwebui/cart" ] && [ -z "$xs_dec" ] && [ "$xs_alerts" = "0" ]; then
-  pass 14 "no decision: 11 page views + 6 answers -> 303 back; after $(($(now) - T_XSITE))s no decision, no challenge-fail alert"
+  && [ "$xs_verify" = "0 303 https://nginxwebui/cart" ] && [ -z "$xs_dec" ] && [ "$xs_alerts" = "0" ] \
+  && [ "$xs_assets" = " 55 200" ]; then
+  pass 14 "no decision: 11 page views + 6 answers -> 303 back, 11 x 5 assets -> 200; after $(($(now) - T_XSITE))s no decision, no challenge-fail alert"
 else
-  fail 14 "cscli=[$xs_cscli] page=[$xs_page] verify=[$xs_verify] decisions=[$xs_dec] challenge-fail alerts=$xs_alerts"
+  fail 14 "cscli=[$xs_cscli] page=[$xs_page] verify=[$xs_verify] assets=[$xs_assets] decisions=[$xs_dec] challenge-fail alerts=$xs_alerts"
 fi
 
 # ---------- 2. checkbox style ----------

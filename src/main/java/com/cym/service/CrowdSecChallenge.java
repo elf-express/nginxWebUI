@@ -35,7 +35,8 @@ import cn.hutool.json.JSONUtil;
 
 /**
  * 自架驗證頁（E-387）的設定與套用：驗證方式、樣式、外部網址、有效時間存在 setting；
- * 套用設定時寫 challenge.conf（金鑰與 Lua 參數，權限 600）與四個頁面給 nginx Lua 讀。
+ * 套用設定時寫 challenge.conf（金鑰與 Lua 參數，權限 600）、四個頁面與 page.js / page.css 給 nginx Lua 讀。
+ * 頁面不含 inline script 與 style，網站送 Content-Security-Policy "default-src 'self'" 時也能通過驗證。
  */
 @Component
 public class CrowdSecChallenge {
@@ -51,6 +52,14 @@ public class CrowdSecChallenge {
 	public static final int MIN_TTL = 5;
 	public static final int MAX_TTL = 1440;
 	public static final String ALTCHA_JS = "/usr/local/lib/nginxwebui/html/altcha.js";
+	/** image 內的 ALTCHA 檔（strict CSP 版：樣式與 Worker 是獨立的同源檔案），與 altcha.js 同一個目錄 */
+	static final List<String> ALTCHA_FILES = List.of("altcha.js", "altcha.css", "altcha-worker.js");
+	/** 驗證頁與訊息頁共用的 script 與樣式：保留路徑上的檔名 → jar 內的資源，套用設定時寫到頁面目錄 */
+	static final Map<String, String> PAGE_ASSETS = Map.of("page.js", "crowdsec/challenge-page.js",
+			"page.css", "crowdsec/challenge-page.css");
+	static final String RESERVED_PREFIX = "/.well-known/nwu-challenge/";
+	/** 後台預覽改用的網址（需登入），見 CrowdSecController.challengeAsset */
+	public static final String PREVIEW_ASSET_URL = "/adminPage/crowdsec/challengeAsset?name=";
 
 	/** 套用失敗原因（畫面依代碼顯示） */
 	public static final String ERR_TICKET_SECRET = "TICKET_SECRET_MISSING";
@@ -160,7 +169,7 @@ public class CrowdSecChallenge {
 	 */
 	public boolean prepare() {
 		String problem = problem();
-		if (problem == null && !Files.isRegularFile(Paths.get(altchaPath))) {
+		if (problem == null && !altchaFilesPresent()) {
 			problem = ERR_ALTCHA;
 		}
 		if (problem != null) {
@@ -174,12 +183,28 @@ public class CrowdSecChallenge {
 			for (Map.Entry<String, String> page : buildPages(style()).entrySet()) {
 				writeIfChanged(dir.resolve(page.getKey()), page.getValue(), false);
 			}
+			for (Map.Entry<String, String> asset : assets().entrySet()) {
+				writeIfChanged(dir.resolve(asset.getKey()), asset.getValue(), false);
+			}
 			writeIfChanged(Paths.get(confPath()), buildConf(cookie.value(), ticket.value()), true);
 			lastError = null;
 			return true;
 		} catch (IOException | RuntimeException e) {
 			return disable(ERR_WRITE, e);
 		}
+	}
+
+	private Path altchaFile(String name) {
+		return Paths.get(altchaPath).resolveSibling(name);
+	}
+
+	private boolean altchaFilesPresent() {
+		for (String name : ALTCHA_FILES) {
+			if (!Files.isRegularFile(altchaFile(name))) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	private boolean disable(String code, Exception e) {
@@ -243,9 +268,51 @@ public class CrowdSecChallenge {
 		return pages;
 	}
 
-	/** 預覽：與 nginx 送出的驗證頁同一份 HTML，題目留空，只能看樣子不能通過 */
+	/** page.js 與 page.css 的內容（檔名 → 內容），套用設定時與頁面一起寫出，由 Lua 在保留路徑上提供 */
+	public Map<String, String> assets() {
+		Map<String, String> assets = new LinkedHashMap<>();
+		for (Map.Entry<String, String> asset : PAGE_ASSETS.entrySet()) {
+			assets.put(asset.getKey(), resource(asset.getValue()));
+		}
+		return assets;
+	}
+
+	/** 預覽頁要載入的檔案 */
+	public record Asset(String contentType, byte[] body) {
+	}
+
+	/**
+	 * 後台預覽用：page.js / page.css 取自 jar，ALTCHA 檔取自 image；不認得的名稱或 image 內沒有這個檔時回 null。
+	 */
+	public Asset previewAsset(String name) {
+		if (name == null) {
+			return null;
+		}
+		String type = name.endsWith(".css") ? "text/css; charset=utf-8" : "application/javascript; charset=utf-8";
+		if (PAGE_ASSETS.containsKey(name)) {
+			return new Asset(type, resource(PAGE_ASSETS.get(name)).getBytes(StandardCharsets.UTF_8));
+		}
+		if (!ALTCHA_FILES.contains(name) || !Files.isRegularFile(altchaFile(name))) {
+			return null;
+		}
+		try {
+			return new Asset(type, Files.readAllBytes(altchaFile(name)));
+		} catch (IOException e) {
+			logger.warn("cannot read {}: {}", altchaFile(name), e.getMessage());
+			return null;
+		}
+	}
+
+	/** 預覽：與 nginx 送出的驗證頁同一份 HTML，題目留空，只能看樣子不能通過；檔案改由後台網址提供 */
 	public String previewHtml(String style) {
-		return buildPages(style).get("challenge.html")
+		String html = buildPages(style).get("challenge.html");
+		for (String asset : ALTCHA_FILES) {
+			html = html.replace("\"" + RESERVED_PREFIX + asset + "\"", "\"" + PREVIEW_ASSET_URL + asset + "\"");
+		}
+		for (String asset : PAGE_ASSETS.keySet()) {
+			html = html.replace("\"" + RESERVED_PREFIX + asset + "\"", "\"" + PREVIEW_ASSET_URL + asset + "\"");
+		}
+		return html
 				.replace("{{IP}}", "203.0.113.10")
 				.replace("{{TIME}}", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
 				.replace("{{CHALLENGE}}", "")

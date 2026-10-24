@@ -157,6 +157,18 @@ public class CrowdSecController extends BaseController {
 				CrowdSecChallenge.STYLE_CHECKBOX.equals(style) ? CrowdSecChallenge.STYLE_CHECKBOX : CrowdSecChallenge.STYLE_AUTO));
 	}
 
+	/** 預覽頁載入的檔案（ALTCHA 與 page.js / page.css）；不認得的名稱或 image 內沒有這個檔時回 404 */
+	@Mapping("challengeAsset")
+	public void challengeAsset(Context ctx, String name) {
+		CrowdSecChallenge.Asset asset = crowdSecChallenge.previewAsset(name);
+		if (asset == null) {
+			ctx.status(404);
+			return;
+		}
+		ctx.contentType(asset.contentType());
+		ctx.output(asset.body());
+	}
+
 	/** 實際測 LAPI（bouncer 金鑰）與 machine 登入 */
 	@Mapping("status")
 	public JsonResult status() {

@@ -404,6 +404,8 @@ class CrowdSecNginxConfTest {
 				Path.of(home + "crowdsec/challenge_cookie_secret")));
 		Path altcha = tmp.resolve("altcha.js");
 		Files.writeString(altcha, "// altcha");
+		Files.writeString(tmp.resolve("altcha.css"), "/* altcha */");
+		Files.writeString(tmp.resolve("altcha-worker.js"), "// worker");
 		ReflectUtil.setFieldValue(challenge, "altchaPath", altcha.toString());
 		ReflectUtil.setFieldValue(crowdsec, "challenge", challenge);
 	}

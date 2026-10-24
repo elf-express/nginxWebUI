@@ -1,0 +1,7 @@
+body{font-family:sans-serif;background:#f5f5f5;color:#333;margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh}
+main{background:#fff;border:1px solid #ddd;border-radius:6px;padding:32px 40px;max-width:560px;text-align:center}
+h1{font-size:22px;margin:0 0 12px}
+p{margin:6px 0;line-height:1.6}
+altcha-widget{display:inline-block;margin:16px 0}
+.nwu-meta{color:#666;font-size:12px;margin-top:20px}
+.nwu-noscript{color:#c0392b}

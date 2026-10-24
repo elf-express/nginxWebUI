@@ -18,21 +18,28 @@ CrowdSec 判定為「可疑」的 IP 不直接封鎖，而是先送到驗證頁�
 或答案、交接票被拒（回應 429）超過 5 次（POST `verify`、GET/HEAD `callback` 都算），就封鎖。通過驗證（303）不計數。
 正常情況下驗證不通過的 IP 已經有驗證決策，會由第 1 條封鎖；第 3 條只接住其餘情況，兩者都不通報 AbuseIPDB。
 
-沒有驗證決策的 IP 不出題：在保留路徑上除了 `altcha.js` 照常提供之外，一律 303 導回同網域路徑（頁面與 `verify` 導回表單的 `r`，`callback` 導回交接票內的路徑，其他導回 `/`），
+沒有驗證決策的 IP 不出題：在保留路徑上除了頁面用的靜態檔（`altcha.js`、`altcha.css`、`altcha-worker.js`、`page.js`、`page.css`，不計數）照常提供之外，一律 303 導回同網域路徑（頁面與 `verify` 導回表單的 `r`，`callback` 導回交接票內的路徑，其他導回 `/`），
 不出題、不驗答、不發 cookie，也不計數。這樣第三方網頁就算讓訪客的瀏覽器反覆開驗證頁或送答案，也無法讓訪客被封鎖或被通報。
-驗證頁沒有載入時（升級後還沒套用設定，或下面說的退回模式），只要 bouncer 有載入，保留路徑一樣由 nginx 直接 303 導回（`altcha.js` 回 404），不交給網站本身。
+驗證頁沒有載入時（升級後還沒套用設定，或下面說的退回模式），只要 bouncer 有載入，保留路徑一樣由 nginx 直接 303 導回（靜態檔回 404），不交給網站本身。
 nginxWebUI 沒有設定 CrowdSec（bouncer 沒有載入）時，保留路徑會交給網站本身；如果網站對這個路徑回 200（例如單頁應用把所有路徑都導到首頁），
 第三方網頁仍可能觸發 `nginxwebui/challenge-fail` 封鎖（第 3 條，不通報 AbuseIPDB）。
 
 白名單（站點白名單與後台「白名單 IP」）永遠不進驗證頁；被封鎖的 IP 連驗證頁也是 444。
+IP 本身有驗證決策、但所在網段另有決策時（例如 ASN 封鎖推送的網段決策、CrowdSec 白名單網段），由網段決策決定：
+bouncer（stream 模式）查決策時由最精確的網段往外找、找到第一筆就停，IP 本身的驗證決策會蓋住外圍網段的決策，所以 nginx 在 bouncer 回「驗證」時
+會照同樣的順序再找一次、跳過驗證決策，由下一筆決定：CrowdSec 白名單就放行（和白名單 IP 一樣，不出題），封鎖就 444（帶著已通過驗證的 cookie 也一樣），
+沒有其他決策才照常驗證。所以除了驗證決策之外，封鎖與白名單誰優先都和沒有驗證頁時一樣，由最精確的網段決定。
 
 ## bouncer 補丁
 
 nginx image 在安裝官方 lua-cs-bouncer（`CS_NGINX_BOUNCER_VERSION=v1.2.3`）後，會用 `docker/lua/patches/cs-stream-delete-by-type.sh` 修改它的 `plugins/crowdsec/stream.lua`。
 原版在 stream 模式處理到期或刪除的決策時只看 IP，不看類型；同一 IP 先拿到驗證決策、之後又被封鎖時，驗證決策到期會連同封鎖一起從 bouncer 快取刪掉，封鎖提早結束（最多少 4 小時）。
 補丁後只有快取中的決策類型和被刪的決策相同時才刪除。
+原版收到新決策時也直接覆蓋同一 IP 的快取；IP 還在一筆較長的封鎖期間（例如 25 小時前下的 168 小時封鎖，已超出第 1 條的 24 小時回溯）又拿到驗證決策時，
+封鎖會被驗證蓋掉。補丁後新的驗證決策不覆蓋快取中的封鎖。
 
-補丁腳本會先檢查 bouncer 版本是 `v1.2.3`、要替換的原始程式碼恰好出現一次，補丁後再確認新內容存在，任何一項不符就讓 image build 失敗。
+補丁腳本會先檢查 bouncer 版本是 `v1.2.3`、要替換的兩行原始程式碼（整行比對）各恰好出現一次，補丁後再確認新內容各出現一次、檔案行數符合、
+LuaJIT 能編譯，任何一項不符就讓 image build 失敗。
 升級 bouncer 版本時 build 會在這裡停下，請對照新版 `stream.lua` 重新確認補丁（或上游已修正就移除補丁），再更新腳本裡的版本。
 
 ## 兩種驗證方式
@@ -45,6 +52,15 @@ nginx image 在安裝官方 lua-cs-bouncer（`CS_NGINX_BOUNCER_VERSION=v1.2.3`�
   nginx 驗票後發 cookie。外部站連不到時，有驗證決策的訪客在決策到期（4 小時）前都無法通過，不會自動退回內建。
 
 樣式可選「自動」（打開即驗證，預設）或「勾選『我不是機器人』」。通過後的有效時間預設 60 分鐘（5–1440），cookie 綁訪客 IP，換 IP 要重新驗證。
+後台「預覽驗證頁」的 ALTCHA 與頁面檔改由後台網址（需登入）提供；image 內沒有 ALTCHA 檔時（例如不是用 Docker 執行）預覽只看不到驗證元件。
+
+## 網站送 Content-Security-Policy 時
+
+驗證頁與三個訊息頁不含 inline script 與 style：三語字串放在不會執行的 `<script type="application/json">`，
+script 與樣式是保留路徑上的同源檔案（`page.js`、`page.css`）。ALTCHA 用官方給嚴格 CSP 用的 `dist_external` 版本，
+樣式（`altcha.css`）與 Web Worker（`altcha-worker.js`，由元件的 `workerurl` 指定）都是同源檔案；預設版本會插入 `<style>`、用 `blob:` 網址啟動 Worker，
+在 `default-src 'self'` 下會被擋。
+所以網站套用內建的 Security Headers 範本（`Content-Security-Policy "default-src 'self'"`）時驗證頁照常可用，不需要放寬網站的 CSP。
 
 ## 金鑰
 
