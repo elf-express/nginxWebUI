@@ -78,7 +78,9 @@ function onPage(p: number) {
 async function loadStatus() {
   try {
     status.value = await fetchWafStatus()
-    retention.value = status.value.retentionDays
+    if (retention.value === undefined) {
+      retention.value = status.value.retentionDays
+    }
   } catch (err) {
     notifyError(err)
   }
@@ -111,6 +113,7 @@ async function doRetention() {
   try {
     await saveWafRetention(days)
     message.success(t('crowdsecGuardStr.wafRetentionSaved', days))
+    retention.value = days
     await loadStatus()
   } catch (err) {
     notifyError(err)
