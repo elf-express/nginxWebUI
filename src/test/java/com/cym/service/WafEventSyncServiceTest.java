@@ -364,7 +364,14 @@ class WafEventSyncServiceTest {
 		Pattern untilParam = Pattern.compile("until=(\\d+)s");
 		lapi.alertsResponder = q -> {
 			Matcher m = untilParam.matcher(q);
-			long cutoff = m.find() ? now - Long.parseLong(m.group(1)) * 1000 : Long.MAX_VALUE;
+			long cutoff = Long.MAX_VALUE;
+			if (m.find()) {
+				try {
+					cutoff = now - Long.parseLong(m.group(1)) * 1000;
+				} catch (NumberFormatException e) {
+					cutoff = Long.MAX_VALUE;
+				}
+			}
 			List<JSONObject> page = new ArrayList<>();
 			for (int i = 0; i < alerts.size() && page.size() < 500; i++) {
 				if (times.get(i) <= cutoff) {
