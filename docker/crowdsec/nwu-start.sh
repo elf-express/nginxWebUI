@@ -33,8 +33,8 @@ if [ -d /nwu-waf ]; then
         if [ -L /nwu-waf/catalog ]; then rm -f /nwu-waf/catalog; fi
         mkdir -p /nwu-waf/catalog
         for f in /nwu/catalog/*; do
-            t="$(mktemp /nwu-waf/catalog/.nwu.XXXXXX)" || exit 1
-            if cp -f "$f" "$t" && chmod 644 "$t" && mv -f "$t" "/nwu-waf/catalog/$(basename "$f")"; then :; else rm -f "$t"; exit 1; fi
+            t="$(mktemp -u /nwu-waf/catalog/.nwu.XXXXXX)" || exit 1
+            if ( umask 022; /usr/bin/timeout 10 /bin/dd if="$f" of="$t" conv=excl oflag=nofollow status=none ) && [ -f "$t" ] && [ ! -L "$t" ] && mv -fT "$t" "/nwu-waf/catalog/$(basename "$f")"; then :; else rm -f "$t"; exit 1; fi
         done
     ) || echo "nwu-waf: catalog copy failed" >&2
     /bin/bash /nwu/nwu-waf-watch.sh &
