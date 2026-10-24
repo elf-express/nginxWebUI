@@ -435,9 +435,13 @@ class CrowdSecClientLapiTest {
 		FakeLapi other = new FakeLapi(MACHINE, PASSWORD, KEY);
 		env.put("CROWDSEC_LAPI_URL", other.url());
 		CrowdSecClient c = client();
-		c.alertsRaw(60, null, 10);
-		// token 已快取，之後 LAPI 停掉：連線失敗也要轉成 LapiUnavailableException
-		other.close();
-		assertThrows(CrowdSecClient.LapiUnavailableException.class, () -> c.alertsRaw(60, null, 10));
+		try {
+			c.alertsRaw(60, null, 10);
+			// token 已快取，之後 LAPI 停掉：連線失敗也要轉成 LapiUnavailableException
+			other.close();
+			assertThrows(CrowdSecClient.LapiUnavailableException.class, () -> c.alertsRaw(60, null, 10));
+		} finally {
+			other.close();
+		}
 	}
 }

@@ -22,6 +22,7 @@ import cn.hutool.core.util.StrUtil;
  * <p>
  * 缺口：距上次成功同步超過 10 分鐘才檢查。CrowdSec 還留著比上次同步更早的 alert 就沒有缺口；一筆都沒有、
  * 且這段期間最舊的 alert 晚於上次同步時間，記缺口 [上次同步, 最舊 alert]；中斷超過 CrowdSec 的 7 天保留期，記 [上次同步, 7 天前]。
+ * 以上兩種缺口都要求先前看過 alert（KEY_LAST_ALERT_AT）；另外頁數用完或同一秒的 alert 超過一頁而沒抓完時，記缺口 [本次拉取起點, 已抓到的最舊 alert]。
  */
 @Component
 public class WafEventSyncService {
@@ -34,6 +35,7 @@ public class WafEventSyncService {
 	public static final String KEY_LAST_ERROR_AT = "crowdsecWafLastErrorAt";
 	public static final String KEY_GAP_FROM = "crowdsecWafGapFrom";
 	public static final String KEY_GAP_TO = "crowdsecWafGapTo";
+	public static final String KEY_LAST_ALERT_AT = "crowdsecWafLastAlertAt";
 
 	public static final int DEFAULT_RETENTION_DAYS = 30;
 	public static final int MIN_RETENTION_DAYS = 1;
@@ -50,7 +52,7 @@ public class WafEventSyncService {
 	/** CrowdSec db_config.flush.max_age 預設 7 天 */
 	static final long CROWDSEC_MAX_AGE_MS = 7 * DAY_MS;
 	static final int PAGE_SIZE = 500;
-	static final int MAX_PAGES = 40;
+	static final int MAX_PAGES = 120;
 
 	@Inject
 	SettingService settingService;
@@ -58,6 +60,9 @@ public class WafEventSyncService {
 	CrowdSecClient crowdSecClient;
 	@Inject
 	WafEventService wafEventService;
+
+	/** 翻頁時換算 until 用；LAPI 以收到請求的時間換算，所以每頁送出前現讀 */
+	java.util.function.LongSupplier clock = System::currentTimeMillis;
 
 	private final AtomicBoolean running = new AtomicBoolean();
 
@@ -101,12 +106,18 @@ public class WafEventSyncService {
 			Long syncedUntil = longSetting(KEY_SYNCED_UNTIL);
 			long retentionStart = now - retentionDays() * DAY_MS;
 			long from = syncedUntil == null ? retentionStart : Math.max(retentionStart, syncedUntil - OVERLAP_MS);
+			Long lastAlertAt = longSetting(KEY_LAST_ALERT_AT);
 			List<WafAlertParser.Hit> hits = new ArrayList<>();
-			Instant oldest = fetch(now, from, hits);
-			if (syncedUntil != null && now - syncedUntil > GAP_CHECK_AFTER_MS) {
-				detectGap(now, syncedUntil, oldest);
+			Fetched fetched = fetch(now, from, hits);
+			if (fetched.truncated()) {
+				recordGap(from, fetched.oldest().toEpochMilli());
+			} else if (syncedUntil != null && lastAlertAt != null && now - syncedUntil > GAP_CHECK_AFTER_MS) {
+				detectGap(now, syncedUntil, fetched.oldest());
 			}
 			int added = wafEventService.store(hits);
+			if (fetched.newest() != null && (lastAlertAt == null || fetched.newest().toEpochMilli() > lastAlertAt)) {
+				settingService.set(KEY_LAST_ALERT_AT, String.valueOf(fetched.newest().toEpochMilli()));
+			}
 			settingService.set(KEY_SYNCED_UNTIL, String.valueOf(now));
 			settingService.set(KEY_LAST_SYNC, String.valueOf(now));
 			settingService.remove(KEY_LAST_ERROR);
@@ -114,7 +125,8 @@ public class WafEventSyncService {
 			return new SyncResult(OK, added, null);
 		} catch (RuntimeException e) {
 			String code = errorCode(e);
-			logger.warn("waf event sync failed: {} ({})", code, e.getMessage());
+			// 未預期的例外訊息可能帶 LAPI 回應內容，只記類別名稱
+		logger.warn("waf event sync failed: {} ({})", code, e.getClass().getSimpleName());
 			settingService.set(KEY_LAST_ERROR, code);
 			settingService.set(KEY_LAST_ERROR_AT, String.valueOf(now));
 			return new SyncResult(FAILED, 0, code);
@@ -123,29 +135,40 @@ public class WafEventSyncService {
 		}
 	}
 
-	/** 拉 from 之後的所有 alert，WAF 命中放進 out；回這段期間所有 alert 最舊的建立時間（沒有 alert 時 null） */
-	Instant fetch(long now, long from, List<WafAlertParser.Hit> out) {
+	/** fetch 的結果：oldest／newest 是這段期間所有 alert 最舊／最新的建立時間（沒有 alert 時 null）；truncated 表示有 alert 沒抓完 */
+	record Fetched(Instant oldest, Instant newest, boolean truncated) {
+	}
+
+	/**
+	 * 拉 from 之後的所有 alert，WAF 命中放進 out。滿頁就以這頁最舊的時間往前翻，until 在每頁送出前依現在時間換算；
+	 * 頁數用完，或同一秒內的 alert 超過一頁時停止並標記 truncated。
+	 */
+	Fetched fetch(long now, long from, List<WafAlertParser.Hit> out) {
 		long since = ceilSeconds(now - from);
-		Long until = null;
+		Instant boundary = null;
 		Instant oldest = null;
+		Instant newest = null;
 		for (int page = 1; page <= MAX_PAGES; page++) {
+			Long until = boundary == null ? null : Math.max(1, (clock.getAsLong() - boundary.toEpochMilli()) / 1000);
 			WafAlertParser.Batch batch = WafAlertParser.parseBatch(crowdSecClient.alertsRaw(since, until, PAGE_SIZE));
 			out.addAll(batch.hits());
 			if (batch.oldest() != null && (oldest == null || batch.oldest().isBefore(oldest))) {
 				oldest = batch.oldest();
 			}
+			if (batch.newest() != null && (newest == null || batch.newest().isAfter(newest))) {
+				newest = batch.newest();
+			}
 			if (batch.size() < PAGE_SIZE || batch.oldest() == null) {
-				return oldest;
+				return new Fetched(oldest, newest, false);
 			}
-			long next = Math.max(1, (now - batch.oldest().toEpochMilli()) / 1000);
-			if (until != null && next <= until) {
+			if (boundary != null && batch.oldest().getEpochSecond() >= boundary.getEpochSecond()) {
 				logger.warn("waf event sync: more than {} alerts within one second, the rest of that second is skipped", PAGE_SIZE);
-				return oldest;
+				return new Fetched(oldest, newest, true);
 			}
-			until = next;
+			boundary = batch.oldest();
 		}
 		logger.warn("waf event sync: stopped after {} pages, older alerts in this window are skipped", MAX_PAGES);
-		return oldest;
+		return new Fetched(oldest, newest, true);
 	}
 
 	void detectGap(long now, long syncedUntil, Instant oldestInWindow) {
@@ -158,15 +181,20 @@ public class WafEventSyncService {
 			}
 			long untilSeconds = Math.max(1, (now - syncedUntil) / 1000);
 			long sinceSeconds = untilSeconds + CROWDSEC_MAX_AGE_MS / 1000;
-			if (WafAlertParser.parseBatch(crowdSecClient.alertsRaw(sinceSeconds, untilSeconds, 1)).size() > 0) {
+			Instant probe = WafAlertParser.parseBatch(crowdSecClient.alertsRaw(sinceSeconds, untilSeconds, 1)).oldest();
+			if (probe != null && probe.toEpochMilli() <= syncedUntil) {
 				return;
 			}
 			gapTo = oldestInWindow.toEpochMilli();
 		}
-		settingService.set(KEY_GAP_FROM, String.valueOf(syncedUntil));
+		recordGap(syncedUntil, gapTo);
+	}
+
+	private void recordGap(long gapFrom, long gapTo) {
+		settingService.set(KEY_GAP_FROM, String.valueOf(gapFrom));
 		settingService.set(KEY_GAP_TO, String.valueOf(gapTo));
-		logger.warn("waf event sync: CrowdSec no longer has alerts between {} and {}, WAF events of that period may be missing",
-				Instant.ofEpochMilli(syncedUntil), Instant.ofEpochMilli(gapTo));
+		logger.warn("waf event sync: WAF events between {} and {} may be missing", Instant.ofEpochMilli(gapFrom),
+				Instant.ofEpochMilli(gapTo));
 	}
 
 	public Status status(long now) {

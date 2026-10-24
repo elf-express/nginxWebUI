@@ -9,6 +9,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -67,6 +70,7 @@ class WafEventSyncServiceTest {
 		c.credentials = new CrowdSecCredentials(env::get, tmp.resolve("no-secrets"));
 		c.clock = () -> now;
 		WafEventSyncService s = new WafEventSyncService();
+		s.clock = () -> now;
 		s.settingService = settings;
 		s.crowdSecClient = c;
 		s.wafEventService = events;
@@ -139,6 +143,9 @@ class WafEventSyncServiceTest {
 		lapi.alertsJson = array(page.toArray(new JSONObject[0]));
 		assertEquals(WafEventSyncService.OK, sync().sync(now).outcome());
 		assertEquals(2, lapi.alertQueries.size());
+		// 同一秒超過一頁的部分抓不到，記成缺口
+		assertEquals(now - 30 * DAY, setting(WafEventSyncService.KEY_GAP_FROM));
+		assertEquals(now - MIN, setting(WafEventSyncService.KEY_GAP_TO));
 	}
 
 	@Test
@@ -177,6 +184,7 @@ class WafEventSyncServiceTest {
 	void gapWhenCrowdSecNoLongerHasAlertsOlderThanTheSyncPoint() {
 		long t0 = now - 120 * MIN;
 		settings.set(WafEventSyncService.KEY_SYNCED_UNTIL, String.valueOf(t0));
+		settings.set(WafEventSyncService.KEY_LAST_ALERT_AT, String.valueOf(t0 - MIN));
 		Instant oldest = ago(30 * MIN);
 		lapi.alertsResponder = q -> q.endsWith("limit=1") ? "[]" : array(vpatch(1, "198.51.100.9", oldest, SHOP));
 		WafEventSyncService s = sync();
@@ -210,6 +218,7 @@ class WafEventSyncServiceTest {
 	void downtimeLongerThanCrowdSecKeepsAlertsIsAGap() {
 		long t0 = now - 8 * DAY;
 		settings.set(WafEventSyncService.KEY_SYNCED_UNTIL, String.valueOf(t0));
+		settings.set(WafEventSyncService.KEY_LAST_ALERT_AT, String.valueOf(t0 - MIN));
 		WafEventSyncService s = sync();
 		s.sync(now);
 		assertEquals(t0, s.status(now).gapFrom());
@@ -248,5 +257,112 @@ class WafEventSyncServiceTest {
 		Map<String, Object> m = sync().status(now).toMap();
 		assertEquals(List.of("configured", "retentionDays", "lastSyncAt", "syncedUntil", "lastError", "lastErrorAt", "gapFrom", "gapTo"),
 				new ArrayList<>(m.keySet()));
+	}
+
+	@Test
+	void gapProbeOnlyCountsAlertsAtOrBeforeTheSyncPoint() {
+		long t0 = now - 120 * MIN;
+		settings.set(WafEventSyncService.KEY_SYNCED_UNTIL, String.valueOf(t0));
+		settings.set(WafEventSyncService.KEY_LAST_ALERT_AT, String.valueOf(t0 - MIN));
+		// 探測回來的 alert 比上次同步晚（取整造成的邊界），不算「還有更舊的 alert」
+		lapi.alertsResponder = q -> q.endsWith("limit=1") ? array(scenario(5, "198.51.100.20", ago(119 * MIN)))
+				: array(vpatch(1, "198.51.100.9", ago(30 * MIN), SHOP));
+		WafEventSyncService s = sync();
+		s.sync(now);
+		assertEquals(t0, s.status(now).gapFrom());
+	}
+
+	@Test
+	void noGapIsRecordedBeforeAnyAlertWasEverSeen() {
+		settings.set(WafEventSyncService.KEY_SYNCED_UNTIL, String.valueOf(now - 120 * MIN));
+		lapi.alertsResponder = q -> q.endsWith("limit=1") ? "[]" : array(vpatch(1, "198.51.100.9", ago(30 * MIN), SHOP));
+		WafEventSyncService s = sync();
+		s.sync(now);
+		assertNull(s.status(now).gapFrom());
+	}
+
+	@Test
+	void noGapForLongDowntimeBeforeAnyAlertWasEverSeen() {
+		settings.set(WafEventSyncService.KEY_SYNCED_UNTIL, String.valueOf(now - 8 * DAY));
+		WafEventSyncService s = sync();
+		s.sync(now);
+		assertNull(s.status(now).gapFrom());
+	}
+
+	@Test
+	void newestSeenAlertTimeIsRecordedAndKeptWhenNothingNewComes() {
+		lapi.alertsJson = array(vpatch(1, "198.51.100.9", ago(MIN), SHOP), scenario(3, "198.51.100.20", ago(2 * MIN)));
+		WafEventSyncService s = sync();
+		s.sync(now);
+		assertEquals(now - MIN, setting(WafEventSyncService.KEY_LAST_ALERT_AT));
+		now += MIN;
+		lapi.alertsJson = "[]";
+		s.sync(now);
+		assertEquals(now - 2 * MIN, setting(WafEventSyncService.KEY_LAST_ALERT_AT));
+	}
+
+	/** 模擬 LAPI：until 以收到請求的時間換算；每個請求處理完時鐘前進 5 秒 */
+	@Test
+	void pagingFollowsTheClockWhileTheSyncIsRunning() {
+		long t0 = now;
+		List<Long> times = new ArrayList<>();
+		List<JSONObject> alerts = new ArrayList<>();
+		for (int age = 1; age <= 40; age++) {
+			for (int i = 0; i < 100; i++) {
+				Instant at = Instant.ofEpochMilli(t0 - age * 1000L);
+				times.add(at.toEpochMilli());
+				alerts.add(age == 40 && i == 0 ? vpatch(1, "198.51.100.9", at, SHOP) : scenario(1000L * age + i, "198.51.100.20", at));
+			}
+		}
+		Pattern untilParam = Pattern.compile("until=(\\d+)s");
+		lapi.alertsResponder = q -> {
+			Matcher m = untilParam.matcher(q);
+			long cutoff = m.find() ? now - Long.parseLong(m.group(1)) * 1000 : Long.MAX_VALUE;
+			List<JSONObject> page = new ArrayList<>();
+			for (int i = 0; i < alerts.size() && page.size() < 500; i++) {
+				if (times.get(i) <= cutoff) {
+					page.add(alerts.get(i));
+				}
+			}
+			now += 5000;
+			return array(page.toArray(new JSONObject[0]));
+		};
+		assertEquals(1, sync().sync(t0).added());
+		assertNull(setting(WafEventSyncService.KEY_GAP_FROM));
+	}
+
+	@Test
+	void stoppingAfterTheLastAllowedPageRecordsAGap() {
+		long t0 = now;
+		lapi.alertsResponder = q -> {
+			int k = lapi.alertQueries.size();
+			JSONObject[] page = new JSONObject[500];
+			for (int i = 0; i < page.length; i++) {
+				page[i] = scenario(k * 1000L + i, "198.51.100.20", Instant.ofEpochMilli(t0 - (10 + k) * 1000L));
+			}
+			return array(page);
+		};
+		WafEventSyncService s = sync();
+		assertEquals(WafEventSyncService.OK, s.sync(t0).outcome());
+		assertEquals(WafEventSyncService.MAX_PAGES, lapi.alertQueries.size());
+		assertEquals(t0 - 30 * DAY, s.status(t0).gapFrom());
+		assertEquals(t0 - (10 + WafEventSyncService.MAX_PAGES) * 1000L, s.status(t0).gapTo());
+	}
+
+	@Test
+	void secondSyncWhileRunningIsBusyAndTheLockIsReleasedAfterAFailure() {
+		AtomicReference<WafEventSyncService.SyncResult> inner = new AtomicReference<>();
+		WafEventSyncService s = sync();
+		lapi.alertsResponder = q -> {
+			inner.set(s.sync(now));
+			return "[]";
+		};
+		assertEquals(WafEventSyncService.OK, s.sync(now).outcome());
+		assertEquals(WafEventSyncService.BUSY, inner.get().outcome());
+		lapi.alertsResponder = null;
+		lapi.alertsStatus = 500;
+		assertEquals(WafEventSyncService.FAILED, s.sync(now).outcome());
+		lapi.alertsStatus = 0;
+		assertEquals(WafEventSyncService.OK, s.sync(now).outcome());
 	}
 }

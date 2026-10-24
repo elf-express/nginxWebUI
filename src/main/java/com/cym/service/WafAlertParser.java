@@ -40,8 +40,8 @@ public final class WafAlertParser {
 			boolean inBand, List<Rule> rules) {
 	}
 
-	/** 一頁 alert：hits 只含 WAF；size 是這頁所有 alert 的筆數；oldest 是這頁所有 alert 最舊的建立時間，空頁為 null */
-	public record Batch(List<Hit> hits, int size, Instant oldest) {
+	/** 一頁 alert：hits 只含 WAF；size 是這頁所有 alert 的筆數；oldest／newest 是這頁所有 alert 最舊／最新的建立時間，空頁為 null */
+	public record Batch(List<Hit> hits, int size, Instant oldest, Instant newest) {
 	}
 
 	private WafAlertParser() {
@@ -51,6 +51,7 @@ public final class WafAlertParser {
 		JSONArray arr = CrowdSecClient.parseArray(body);
 		List<Hit> hits = new ArrayList<>();
 		Instant oldest = null;
+		Instant newest = null;
 		for (Object item : arr) {
 			if (!(item instanceof JSONObject alert)) {
 				continue;
@@ -58,6 +59,9 @@ public final class WafAlertParser {
 			Instant time = timeOf(alert);
 			if (time != null && (oldest == null || time.isBefore(oldest))) {
 				oldest = time;
+			}
+			if (time != null && (newest == null || time.isAfter(newest))) {
+				newest = time;
 			}
 			Hit hit;
 			try {
@@ -70,7 +74,7 @@ public final class WafAlertParser {
 				hits.add(hit);
 			}
 		}
-		return new Batch(hits, arr.size(), oldest);
+		return new Batch(hits, arr.size(), oldest, newest);
 	}
 
 	static Hit parseAlert(JSONObject alert, Instant time) {
