@@ -416,4 +416,28 @@ class CrowdSecClientLapiTest {
 		assertEquals("[]", client().listAlertsRaw(5));
 		assertEquals(1, lapi.logins.get());
 	}
+
+	@Test
+	void alertsRawSendsSinceUntilAndLimitWithoutCapi() {
+		CrowdSecClient c = client();
+		c.alertsRaw(360, null, 500);
+		c.alertsRaw(0, 120L, 1);
+		assertEquals(List.of("include_capi=false&since=360s&limit=500", "include_capi=false&since=1s&until=120s&limit=1"),
+				lapi.alertQueries);
+	}
+
+	@Test
+	void alertsRawReportsHttpErrorsAndUnreachableLapi() throws Exception {
+		lapi.alertsStatus = 500;
+		IllegalStateException e = assertThrows(IllegalStateException.class, () -> client().alertsRaw(60, null, 10));
+		assertEquals("crowdsec alerts HTTP 500", e.getMessage());
+
+		FakeLapi other = new FakeLapi(MACHINE, PASSWORD, KEY);
+		env.put("CROWDSEC_LAPI_URL", other.url());
+		CrowdSecClient c = client();
+		c.alertsRaw(60, null, 10);
+		// token 已快取，之後 LAPI 停掉：連線失敗也要轉成 LapiUnavailableException
+		other.close();
+		assertThrows(CrowdSecClient.LapiUnavailableException.class, () -> c.alertsRaw(60, null, 10));
+	}
 }
