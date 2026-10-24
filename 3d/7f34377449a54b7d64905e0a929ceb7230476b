@@ -1,0 +1,29 @@
+src/test/java/com/cym/service/WafEventSyncServiceTest.java
+  s_fbddda1be869be::t_57d11112b02755 1-252
+src/main/java/com/cym/service/CrowdSecClient.java
+  s_fbddda1be869be::t_27701f7d1f3e0f 530-562
+src/main/java/com/cym/service/WafEventSyncService.java
+  s_fbddda1be869be::t_6de5718edbdc86 1-239
+src/main/java/com/cym/task/ScheduleTask.java
+  s_fbddda1be869be::t_4b7d5002332809 37,96-97,107-118
+src/test/java/com/cym/service/CrowdSecClientLapiTest.java
+  s_fbddda1be869be::t_7f344e6210f7f3 419-442
+src/test/java/com/cym/testsupport/FakeLapi.java
+  s_fbddda1be869be::t_e6e4c6c168d129 54-57,143-150
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3d7f34377449a54b7d64905e0a929ceb7230476b",
+  "prompts": {},
+  "sessions": {
+    "s_fbddda1be869be": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3e7779be-a10c-42c4-bc5a-4ffe39cec920",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
