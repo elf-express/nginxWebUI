@@ -53,6 +53,8 @@ LuaJIT 能編譯，任何一項不符就讓 image build 失敗。
   頁面需要的 JavaScript 在 image 內，不從外網載入。
 - **外部驗證站**：轉到你設定的網址（例如 Cloudflare Worker），外部站驗證後帶簽章的交接票回 `https://<原網域>/.well-known/nwu-challenge/callback`，
   nginx 驗票後發 cookie。外部站連不到時，有驗證決策的訪客在決策到期（4 小時）前都無法通過，不會自動退回內建。
+  外部模式只支援 HTTPS 預設埠 443：交接票只記網域、不記埠號，外部站一律轉回 `https://<原網域>/`。
+  用 8443 等非預設埠提供 HTTPS 的站台請用內建模式，選外部模式時這類站台的訪客無法完成驗證。
 
 樣式可選「自動」（打開即驗證，預設）或「勾選『我不是機器人』」。通過後的有效時間預設 60 分鐘（5–1440），cookie 綁訪客 IP，換 IP 要重新驗證。
 後台「預覽驗證頁」的 ALTCHA 與頁面檔改由後台網址（需登入）提供；image 內沒有 ALTCHA 檔時（例如不是用 Docker 執行）預覽只看不到驗證元件。
@@ -111,11 +113,11 @@ payload = "nwu1" \n kind \n exp \n ip \n host \n path \n nonce                  
 | kind | `req` | `resp` |
 | exp | 現在 + 300 秒（epoch 秒） | 建議現在 + 60 秒；nginx 只檢查未過期，且到期時間不晚於現在 + 300 秒 |
 | ip | 訪客 IP（nginx 看到的） | 照抄請求票（外部站不比對訪客 IP：瀏覽器連兩邊可能分走 IPv4／IPv6） |
-| host | 原網域（`$host`） | 照抄請求票 |
+| host | 原網域（`$host`，不含埠號） | 照抄請求票 |
 | path | 要導回的同網域路徑 | 照抄請求票 |
 | nonce | 隨機 32 位 hex | 外部站新產生的隨機值，nginx 記錄後不接受重送 |
 
-外部站驗證請求票（簽章、`kind=req`、未過期）並完成人機驗證後，轉址到 `https://<host>/.well-known/nwu-challenge/callback?token=<回應票>`。
+外部站驗證請求票（簽章、`kind=req`、未過期）並完成人機驗證後，轉址到 `https://<host>/.well-known/nwu-challenge/callback?token=<回應票>`（固定 443，不加埠號）。
 交接票金鑰的文字本身就是 HMAC 金鑰，兩端都直接取這串文字的位元組，不做 hex 解碼；`openssl rand -hex 32` 只是產生一串安全的隨機字串。
 兩端共用的測試資料在 `docker/lua/test/ticket-vectors.json`：只放欄位、payload 與測試金鑰，簽好的 token 由各端測試依上面的公式在執行時產生。
 
