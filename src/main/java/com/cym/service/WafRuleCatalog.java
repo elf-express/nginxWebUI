@@ -10,6 +10,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +27,8 @@ public final class WafRuleCatalog {
 	public static final String SOURCE_CRS = WafCategories.SOURCE_CRS;
 	/** 已知漏洞沒有「產品 - 」時的分類（規則分頁專用） */
 	public static final String OTHER = "_other";
+	/** 規則名稱會寫進產生的 YAML／expr，只接受這些字元 */
+	private static final Pattern VPATCH_NAME = Pattern.compile("[A-Za-z0-9._/-]+");
 
 	private WafRuleCatalog() {
 	}
@@ -68,7 +71,7 @@ public final class WafRuleCatalog {
 		for (int i = 0; i < vpatch.size(); i++) {
 			JSONObject o = vpatch.getJSONObject(i);
 			String name = o == null ? null : o.getStr("name");
-			if (StrUtil.isBlank(name)) {
+			if (StrUtil.isBlank(name) || !VPATCH_NAME.matcher(name).matches()) {
 				continue;
 			}
 			JSONArray cves = o.getJSONArray("cves");

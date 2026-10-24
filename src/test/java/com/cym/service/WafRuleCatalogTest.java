@@ -12,7 +12,8 @@ import org.junit.jupiter.api.io.TempDir;
 class WafRuleCatalogTest {
 	static final String VPATCH = "[{\"name\":\"crowdsecurity/vpatch-CVE-2017-9841\",\"description\":\"PHPUnit RCE\",\"label\":\"PHPUnit - RCE\",\"cves\":[\"CVE-2017-9841\"]},"
 			+ "{\"name\":\"crowdsecurity/vpatch-env-access\",\"description\":\"env\",\"label\":\"Generic .env access\",\"cves\":[]},"
-			+ "{\"name\":\"\",\"label\":\"x - y\"}]";
+			+ "{\"name\":\"\",\"label\":\"x - y\"},"
+			+ "{\"name\":\"crowdsecurity/vpatch-bad\\\"name\",\"label\":\"Bad - quote\"}]";
 	static final String CRS = "911011\t\t\n911100\t1\tMethod is not allowed by policy\n913100\t1\tFound User-Agent associated with security scanner\n"
 			+ "942100\t1\tSQL Injection Attack Detected via libinjection\n942101\t2\tSQL Injection Attack Detected via libinjection\n942100\t1\tSQL Injection Attack Detected via libinjection\n"
 			+ "944100\t\tRemote Command Execution: Suspicious Java class detected\nbad line\n";
