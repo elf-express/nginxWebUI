@@ -105,7 +105,7 @@ onMounted(load)
 <template>
   <section class="bans" aria-labelledby="bans-title">
     <h2 id="bans-title" class="sub-title">{{ t('crowdsecGuardStr.tabBans') }}</h2>
-    <Space wrap class="bans-bar">
+    <Space class="bans-bar">
       <RadioGroup v-model:value="scope" button-style="solid" class="bans-scope" @change="onScope">
         <RadioButton value="local">{{ t('crowdsecGuardStr.scopeLocal') }}</RadioButton>
         <RadioButton value="community">{{ t('crowdsecGuardStr.scopeCommunity') }}</RadioButton>

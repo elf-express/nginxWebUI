@@ -137,7 +137,7 @@ onMounted(async () => {
   <section class="waf" aria-labelledby="waf-title">
     <h2 id="waf-title" class="sub-title">{{ t('crowdsecGuardStr.tabWaf') }}</h2>
     <div class="waf-status">
-      <Space wrap>
+      <Space>
         <span class="waf-last-sync">
           {{ status?.lastSyncAt ? t('crowdsecGuardStr.wafLastSync', formatTime(status.lastSyncAt)) : t('crowdsecGuardStr.wafNeverSynced') }}
         </span>
@@ -157,7 +157,7 @@ onMounted(async () => {
     </div>
     <Alert v-for="n in notices" :key="n.key" :type="n.type" show-icon :message="n.text" :class="['waf-notice', `waf-notice-${n.key}`]" />
     <div class="waf-filters">
-      <Space wrap>
+      <Space>
         <Select v-model:value="filters.serverId" class="waf-site" :aria-label="t('crowdsecGuardStr.site')" style="min-width: 200px" @change="search">
           <Select.Option value="">{{ t('crowdsecGuardStr.allSites') }}</Select.Option>
           <Select.Option v-for="s in servers" :key="s.id" :value="s.id">{{ s.name }}</Select.Option>
@@ -200,7 +200,7 @@ onMounted(async () => {
           <span class="waf-uri" :title="record.uri">{{ record.uri || '—' }}</span>
         </template>
         <template v-else-if="column.key === 'rules'">
-          <Space wrap :size="4">
+          <Space :size="4">
             <Tag v-for="(r, i) in record.rules" :key="i" class="waf-rule">{{ wafRuleLabel(r) }}</Tag>
           </Space>
         </template>

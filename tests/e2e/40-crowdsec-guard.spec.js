@@ -173,6 +173,39 @@ test.describe('CrowdSec 防護頁', () => {
     await expect(page.locator('.blocked-site')).toContainText(/全部站台|全部站点|All sites/);
   });
 
+  test('最近被擋下的 IP：標題、工具列、下一個元素依序排列，互不重疊', async ({ page }) => {
+    await page.goto('/adminPage/crowdsecGuard');
+    await expect(page.locator('.blocked .ant-table')).toBeVisible();
+    const box = await page.evaluate(() => {
+      const title = document.querySelector('#blocked-title').getBoundingClientRect();
+      const bar = document.querySelector('.blocked-filters');
+      const next = bar.nextElementSibling.getBoundingClientRect();
+      const b = bar.getBoundingClientRect();
+      return { titleBottom: title.bottom, barTop: b.top, barBottom: b.bottom, nextTop: next.top };
+    });
+    expect(box.titleBottom).toBeLessThanOrEqual(box.barTop);
+    expect(box.barBottom).toBeLessThanOrEqual(box.nextTop);
+  });
+
+  test('空表格依介面語系顯示 ant 元件的文字，不是英文 No data', async ({ page }) => {
+    const setLang = async (lang) => {
+      const res = await page.request.post('/adminPage/login/changeLang', { form: { lang } });
+      expect((await res.json()).success).toBe(true);
+    };
+    try {
+      await page.goto('/adminPage/crowdsecGuard');
+      await expect(page.locator('.blocked .ant-empty-description')).toHaveText('暂无数据');
+      await setLang('zh_TW');
+      await page.reload();
+      await expect(page.locator('.blocked .ant-empty-description')).toHaveText('無此資料');
+      await setLang('en_US');
+      await page.reload();
+      await expect(page.locator('.blocked .ant-empty-description')).toHaveText('No data');
+    } finally {
+      await setLang('zh');
+    }
+  });
+
   test('連續查不同 IP：較早送出、較晚回來的結果不會蓋掉最後一次查詢', async ({ page }) => {
     let release;
     const gate = new Promise((r) => { release = r; });

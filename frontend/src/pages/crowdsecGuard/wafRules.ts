@@ -105,6 +105,11 @@ export function notApplied(data: WafRules | null): boolean {
   return data?.inSync === false
 }
 
+/** 顯示「尚未套用」警告時（套用進行中不顯示），不再顯示上一次的「套用成功」；失敗、進行中、逾時的訊息照常顯示 */
+export function visibleStatusMessage<T extends { type: string }>(msg: T | null, data: WafRules | null, applying: boolean): T | null {
+  return msg && msg.type === 'success' && notApplied(data) && !applying ? null : msg
+}
+
 /** 有變更，或設定尚未套用到 CrowdSec（此時沒有變更也能重新送出）才送出套用 */
 export function canApply(changes: Change[], data: WafRules | null): boolean {
   return changes.length > 0 || notApplied(data)

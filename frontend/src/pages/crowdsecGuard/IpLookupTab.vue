@@ -142,7 +142,7 @@ watch(
 
       <ol class="ip-layers">
         <li v-for="l in layers" :key="l.layer" class="ip-layer" :data-layer="l.layer" :data-state="l.state">
-          <Space wrap>
+          <Space>
             <strong>{{ t(`crowdsecGuardStr.layer_${l.layer}`) }}</strong>
             <Tag :color="layerColor(l.layer, l.state)">{{ t(layerStateKey(l.layer, l.state)) }}</Tag>
             <span v-if="l.lists?.length">{{ l.lists.join('、') }}</span>
@@ -167,7 +167,7 @@ watch(
         <template v-else>
           <ul class="ip-waf-list">
             <li v-for="e in wafEvents" :key="e.id" class="ip-waf-item" :data-action="e.action">
-              <Space wrap :size="4">
+              <Space :size="4">
                 <span>{{ formatTime(e.eventTime) }}</span>
                 <span>{{ e.host || '—' }}</span>
                 <span class="ip-waf-uri">{{ e.method || '' }} {{ e.uri || '' }}</span>

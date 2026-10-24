@@ -5,7 +5,7 @@ import { SessionExpiredError } from '../../shared/http'
 import { t } from '../../shared/i18n'
 import { notifyError } from '../../shared/notify'
 import { applyWaf, fetchServers, fetchWafApplyStatus, fetchWafRules, type WafApplyStatus, type WafCategory, type WafRule, type WafRules } from './api'
-import { actionLabelKey, actionOptions, categoryName, changesOf, currentOf, editKey, canApply, notApplied, onlyHitsMode, resumeRequestId, statusMessage, visibleCategories, visibleRules, type Edit, type WafScope } from './wafRules'
+import { actionLabelKey, actionOptions, categoryName, changesOf, currentOf, editKey, canApply, notApplied, onlyHitsMode, resumeRequestId, statusMessage, visibleCategories, visibleRules, visibleStatusMessage, type Edit, type WafScope } from './wafRules'
 
 const props = defineProps<{ focus: string; focusSeq: number }>()
 
@@ -38,7 +38,7 @@ const sections = computed(() => {
     categories: visibleCategories(d.categories.filter((c) => c.source === source), d.rules, q.value, showAll.value),
   }))
 })
-const statusMsg = computed(() => (status.value ? statusMessage(status.value, t) : null))
+const statusMsg = computed(() => visibleStatusMessage(status.value ? statusMessage(status.value, t) : null, data.value, applying.value))
 // 只列命中且沒有搜尋字時才用「近 7 天沒有命中」的空狀態，其餘用 ant 預設
 const tableLocale = computed(() => (onlyHitsMode(q.value, showAll.value) ? { emptyText: t('crowdsecWafStr.emptyHits') } : undefined))
 
@@ -227,7 +227,7 @@ onBeforeUnmount(() => {
       :message="t('crowdsecWafStr.noCatalog')" :description="t('crowdsecWafStr.noCatalogHint')" />
     <template v-else-if="data">
       <Alert v-if="notApplied(data) && !applying" type="warning" show-icon class="waf-not-applied" :message="t('crowdsecWafStr.notApplied')" />
-      <Space wrap class="waf-bar">
+      <Space class="waf-bar">
         <InputSearch v-model:value="q" class="waf-search" allow-clear :placeholder="t('crowdsecWafStr.search')" :aria-label="t('crowdsecWafStr.search')" />
         <span class="waf-show-all">
           <Switch v-model:checked="showAll" class="waf-show-all-switch" :aria-label="t('crowdsecWafStr.showAll')" />

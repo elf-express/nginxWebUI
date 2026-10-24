@@ -54,7 +54,7 @@ onMounted(async () => {
 <template>
   <section class="blocked" aria-labelledby="blocked-title">
     <h2 id="blocked-title" class="sub-title">{{ t('crowdsecGuardStr.blockedTitle') }}</h2>
-    <Space wrap class="blocked-filters">
+    <Space class="blocked-filters">
       <Select v-model:value="serverId" class="blocked-site" :aria-label="t('crowdsecGuardStr.site')" style="min-width: 220px" @change="load">
         <Select.Option value="">{{ t('crowdsecGuardStr.allSites') }}</Select.Option>
         <Select.Option v-for="s in servers" :key="s.id" :value="s.id">{{ s.name }}</Select.Option>

@@ -3,7 +3,8 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { Alert, Breadcrumb, BreadcrumbItem, Button, ConfigProvider, Modal, Space, Table, message } from 'ant-design-vue'
 import { ArrowDownOutlined, ArrowUpOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons-vue'
 import { SessionExpiredError } from '../../shared/http'
-import { t } from '../../shared/i18n'
+import { antLocaleOf } from '../../shared/antLocale'
+import { getLang, t } from '../../shared/i18n'
 import { notifyError } from '../../shared/notify'
 import BasicFormModal from './BasicFormModal.vue'
 import ModuleTable from './ModuleTable.vue'
@@ -22,6 +23,7 @@ const modal = reactive<{ open: boolean; title: string; initial: BasicForm }>({
 
 // 主色對齊舊版 Layui 的 layui-btn-normal
 const theme = { token: { colorPrimary: '#1e9fff' } }
+const locale = antLocaleOf(getLang())
 
 const columns = computed(() => [
   { title: t('commonStr.name'), dataIndex: 'name', key: 'name' },
@@ -124,7 +126,7 @@ onMounted(reload)
 </script>
 
 <template>
-  <ConfigProvider :theme="theme">
+  <ConfigProvider :theme="theme" :locale="locale">
     <div class="spa-page">
       <h1 class="spa-title">{{ t('menuStr.basic') }}</h1>
       <Breadcrumb class="spa-breadcrumb">
@@ -140,7 +142,7 @@ onMounted(reload)
 
       <template v-else>
         <div class="spa-toolbar">
-          <Space wrap>
+          <Space>
             <Button type="primary" @click="openAdd">
               <template #icon><PlusOutlined /></template>
               {{ t('basicStr.add') }}
@@ -165,7 +167,7 @@ onMounted(reload)
           :locale="{ emptyText: t('commonStr.noData') }"
         >
           <template #bodyCell="{ column, record }">
-            <Space v-if="column.key === 'operation'" wrap>
+            <Space v-if="column.key === 'operation'">
               <Button size="small" @click="openEdit(record.id)">
                 <template #icon><EditOutlined /></template>
                 {{ t('commonStr.edit') }}
@@ -223,5 +225,12 @@ onMounted(reload)
 .spa-legacy-link:hover,
 .spa-legacy-link:focus-visible {
   text-decoration: underline;
+}
+</style>
+
+<style>
+/* Space 一律允許換行 */
+.ant-space-horizontal {
+  flex-wrap: wrap;
 }
 </style>

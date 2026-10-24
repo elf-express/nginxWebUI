@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, provide, ref } from 'vue'
 import { ConfigProvider, TabPane, Tabs } from 'ant-design-vue'
-import { t } from '../../shared/i18n'
+import { antLocaleOf } from '../../shared/antLocale'
+import { getLang, t } from '../../shared/i18n'
 import CrowdSecTab from '../crowdsec/CrowdSecTab.vue'
 import BlocklistTab from './BlocklistTab.vue'
 import IpLookupTab from './IpLookupTab.vue'
@@ -11,6 +12,7 @@ import { ipHash, parseHash, rulesHash, type TabKey } from './view'
 
 // 主色對齊舊版 Layui 的 layui-btn-normal
 const theme = { token: { colorPrimary: '#1e9fff' } }
+const locale = antLocaleOf(getLang())
 const active = ref<TabKey>('ip')
 const queryIp = ref('')
 // 每次「查這個 IP」加一，同一個 IP 也會重查
@@ -69,7 +71,7 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', syncFromHash))
 </script>
 
 <template>
-  <ConfigProvider :theme="theme">
+  <ConfigProvider :theme="theme" :locale="locale">
     <main class="guard-page">
       <h1 class="guard-title">{{ t('crowdsecGuardStr.title') }}</h1>
       <p class="guard-intro">{{ t('crowdsecGuardStr.intro') }}</p>
@@ -106,5 +108,12 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', syncFromHash))
 .guard-intro {
   color: #666;
   margin: 0 0 12px;
+}
+</style>
+
+<style>
+/* Space 一律允許換行 */
+.ant-space-horizontal {
+  flex-wrap: wrap;
 }
 </style>

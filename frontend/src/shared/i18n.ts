@@ -3,6 +3,7 @@ import { get } from './http'
 export type Messages = Record<string, string>
 
 let messages: Messages = {}
+let lang = ''
 
 export function setMessages(next: Messages): void {
   messages = next
@@ -24,8 +25,14 @@ export function te(key: string): boolean {
   return key in messages
 }
 
+/** 最近一次 loadMessages 取得的語系 */
+export function getLang(): string {
+  return lang
+}
+
 export async function loadMessages(): Promise<string> {
   const data = await get<{ lang: string; messages: Messages }>('/adminPage/i18n')
   setMessages(data.messages)
+  lang = data.lang
   return data.lang
 }
