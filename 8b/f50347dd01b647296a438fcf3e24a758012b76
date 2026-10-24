@@ -1,0 +1,45 @@
+frontend/src/pages/crowdsecGuard/wafRules.test.ts
+  s_1006f5e1b97097::t_d15902270426aa 1-70
+  s_1006f5e1b97097::t_5042dd34d6c891 71-85
+frontend/src/pages/crowdsecGuard/wafRules.ts
+  s_1006f5e1b97097::t_8684d17097a6af 1-101
+  s_1006f5e1b97097::t_ae7b1fb57e893f 102-111
+frontend/src/pages/crowdsecGuard/view.ts
+  s_1006f5e1b97097::t_155415e0e98048 3-4,6-7,11-16
+frontend/src/pages/crowdsecGuard/view.test.ts
+  s_1006f5e1b97097::t_6281f33cf4d5fc 40-52,80
+  s_1006f5e1b97097::t_5869f1f63624c8 70,75-79
+  s_1006f5e1b97097::t_f332610aed25cd 14,17
+  s_1006f5e1b97097::t_2c6823f82ed3a0 81-82
+frontend/src/pages/crowdsecGuard/WafRulesTab.vue
+  s_1006f5e1b97097::t_3c09559c510118 1-264
+  s_1006f5e1b97097::t_332c24e858692f 265-309
+frontend/src/pages/crowdsecGuard/GuardPage.vue
+  s_1006f5e1b97097::t_67ba62e6ad08e6 9-10,18-20,28-31,36,55-63,86-88
+frontend/src/pages/crowdsecGuard/WafEventsTab.vue
+  s_1006f5e1b97097::t_14ff5b81f48d79 22,232,282-284
+frontend/src/pages/crowdsecGuard/api.ts
+  s_1006f5e1b97097::t_c91aa30320a2f5 95,114,157-207
+src/main/resources/messages.properties
+  s_1006f5e1b97097::t_90f9d4f44415f6 1267-1304
+src/main/resources/messages_en_US.properties
+  s_1006f5e1b97097::t_34544f3d700945 1267-1304
+src/main/resources/messages_zh_TW.properties
+  s_1006f5e1b97097::t_2c5fcfa4c56b65 1267-1304
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8bf50347dd01b647296a438fcf3e24a758012b76",
+  "prompts": {},
+  "sessions": {
+    "s_1006f5e1b97097": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c42c83a6-6d55-484a-9615-af8cf8c3bdc0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
