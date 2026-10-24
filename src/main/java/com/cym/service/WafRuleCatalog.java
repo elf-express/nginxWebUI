@@ -70,7 +70,10 @@ public final class WafRuleCatalog {
 		JSONArray vpatch = JSONUtil.parseArray(vpatchJson);
 		for (int i = 0; i < vpatch.size(); i++) {
 			JSONObject o = vpatch.getJSONObject(i);
-			String name = o == null ? null : o.getStr("name");
+			if (o == null) {
+				continue;
+			}
+			String name = o.getStr("name");
 			if (StrUtil.isBlank(name) || !VPATCH_NAME.matcher(name).matches()) {
 				continue;
 			}
