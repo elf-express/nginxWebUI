@@ -82,6 +82,14 @@ public class WafTuningService {
 		return action != null && (WafRuleCatalog.SOURCE_VPATCH.equals(source) ? VPATCH_ACTIONS : CRS_ACTIONS).contains(action);
 	}
 
+	public static boolean allowedAction(String source, String action) {
+		return allowed(source, action);
+	}
+
+	public static String defaultActionOf(String source) {
+		return defaultAction(source);
+	}
+
 	static String sourceOfCategory(String category) {
 		return category.startsWith(WafRuleCatalog.SOURCE_VPATCH + ":") ? WafRuleCatalog.SOURCE_VPATCH : WafRuleCatalog.SOURCE_CRS;
 	}

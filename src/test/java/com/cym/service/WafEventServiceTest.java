@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -91,6 +92,34 @@ class WafEventServiceTest {
 		long sec = AT.getEpochSecond();
 		assertEquals(List.of("1@" + sec, "2@" + sec), rules.stream().map(WafEventRule::getAlertId).toList());
 		assertTrue(rules.stream().allMatch(r -> e.getId().equals(r.getEventId()) && AT.toEpochMilli() == r.getEventTime()));
+	}
+
+	private static WafEvent mergeInto(WafEvent e, JSONObject alert, Map<String, String> effective) {
+		for (WafAlertParser.Hit h : hits(array(alert))) {
+			WafEventService.merge(e, h, effective);
+		}
+		return e;
+	}
+
+	@Test
+	void vpatchSetToLogOnlyGivesALoggedEvent() {
+		WafEvent e = mergeInto(new WafEvent(), vpatch(1, "198.51.100.9", AT, SHOP), Map.of("crowdsecurity/vpatch-env-access", "log"));
+		assertEquals(WafEventService.ACTION_LOG, e.getAction());
+	}
+
+	@Test
+	void vpatchMissingFromOrBlockedInTheSettingsGivesABlockedEvent() {
+		assertEquals(WafEventService.ACTION_BLOCK, mergeInto(new WafEvent(), vpatch(1, "198.51.100.9", AT, SHOP), Map.of()).getAction());
+		assertEquals(WafEventService.ACTION_BLOCK,
+				mergeInto(new WafEvent(), vpatch(1, "198.51.100.9", AT, SHOP), Map.of("crowdsecurity/vpatch-env-access", "block")).getAction());
+	}
+
+	@Test
+	void blockedEventStaysBlockedWhenALogOnlyVpatchIsMergedIn() {
+		WafEvent e = new WafEvent();
+		e.setAction(WafEventService.ACTION_BLOCK);
+		mergeInto(e, vpatch(1, "198.51.100.9", AT, SHOP), Map.of("crowdsecurity/vpatch-env-access", "log"));
+		assertEquals(WafEventService.ACTION_BLOCK, e.getAction());
 	}
 
 	@Test
