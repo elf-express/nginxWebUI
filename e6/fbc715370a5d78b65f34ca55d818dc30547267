@@ -1,0 +1,77 @@
+src/test/java/com/cym/service/WafRuleCatalogTest.java
+  s_1006f5e1b97097::t_5606bee0b2f450 15-16
+src/main/java/com/cym/service/WafTuningService.java
+  s_1006f5e1b97097::t_21adaa0e4c3100 155
+  s_1006f5e1b97097::t_888e23b6dd176e 82
+  s_1006f5e1b97097::t_91e8e54c2db732 430-432
+  s_1006f5e1b97097::t_0e55d7bbb6b999 79-81
+  s_1006f5e1b97097::t_e9920ac57be716 83-85,152-154
+  s_1006f5e1b97097::t_3113dac3db7fac 156-158,427-429
+  s_1006f5e1b97097::t_acd6be0fd8540f 433-435
+  s_721ee14f93ba87::t_e53a7850fbd4b2 1-78,86-151,159-426,436-448
+src/main/java/com/cym/service/WafRuleCatalog.java
+  s_1006f5e1b97097::t_9d052e3bef8ab2 74
+  s_1006f5e1b97097::t_be3b4b07803d8a 30-31
+  s_1006f5e1b97097::t_b17a3d7ed4d50f 13
+src/test/java/com/cym/service/WafTuningServiceTest.java
+  s_1006f5e1b97097::t_c92bfe40cf5308 43,47,49,53,55,60,62,66,68,73,75,83,85,91,93,98,100,107,109,116,118,120,128,130,136,138,145-146,148,157-306
+  s_1006f5e1b97097::t_9677ece546801f 105
+  s_1006f5e1b97097::t_ebeaff2edff24f 15-20
+  s_1006f5e1b97097::t_18457c09f82bed 12-14
+  s_1006f5e1b97097::t_1c50d8468edc72 21-23,40-42
+  s_1006f5e1b97097::t_9e09b8b9a06696 44-46
+  s_1006f5e1b97097::t_7ae1c318e0d7c4 48
+  s_1006f5e1b97097::t_cd79f96a95f4ab 50-52
+  s_1006f5e1b97097::t_85c703fefab7e1 54
+  s_1006f5e1b97097::t_bbde5de7e8fc10 56-59
+  s_1006f5e1b97097::t_0239c987b992ca 61
+  s_1006f5e1b97097::t_699e8a38734ce0 63-65
+  s_1006f5e1b97097::t_e0474a60192f6d 67
+  s_1006f5e1b97097::t_af2d98ca96d823 69-72
+  s_1006f5e1b97097::t_96f3368c265182 74
+  s_1006f5e1b97097::t_dd2eedf9cb1381 76-78,80-82
+  s_1006f5e1b97097::t_3264a2b260b703 84
+  s_1006f5e1b97097::t_51a12e2ff9d209 86-90
+  s_1006f5e1b97097::t_af7d318f948eb0 92
+  s_1006f5e1b97097::t_90ce8a9c0da20e 94-97
+  s_1006f5e1b97097::t_fd15e2b0da7ce5 99
+  s_1006f5e1b97097::t_d588a89fbe12e5 101-104
+  s_1006f5e1b97097::t_47ed01d7ec11ce 106
+  s_1006f5e1b97097::t_18b9d28fa60525 108
+  s_1006f5e1b97097::t_54069d95b0cec4 110-115
+  s_1006f5e1b97097::t_c247bef225b591 117
+  s_1006f5e1b97097::t_06ea2008321631 119
+  s_1006f5e1b97097::t_4bd109d5ee249e 121-123,125-127
+  s_1006f5e1b97097::t_c28bb668c327fe 129
+  s_1006f5e1b97097::t_ec24e241f0b671 131-135
+  s_1006f5e1b97097::t_2564b5d4f31015 137
+  s_1006f5e1b97097::t_1d6739c94d89f9 139-144
+  s_1006f5e1b97097::t_cac94289577c09 147
+  s_1006f5e1b97097::t_f819fe2950433e 149-151,154-156
+  s_1006f5e1b97097::t_6d8d5f69da5b72 307
+  s_721ee14f93ba87::t_666b15ef3a769b 1-11,24-39,79,124,152-153
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e6fbc715370a5d78b65f34ca55d818dc30547267",
+  "prompts": {},
+  "sessions": {
+    "s_1006f5e1b97097": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c42c83a6-6d55-484a-9615-af8cf8c3bdc0",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    },
+    "s_721ee14f93ba87": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a787e684d9756db39",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
