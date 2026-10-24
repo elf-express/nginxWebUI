@@ -18,7 +18,7 @@ const ENV_PORT = 18083;
 const ENV_BASE = `http://localhost:${ENV_PORT}`;
 // 放在已被 .gitignore 的 test-data/ 底下；helpers.cleanTestData() 只刪 test-data/sqlite.db
 const ENV_DATA_DIR = path.join(__dirname, 'test-data', 'waf').replace(/\\/g, '/');
-// 每次執行隨機產生，避免把看起來像憑證的字串寫進原始碼
+// 每次執行隨機產生
 const MACHINE_PASSWORD = crypto.randomBytes(16).toString('hex');
 const BOUNCER_KEY = crypto.randomBytes(16).toString('hex');
 const IP_ENV = '198.51.100.9'; // GET /.env：vpatch 擋下，CRS 930130 同一個請求
@@ -33,7 +33,7 @@ async function api(page, p, form) {
   return json.obj;
 }
 
-// 帶一個每次不同的查詢字串：同一頁只改 hash 不會重新載入，前一個測試留下的篩選會沿用
+// 帶一個每次不同的查詢字串，頁面重新載入
 async function openWafTab(page) {
   await page.goto(`/adminPage/crowdsecGuard?t=${Date.now()}#waf`);
   const app = page.locator('#crowdsecGuardApp');
@@ -42,8 +42,7 @@ async function openWafTab(page) {
   return app;
 }
 
-// 下拉選單是虛擬捲動：選項不在可視範圍時不會渲染，且重新打開時會捲到已選的項目；
-// 所以每次重試前把清單捲到下一個位置（到底就從頭再來），直到選項出現
+// 下拉選單是虛擬捲動：每次重試前把清單捲到下一個位置（到底就從頭再來），直到選項出現並點擊
 async function choose(page, select, name) {
   await select.click();
   const dropdown = page.locator('.ant-select-dropdown:visible');
@@ -241,7 +240,7 @@ test.describe('WAF 事件分頁（假 LAPI）', () => {
       `--project.testCaptcha=${TEST_CAPTCHA}`,
       '--project.skipSeedFetch=true',
       '--project.skipGeoipFetch=true',
-      // 共用的 18080 server 還在跑；不帶這個，啟動時會把它當舊版本殺掉
+      // 不終止已在執行的共用 server
       '--project.skipKillSelf=true',
     ], {
       cwd: PROJECT_ROOT,

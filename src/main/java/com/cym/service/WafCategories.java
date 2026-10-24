@@ -32,7 +32,7 @@ public final class WafCategories {
 		return ruleName != null && ruleName.matches("\\d{6}");
 	}
 
-	/** AppSec 只載入 virtual-patching 與 CRS 兩套規則，所以非六位數字的名稱都視為 vpatch */
+	/** 六位數字的規則名稱為 CRS，其餘為 vpatch */
 	public static String sourceOf(String ruleName) {
 		return isCrsRule(ruleName) ? SOURCE_CRS : SOURCE_VPATCH;
 	}

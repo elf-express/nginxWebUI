@@ -138,7 +138,7 @@ export interface WafSyncResult {
   error?: string | null
 }
 
-/** 用 type（不是 interface）才能直接當 Params 傳給 get；days 為 0 表示保留期內全部 */
+/** days 為 0 表示保留期內全部 */
 export type WafQuery = {
   serverId: string
   category: string

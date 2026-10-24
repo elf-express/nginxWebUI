@@ -5,7 +5,7 @@
 #   2. GET /.env (403) and a SQL injection from the client container show up in /adminPage/crowdsecGuard/waf/events
 #      within 100 s without a manual sync: 2 events, host e2e.test, the client's User-Agent, the /.env event blocked
 #      with the vpatch rule and CRS 930130 merged into it
-#   3. the category filter crs-sqli lists only the SQL injection
+#   3. the category filter crs-sqli lists only the SQL injection; the site filter (e2e.test) lists both events
 #   4. ipLookup of the client lists its recent WAF events
 #   5. backfill: with the events deleted and the sync point moved 30 minutes back, the next sync restores both
 #      events and marks a gap (CrowdSec has no alert older than the sync point)
@@ -17,7 +17,7 @@
 # Usage: sh docker/test/crowdsec-waf-events-e2e.sh <nginxwebui image> <nginxwebui-crowdsec image>
 #   e.g. sh docker/test/crowdsec-waf-events-e2e.sh nginxwebui:e394 nginxwebui-crowdsec:e394
 set -u
-# Git Bash on Windows would otherwise rewrite the container paths below.
+# Keep Git Bash on Windows from rewriting the container paths below.
 export MSYS_NO_PATHCONV=1
 unset COMPOSE_PROFILES COMPOSE_FILE COMPOSE_PROJECT_NAME
 
@@ -32,7 +32,7 @@ NWU="${PROJECT}-nginxwebui"
 CS="${PROJECT}-crowdsec"
 PG="${PROJECT}-postgres"
 CLIENT="${PROJECT}-client"
-# A documentation range (TEST-NET-2), not RFC 1918: CrowdSec's default whitelist drops events from private IPs.
+# Documentation range (TEST-NET-2), not a private range.
 SUBNET=198.51.100
 IP_CLIENT=$SUBNET.60
 HOST=e2e.test
@@ -259,7 +259,7 @@ r="$(api /adminPage/server/addOver --data-urlencode "serverJson=$SERVER_JSON" \
   --data-urlencode "serverParamJson=" --data-urlencode "locationJson=$LOC_JSON")"
 ok "$r" || { fail setup "server addOver: $r"; exit 1; }
 
-# The seeded global GeoRule (allow mode) answers 403 to IPs without a country before the WAF sees them; turn it off.
+# Turn off the seeded global GeoRule (allow mode).
 geo="$(api /adminPage/geo/detail)"
 GEO_ID="$(echo "$geo" | json_str id)"
 GEO_COUNTRIES="$(echo "$geo" | json_str countries)"
@@ -301,12 +301,15 @@ else
   fail 2 "codes /.env=$c_env sqli=$c_sqli; events: $ev"
 fi
 
-# ---------- 3. category filter ----------
+# ---------- 3. category and site filters ----------
 r="$(api "/adminPage/crowdsecGuard/waf/events?ip=$IP_CLIENT&days=0&category=crs-sqli")"
-if echo "$r" | grep -qE '"count":1[,}]' && echo "$r" | grep -q '"category":"crs-sqli"' && ! echo "$r" | grep -q 'vpatch-env-access'; then
-  pass 3 "category crs-sqli lists only the SQL injection"
+site_id="$(api /adminPage/crowdsecGuard/servers | sed -n "s/.*\"id\":\"\([^\"]*\)\",\"name\":\"$HOST\".*/\1/p")"
+r_site="$(api "/adminPage/crowdsecGuard/waf/events?ip=$IP_CLIENT&days=0&serverId=$site_id")"
+if echo "$r" | grep -qE '"count":1[,}]' && echo "$r" | grep -q '"category":"crs-sqli"' && ! echo "$r" | grep -q 'vpatch-env-access' \
+  && [ -n "$site_id" ] && echo "$r_site" | grep -qE '"count":2[,}]'; then
+  pass 3 "category crs-sqli lists only the SQL injection; site filter ($HOST) lists both events"
 else
-  fail 3 "crs-sqli: $r"
+  fail 3 "crs-sqli: $r; site id '$site_id': $r_site"
 fi
 
 # ---------- 4. ipLookup ----------
@@ -318,10 +321,8 @@ else
 fi
 
 # ---------- 5. backfill and gap ----------
-# Right after a finished sync (so a running scheduled sync cannot write its sync point over ours), drop the events and
-# move the sync point 30 minutes back. The stack is younger than that, so CrowdSec has no alert older than the sync
-# point: the next sync restores both events and records a gap starting at the sync point.
-# A scheduled sync can run between the delete and the check and bring the events back; then the reset is repeated (3 tries).
+# After a finished sync, drop the events and move the sync point 30 minutes back; repeat up to 3 times while the
+# events are still listed. The next sync restores both events and records a gap starting at the sync point.
 tries=0
 gone=""
 while [ "$tries" -lt 3 ]; do
@@ -349,7 +350,7 @@ s_down="$(sync_now)"
 st_down="$(api /adminPage/crowdsecGuard/waf/status)"
 kept="$(api "/adminPage/crowdsecGuard/waf/events?ip=$IP_CLIENT&days=0")"
 docker start "$CS" >/dev/null
-# The machine record lives in the volume, so wait_crowdsec returns at once; poll the sync until the LAPI answers (about 60 s).
+# Poll the sync until it succeeds (up to about 60 s).
 i=0
 s_up=""
 while [ "$i" -lt 12 ]; do

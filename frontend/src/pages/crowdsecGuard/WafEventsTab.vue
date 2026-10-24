@@ -200,7 +200,7 @@ onMounted(async () => {
         </template>
         <template v-else-if="column.key === 'rules'">
           <Space wrap :size="4">
-            <Tag v-for="r in record.rules" :key="r.ruleName" class="waf-rule">{{ wafRuleLabel(r) }}</Tag>
+            <Tag v-for="(r, i) in record.rules" :key="i" class="waf-rule">{{ wafRuleLabel(r) }}</Tag>
           </Space>
         </template>
         <template v-else-if="column.key === 'result'">
@@ -225,7 +225,7 @@ onMounted(async () => {
           <dt>{{ t('crowdsecGuardStr.wafRules') }}</dt>
           <dd>
             <ul class="waf-detail-rules">
-              <li v-for="r in record.rules" :key="r.ruleName">
+              <li v-for="(r, i) in record.rules" :key="i">
                 <strong>{{ t('crowdsecGuardStr.wafRuleLine', wafRuleLabel(r), t(wafCategoryKey(r.category))) }}</strong>
                 <span v-if="r.message"> — {{ r.message }}</span>
               </li>

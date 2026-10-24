@@ -17,6 +17,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.slf4j.LoggerFactory;
+
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 
 import com.cym.model.WafEvent;
 import com.cym.testsupport.FakeLapi;
@@ -58,6 +64,7 @@ class WafEventSyncServiceTest {
 		events = new WafEventService();
 		events.sqlHelper = sql;
 		events.countryOf = ip -> "TW";
+		events.distinctHosts = from -> new ArrayList<>();
 	}
 
 	@AfterEach
@@ -170,6 +177,39 @@ class WafEventSyncServiceTest {
 		assertTrue(lapi.alertQueries.contains("include_capi=false&since=1560s&limit=500"), lapi.alertQueries.toString());
 		assertNull(s.status(now).lastError());
 		assertNull(s.status(now).lastErrorAt());
+	}
+
+	@Test
+	void repeatedFailureWithTheSameCodeIsLoggedAtDebugAndANewCodeAtWarn() {
+		Logger logger = (Logger) LoggerFactory.getLogger(WafEventSyncService.class);
+		Level old = logger.getLevel();
+		ListAppender<ILoggingEvent> appender = new ListAppender<>();
+		appender.start();
+		logger.setLevel(Level.DEBUG);
+		logger.addAppender(appender);
+		try {
+			WafEventSyncService s = sync();
+			lapi.alertsStatus = 500;
+			s.sync(now);
+			now += MIN;
+			s.sync(now);
+			now += MIN;
+			s.sync(now);
+			assertEquals(List.of(Level.WARN, Level.DEBUG, Level.DEBUG), failureLevels(appender));
+			lapi.alertsStatus = 0;
+			assertEquals(WafEventSyncService.OK, s.sync(now).outcome());
+			lapi.alertsStatus = 500;
+			s.sync(now);
+			assertEquals(List.of(Level.WARN, Level.DEBUG, Level.DEBUG, Level.WARN), failureLevels(appender));
+		} finally {
+			logger.detachAppender(appender);
+			logger.setLevel(old);
+		}
+	}
+
+	private static List<Level> failureLevels(ListAppender<ILoggingEvent> appender) {
+		return appender.list.stream().filter(e -> e.getFormattedMessage().startsWith("waf event sync failed")).map(ILoggingEvent::getLevel)
+				.toList();
 	}
 
 	@Test

@@ -15,6 +15,7 @@ import cn.hutool.json.JSONObject;
 import com.cym.model.Server;
 import com.cym.model.WafEvent;
 import com.cym.model.WafEventRule;
+import com.cym.sqlhelper.utils.ConditionAndWrapper;
 import com.cym.testsupport.InMemorySqlHelper;
 
 /** WAF 事件存入（合併、去重、結果）、查詢（站台、類別、結果、IP、期間、分頁）、最近事件與清理 */
@@ -34,6 +35,9 @@ class WafEventServiceTest {
 		service = new WafEventService();
 		service.sqlHelper = sql;
 		service.countryOf = ip -> "TW";
+		service.distinctHosts = from -> sql.findPropertiesByQuery(
+				from == null ? new ConditionAndWrapper().isNotNull("host") : new ConditionAndWrapper().isNotNull("host").gte("eventTime", from),
+				WafEvent.class, "host");
 		servers.clear();
 		server("s-shop", "shop.example.test");
 		server("s-blog", "blog.example.test");

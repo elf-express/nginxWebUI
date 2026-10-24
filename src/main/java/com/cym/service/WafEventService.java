@@ -17,6 +17,7 @@ import org.noear.solon.annotation.Component;
 import org.noear.solon.annotation.Init;
 import org.noear.solon.annotation.Inject;
 
+import com.cym.config.SQLConstants;
 import com.cym.model.Server;
 import com.cym.model.WafEvent;
 import com.cym.model.WafEventRule;
@@ -25,6 +26,7 @@ import com.cym.sqlhelper.bean.Sort;
 import com.cym.sqlhelper.bean.Sort.Direction;
 import com.cym.sqlhelper.utils.ConditionAndWrapper;
 import com.cym.sqlhelper.utils.ConditionOrWrapper;
+import com.cym.sqlhelper.utils.JdbcTemplate;
 import com.cym.sqlhelper.utils.SqlHelper;
 import com.cym.utils.IpMatch;
 
@@ -48,12 +50,33 @@ public class WafEventService {
 	SqlHelper sqlHelper;
 	@Inject
 	GeoLookup geoLookup;
+	@Inject
+	JdbcTemplate jdbcTemplate;
 
 	Function<String, String> countryOf;
+	/** 資料表裡出現過的不重複 host；參數是起算時間（epoch 毫秒），null 表示不限 */
+	Function<Long, List<String>> distinctHosts;
 
 	@Init
 	public void init() {
 		countryOf = ip -> geoLookup.country(ip).code();
+		distinctHosts = this::queryDistinctHosts;
+	}
+
+	/** SELECT DISTINCT host 直接查資料表，起算時間以參數綁定 */
+	private List<String> queryDistinctHosts(Long from) {
+		String q = SQLConstants.SUFFIX;
+		String sql = "SELECT DISTINCT " + q + "host" + q + " FROM " + q + "waf_event" + q + " WHERE " + q + "host" + q
+				+ " IS NOT NULL" + (from == null ? "" : " AND " + q + "event_time" + q + " >= ?");
+		List<Map<String, Object>> rows = from == null ? jdbcTemplate.queryForList(sql) : jdbcTemplate.queryForList(sql, from);
+		List<String> hosts = new ArrayList<>();
+		for (Map<String, Object> row : rows) {
+			Object value = row.values().iterator().next();
+			if (value != null) {
+				hosts.add(value.toString());
+			}
+		}
+		return hosts;
 	}
 
 	/** 查詢條件：serverId／category／action／ip 空白表示不篩；days 為 null 或 0 表示不限期間（保留期內全部） */
@@ -73,7 +96,7 @@ public class WafEventService {
 	}
 
 	/**
-	 * 去重鍵：alert id 加建立時間（秒）。CrowdSec 資料庫重建後 alert id 會從 1 重來，只看 id 會把保留期內的新 alert 當成舊的。
+	 * 去重鍵：alert id 加建立時間（秒）。
 	 */
 	static String alertKey(WafAlertParser.Hit h) {
 		return h.alertId() + "@" + h.time().getEpochSecond();
@@ -277,11 +300,7 @@ public class WafEventService {
 	List<String> hostsOf(String serverId, List<Server> httpServers, Long from) {
 		HttpServerSelector selector = new HttpServerSelector(httpServers);
 		Set<String> hosts = new TreeSet<>();
-		ConditionAndWrapper seen = new ConditionAndWrapper().isNotNull("host");
-		if (from != null) {
-			seen.gte("eventTime", from);
-		}
-		for (String h : sqlHelper.findPropertiesByQuery(seen, WafEvent.class, "host")) {
+		for (String h : distinctHosts.apply(from)) {
 			if (StrUtil.isNotBlank(h)) {
 				hosts.add(h);
 			}

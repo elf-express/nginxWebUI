@@ -102,7 +102,7 @@ public class InMemorySqlHelper extends SqlHelper {
 		}
 	}
 
-	/** 只排序 findPage 的結果；其他查詢維持插入順序，避免影響既有測試 */
+	/** 只排序 findPage 的結果；其他查詢維持插入順序 */
 	@Override
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	public Page findPage(ConditionWrapper conditions, Sort sort, Page page, Class<?> type) {

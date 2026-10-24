@@ -61,7 +61,7 @@ public class WafEventSyncService {
 	@Inject
 	WafEventService wafEventService;
 
-	/** 翻頁時換算 until 用；LAPI 以收到請求的時間換算，所以每頁送出前現讀 */
+	/** 翻頁時換算 until 用，每頁送出前讀取 */
 	java.util.function.LongSupplier clock = System::currentTimeMillis;
 
 	private final AtomicBoolean running = new AtomicBoolean();
@@ -125,8 +125,12 @@ public class WafEventSyncService {
 			return new SyncResult(OK, added, null);
 		} catch (RuntimeException e) {
 			String code = errorCode(e);
-			// 已知例外的訊息只含錯誤碼或 HTTP 狀態碼；未預期的例外訊息可能帶 LAPI 回應內容，只記類別名稱
-			logger.warn("waf event sync failed: {} ({})", code, loggable(e));
+			// 錯誤碼與上次相同時只記 debug
+			if (code.equals(settingService.get(KEY_LAST_ERROR))) {
+				logger.debug("waf event sync failed: {} ({})", code, loggable(e));
+			} else {
+				logger.warn("waf event sync failed: {} ({})", code, loggable(e));
+			}
 			settingService.set(KEY_LAST_ERROR, code);
 			settingService.set(KEY_LAST_ERROR_AT, String.valueOf(now));
 			return new SyncResult(FAILED, 0, code);
@@ -171,7 +175,7 @@ public class WafEventSyncService {
 		return new Fetched(oldest, newest, true);
 	}
 
-	/** lastAlertAt：先前看到的最新 alert 時間。探測型缺口要求它還在 CrowdSec 的保留期內，否則 alert 本來就不可能還在 */
+	/** lastAlertAt：先前看到的最新 alert 時間；探測型缺口只在它還在 CrowdSec 的保留期內時才判斷 */
 	void detectGap(long now, long syncedUntil, long lastAlertAt, Instant oldestInWindow) {
 		long gapTo;
 		if (now - syncedUntil > CROWDSEC_MAX_AGE_MS) {
