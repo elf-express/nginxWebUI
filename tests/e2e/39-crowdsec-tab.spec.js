@@ -41,6 +41,8 @@ const MASK = '••••••';
 
 async function openTab(page) {
   await page.goto('/adminPage/crowdsecGuard#conn');
+  // 同一網址只差 hash 時 goto 不會重新載入，重新載入讓畫面讀回目前的設定
+  await page.reload();
   const app = page.locator('#crowdsecGuardApp');
   await expect(app.locator('h2#crowdsec-title')).toBeVisible();
   await expect(app.locator('.crowdsec-desc')).toBeVisible();
