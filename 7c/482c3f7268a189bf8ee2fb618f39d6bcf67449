@@ -1,0 +1,125 @@
+README.md
+  s_a28b699e4790bd::t_06f1b1d4665448 78,238
+README_TW.md
+  s_a28b699e4790bd::t_6c1afbd72ecbc9 78,234
+docker/test/crowdsec-guard-e2e.sh
+  s_a28b699e4790bd::t_6213e1d2a2e21c 1-387
+docs/memory/conventions.md
+  s_a28b699e4790bd::t_7fb013bf86c72e 16
+docs/memory/dev-run-deploy.md
+  s_a28b699e4790bd::t_6072a277da126f 51,87,94
+docs/superpowers/state/E-384.yaml
+  s_a28b699e4790bd::t_af36bc02bdb445 1-4
+frontend/src/pages/crowdsecGuard/BlockedIps.vue
+  s_a28b699e4790bd::t_13b6cf9bd0d470 1-117
+frontend/src/pages/crowdsecGuard/BlocklistTab.vue
+  s_a28b699e4790bd::t_0c63b840cca3ee 1-177
+frontend/src/pages/crowdsecGuard/GuardPage.vue
+  s_a28b699e4790bd::t_ad4a305fea4604 1-86
+frontend/src/pages/crowdsecGuard/IpLookupTab.vue
+  s_a28b699e4790bd::t_ff63067e3b0f3b 1-185
+frontend/src/pages/crowdsecGuard/api.test.ts
+  s_a28b699e4790bd::t_5dc016409dd6c1 1-30
+frontend/src/pages/crowdsecGuard/api.ts
+  s_a28b699e4790bd::t_2afc537c9874b8 1-91
+frontend/src/pages/crowdsecGuard/main.ts
+  s_a28b699e4790bd::t_ed3678d7bd741b 2,4-6
+frontend/src/pages/crowdsecGuard/view.test.ts
+  s_a28b699e4790bd::t_362c3c6da1dbc4 1-287
+frontend/src/pages/crowdsecGuard/view.ts
+  s_a28b699e4790bd::t_701873e0452099 1-199
+frontend/vite.config.ts
+  s_a28b699e4790bd::t_882f5074e371b9 16
+src/main/java/com/cym/config/InitConfig.java
+  s_a28b699e4790bd::t_86cb0723dcbafb 193-194,258-264
+src/main/java/com/cym/config/LogFormatHostMigration.java
+  s_a28b699e4790bd::t_86493ca571c1c3 1-36
+src/main/java/com/cym/controller/adminPage/CrowdSecController.java
+  s_a28b699e4790bd::t_6a64746c122de7 16,41,265-266,271-273
+src/main/java/com/cym/controller/adminPage/CrowdSecGuardController.java
+  s_a28b699e4790bd::t_15641694457225 1-247
+src/main/java/com/cym/service/BlockedRequestLogReader.java
+  s_a28b699e4790bd::t_20aeda999be4ed 1-161
+src/main/java/com/cym/service/ConfService.java
+  s_a28b699e4790bd::t_50f356ddb2438d 928-943,1288
+src/main/java/com/cym/service/CrowdSecClient.java
+  s_a28b699e4790bd::t_361d35a5f39d23 22,107-111,530-626
+src/main/java/com/cym/service/CrowdSecWhitelistService.java
+  s_a28b699e4790bd::t_10c1a21724ff95 1-144
+src/main/java/com/cym/service/GeoLookup.java
+  s_a28b699e4790bd::t_fc11b4d0985ed8 1-123
+src/main/java/com/cym/service/HttpServerSelector.java
+  s_a28b699e4790bd::t_a26ddb5a98ae66 1-260
+src/main/java/com/cym/service/IpLookupService.java
+  s_a28b699e4790bd::t_be3c273cae1b9c 1-213
+src/main/java/com/cym/task/ScheduleTask.java
+  s_a28b699e4790bd::t_1ad5486403e155 28-29,91-102,132-146,152-153,160
+src/main/java/com/cym/utils/IpMatch.java
+  s_a28b699e4790bd::t_bfc641613eb49e 1-57
+src/main/resources/WEB-INF/view/adminPage/crowdsecGuard/index.html
+  s_a28b699e4790bd::t_de8e9091e9fb9e 1-22
+src/main/resources/WEB-INF/view/adminPage/menu.html
+  s_a28b699e4790bd::t_86db02a0aa0fed 48-50
+src/main/resources/WEB-INF/view/adminPage/protectionCert/index.html
+  s_a28b699e4790bd::t_0c28674789bb77 272,282,378-379
+src/main/resources/messages.properties
+  s_a28b699e4790bd::t_e6fe10d07bbaf6 844-849,859,890,1129-1220
+src/main/resources/messages_en_US.properties
+  s_a28b699e4790bd::t_e1cf81d0058f09 844-849,859,890,1129-1220
+src/main/resources/messages_zh_TW.properties
+  s_a28b699e4790bd::t_ddd8c635547a26 844-849,859,890,1129-1220
+src/main/resources/static/js/adminPage/denyAllow/asn.js
+  s_a28b699e4790bd::t_5584db4759b71e 55-56
+src/test/java/com/cym/config/LogFormatHostMigrationTest.java
+  s_a28b699e4790bd::t_635a98b10ce1e8 1-55
+src/test/java/com/cym/controller/adminPage/CrowdSecControllerTest.java
+  s_a28b699e4790bd::t_58520ffc30122a 7,10,17,20,252,260,269-313
+src/test/java/com/cym/controller/adminPage/CrowdSecGuardControllerTest.java
+  s_a28b699e4790bd::t_b02c2d24b88d6d 1-190
+src/test/java/com/cym/controller/adminPage/I18nControllerTest.java
+  s_a28b699e4790bd::t_4506a212bf2363 4,47-59
+src/test/java/com/cym/service/BlockedRequestLogReaderTest.java
+  s_a28b699e4790bd::t_54c547dff6875a 1-122
+src/test/java/com/cym/service/CrowdSecClientGuardTest.java
+  s_a28b699e4790bd::t_3037794c2a48c6 1-162
+src/test/java/com/cym/service/CrowdSecWhitelistServiceTest.java
+  s_a28b699e4790bd::t_5e26d8eb676e56 1-189
+src/test/java/com/cym/service/GeoLookupTest.java
+  s_a28b699e4790bd::t_f0b6797c3bade3 1-199
+src/test/java/com/cym/service/HttpServerSelectorTest.java
+  s_a28b699e4790bd::t_ea5039ad3872c3 1-267
+src/test/java/com/cym/service/IpLookupServiceTest.java
+  s_a28b699e4790bd::t_c2d4ef1240e3d3 1-459
+src/test/java/com/cym/task/ScheduleTaskGeoipFetchModeTest.java
+  s_a28b699e4790bd::t_9d775e3e146085 1-33
+src/test/java/com/cym/testsupport/FakeLapi.java
+  s_a28b699e4790bd::t_21c29dc16604dc 50-53,138-140
+src/test/java/com/cym/utils/IpMatchTest.java
+  s_a28b699e4790bd::t_9d048af1c9ccc2 1-41
+tests/e2e/16-protection-cert.spec.js
+  s_a28b699e4790bd::t_3da4919c1cd0ff 17,22
+tests/e2e/32-firewall-ip-tabs.spec.js
+  s_a28b699e4790bd::t_9e91cdd1cfdea8 4,11,13
+tests/e2e/39-crowdsec-tab.spec.js
+  s_a28b699e4790bd::t_f076b06cb0ded0 9,43-45
+tests/e2e/40-crowdsec-guard.spec.js
+  s_a28b699e4790bd::t_19023592eec61c 1-380
+tests/e2e/helpers.js
+  s_a28b699e4790bd::t_2e83f6fb6aac1a 46-54,93-94,103-104
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7c482c3f7268a189bf8ee2fb618f39d6bcf67449",
+  "prompts": {},
+  "sessions": {
+    "s_a28b699e4790bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "195abc9b-fbd8-4977-9ae6-70d5fcc76908",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
