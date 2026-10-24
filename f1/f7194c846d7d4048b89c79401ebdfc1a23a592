@@ -1,0 +1,84 @@
+src/main/java/com/cym/service/ConfService.java
+  s_a7bf1cec5200b2::t_1c76add1db92eb 929-931,933-934,936-938,940-943
+  s_a7bf1cec5200b2::t_9b405a2ec8dafa 932,935,939
+  s_a7bf1cec5200b2::t_3859cdd72d6911 1288
+  s_a28b699e4790bd::t_dcd0a11532f1f9 928
+src/main/java/com/cym/service/IpLookupService.java
+  s_a7bf1cec5200b2::t_e5000329d03d88 10,18
+  s_a7bf1cec5200b2::t_6dc3bb2eb91206 133-135,137-138,143,145-146,149-155,157-165,169,173-180
+  s_a7bf1cec5200b2::t_fa727d18f5578f 114,122-123
+  s_a7bf1cec5200b2::t_3aedd737e63dbd 40-41,47-48,56
+  s_a28b699e4790bd::t_c921555ca680e4 181-182
+src/test/java/com/cym/service/CrowdSecClientGuardTest.java
+  s_a7bf1cec5200b2::t_26df7ac1e41ea0 108-146
+src/test/java/com/cym/service/CrowdSecWhitelistServiceTest.java
+  s_a7bf1cec5200b2::t_4726f9423e98ae 88-113
+src/main/java/com/cym/service/CrowdSecClient.java
+  s_a7bf1cec5200b2::t_a8b3f88003bd01 576
+  s_a7bf1cec5200b2::t_6f8ea599748364 564
+src/test/java/com/cym/controller/adminPage/CrowdSecGuardControllerTest.java
+  s_a7bf1cec5200b2::t_cc3afca3f9cb0d 11,13,22-25,33,40,42,45-48,52-60,69-74,78-90,94-97,99-103,107-111,113-119,123-127,129-135,137-141
+src/main/java/com/cym/controller/adminPage/CrowdSecGuardController.java
+  s_a7bf1cec5200b2::t_3bca1c424d898c 10
+  s_a7bf1cec5200b2::t_a55d2383592def 23,26
+  s_a7bf1cec5200b2::t_353c243dfbed5a 96,98,101
+  s_a7bf1cec5200b2::t_c9b77c21a32d7c 121-127,131-132,134-135
+  s_a7bf1cec5200b2::t_a608b9380dd67b 52-53
+src/main/java/com/cym/utils/IpMatch.java
+  s_a7bf1cec5200b2::t_51c7e7d15f72bd 16-20
+src/test/java/com/cym/service/IpLookupServiceTest.java
+  s_a7bf1cec5200b2::t_8ed75517e8674d 42-43
+  s_a7bf1cec5200b2::t_873d67fe2ed99f 265
+  s_a7bf1cec5200b2::t_5ef559c8d3fb58 297
+  s_a7bf1cec5200b2::t_b92b8bc00ed64b 55-58,63,67,69-72,75-76,84-85
+  s_a7bf1cec5200b2::t_1e5df9c038d533 86,318-339
+  s_a7bf1cec5200b2::t_49b46b5dc98c3e 99,104-121,126,128-130,133-202,208,213-227,234,246,257
+  s_3e6c82dee85f50::t_379fe2bcc806bd 87
+src/test/java/com/cym/service/HttpServerSelectorTest.java
+  s_a7bf1cec5200b2::t_9546e177927507 1-186
+src/main/java/com/cym/service/BlockedRequestLogReader.java
+  s_a7bf1cec5200b2::t_8e15ac1fabddd6 120
+  s_a7bf1cec5200b2::t_5d5561f3eaaf5a 19
+  s_a7bf1cec5200b2::t_a210f7c9702a88 76-84
+src/main/java/com/cym/service/CrowdSecWhitelistService.java
+  s_a7bf1cec5200b2::t_ff138d32a8b3b9 104,111-112
+src/main/java/com/cym/service/HttpServerSelector.java
+  s_a7bf1cec5200b2::t_e3303603898123 158-159
+  s_a7bf1cec5200b2::t_5ff4ee1ed4054a 1-28,31-75,79-85,87-96,98,100-157,160-167
+  s_a7bf1cec5200b2::t_eab1134164b84e 86
+  s_a7bf1cec5200b2::t_b8266210339af4 76-78
+  s_a7bf1cec5200b2::t_42ef229f40b238 97,99
+  s_a7bf1cec5200b2::t_35cf46180934b9 29-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f1f7194c846d7d4048b89c79401ebdfc1a23a592",
+  "prompts": {},
+  "sessions": {
+    "s_3e6c82dee85f50": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a16b2c-aff5-72d2-826f-be0421224e9e",
+        "model": "gpt-5.6-terra"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    },
+    "s_a28b699e4790bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "195abc9b-fbd8-4977-9ae6-70d5fcc76908",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    },
+    "s_a7bf1cec5200b2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5ec896ab-5e78-4e2b-9171-67ef526d1edf",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
