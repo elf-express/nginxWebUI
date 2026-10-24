@@ -1,0 +1,34 @@
+src/main/java/com/cym/controller/adminPage/CrowdSecWafController.java
+  s_1006f5e1b97097::t_c34708274d7521 1-22,24-102,106-144
+  s_1006f5e1b97097::t_d90c78b9aba26a 23
+  s_1006f5e1b97097::t_7c56371b46b9fb 103-105
+src/main/java/com/cym/service/WafEventService.java
+  s_1006f5e1b97097::t_6b92284fe4c0c0 133
+  s_1006f5e1b97097::t_93f7dd180b924e 195-201
+  s_1006f5e1b97097::t_427af5194a3d99 122
+  s_1006f5e1b97097::t_993b67ff0e3216 55-56
+  s_1006f5e1b97097::t_8f97eeb1cd8140 184-185
+  s_1006f5e1b97097::t_00238d6ab4371e 129
+src/main/java/com/cym/service/WafTuningService.java
+  s_1006f5e1b97097::t_d192848aca497c 85-92
+src/test/java/com/cym/controller/adminPage/CrowdSecWafControllerTest.java
+  s_1006f5e1b97097::t_d6ba0016b7ddbf 1-68
+src/test/java/com/cym/service/WafEventServiceTest.java
+  s_1006f5e1b97097::t_a7643cffa62df8 9,97-124
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5fd53cfe4312d1e898007cf9da609fcb02dcbcca",
+  "prompts": {},
+  "sessions": {
+    "s_1006f5e1b97097": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c42c83a6-6d55-484a-9615-af8cf8c3bdc0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
