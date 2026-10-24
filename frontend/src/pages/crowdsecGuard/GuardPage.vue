@@ -5,6 +5,7 @@ import { t } from '../../shared/i18n'
 import CrowdSecTab from '../crowdsec/CrowdSecTab.vue'
 import BlocklistTab from './BlocklistTab.vue'
 import IpLookupTab from './IpLookupTab.vue'
+import WafEventsTab from './WafEventsTab.vue'
 import { ipHash, parseHash, type TabKey } from './view'
 
 // 主色對齊舊版 Layui 的 layui-btn-normal
@@ -61,6 +62,9 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', syncFromHash))
         </TabPane>
         <TabPane key="bans" :tab="t('crowdsecGuardStr.tabBans')">
           <BlocklistTab v-if="active === 'bans'" />
+        </TabPane>
+        <TabPane key="waf" :tab="t('crowdsecGuardStr.tabWaf')">
+          <WafEventsTab v-if="active === 'waf'" />
         </TabPane>
         <TabPane key="conn" :tab="t('crowdsecGuardStr.tabConn')">
           <CrowdSecTab v-if="active === 'conn'" />
