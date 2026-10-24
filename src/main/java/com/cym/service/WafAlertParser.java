@@ -112,7 +112,8 @@ public final class WafAlertParser {
 		}
 		String uri = first(meta.get("target_uri"));
 		String method = first(meta.get("method"));
-		return new Hit(id, time, ip.trim(), cut(hostOf(fqdn), MAX_HOST),
+		String normalizedIp = ip == null ? null : ip.trim();
+		return new Hit(id, time, normalizedIp, cut(hostOf(fqdn), MAX_HOST),
 				method == null ? null : cut(method.toUpperCase(Locale.ROOT), MAX_METHOD),
 				cut(uri != null ? uri : eventUri, MAX_URI), cut(first(meta.get("user_agent")), MAX_USER_AGENT),
 				StrUtil.startWith(alert.getStr("message"), IN_BAND_PREFIX), rules);
