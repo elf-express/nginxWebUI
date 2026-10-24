@@ -365,4 +365,22 @@ class WafEventSyncServiceTest {
 		lapi.alertsStatus = 0;
 		assertEquals(WafEventSyncService.OK, s.sync(now).outcome());
 	}
+
+	@Test
+	void noProbeGapWhenTheLastSeenAlertIsOlderThanCrowdSecKeepsAlerts() {
+		long t0 = now - 120 * MIN;
+		settings.set(WafEventSyncService.KEY_SYNCED_UNTIL, String.valueOf(t0));
+		settings.set(WafEventSyncService.KEY_LAST_ALERT_AT, String.valueOf(now - 10 * DAY));
+		lapi.alertsResponder = q -> q.endsWith("limit=1") ? "[]" : array(vpatch(1, "198.51.100.9", ago(30 * MIN), SHOP));
+		WafEventSyncService s = sync();
+		s.sync(now);
+		assertNull(s.status(now).gapFrom());
+	}
+
+	@Test
+	void logTextOnlyCarriesKnownSafeMessages() {
+		assertEquals("crowdsec alerts HTTP 500", WafEventSyncService.loggable(new IllegalStateException("crowdsec alerts HTTP 500")));
+		assertEquals("IllegalStateException", WafEventSyncService.loggable(new IllegalStateException("secret body")));
+		assertEquals("RuntimeException", WafEventSyncService.loggable(new RuntimeException("crowdsec alerts HTTP 500")));
+	}
 }

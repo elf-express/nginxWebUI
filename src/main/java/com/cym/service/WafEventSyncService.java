@@ -112,7 +112,7 @@ public class WafEventSyncService {
 			if (fetched.truncated()) {
 				recordGap(from, fetched.oldest().toEpochMilli());
 			} else if (syncedUntil != null && lastAlertAt != null && now - syncedUntil > GAP_CHECK_AFTER_MS) {
-				detectGap(now, syncedUntil, fetched.oldest());
+				detectGap(now, syncedUntil, lastAlertAt, fetched.oldest());
 			}
 			int added = wafEventService.store(hits);
 			if (fetched.newest() != null && (lastAlertAt == null || fetched.newest().toEpochMilli() > lastAlertAt)) {
@@ -125,8 +125,8 @@ public class WafEventSyncService {
 			return new SyncResult(OK, added, null);
 		} catch (RuntimeException e) {
 			String code = errorCode(e);
-			// 未預期的例外訊息可能帶 LAPI 回應內容，只記類別名稱
-		logger.warn("waf event sync failed: {} ({})", code, e.getClass().getSimpleName());
+			// 已知例外的訊息只含錯誤碼或 HTTP 狀態碼；未預期的例外訊息可能帶 LAPI 回應內容，只記類別名稱
+			logger.warn("waf event sync failed: {} ({})", code, loggable(e));
 			settingService.set(KEY_LAST_ERROR, code);
 			settingService.set(KEY_LAST_ERROR_AT, String.valueOf(now));
 			return new SyncResult(FAILED, 0, code);
@@ -171,12 +171,13 @@ public class WafEventSyncService {
 		return new Fetched(oldest, newest, true);
 	}
 
-	void detectGap(long now, long syncedUntil, Instant oldestInWindow) {
+	/** lastAlertAt：先前看到的最新 alert 時間。探測型缺口要求它還在 CrowdSec 的保留期內，否則 alert 本來就不可能還在 */
+	void detectGap(long now, long syncedUntil, long lastAlertAt, Instant oldestInWindow) {
 		long gapTo;
 		if (now - syncedUntil > CROWDSEC_MAX_AGE_MS) {
 			gapTo = now - CROWDSEC_MAX_AGE_MS;
 		} else {
-			if (oldestInWindow == null || oldestInWindow.toEpochMilli() <= syncedUntil) {
+			if (lastAlertAt <= now - CROWDSEC_MAX_AGE_MS || oldestInWindow == null || oldestInWindow.toEpochMilli() <= syncedUntil) {
 				return;
 			}
 			long untilSeconds = Math.max(1, (now - syncedUntil) / 1000);
@@ -234,6 +235,13 @@ public class WafEventSyncService {
 		}
 		int days = Integer.parseInt(value.trim());
 		return days >= MIN_RETENTION_DAYS && days <= MAX_RETENTION_DAYS ? days : null;
+	}
+
+	/** 可以安全寫進 log 的描述 */
+	static String loggable(RuntimeException e) {
+		boolean known = e instanceof CrowdSecClient.MachineAuthException || e instanceof CrowdSecClient.LapiUnavailableException
+				|| e instanceof IllegalStateException && String.valueOf(e.getMessage()).startsWith("crowdsec alerts HTTP ");
+		return known ? e.getMessage() : e.getClass().getSimpleName();
 	}
 
 	static String errorCode(RuntimeException e) {
