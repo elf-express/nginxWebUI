@@ -12,8 +12,15 @@
 #   8. the operation log has the WAF apply
 #   9. the same SQL injection with an upper-case Host header (E2E.TEST) is excluded as well
 #  10. vpatch-env-access set to "disable": /.env is served and raises no vpatch-env-access alert
-# Checks 5 and 9 are negative ("no alert"), so each is paired with a positive control: the same SQL injection with a Host
-# outside the exclusion (other.test, answered by the default server) must still raise a 942100 alert.
+#  11. a vpatch rule for a known vulnerability (CVE-2017-9841) excluded for the test site: the site answers 404, the same
+#      request with Host other.test is still blocked (403)
+#  12. CRS category crs-sqli set to "log only": 7 SQL injections from a fresh client raise alerts but no decision
+# Checks 3, 5, 9, 10 and 12 are negative ("no ban" / "no alert"), so each is paired with a positive control:
+#   3 -> 2b: before any rule is changed, a fresh client that hits two different vpatch rules within 60 s is banned.
+#  12 -> 2c: with the default settings, another fresh client sending the same 7 SQL injections is banned.
+#   5, 9: the same SQL injection with a Host outside the exclusion (other.test, answered by the default server) must still
+#         raise a 942100 alert.
+#  11: the request with Host other.test is still blocked.
 # Nothing of an existing deployment is touched: project nwu-e395-e2e, own container names, own volumes (including the
 # shared WAF volume), own network, no published ports. Everything is removed on exit (also on failure).
 # The subnet (198.51.100.0/24) is the same as in the other crowdsec-*-e2e.sh scripts: do not run them at the same time.
@@ -37,6 +44,16 @@ CLIENT="${PROJECT}-client"
 # A documentation range (TEST-NET-2), not RFC 1918: CrowdSec's default whitelist drops events from private IPs.
 SUBNET=198.51.100
 IP_CLIENT=$SUBNET.60    # the client container
+CLIENT_VP="${PROJECT}-client-vp"   # fresh client of the vpatch control (2b)
+CLIENT_B="${PROJECT}-client-b"     # fresh client of the CRS control (2c)
+CLIENT_C="${PROJECT}-client-c"     # fresh client of the CRS log-only check (12)
+CLIENT_D="${PROJECT}-client-d"     # fresh client of the baseline request of check 11 (a CVE rule bans its client at once)
+CLIENT_E="${PROJECT}-client-e"     # fresh client of the exclusion request of check 11
+IP_VP=$SUBNET.61
+IP_B=$SUBNET.62
+IP_C=$SUBNET.63
+IP_D=$SUBNET.64
+IP_E=$SUBNET.65
 HOST=e2e.test
 ADMIN=admin
 CAPTCHA=1234
@@ -60,7 +77,7 @@ now() { date +%s; }
 dc() { docker compose -p "$PROJECT" --env-file "$ENVF" -f "$BASE" -f "$OVR" "$@"; }
 
 cleanup() {
-  docker rm -f "$CLIENT" >/dev/null 2>&1 || true
+  docker rm -f "$CLIENT" "$CLIENT_VP" "$CLIENT_B" "$CLIENT_C" "$CLIENT_D" "$CLIENT_E" >/dev/null 2>&1 || true
   dc --profile security down -v --remove-orphans >/dev/null 2>&1 || true
   rm -rf "$WORK"
 }
@@ -256,16 +273,24 @@ r="$(api /adminPage/geo/addOver --data-urlencode "id=$GEO_ID" -d mode=0 \
 ok "$r" || { fail setup "disable GeoRule: $r"; exit 1; }
 
 apply || { fail setup "apply config"; exit 1; }
-docker rm -f "$CLIENT" >/dev/null 2>&1 || true
+docker rm -f "$CLIENT" "$CLIENT_VP" "$CLIENT_B" "$CLIENT_C" "$CLIENT_D" "$CLIENT_E" >/dev/null 2>&1 || true
 docker run -d --name "$CLIENT" --network "$NET" --ip "$IP_CLIENT" --entrypoint sleep "$NWU_IMAGE" 3600 >/dev/null
+docker run -d --name "$CLIENT_VP" --network "$NET" --ip "$IP_VP" --entrypoint sleep "$NWU_IMAGE" 3600 >/dev/null
+docker run -d --name "$CLIENT_B" --network "$NET" --ip "$IP_B" --entrypoint sleep "$NWU_IMAGE" 3600 >/dev/null
+docker run -d --name "$CLIENT_C" --network "$NET" --ip "$IP_C" --entrypoint sleep "$NWU_IMAGE" 3600 >/dev/null
+docker run -d --name "$CLIENT_D" --network "$NET" --ip "$IP_D" --entrypoint sleep "$NWU_IMAGE" 3600 >/dev/null
+docker run -d --name "$CLIENT_E" --network "$NET" --ip "$IP_E" --entrypoint sleep "$NWU_IMAGE" 3600 >/dev/null
 # stream mode: the WAF only sees requests after the first decision pull plus the first health probe of the bouncer
 sleep 12
 
-# req_path <path> : "<curl exit> <http code>" for GET <path> on the test site from the client container
-req_path() {
-  out="$(docker exec "$CLIENT" curl -g -s -o /dev/null -m 10 -H "Host: ${REQ_HOST:-$HOST}" -w '%{http_code}' "http://nginxwebui$1")"
+# req_from <client container> <path> : "<curl exit> <http code>" for GET <path> on the test site from that container
+req_from() {
+  out="$(docker exec "$1" curl -g -s -o /dev/null -m 10 -H "Host: ${REQ_HOST:-$HOST}" -w '%{http_code}' "http://nginxwebui$2")"
   echo "$? $out"
 }
+req_path() { req_from "$CLIENT" "$1"; }
+# decisions_of <ip> : number of decisions for <ip>
+decisions_of() { cscli decisions list -i "$1" -o raw 2>/dev/null | tail -n +2 | wc -l | tr -d ' '; }
 # waf_apply <changes json> : posts the changes, waits up to 40 s for the result, prints its state
 waf_apply() {
   r="$(api /adminPage/crowdsecGuard/wafRules/apply --data-urlencode "changes=$1")"
@@ -301,6 +326,33 @@ if [ "$b1" = "0 403" ] && alerts_since 1m | grep -q 'native_rule:942100'; then
   pass 2 "baseline: /.env -> 403, SQLi alert with 942100"
 else
   fail 2 "/.env -> $b1; 942100 alert missing"
+fi
+
+# 2b. positive control for check 3 (still the default settings): a fresh client that hits two different vpatch rules
+# within 60 s is banned
+req_from "$CLIENT_VP" /.env >/dev/null
+sleep 2
+req_from "$CLIENT_VP" /.git/config >/dev/null
+sleep 12
+d_vp="$(decisions_of "$IP_VP")"
+if [ "$d_vp" -ge 1 ]; then
+  pass 2b "control: two vpatch rules from $IP_VP within 60 s -> banned ($d_vp decision)"
+else
+  fail 2b "control: $IP_VP hit /.env and /.git/config but has no decision; alerts: $(cscli alerts list -i "$IP_VP" -o raw 2>&1 | head -c 600)"
+fi
+
+# 2c. positive control for check 12 (still the default settings): another fresh client sending 7 SQL injections in a row
+# is banned. Host other.test (default server), the same as in check 12, because 942100 is excluded for the test site later.
+REQ_HOST=other.test
+j=0
+while [ "$j" -lt 7 ]; do req_from "$CLIENT_B" "$SQLI" >/dev/null; j=$((j + 1)); sleep 1; done
+unset REQ_HOST
+sleep 12
+d_b="$(decisions_of "$IP_B")"
+if [ "$d_b" -ge 1 ]; then
+  pass 2c "control: 7 SQL injections from $IP_B with the default settings -> banned ($d_b decision)"
+else
+  fail 2c "control: $IP_B sent 7 SQL injections but has no decision; alerts: $(cscli alerts list -i "$IP_B" -o raw 2>&1 | head -c 800)"
 fi
 
 # 3. vpatch log only: /.env and /.git/config set to log only -> served (the site has only index.html, so 404), repeated
@@ -423,6 +475,46 @@ if [ "$s" = ok ] && [ "$code10" = "0 404" ] && [ "$v1" = "$v0" ] \
   pass 10 "vpatch-env-access disabled: /.env -> 404, no new vpatch-env-access alert ($v0 -> $v1)"
 else
   fail 10 "apply '$s', /.env $code10, vpatch-env-access alerts $v0 -> $v1"
+fi
+
+# 11. a vpatch rule of a known vulnerability (CVE-2017-9841, not touched by any check above) excluded for the test site.
+# Baseline: the request is blocked. After the exclusion the test site serves it (404, the file does not exist); the same
+# request with Host other.test (not excluded) is still blocked. A CVE rule bans its client at once, so the baseline comes
+# from its own fresh client and the exclusion request (and its control, in that order) from another one.
+PHP_PATH=/vendor/phpunit/phpunit/src/Util/PHP/eval-stdin.php
+b11="$(req_from "$CLIENT_D" "$PHP_PATH")"
+s="$(waf_apply "[{\"scope\":\"rule\",\"ruleKey\":\"crowdsecurity/vpatch-CVE-2017-9841\",\"action\":\"inherit\",\"excludedServerIds\":\"$SERVER_ID\"}]")"
+sleep 3
+e11="$(req_from "$CLIENT_E" "$PHP_PATH")"
+REQ_HOST=other.test
+o11="$(req_from "$CLIENT_E" "$PHP_PATH")"
+unset REQ_HOST
+if [ "$b11" = "0 403" ] && [ "$s" = ok ] && [ "$e11" = "0 404" ] && [ "$o11" = "0 403" ]; then
+  pass 11 "vpatch-CVE-2017-9841 excluded for $HOST: baseline $b11, $HOST $e11, control other.test $o11"
+else
+  fail 11 "baseline '$b11', apply '$s', $HOST '$e11', other.test '$o11'"
+  info "active config:"; docker exec "$CS" cat /etc/crowdsec/appsec-configs/nwu-custom.yaml
+  info "crowdsec log:"; docker logs --tail 40 "$CS" 2>&1
+  info "nginx error log:"; docker exec "$NWU" sh -c 'tail -20 /var/log/nginx/error.log 2>/dev/null'
+fi
+
+# 12. CRS category crs-sqli on "log only": the alerts are still raised, but 7 SQL injections from a fresh client do not
+# lead to a decision (control: check 2c, same requests with the default settings)
+s="$(waf_apply '[{"scope":"category","ruleKey":"crs-sqli","action":"log","excludedServerIds":""}]')"
+sleep 3
+a0="$(count_rule 'native_rule:942100')"
+REQ_HOST=other.test
+j=0
+codes12=""
+while [ "$j" -lt 7 ]; do codes12="$codes12 $(req_from "$CLIENT_C" "$SQLI" | tr ' ' :)"; j=$((j + 1)); sleep 1; done
+unset REQ_HOST
+sleep 12
+a1="$(count_rule 'native_rule:942100')"
+d_c="$(decisions_of "$IP_C")"
+if [ "$s" = ok ] && [ "$a1" -gt "$a0" ] && [ "$d_c" = 0 ]; then
+  pass 12 "crs-sqli log only: 7 SQL injections from $IP_C raise alerts (942100 occurrences $a0 -> $a1) but no decision"
+else
+  fail 12 "apply '$s', codes$codes12, alerts $a0 -> $a1, decisions $d_c; alerts: $(cscli alerts list -i "$IP_C" -o raw 2>&1 | head -c 800); decisions: $(cscli decisions list -i "$IP_C" -o raw 2>&1 | head -c 400)"
 fi
 
 echo "crowdsec-waf-tuning-e2e: $PASS_N PASS, $FAIL_N FAIL"

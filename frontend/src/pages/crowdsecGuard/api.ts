@@ -199,6 +199,8 @@ export interface WafRules {
   categories: WafCategory[]
   skippedNames: Record<string, string[]>
   last: WafApplyStatus
+  /** 資料庫設定產生的 YAML 與 CrowdSec 目前生效的設定一致；沒有規則目錄時不帶 */
+  inSync?: boolean
 }
 
 const WAF_RULES = `${BASE}/wafRules`

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { WafCategory, WafRule, WafRules } from './api'
-import { actionLabelKey, actionOptions, categoryName, changesOf, currentOf, editKey, onlyHitsMode, resumeRequestId, statusMessage, visibleCategories, visibleRules, type Edit } from './wafRules'
+import { actionLabelKey, actionOptions, categoryName, changesOf, currentOf, editKey, canApply, notApplied, onlyHitsMode, resumeRequestId, statusMessage, visibleCategories, visibleRules, type Edit } from './wafRules'
 
 const tr = (k: string, ...a: (string | number)[]) => (a.length ? `${k}(${a.join(',')})` : k)
 
@@ -74,6 +74,20 @@ describe('wafRules', () => {
     expect(resumeRequestId({ state: 'pending' }, false)).toBeNull()
     expect(resumeRequestId({ state: 'ok', requestId: 'r1' }, false)).toBeNull()
     expect(resumeRequestId({ state: 'none' }, false)).toBeNull()
+  })
+
+  it('設定尚未套用到 CrowdSec 時，沒有變更也能套用；已同步或沒有 inSync 時沒有變更就不送', () => {
+    expect(notApplied({ ...DATA, inSync: false })).toBe(true)
+    expect(notApplied({ ...DATA, inSync: true })).toBe(false)
+    expect(notApplied(DATA)).toBe(false)
+    expect(notApplied(null)).toBe(false)
+    const change = { scope: 'rule' as const, ruleKey: '942100', action: 'off', excludedServerIds: '' }
+    expect(canApply([], { ...DATA, inSync: false })).toBe(true)
+    expect(canApply([], { ...DATA, inSync: true })).toBe(false)
+    expect(canApply([], DATA)).toBe(false)
+    expect(canApply([change], { ...DATA, inSync: true })).toBe(true)
+    expect(canApply([change], null)).toBe(true)
+    expect(canApply([], null)).toBe(false)
   })
 
   it('只列命中的空狀態只在沒有搜尋字且沒開顯示全部時使用', () => {

@@ -287,6 +287,56 @@ class WafTuningServiceTest {
 	}
 
 	@Test
+	void applyNumbersNeverGoBackwards(@TempDir Path home) throws Exception {
+		Env env = new Env(home);
+		env.writeCatalog();
+		long future = System.currentTimeMillis() + 10_000_000L;
+		Files.createDirectories(env.wafDir);
+		Files.writeString(env.wafDir.resolve("request"), future + "\n");
+		assertEquals(String.valueOf(future + 1), env.service.apply(List.of(s("rule", ENV, "log", "")), "admin"));
+		assertEquals(String.valueOf(future + 2), env.service.apply(List.of(s("rule", GIT, "log", "")), "admin"));
+		assertEquals(5L, WafTuningService.nextRequestId(5L, null));
+		assertEquals(5L, WafTuningService.nextRequestId(5L, "abc"));
+		assertEquals(5L, WafTuningService.nextRequestId(5L, "3\n"));
+		assertEquals(9L, WafTuningService.nextRequestId(5L, "8\n"));
+	}
+
+	@Test
+	void inSyncComparesTheRenderedConfigWithTheLastGoodOne() {
+		List<WafRuleSetting> settings = List.of(s("rule", ENV, "log", ""));
+		String applied = render(settings, Map.of());
+		assertTrue(WafTuningService.inSync(CAT, settings, Map.of(), applied));
+		assertTrue(WafTuningService.inSync(CAT, settings, Map.of(), applied.replace("\n", "\r\n")));
+		assertFalse(WafTuningService.inSync(CAT, settings, Map.of(), render(List.of(), Map.of())));
+		Map<String, WafTuningService.Hosts> renamed = Map.of("s1", new WafTuningService.Hosts(List.of("b.com"), List.of(), List.of()));
+		List<WafRuleSetting> excluded = List.of(s("rule", "942100", "inherit", "s1"));
+		String before = render(excluded, Map.of("s1", new WafTuningService.Hosts(List.of("a.com"), List.of(), List.of())));
+		assertFalse(WafTuningService.inSync(CAT, excluded, renamed, before));
+	}
+
+	@Test
+	void withoutALastGoodTheImageDefaultIsTheCurrentConfig() {
+		assertTrue(WafTuningService.inSync(CAT, List.of(), Map.of(), null));
+		assertFalse(WafTuningService.inSync(CAT, List.of(s("rule", ENV, "off", "")), Map.of(), null));
+	}
+
+	@Test
+	void inSyncReadsLastGoodFromTheSharedDirectory(@TempDir Path home) throws Exception {
+		Env env = new Env(home);
+		env.writeCatalog();
+		assertTrue(env.service.inSync());
+		env.service.apply(List.of(s("rule", ENV, "log", "")), "admin");
+		assertFalse(env.service.inSync());
+		Files.copy(env.wafDir.resolve("custom.yaml"), env.wafDir.resolve("last-good.yaml"));
+		assertTrue(env.service.inSync());
+		Server server = new Server();
+		server.setServerName("a.com");
+		env.db.insert(server);
+		env.service.apply(List.of(s("rule", "942100", "inherit", server.getId())), "admin");
+		assertFalse(env.service.inSync());
+	}
+
+	@Test
 	void hitsSinceCountsEveryEventFromTheGivenTime(@TempDir Path home) {
 		Env env = new Env(home);
 		for (long t : new long[] { 100, 200, 300 }) {

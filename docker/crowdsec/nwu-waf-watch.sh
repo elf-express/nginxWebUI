@@ -10,6 +10,8 @@
 #   applying         apply id being reloaded; a failed reload makes crowdsec exit, the next start reports it
 #   startup-applying set while last-good.yaml is reloaded at start; if crowdsec dies then, last-good.yaml is dropped
 # A config is only reloaded after `crowdsec -t` accepts it; otherwise the previous one is restored.
+# Files in /nwu-waf are written through a temp file in the same directory plus mv -f, so a symlink planted there is replaced
+# instead of followed; symlinks are never read (a symlinked request/custom.yaml fails that apply, other ones are deleted).
 set -u
 dir=/nwu-waf
 active=/etc/crowdsec/appsec-configs/nwu-custom.yaml
@@ -18,12 +20,28 @@ poll="${NWU_WAF_POLL:-3}"
 
 log() { echo "nwu-waf: $*" >&2; }
 
+# put <dest> : stdin -> temp file next to <dest> -> mv -f onto <dest>
+put() {
+  local t
+  t="$(mktemp "$(dirname "$1")/.nwu.XXXXXX")" || return 1
+  if cat > "$t" && chmod 644 "$t" && mv -f "$t" "$1"; then return 0; fi
+  rm -f "$t"
+  return 1
+}
+
+# drop_link <file> : when <file> is a symlink, deletes the link and logs it
+drop_link() {
+  [ -L "$1" ] || return 1
+  rm -f "$1"
+  log "removed symlink $1"
+}
+
 # write_result <id> <ok|failed> <message>
 write_result() {
   ID="$1" ST="$2" MSG="$3" AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     yq -n -o=json -I=0 '.id = strenv(ID) | .status = strenv(ST) | .message = strenv(MSG) | .at = strenv(AT)' \
-    > "$dir/result.json.tmp" && mv -f "$dir/result.json.tmp" "$dir/result.json"
-  echo "$1" > "$dir/processed"
+    | put "$dir/result.json"
+  printf '%s\n' "$1" | put "$dir/processed"
 }
 
 # fail_reason <crowdsec -t output> : the last 2 level=fatal/level=error lines, reduced to their msg="..." text (the whole
@@ -54,7 +72,7 @@ apply() {
     [ -n "$id" ] && write_result "$id" failed "crowdsec process not found"
     return 1
   fi
-  if [ -n "$id" ]; then echo "$id" > "$dir/applying"; else touch "$dir/startup-applying"; fi
+  if [ -n "$id" ]; then printf '%s\n' "$id" | put "$dir/applying"; else : | put "$dir/startup-applying"; fi
   kill -HUP "$pid"
   sleep 5
   rm -f "$dir/applying" "$dir/startup-applying"
@@ -62,7 +80,7 @@ apply() {
     [ -n "$id" ] && write_result "$id" failed "crowdsec exited during reload"
     return 1
   fi
-  cp -f "$active" "$dir/last-good.yaml"
+  put "$dir/last-good.yaml" < "$active"
   [ -n "$id" ] && write_result "$id" ok ""
   log "applied ${id:-last-good.yaml}"
   return 0
@@ -79,6 +97,7 @@ wait_lapi() {
 }
 
 mkdir -p "$dir"
+for f in startup-applying applying last-good.yaml processed; do drop_link "$dir/$f"; done
 wait_lapi || log "LAPI not ready after 120s, watching anyway"
 if [ -f "$dir/startup-applying" ]; then
   log "crowdsec died while reapplying last-good.yaml at start, dropping it"
@@ -94,12 +113,23 @@ if [ -f "$dir/last-good.yaml" ] && ! cmp -s "$dir/last-good.yaml" "$active"; the
   apply "$dir/last-good.yaml" "" || log "last-good.yaml rejected, keeping the default config"
 fi
 while true; do
-  if [ -f "$dir/request" ] && [ -f "$dir/custom.yaml" ]; then
+  drop_link "$dir/processed"
+  if [ -L "$dir/request" ]; then
+    rm -f "$dir/request"
+    log "request is a symlink, refused"
+    write_result symlink failed "request is a symlink, refused"
+  elif [ -f "$dir/request" ]; then
     id="$(tr -d '[:space:]' < "$dir/request")"
     done_id="$(tr -d '[:space:]' < "$dir/processed" 2>/dev/null || true)"
     if [ -n "$id" ] && [ "$id" != "$done_id" ]; then
-      cp -f "$dir/custom.yaml" /tmp/nwu-new.yaml
-      apply /tmp/nwu-new.yaml "$id" || true
+      if [ -L "$dir/custom.yaml" ]; then
+        rm -f "$dir/custom.yaml"
+        log "custom.yaml is a symlink, refused"
+        write_result "$id" failed "custom.yaml is a symlink, refused"
+      elif [ -f "$dir/custom.yaml" ]; then
+        cp -f "$dir/custom.yaml" /tmp/nwu-new.yaml
+        apply /tmp/nwu-new.yaml "$id" || true
+      fi
     fi
   fi
   sleep "$poll"

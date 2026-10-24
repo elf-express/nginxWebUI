@@ -5,6 +5,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.noear.solon.annotation.Controller;
 import org.noear.solon.annotation.Inject;
@@ -49,12 +50,15 @@ public class CrowdSecWafController extends BaseController {
 		}
 		obj.put("generatedAt", cat.generatedAt());
 		obj.put("crowdsec", cat.crowdsec());
-		obj.putAll(rulesView(cat, sqlHelper.findAll(WafRuleSetting.class), wafTuningService.hitsSince(System.currentTimeMillis() - HIT_WINDOW_MS)));
+		obj.putAll(rulesView(cat, sqlHelper.findAll(WafRuleSetting.class), wafTuningService.hitsSince(System.currentTimeMillis() - HIT_WINDOW_MS),
+				wafTuningService.hostsByServer().keySet()));
 		obj.put("skippedNames", wafTuningService.skippedNames());
+		obj.put("inSync", wafTuningService.inSync());
 		return renderSuccess(obj);
 	}
 
-	static Map<String, Object> rulesView(Catalog cat, List<WafRuleSetting> settings, Map<String, Integer> hits) {
+	/** serverIds：目前存在的站台；排除站台只列這些，已刪除站台的 id 不回傳給前端 */
+	static Map<String, Object> rulesView(Catalog cat, List<WafRuleSetting> settings, Map<String, Integer> hits, Set<String> serverIds) {
 		Map<String, WafRuleSetting> rules = WafTuningService.byKey(settings, WafTuningService.SCOPE_RULE);
 		Map<String, WafRuleSetting> categories = WafTuningService.byKey(settings, WafTuningService.SCOPE_CATEGORY);
 		List<Map<String, Object>> ruleRows = new ArrayList<>();
@@ -72,7 +76,7 @@ public class CrowdSecWafController extends BaseController {
 			row.put("hits", h);
 			row.put("action", WafTuningService.effectiveAction(r, rules, categories));
 			row.put("setting", rs == null || WafTuningService.INHERIT.equals(rs.getAction()) ? null : rs.getAction());
-			row.put("excludedServerIds", rs == null ? List.of() : WafTuningService.splitIds(rs.getExcludedServerIds()));
+			row.put("excludedServerIds", rs == null ? List.of() : existing(rs.getExcludedServerIds(), serverIds));
 			ruleRows.add(row);
 			Map<String, Object> c = catRows.computeIfAbsent(r.category(), k -> {
 				WafRuleSetting cs = categories.get(k);
@@ -84,7 +88,7 @@ public class CrowdSecWafController extends BaseController {
 				m.put("action", cs != null && WafTuningService.allowedAction(r.source(), cs.getAction()) ? cs.getAction()
 						: WafTuningService.defaultActionOf(r.source()));
 				m.put("setting", cs == null ? null : cs.getAction());
-				m.put("excludedServerIds", cs == null ? List.of() : WafTuningService.splitIds(cs.getExcludedServerIds()));
+				m.put("excludedServerIds", cs == null ? List.of() : existing(cs.getExcludedServerIds(), serverIds));
 				return m;
 			});
 			c.put("ruleCount", (Integer) c.get("ruleCount") + 1);
@@ -97,6 +101,10 @@ public class CrowdSecWafController extends BaseController {
 		view.put("rules", ruleRows);
 		view.put("categories", cats);
 		return view;
+	}
+
+	static List<String> existing(String csv, Set<String> serverIds) {
+		return WafTuningService.splitIds(csv).stream().filter(serverIds::contains).toList();
 	}
 
 	static List<WafRuleSetting> parseChanges(String json) {

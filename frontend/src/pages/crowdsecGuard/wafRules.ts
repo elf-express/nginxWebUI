@@ -100,6 +100,16 @@ export function statusMessage(s: WafApplyStatus, tr: Translate): { type: 'succes
   }
 }
 
+/** 資料庫設定和 CrowdSec 目前生效的設定不一致（例如站台網域改過、CrowdSec 重建過） */
+export function notApplied(data: WafRules | null): boolean {
+  return data?.inSync === false
+}
+
+/** 有變更，或設定尚未套用到 CrowdSec（此時沒有變更也能重新送出）才送出套用 */
+export function canApply(changes: Change[], data: WafRules | null): boolean {
+  return changes.length > 0 || notApplied(data)
+}
+
 /** 預設只列命中的模式：沒有搜尋字且沒開「顯示全部」 */
 export function onlyHitsMode(q: string, showAll: boolean): boolean {
   return !showAll && q.trim() === ''

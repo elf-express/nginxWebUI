@@ -5,7 +5,7 @@ import { SessionExpiredError } from '../../shared/http'
 import { t } from '../../shared/i18n'
 import { notifyError } from '../../shared/notify'
 import { applyWaf, fetchServers, fetchWafApplyStatus, fetchWafRules, type WafApplyStatus, type WafCategory, type WafRule, type WafRules } from './api'
-import { actionLabelKey, actionOptions, categoryName, changesOf, currentOf, editKey, onlyHitsMode, resumeRequestId, statusMessage, visibleCategories, visibleRules, type Edit, type WafScope } from './wafRules'
+import { actionLabelKey, actionOptions, categoryName, changesOf, currentOf, editKey, canApply, notApplied, onlyHitsMode, resumeRequestId, statusMessage, visibleCategories, visibleRules, type Edit, type WafScope } from './wafRules'
 
 const props = defineProps<{ focus: string; focusSeq: number }>()
 
@@ -140,7 +140,7 @@ function rowName(row: unknown, scope: WafScope): string {
 }
 
 async function doApply() {
-  if (changes.value.length === 0) {
+  if (!canApply(changes.value, data.value)) {
     message.info(t('crowdsecWafStr.noChanges'))
     return
   }
@@ -164,6 +164,18 @@ async function doApply() {
   }
 }
 
+/** 套用結果回來後重讀「是否已套用」，不動使用者正在編輯的內容 */
+async function refreshSync() {
+  try {
+    const r = await fetchWafRules()
+    if (!disposed && data.value) {
+      data.value = { ...data.value, inSync: r.inSync }
+    }
+  } catch {
+    // 讀不到就維持原狀
+  }
+}
+
 function poll(requestId: string, n: number) {
   timer = setTimeout(async () => {
     if (disposed) {
@@ -179,6 +191,7 @@ function poll(requestId: string, n: number) {
         return
       }
       status.value = s.state === 'pending' ? { ...s, state: 'timeout' } : s
+      await refreshSync()
     } catch (err) {
       if (disposed) {
         return
@@ -213,6 +226,7 @@ onBeforeUnmount(() => {
     <Alert v-else-if="data && !data.available" type="warning" show-icon class="waf-no-catalog"
       :message="t('crowdsecWafStr.noCatalog')" :description="t('crowdsecWafStr.noCatalogHint')" />
     <template v-else-if="data">
+      <Alert v-if="notApplied(data) && !applying" type="warning" show-icon class="waf-not-applied" :message="t('crowdsecWafStr.notApplied')" />
       <Space wrap class="waf-bar">
         <InputSearch v-model:value="q" class="waf-search" allow-clear :placeholder="t('crowdsecWafStr.search')" :aria-label="t('crowdsecWafStr.search')" />
         <span class="waf-show-all">
@@ -288,6 +302,7 @@ onBeforeUnmount(() => {
 .waf-bar,
 .waf-error,
 .waf-no-catalog,
+.waf-not-applied,
 .waf-status {
   margin-bottom: 8px;
 }

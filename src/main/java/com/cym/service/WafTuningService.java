@@ -3,6 +3,7 @@ package com.cym.service;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
@@ -379,7 +380,7 @@ public class WafTuningService {
 		String yaml = render(cat, sqlHelper.findAll(WafRuleSetting.class), hosts);
 		Path custom = dir().resolve("custom.yaml");
 		String before = Files.isRegularFile(custom) ? Files.readString(custom, StandardCharsets.UTF_8) : "";
-		String id = String.valueOf(System.currentTimeMillis());
+		String id = String.valueOf(nextRequestId(System.currentTimeMillis(), readRequest()));
 		writeApply(dir(), yaml, id);
 		StringBuilder summary = new StringBuilder("[CrowdSec WAF] apply " + id + ":");
 		for (WafRuleSetting c : changes) {
@@ -391,6 +392,53 @@ public class WafTuningService {
 		}
 		operateLogService.addLog(before, summary + "\n" + yaml, adminName);
 		return id;
+	}
+
+	/** 套用編號單調遞增：現在毫秒，但不小於目前 request 檔的編號 + 1；讀不到或不是數字就用現在毫秒 */
+	static long nextRequestId(long nowMillis, String currentRequest) {
+		try {
+			return Math.max(nowMillis, Long.parseLong(StrUtil.nullToEmpty(currentRequest).trim()) + 1);
+		} catch (NumberFormatException e) {
+			return nowMillis;
+		}
+	}
+
+	private String readRequest() {
+		Path file = dir().resolve("request");
+		try {
+			return Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) ? Files.readString(file, StandardCharsets.UTF_8) : null;
+		} catch (IOException e) {
+			return null;
+		}
+	}
+
+	/** 資料庫設定產生的 YAML 與 CrowdSec 目前生效的設定是否一致；沒有規則目錄時視為一致 */
+	public boolean inSync() {
+		Catalog cat = catalog();
+		if (cat == null) {
+			return true;
+		}
+		String lastGood = null;
+		Path file = dir().resolve("last-good.yaml");
+		try {
+			if (Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
+				lastGood = Files.readString(file, StandardCharsets.UTF_8);
+			}
+		} catch (IOException e) {
+			lastGood = null;
+		}
+		return inSync(cat, sqlHelper.findAll(WafRuleSetting.class), hostsByServer(), lastGood);
+	}
+
+	private static String normalize(String yaml) {
+		return yaml.replace("\r\n", "\n");
+	}
+
+	/** lastGood 為 null（沒有成功套用過）時，生效的是 image 預設設定 */
+	static boolean inSync(Catalog cat, List<WafRuleSetting> settings, Map<String, Hosts> hostsByServer, String lastGood) {
+		String expected = render(cat, settings, hostsByServer);
+		String current = lastGood != null ? lastGood : render(cat, List.of(), Map.of());
+		return normalize(expected).equals(normalize(current));
 	}
 
 	/** state：none（沒送出過）／pending（結果還沒回來）／ok／failed；requestId 為 null 時看目前的 request 檔 */

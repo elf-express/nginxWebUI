@@ -5,6 +5,10 @@
 #   3. a valid custom.yaml + request -> result ok, last-good.yaml written, active config replaced
 #   4. a broken custom.yaml + request -> result failed, crowdsec still running, active config = last good
 #   5. container restart -> starts with the default, then the watcher applies last-good.yaml again
+#   6. custom.yaml replaced by a symlink to /etc/passwd + a new request -> result failed (symlink), nothing from /etc/passwd
+#      in the message, the active config unchanged
+#   7. result.json replaced by a symlink to /tmp/nwu-victim, then a valid apply -> /tmp/nwu-victim untouched, result.json is
+#      a regular file with status ok
 # Usage: sh docker/test/crowdsec-waf-watch.sh <nginxwebui-crowdsec image>
 set -u
 export MSYS_NO_PATHCONV=1
@@ -83,6 +87,26 @@ if x 'cmp -s /nwu-waf/last-good.yaml /etc/crowdsec/appsec-configs/nwu-custom.yam
   pass 5 "last good config applied again after restart"
 else
   fail 5 "active config after restart is not last-good.yaml"
+fi
+
+x 'cp /etc/crowdsec/appsec-configs/nwu-custom.yaml /tmp/nwu-before.yaml; rm -f /nwu-waf/custom.yaml; ln -s /etc/passwd /nwu-waf/custom.yaml; echo 1006 > /nwu-waf/request'
+s6="$(wait_result 1006)"
+msg6="$(x 'cat /nwu-waf/result.json' 2>/dev/null)"
+if [ "$s6" = failed ] && echo "$msg6" | grep -qi symlink && ! echo "$msg6" | grep -q 'root:' \
+  && x 'cmp -s /tmp/nwu-before.yaml /etc/crowdsec/appsec-configs/nwu-custom.yaml'; then
+  pass 6 "symlinked custom.yaml refused ($(echo "$msg6" | head -c 160))"
+else
+  fail 6 "status '$s6', result '$msg6'"
+fi
+
+x 'echo untouched > /tmp/nwu-victim; rm -f /nwu-waf/result.json /nwu-waf/custom.yaml; ln -s /tmp/nwu-victim /nwu-waf/result.json
+sed "s#^outofband_rules:#on_load:\n - apply:\n   - RemoveInBandRuleByName(\"crowdsecurity/vpatch-env-access\")\noutofband_rules:#" /nwu/nwu-custom.default.yaml > /nwu-waf/custom.yaml && echo 1007 > /nwu-waf/request'
+s7="$(wait_result 1007)"
+victim="$(x 'cat /tmp/nwu-victim')"
+if [ "$s7" = ok ] && [ "$victim" = untouched ] && x 'test -f /nwu-waf/result.json && ! test -L /nwu-waf/result.json'; then
+  pass 7 "symlinked result.json replaced, not followed (victim '$victim', apply $s7)"
+else
+  fail 7 "status '$s7', victim '$victim'"
 fi
 
 echo "== $PASS_N passed, $FAIL_N failed"

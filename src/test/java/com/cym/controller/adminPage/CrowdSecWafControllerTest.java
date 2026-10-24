@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
@@ -31,7 +32,7 @@ class CrowdSecWafControllerTest {
 	void rulesViewCountsHitsAndShowsEffectiveActions() {
 		Map<String, Object> v = CrowdSecWafController.rulesView(CAT,
 				List.of(s("category", "crs-sqli", "log", "s1"), s("rule", "942200", "off", ""), s("rule", "crowdsecurity/vpatch-env-access", "inherit", "")),
-				Map.of("942100", 3, "942200", 1));
+				Map.of("942100", 3, "942200", 1), Set.of("s1"));
 		List<Map<String, Object>> rules = (List<Map<String, Object>>) v.get("rules");
 		List<Map<String, Object>> cats = (List<Map<String, Object>>) v.get("categories");
 		assertEquals(List.of("vpatch:_other", "crs-sqli"), cats.stream().map(c -> c.get("key")).toList());
@@ -53,6 +54,19 @@ class CrowdSecWafControllerTest {
 		Map<String, Object> env = rules.stream().filter(r -> "crowdsecurity/vpatch-env-access".equals(r.get("key"))).findFirst().orElseThrow();
 		assertNull(env.get("setting"));
 		assertEquals(0, env.get("hits"));
+	}
+
+	@SuppressWarnings("unchecked")
+	@Test
+	void rulesViewDropsDeletedServersFromTheExclusions() {
+		Map<String, Object> v = CrowdSecWafController.rulesView(CAT,
+				List.of(s("category", "crs-sqli", "log", "s1,gone"), s("rule", "942200", "log", "gone,s2")), Map.of(), Set.of("s1", "s2"));
+		List<Map<String, Object>> rules = (List<Map<String, Object>>) v.get("rules");
+		List<Map<String, Object>> cats = (List<Map<String, Object>>) v.get("categories");
+		Map<String, Object> sqli = cats.stream().filter(c -> "crs-sqli".equals(c.get("key"))).findFirst().orElseThrow();
+		assertEquals(List.of("s1"), sqli.get("excludedServerIds"));
+		Map<String, Object> r942200 = rules.stream().filter(r -> "942200".equals(r.get("key"))).findFirst().orElseThrow();
+		assertEquals(List.of("s2"), r942200.get("excludedServerIds"));
 	}
 
 	@Test

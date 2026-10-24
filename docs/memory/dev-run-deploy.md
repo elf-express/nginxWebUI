@@ -107,8 +107,8 @@ LAPI 8080、AppSec 7422 只在 compose 網路內，不 publish。
 > `sh docker/test/crowdsec-admin-e2e.sh <nginxwebui image> <crowdsec image>`（後台新增／刪除封鎖、ASN 撤銷、錯誤密碼，約 3 分鐘，
 > 獨立 project `nwu-e390-e2e`）、`sh docker/test/crowdsec-waf-events-e2e.sh <nginxwebui image> <crowdsec image>`
 > （WAF 事件：排程同步、篩選、IP 查詢、回補與缺口、CrowdSec 停掉再啟動，約 5 分鐘、6 項，獨立 project `nwu-e394-e2e`）。
-> WAF 規則調整：`sh docker/test/crowdsec-waf-watch.sh <crowdsec image>`（單一 crowdsec 容器：規則目錄匯出、預設設定、套用成功／失敗還原／重啟後套用上一份，5 項，約 2 分鐘）、
-> `sh docker/test/crowdsec-waf-tuning-e2e.sh <nginxwebui image> <crowdsec image>`（整個 stack：只記錄不封 IP、站台排除含大寫 Host 與正向對照、壞設定還原、重啟、停用、操作日誌，10 項，約 6 分鐘，獨立 project `nwu-e395-e2e`，與其他 crowdsec-*-e2e.sh 共用網段，不能同時跑）。
+> WAF 規則調整：`sh docker/test/crowdsec-waf-watch.sh <crowdsec image>`（單一 crowdsec 容器：規則目錄匯出、預設設定、套用成功／失敗還原／重啟後套用上一份、拒絕 symlink，7 項，約 2 分鐘）、
+> `sh docker/test/crowdsec-waf-tuning-e2e.sh <nginxwebui image> <crowdsec image>`（整個 stack：封 IP 的正向對照、只記錄不封 IP（已知漏洞與 CRS）、站台排除（CRS 含大寫 Host、已知漏洞）與正向對照、壞設定還原、重啟、停用、操作日誌，14 項，獨立 project `nwu-e395-e2e`，與其他 crowdsec-*-e2e.sh 共用網段，不能同時跑）。
 > 注意：Loki / Promtail / Grafana monitoring profile 已於 2026-06-30 從本專案移除。
 > 若 server 上還有 `nginxwebui_loki_data` / `nginxwebui_grafana_data` volume 是歷史遺留，可手動 `docker volume rm` 清理。
 

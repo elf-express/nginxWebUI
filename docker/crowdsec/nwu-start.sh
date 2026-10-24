@@ -28,12 +28,15 @@ fi
 # 沒有共用 volume 時不做其他事；複製規則目錄失敗只印警告，不讓 crowdsec 起不來。
 cp -f /nwu/nwu-custom.default.yaml /etc/crowdsec/appsec-configs/nwu-custom.yaml
 if [ -d /nwu-waf ]; then
-    {
+    (
+        # catalog 若是 symlink 先刪掉；每個檔案先寫到 catalog 內的暫存檔再 mv -f，不跟著 symlink 寫
+        if [ -L /nwu-waf/catalog ]; then rm -f /nwu-waf/catalog; fi
         mkdir -p /nwu-waf/catalog
         for f in /nwu/catalog/*; do
-            cp -f "$f" "/nwu-waf/catalog/.$(basename "$f").tmp" && mv -f "/nwu-waf/catalog/.$(basename "$f").tmp" "/nwu-waf/catalog/$(basename "$f")"
+            t="$(mktemp /nwu-waf/catalog/.nwu.XXXXXX)" || exit 1
+            if cp -f "$f" "$t" && chmod 644 "$t" && mv -f "$t" "/nwu-waf/catalog/$(basename "$f")"; then :; else rm -f "$t"; exit 1; fi
         done
-    } || echo "nwu-waf: catalog copy failed" >&2
+    ) || echo "nwu-waf: catalog copy failed" >&2
     /bin/bash /nwu/nwu-waf-watch.sh &
 fi
 

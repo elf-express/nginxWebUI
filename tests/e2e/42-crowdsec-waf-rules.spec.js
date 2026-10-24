@@ -27,9 +27,12 @@ function writeCatalog(dir = CATALOG) {
   fs.writeFileSync(path.join(dir, 'meta.json'), JSON.stringify({ generatedAt: '2026-10-24T00:00:00Z', crowdsec: 'v1.8.1' }));
 }
 
-// 模擬監看程式：讀 nginxWebUI 寫的套用編號，回報結果
+// 模擬監看程式：讀 nginxWebUI 寫的套用編號，回報結果；成功時像監看程式一樣把生效的設定存成 last-good.yaml
 function writeResult(status, message) {
   const id = fs.readFileSync(path.join(WAF_DIR, 'request'), 'utf8').trim();
+  if (status === 'ok') {
+    fs.copyFileSync(path.join(WAF_DIR, 'custom.yaml'), path.join(WAF_DIR, 'last-good.yaml'));
+  }
   fs.writeFileSync(path.join(WAF_DIR, 'result.json'), JSON.stringify({ id, status, message, at: '2026-10-24T01:00:00Z' }));
   return id;
 }
@@ -131,6 +134,7 @@ test.describe.serial('WAF 規則分頁（共用 server，規則目錄與結果�
       await page.reload();
       const sqli2 = page.locator('.waf-section[data-source="crs"] .ant-table-row').filter({ hasText: /SQL/ }).first();
       await expect(sqli2.locator('.waf-cat-action')).toContainText(LOG_ONLY);
+      await expect(page.locator('.waf-not-applied')).toHaveCount(0);
       expect(await operateLogHas(page, '[CrowdSec WAF] apply')).toBe(true);
     } finally {
       await page.request.post('/adminPage/server/del', { form: { id: site.id } });
@@ -149,6 +153,45 @@ test.describe.serial('WAF 規則分頁（共用 server，規則目錄與結果�
     await expect(page.locator('.waf-status')).toContainText(/等待|waiting/);
     writeResult('failed', 'yaml: line 3: did not find expected node content');
     await expect(page.locator('.waf-status')).toContainText('did not find expected node content', { timeout: 10000 });
+  });
+
+  test('站台網域改過後顯示尚未套用，沒有變更也能重新套用', async ({ page }) => {
+    writeCatalog();
+    const serverJson = (extra) => JSON.stringify({ proxyType: 0, serverName: 'waf-sync.test', listen: '18992', enable: true, def: 0, ...extra });
+    await page.request.post('/adminPage/server/addOver', { form: { serverJson: serverJson({}), serverParamJson: '[]', locationJson: '[]' } });
+    const servers = (await (await page.request.get('/adminPage/crowdsecGuard/servers')).json()).obj;
+    const site = servers.find((s) => s.name === 'waf-sync.test');
+    expect(site, 'waf-sync.test 站台建立失敗').toBeTruthy();
+    try {
+      // 排除這個站台的 942100，並模擬監看程式套用成功（custom.yaml 同時存成 last-good.yaml）
+      const res = await page.request.post('/adminPage/crowdsecGuard/wafRules/apply', {
+        form: { changes: JSON.stringify([{ scope: 'rule', ruleKey: '942100', action: 'inherit', excludedServerIds: site.id }]) },
+      });
+      expect((await res.json()).success).toBe(true);
+      writeResult('ok', '');
+      await page.goto('/adminPage/crowdsecGuard#rules');
+      await expect(page.locator('.waf-apply')).toBeVisible();
+      await expect(page.locator('.waf-not-applied')).toHaveCount(0);
+
+      // 改掉被排除站台的 server_name：資料庫設定產生的設定和生效的不同了
+      await page.request.post('/adminPage/server/addOver', {
+        form: { serverJson: serverJson({ id: site.id, serverName: 'waf-sync-renamed.test' }), serverParamJson: '[]', locationJson: '[]' },
+      });
+      await page.reload();
+      await expect(page.locator('.waf-not-applied')).toBeVisible();
+
+      // 不改任何規則直接套用：寫出新的套用編號，設定檔帶新的網域
+      const before = fs.readFileSync(path.join(WAF_DIR, 'request'), 'utf8').trim();
+      await page.locator('.waf-apply').click();
+      await expect(page.locator('.waf-status')).toContainText(/等待|waiting/);
+      expect(fs.readFileSync(path.join(WAF_DIR, 'request'), 'utf8').trim()).not.toBe(before);
+      expect(fs.readFileSync(path.join(WAF_DIR, 'custom.yaml'), 'utf8')).toContain('"waf-sync-renamed.test"');
+      writeResult('ok', '');
+      await expect(page.locator('.waf-status')).toContainText(/套用成功|应用成功|Applied/, { timeout: 10000 });
+      await expect(page.locator('.waf-not-applied')).toHaveCount(0);
+    } finally {
+      await page.request.post('/adminPage/server/del', { form: { id: site.id } });
+    }
   });
 
   test('後端拒絕不合法的設定', async ({ page }) => {
