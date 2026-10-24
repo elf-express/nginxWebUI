@@ -1,0 +1,21 @@
+frontend/src/pages/crowdsecGuard/WafEventsTab.vue
+  s_fbddda1be869be::t_c37fb00903e94d 81-83,116
+src/main/resources/messages_en_US.properties
+  s_fbddda1be869be::t_0ecdc22c2a41c8 1185,1188
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ae2b25306735cc67bbfab632d6da478277770fef",
+  "prompts": {},
+  "sessions": {
+    "s_fbddda1be869be": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3e7779be-a10c-42c4-bc5a-4ffe39cec920",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
