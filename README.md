@@ -75,7 +75,7 @@ Only the core two services start by default; CrowdSec is opt-in via the compose 
 - **GeoIP2 country blocking** — default whitelist of 17 countries (CN/JP/HK/KR/SG/TH/MY/TW/VN/GB/FR/DE/GR/CA/US/MO/LA), user-customizable
 - **ASN blocking** — block whole network segments by Autonomous System Number
 - **CrowdSec integration** — the official nginx Lua bouncer runs inside nginx: banned IPs are dropped (444), requests stopped by the AppSec WAF get 403, allowlisted IPs bypass every layer (see [CrowdSec protection](#crowdsec-protection))
-- **CrowdSec Guard page** — one page that shows which layer (allowlist, country block, denylist, CrowdSec ban) stops a given IP, lists recently blocked IPs, manages the CrowdSec ban list (manual ban, unban, allowlist), lists WAF events (kept 30 days in nginxWebUI's database, filterable by site, category and result), and holds the CrowdSec connection settings
+- **CrowdSec Guard page** — one page that shows which layer (allowlist, country block, denylist, CrowdSec ban) stops a given IP, lists recently blocked IPs, manages the CrowdSec ban list (manual ban, unban, allowlist), lists WAF events (kept 30 days in nginxWebUI's database, filterable by site, category and result), tunes the WAF rules (per category or per rule: block, log only or disable; exclude sites; applied to CrowdSec from the page, with the last good config restored if it is rejected), and holds the CrowdSec connection settings
 - **Anti-bot certificate** — centrally managed in the "Protection" page
 
 ### 🌐 Reverse Proxy / Load Balancing

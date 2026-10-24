@@ -52,6 +52,8 @@ public class WafEventService {
 	GeoLookup geoLookup;
 	@Inject
 	JdbcTemplate jdbcTemplate;
+	@Inject
+	WafTuningService wafTuningService;
 
 	Function<String, String> countryOf;
 	/** 資料表裡出現過的不重複 host；參數是起算時間（epoch 毫秒），null 表示不限 */
@@ -117,17 +119,18 @@ public class WafEventService {
 		fresh.sort(Comparator.comparing(WafAlertParser.Hit::time));
 		Map<String, WafEvent> byKey = loadEvents(fresh);
 		Set<String> dirty = new LinkedHashSet<>();
+		Map<String, String> effective = wafTuningService == null ? Map.of() : wafTuningService.effectiveActions();
 		int added = 0;
 		for (WafAlertParser.Hit h : fresh) {
 			String key = eventKey(h);
 			WafEvent e = byKey.get(key);
 			if (e == null) {
 				e = newEvent(h, key);
-				merge(e, h);
+				merge(e, h, effective);
 				sqlHelper.insert(e);
 				added++;
 			} else {
-				merge(e, h);
+				merge(e, h, effective);
 				dirty.add(key);
 			}
 			byKey.put(key, e);
@@ -178,8 +181,8 @@ public class WafEventService {
 		return e;
 	}
 
-	/** 把一個 alert 的規則與欄位併進事件：有 in-band 命中就是 block（E-395 改規則處理方式時改這裡），其他保留原值或 log */
-	static void merge(WafEvent e, WafAlertParser.Hit h) {
+	/** 把一個 alert 的規則與欄位併進事件：in-band 命中依規則設定判斷擋下或只記錄，其他保留原值或 log */
+	static void merge(WafEvent e, WafAlertParser.Hit h, Map<String, String> effective) {
 		Set<String> sources = new TreeSet<>(split(e.getRuleSource()));
 		Set<String> categories = new LinkedHashSet<>(split(e.getCategories()));
 		for (WafAlertParser.Rule r : h.rules()) {
@@ -189,7 +192,13 @@ public class WafEventService {
 		e.setRuleSource(String.join(",", sources));
 		e.setCategories("," + String.join(",", categories) + ",");
 		if (h.inBand()) {
-			e.setAction(ACTION_BLOCK);
+			// vpatch 設為只記錄後 alert 訊息仍是 WAF block，結果依同步當下的規則設定判斷（E-395）
+			String a = WafTuningService.vpatchActionOf(h.rules().stream().map(WafAlertParser.Rule::name).toList(), effective);
+			if (ACTION_BLOCK.equals(a)) {
+				e.setAction(ACTION_BLOCK);
+			} else if (e.getAction() == null) {
+				e.setAction(ACTION_LOG);
+			}
 		} else if (e.getAction() == null) {
 			e.setAction(ACTION_LOG);
 		}

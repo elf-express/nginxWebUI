@@ -36,17 +36,18 @@ test.describe('CrowdSec 防護頁', () => {
     await login(page);
   });
 
-  test('選單進入，四個分頁可切換，有 h1，沒有 CDN', async ({ page }) => {
+  test('選單進入，五個分頁可切換，有 h1，沒有 CDN', async ({ page }) => {
     const cdn = [];
     page.on('request', (r) => { if (CDN.test(r.url())) cdn.push(r.url()); });
     // 從「防護與憑證」頁進入：monitor 頁在沒裝 nginx 的環境會自動彈出安裝方式視窗，遮罩會擋住選單
     await page.goto('/adminPage/protectionCert');
     await page.locator('a[href$="/adminPage/crowdsecGuard"]').click();
     await expect(page.locator('h1')).toHaveText(/CrowdSec/);
-    // 預設就在 IP 查詢，所以先切到其他三個，最後切回來
+    // 預設就在 IP 查詢，所以先切到其他四個，最後切回來
     const tabs = [
       [/封鎖名單|封锁名单|Ban list/, 'bans'],
       [/WAF 事件|WAF events/, 'waf'],
+      [/WAF 規則|WAF 规则|WAF rules/, 'rules'],
       [/連線設定|连接设置|Connection/, 'conn'],
       [/IP 查詢|IP 查询|IP lookup/, 'ip'],
     ];

@@ -6,7 +6,8 @@ import CrowdSecTab from '../crowdsec/CrowdSecTab.vue'
 import BlocklistTab from './BlocklistTab.vue'
 import IpLookupTab from './IpLookupTab.vue'
 import WafEventsTab from './WafEventsTab.vue'
-import { ipHash, parseHash, type TabKey } from './view'
+import WafRulesTab from './WafRulesTab.vue'
+import { ipHash, parseHash, rulesHash, type TabKey } from './view'
 
 // 主色對齊舊版 Layui 的 layui-btn-normal
 const theme = { token: { colorPrimary: '#1e9fff' } }
@@ -14,6 +15,9 @@ const active = ref<TabKey>('ip')
 const queryIp = ref('')
 // 每次「查這個 IP」加一，同一個 IP 也會重查
 const lookupSeq = ref(0)
+// WAF 規則分頁要聚焦的規則；每次「誤判？調整規則」加一，同一條規則也會重新聚焦
+const focusRule = ref('')
+const focusSeq = ref(0)
 
 function syncFromHash() {
   const h = parseHash(window.location.hash)
@@ -21,11 +25,15 @@ function syncFromHash() {
   if (h.ip) {
     queryIp.value = h.ip
   }
+  if (h.tab === 'rules' && h.rule) {
+    focusRule.value = h.rule
+    focusSeq.value += 1
+  }
 }
 
 function onTab(key: string | number) {
   active.value = key as TabKey
-  history.replaceState(null, '', key === 'ip' ? ipHash(queryIp.value) : `#${key}`)
+  history.replaceState(null, '', key === 'ip' ? ipHash(queryIp.value) : key === 'rules' ? rulesHash(focusRule.value) : `#${key}`)
 }
 
 /** IP 查詢分頁送出查詢：只在它是目前分頁時同步網址；replaceState 不觸發 hashchange，不會再查一次 */
@@ -43,6 +51,15 @@ function lookupIp(ip: string) {
   history.replaceState(null, '', ipHash(ip))
 }
 provide('lookupIp', lookupIp)
+
+/** WAF 事件分頁的「誤判？調整規則」 */
+function tuneRule(rule: string) {
+  focusRule.value = rule
+  focusSeq.value += 1
+  active.value = 'rules'
+  history.replaceState(null, '', rulesHash(rule))
+}
+provide('tuneRule', tuneRule)
 
 onMounted(() => {
   syncFromHash()
@@ -65,6 +82,9 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', syncFromHash))
         </TabPane>
         <TabPane key="waf" :tab="t('crowdsecGuardStr.tabWaf')">
           <WafEventsTab v-if="active === 'waf'" />
+        </TabPane>
+        <TabPane key="rules" :tab="t('crowdsecGuardStr.tabRules')">
+          <WafRulesTab v-if="active === 'rules'" :focus="focusRule" :focus-seq="focusSeq" />
         </TabPane>
         <TabPane key="conn" :tab="t('crowdsecGuardStr.tabConn')">
           <CrowdSecTab v-if="active === 'conn'" />

@@ -19,6 +19,7 @@ import {
 } from './view'
 
 const lookupIp = inject<(ip: string) => void>('lookupIp', () => {})
+const tuneRule = inject<(rule: string) => void>('tuneRule', () => {})
 const PAGE_SIZE = 20
 const servers = ref<{ id: string; name: string }[]>([])
 const status = ref<WafStatus | null>(null)
@@ -228,6 +229,7 @@ onMounted(async () => {
               <li v-for="(r, i) in record.rules" :key="i">
                 <strong>{{ t('crowdsecGuardStr.wafRuleLine', wafRuleLabel(r), t(wafCategoryKey(r.category))) }}</strong>
                 <span v-if="r.message"> — {{ r.message }}</span>
+                <Button size="small" class="waf-tune" @click="tuneRule(r.ruleName)">{{ t('crowdsecWafStr.tuneRule') }}</Button>
               </li>
             </ul>
           </dd>
@@ -276,5 +278,8 @@ onMounted(async () => {
 .waf-detail-rules {
   margin: 0;
   padding-left: 18px;
+}
+.waf-tune {
+  margin-left: 8px;
 }
 </style>

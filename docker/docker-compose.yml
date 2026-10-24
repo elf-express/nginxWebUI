@@ -14,6 +14,7 @@ services:
       - nginxwebui_data:/home/nginxWebUI
       - nginxwebui_log:/home/nginxWebUI/log
       - nginxwebui_geoip:/etc/nginx/geoip  # MMDB ~80 MB，restart 不重抓；crontab 每週三六自動更新
+      - nginxwebui_waf:/home/nginxWebUI/crowdsec-waf  # WAF 規則調整：與 crowdsec 共用（規則目錄、自訂 appsec-config、套用結果）
     environment:
       JVM_XMX: 256m
       # CrowdSec（profile security）：nginx 內的 Lua bouncer 直接問 crowdsec 容器，不經第三方 bouncer。
@@ -83,9 +84,11 @@ services:
     # config（acquis/profiles/abuseipdb）與 hub 內容（nginx 日誌解析、AppSec WAF 規則）都烤進自建 image
     # （見 docker/crowdsec/Dockerfile），不再 bind mount，升版跟著 image 走。runtime secret 仍走 .env。
     # LAPI 8080、AppSec 7422 只在 compose 網路內，不 publish。
+    # WAF 規則調整的設定在 nginxwebui_waf（與 nginxwebui 共用），正本在 nginxWebUI 資料庫。
     volumes:
       - nginxwebui_log:/var/log/nginx:ro
       - crowdsec_data:/var/lib/crowdsec/data
+      - nginxwebui_waf:/nwu-waf
     environment:
       # 向 LAPI 註冊名為 nginx 的 bouncer；留空則不註冊
       - BOUNCER_KEY_nginx=${CROWDSEC_BOUNCER_KEY:-}
@@ -112,3 +115,5 @@ volumes:
     name: nginxwebui_crowdsec_data
   nginxwebui_geoip:
     name: nginxwebui_geoip
+  nginxwebui_waf:
+    name: nginxwebui_waf

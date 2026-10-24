@@ -186,6 +186,7 @@ nginxwebui_postgres_data
 nginxwebui_loki_data
 nginxwebui_grafana_data
 nginxwebui_crowdsec_data
+nginxwebui_waf
 ```
 
 ### 升版時
@@ -227,6 +228,8 @@ nginxwebui_postgres_data → /var/lib/postgresql/data
 nginxwebui_loki_data     → /loki
 nginxwebui_grafana_data  → /var/lib/grafana
 nginxwebui_crowdsec_data → /var/lib/crowdsec/data
+nginxwebui_waf      → nginxwebui 容器 /home/nginxWebUI/crowdsec-waf（讀寫）、crowdsec 容器 /nwu-waf
+                      （WAF 規則調整：規則目錄、自訂 appsec-config、套用結果；nginxwebui 一律掛載，crowdsec 的監看程式只在 security profile 使用）
 # /etc/crowdsec 改單檔 bind mount（docker/crowdsec/*.yaml → 容器 /etc/crowdsec/...），不再用 named volume
 ```
 

@@ -119,6 +119,12 @@ else
   echo "ok: no hub download errors in startup log"
 fi
 
+if docker run --rm --network none --entrypoint sh "$IMAGE" -c 'test -s /nwu/catalog/vpatch.json && test -s /nwu/catalog/crs.tsv && test -s /nwu/catalog/meta.json'; then
+  echo "ok: WAF rule catalog is baked into the image"
+else
+  fail "WAF rule catalog (/nwu/catalog) is missing from the image"
+fi
+
 if [ "$FAILED" -ne 0 ]; then
   echo "crowdsec-offline: FAILED"
   exit 1

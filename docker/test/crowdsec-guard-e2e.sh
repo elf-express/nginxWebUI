@@ -136,6 +136,8 @@ volumes:
     name: ${PROJECT}_crowdsec_data
   nginxwebui_geoip:
     name: ${PROJECT}_geoip
+  nginxwebui_waf:
+    name: ${PROJECT}_waf
 EOF
 
 # ---------- helpers ----------
@@ -246,8 +248,18 @@ else
   exit 1
 fi
 
+# ---------- web root, test site, allowlist-free GeoRule ----------
+docker exec "$NWU" sh -c "mkdir -p $HOME_DIR/e2e-www && echo e2e-ok > $HOME_DIR/e2e-www/index.html \
+  && chmod o+x $HOME_DIR && chmod -R a+rX $HOME_DIR/e2e-www"
+SERVER_JSON="{\"proxyType\":\"0\",\"listen\":\"80\",\"def\":\"1\",\"ipv6\":\"0\",\"serverName\":\"$HOST\",\"ssl\":\"0\",\"rewrite\":\"0\",\"http2\":\"0\",\"proxyProtocol\":\"0\",\"protocols\":\"TLSv1.2 TLSv1.3\",\"enable\":true}"
+LOC_JSON="[{\"enable\":1,\"path\":\"/\",\"type\":1,\"rootType\":\"root\",\"rootPath\":\"$HOME_DIR/e2e-www\",\"rootPage\":\"index.html\",\"header\":0,\"websocket\":0,\"cros\":0,\"returnPath\":0,\"locationParamJson\":\"\"}]"
+r="$(api /adminPage/server/addOver --data-urlencode "serverJson=$SERVER_JSON" \
+  --data-urlencode "serverParamJson=" --data-urlencode "locationJson=$LOC_JSON")"
+ok "$r" || { fail setup "server addOver: $r"; exit 1; }
+
 # ---------- 1. country layer ----------
-# Before the global GeoRule is turned off for the 444 checks below.
+# After the test site exists (the country layer is evaluated per enabled HTTP site) and before the global GeoRule is
+# turned off for the 444 checks below.
 r1="$(api "/adminPage/crowdsecGuard/ipLookup?ip=$IP_GEO_BLOCKED")"
 r2="$(api "/adminPage/crowdsecGuard/ipLookup?ip=$IP_GEO_ALLOWED")"
 s1="$(echo "$r1" | layer_state geo)"
@@ -259,15 +271,6 @@ if ok "$r1" && ok "$r2" && [ "$s1" = "blocked" ] && [ "$s2" = "allowed" ] && [ -
 else
   fail 1 "geo states: '$s1' / '$s2'; response: $r1"
 fi
-
-# ---------- web root, test site, allowlist-free GeoRule ----------
-docker exec "$NWU" sh -c "mkdir -p $HOME_DIR/e2e-www && echo e2e-ok > $HOME_DIR/e2e-www/index.html \
-  && chmod o+x $HOME_DIR && chmod -R a+rX $HOME_DIR/e2e-www"
-SERVER_JSON="{\"proxyType\":\"0\",\"listen\":\"80\",\"def\":\"1\",\"ipv6\":\"0\",\"serverName\":\"$HOST\",\"ssl\":\"0\",\"rewrite\":\"0\",\"http2\":\"0\",\"proxyProtocol\":\"0\",\"protocols\":\"TLSv1.2 TLSv1.3\",\"enable\":true}"
-LOC_JSON="[{\"enable\":1,\"path\":\"/\",\"type\":1,\"rootType\":\"root\",\"rootPath\":\"$HOME_DIR/e2e-www\",\"rootPage\":\"index.html\",\"header\":0,\"websocket\":0,\"cros\":0,\"returnPath\":0,\"locationParamJson\":\"\"}]"
-r="$(api /adminPage/server/addOver --data-urlencode "serverJson=$SERVER_JSON" \
-  --data-urlencode "serverParamJson=" --data-urlencode "locationJson=$LOC_JSON")"
-ok "$r" || { fail setup "server addOver: $r"; exit 1; }
 
 # The seeded global GeoRule (allow mode, 17 countries) blocks every IP without a country, so it would answer 444
 # before CrowdSec does. Turn it off so the 444 below comes from the CrowdSec decision.

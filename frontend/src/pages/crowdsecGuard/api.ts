@@ -92,7 +92,7 @@ export const banIp = (ip: string, duration: string, reason: string) => post(`${B
 export const unban = (decisionId: number, value: string) => post(`${BASE}/unban`, { decisionId, value })
 export const whitelistIp = (ip: string) => post<WhitelistOutcome>(`${BASE}/whitelist`, { ip })
 
-export interface WafRule {
+export interface WafEventRule {
   ruleName: string
   ruleSource: 'vpatch' | 'crs' | string
   category: string
@@ -111,7 +111,7 @@ export interface WafEvent {
   ruleSource: string
   action: 'block' | 'log' | string
   message?: string | null
-  rules: WafRule[]
+  rules: WafEventRule[]
 }
 
 export interface WafPage {
@@ -154,3 +154,56 @@ export const fetchWafEvents = (q: WafQuery) => get<WafPage>(`${WAF}/events`, q)
 export const fetchWafStatus = () => get<WafStatus>(`${WAF}/status`)
 export const syncWaf = () => post<WafSyncResult>(`${WAF}/sync`)
 export const saveWafRetention = (days: number) => post(`${WAF}/retention`, { days })
+
+export type WafSource = 'vpatch' | 'crs'
+
+/** WAF 規則分頁的一條規則 */
+export interface WafRule {
+  key: string
+  source: WafSource
+  category: string
+  label: string
+  description: string
+  cves: string[]
+  hits: number
+  /** 有效處理方式 */
+  action: string
+  /** 存的設定；單條是 inherit 或沒存時省略 */
+  setting?: string | null
+  excludedServerIds: string[]
+}
+
+export interface WafCategory {
+  key: string
+  source: WafSource
+  ruleCount: number
+  hits: number
+  action: string
+  setting?: string | null
+  excludedServerIds: string[]
+}
+
+/** 規則調整的套用狀態；timeout 只在前端使用：輪詢逾時仍是 pending */
+export interface WafApplyStatus {
+  state: 'none' | 'pending' | 'ok' | 'failed' | 'timeout'
+  requestId?: string | null
+  message?: string | null
+  at?: string | null
+}
+
+export interface WafRules {
+  available: boolean
+  generatedAt?: string | null
+  crowdsec?: string | null
+  rules: WafRule[]
+  categories: WafCategory[]
+  skippedNames: Record<string, string[]>
+  last: WafApplyStatus
+  /** 資料庫設定產生的 YAML 與 CrowdSec 目前生效的設定一致；沒有規則目錄時不帶 */
+  inSync?: boolean
+}
+
+const WAF_RULES = `${BASE}/wafRules`
+export const fetchWafRules = () => get<WafRules>(`${WAF_RULES}/list`)
+export const applyWaf = (changes: string) => post<{ requestId: string }>(`${WAF_RULES}/apply`, { changes })
+export const fetchWafApplyStatus = (requestId: string) => get<WafApplyStatus>(`${WAF_RULES}/status`, { requestId })
