@@ -134,6 +134,8 @@ volumes:
     name: ${PROJECT}_crowdsec_data
   nginxwebui_geoip:
     name: ${PROJECT}_geoip
+  nginxwebui_waf:
+    name: ${PROJECT}_waf
 EOF
 
 # ---------- helpers ----------
