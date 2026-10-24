@@ -47,7 +47,7 @@ public class WafTuningService {
 	static final Set<String> VPATCH_ACTIONS = Set.of("block", "log", "off");
 	static final Set<String> CRS_ACTIONS = Set.of("count", "log", "off");
 	private static final Pattern HOST = Pattern.compile("[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*");
-	private static final String REQ_HOST = "split(req.Host, \":\")[0]";
+	private static final String REQ_HOST = "lower(split(req.Host, \":\")[0])";
 
 	@Inject
 	SqlHelper sqlHelper;

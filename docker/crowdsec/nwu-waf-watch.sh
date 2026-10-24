@@ -26,6 +26,15 @@ write_result() {
   echo "$1" > "$dir/processed"
 }
 
+# fail_reason <crowdsec -t output> : the last 2 level=fatal/level=error lines, reduced to their msg="..." text (the whole
+# line when it has none); without such lines the last 3 non-empty lines. At most 500 characters.
+fail_reason() {
+  r="$(printf '%s\n' "$1" | grep -E 'level=(fatal|error)' | tail -n 2 \
+    | sed -E 's/^.*msg="//; s/" [a-z_]+=.*$//; s/"$//; s/\\"/"/g' | tr '\n' ' ')"
+  [ -n "$(printf %s "$r" | tr -d " ")" ] || r="$(printf '%s\n' "$1" | grep -v '^[[:space:]]*$' | tail -n 3 | tr '\n' ' ')"
+  printf '%s' "$r" | cut -c1-500
+}
+
 # apply <file> <id> : makes <file> the active config. Empty id = start-up reapply of last-good.yaml (no result.json).
 apply() {
   src="$1"
@@ -34,7 +43,7 @@ apply() {
   cp -f "$src" "$active"
   if ! out="$(crowdsec -c "$cfg" -t 2>&1)"; then
     cp -f /tmp/nwu-prev.yaml "$active"
-    msg="$(printf '%s\n' "$out" | grep -v '^[[:space:]]*$' | tail -n 3 | tr '\n' ' ')"
+    msg="$(fail_reason "$out")"
     log "config test failed, previous config restored: $msg"
     [ -n "$id" ] && write_result "$id" failed "$msg"
     return 1

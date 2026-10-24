@@ -76,7 +76,7 @@ class WafTuningServiceTest {
 	void exclusionsUseTheServerNames() {
 		Map<String, WafTuningService.Hosts> hosts = Map.of("s1", new WafTuningService.Hosts(List.of("a.com"), List.of(".b.com"), List.of()));
 		String y = render(List.of(s("rule", "942100", "inherit", "s1"), s("rule", PHP, "block", "s1,missing")), hosts);
-		String cond = "(split(req.Host, \":\")[0] in [\"a.com\"] || split(req.Host, \":\")[0] endsWith \".b.com\")";
+		String cond = "(lower(split(req.Host, \":\")[0]) in [\"a.com\"] || lower(split(req.Host, \":\")[0]) endsWith \".b.com\")";
 		assertTrue(y.contains("pre_eval:\n"), y);
 		assertTrue(y.contains(" - filter: IsInBand && " + cond + "\n   apply:\n    - RemoveInBandRuleByName(\"" + PHP + "\")\n"), y);
 		assertTrue(y.contains(" - filter: IsOutBand && " + cond + "\n   apply:\n    - RemoveOutBandRuleByID(942100)\n"), y);
@@ -86,8 +86,8 @@ class WafTuningServiceTest {
 	void categoryExclusionAppliesToItsRulesAndOffRulesAreNotExcluded() {
 		Map<String, WafTuningService.Hosts> hosts = Map.of("s1", new WafTuningService.Hosts(List.of("a.com"), List.of(), List.of()));
 		String y = render(List.of(s("category", "crs-sqli", "count", "s1"), s("rule", "942200", "off", "")), hosts);
-		assertTrue(y.contains(" - filter: IsOutBand && split(req.Host, \":\")[0] in [\"a.com\"]\n   apply:\n    - RemoveOutBandRuleByID(942100)\n"), y);
-		assertFalse(y.contains("pre_eval:\n - filter: IsOutBand && split(req.Host, \":\")[0] in [\"a.com\"]\n   apply:\n    - RemoveOutBandRuleByID(942100)\n    - RemoveOutBandRuleByID(942200)"), y);
+		assertTrue(y.contains(" - filter: IsOutBand && lower(split(req.Host, \":\")[0]) in [\"a.com\"]\n   apply:\n    - RemoveOutBandRuleByID(942100)\n"), y);
+		assertFalse(y.contains("pre_eval:\n - filter: IsOutBand && lower(split(req.Host, \":\")[0]) in [\"a.com\"]\n   apply:\n    - RemoveOutBandRuleByID(942100)\n    - RemoveOutBandRuleByID(942200)"), y);
 	}
 
 	@Test
@@ -191,8 +191,8 @@ class WafTuningServiceTest {
 				"s1", new WafTuningService.Hosts(List.of("a.com"), List.of(), List.of()),
 				"s2", new WafTuningService.Hosts(List.of("b.com"), List.of(), List.of()));
 		String y = render(List.of(s("rule", "942100", "inherit", "s1"), s("category", "crs-sqli", "count", "s2")), hosts);
-		assertTrue(y.contains(" - filter: IsOutBand && split(req.Host, \":\")[0] in [\"a.com\", \"b.com\"]\n   apply:\n    - RemoveOutBandRuleByID(942100)\n"), y);
-		assertTrue(y.contains(" - filter: IsOutBand && split(req.Host, \":\")[0] in [\"b.com\"]\n   apply:\n    - RemoveOutBandRuleByID(942200)\n"), y);
+		assertTrue(y.contains(" - filter: IsOutBand && lower(split(req.Host, \":\")[0]) in [\"a.com\", \"b.com\"]\n   apply:\n    - RemoveOutBandRuleByID(942100)\n"), y);
+		assertTrue(y.contains(" - filter: IsOutBand && lower(split(req.Host, \":\")[0]) in [\"b.com\"]\n   apply:\n    - RemoveOutBandRuleByID(942200)\n"), y);
 	}
 
 	/** apply／hitsSince 的整合測試用：記憶體資料庫 + 暫存 home */
@@ -283,7 +283,7 @@ class WafTuningServiceTest {
 		server.setServerName("a.com");
 		env.db.insert(server);
 		env.service.apply(List.of(s("rule", "942100", "inherit", server.getId())), "admin");
-		assertTrue(Files.readString(env.wafDir.resolve("custom.yaml")).contains("IsOutBand && split(req.Host, \":\")[0] in [\"a.com\"]"));
+		assertTrue(Files.readString(env.wafDir.resolve("custom.yaml")).contains("IsOutBand && lower(split(req.Host, \":\")[0]) in [\"a.com\"]"));
 	}
 
 	@Test

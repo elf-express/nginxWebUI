@@ -67,11 +67,12 @@ restarts0="$(docker inspect -f '{{.RestartCount}}' "$NAME")"
 x 'printf "name: nginxwebui/custom\ninband_rules: [\n" > /nwu-waf/custom.yaml && echo 1002 > /nwu-waf/request'
 s4="$(wait_result 1002)"
 running="$(docker inspect -f '{{.State.Running}}' "$NAME")"
-if [ "$s4" = failed ] && [ "$running" = true ] && [ "$(docker inspect -f '{{.RestartCount}}' "$NAME")" = "$restarts0" ] \
+reason4="$(x 'yq -p=json ".message" /nwu-waf/result.json' 2>/dev/null)"
+if [ "$s4" = failed ] && [ -n "$reason4" ] && [ "$reason4" != null ] && ! echo "$reason4" | grep -q 'level=info' && [ "$running" = true ] && [ "$(docker inspect -f '{{.RestartCount}}' "$NAME")" = "$restarts0" ] \
   && x 'cmp -s /nwu-waf/last-good.yaml /etc/crowdsec/appsec-configs/nwu-custom.yaml'; then
-  pass 4 "broken config rejected, crowdsec kept running on the last good config"
+  pass 4 "broken config rejected ($(echo "$reason4" | head -c 160)), crowdsec kept running on the last good config"
 else
-  fail 4 "status '$s4', running '$running'"
+  fail 4 "status '$s4', running '$running', message '$reason4'"
 fi
 
 docker restart "$NAME" >/dev/null
