@@ -3,7 +3,7 @@ package com.cym.model;
 import com.cym.sqlhelper.bean.BaseModel;
 import com.cym.sqlhelper.config.Table;
 
-/** WafEvent 命中的一條規則（E-394）；alertId 是 CrowdSec alert id，同步時以它去重 */
+/** WafEvent 命中的一條規則（E-394）；alertId 是「CrowdSec alert id@建立時間（秒）」，同步時以它去重 */
 @Table
 public class WafEventRule extends BaseModel {
 	String eventId;

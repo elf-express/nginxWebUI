@@ -17,7 +17,7 @@ import cn.hutool.core.util.ReflectUtil;
 
 /**
  * 測試用的記憶體 SqlHelper：讓 ConfService 等服務不經資料庫就能跑，
- * 只支援 =、&lt;&gt;、&lt;、&lt;=、&gt;、&gt;=、LIKE（包含）、IN、IS NULL、IS NOT NULL 條件（AND 串接）。
+ * 只支援 =、&lt;&gt;、&lt;、&lt;=、&gt;、&gt;=、LIKE（包含）、IN、IS NULL、IS NOT NULL 條件（同一層 AND 串接，巢狀的 ConditionWrapper 依它自己的 AND／OR）。
  */
 public class InMemorySqlHelper extends SqlHelper {
 	private final Map<Class<?>, LinkedHashMap<String, Object>> rows = new LinkedHashMap<>();
@@ -152,40 +152,57 @@ public class InMemorySqlHelper extends SqlHelper {
 		};
 	}
 
+	/** 巢狀的 ConditionWrapper 依它自己的 andLink 決定 AND／OR；空的 wrapper 視為成立 */
 	private boolean matches(Object row, ConditionWrapper wrapper) {
 		if (wrapper == null) {
 			return true;
 		}
 		@SuppressWarnings("unchecked")
-		List<Object> conditions = (List<Object>) ReflectUtil.getFieldValue(wrapper, "list");
-		for (Object item : conditions) {
-			if (!(item instanceof Condition condition)) {
+		List<Object> items = (List<Object>) ReflectUtil.getFieldValue(wrapper, "list");
+		boolean andLink = Boolean.TRUE.equals(ReflectUtil.getFieldValue(wrapper, "andLink"));
+		boolean any = false;
+		boolean all = true;
+		boolean counted = false;
+		for (Object item : items) {
+			boolean ok;
+			if (item instanceof Condition condition) {
+				ok = matchesCondition(row, condition);
+			} else if (item instanceof ConditionWrapper nested) {
+				ok = matches(row, nested);
+			} else {
 				continue;
 			}
-			Object actual = ReflectUtil.getFieldValue(row, condition.getColumn());
-			Object expected = condition.getValue();
-			String op = condition.getOperation();
-			if ("=".equals(op) && !Objects.equals(actual, expected)) {
-				return false;
-			}
-			if ("<>".equals(op) && Objects.equals(actual, expected)) {
-				return false;
-			}
-			if ("IN".equals(op) && expected instanceof java.util.Collection<?> values && !values.contains(actual)) {
-				return false;
-			}
-			if ("IS NULL".equals(op) && actual != null) {
-				return false;
-			}
-			if ("IS NOT NULL".equals(op) && actual == null) {
-				return false;
-			}
-			if (("<".equals(op) || "<=".equals(op) || ">".equals(op) || ">=".equals(op)) && !compares(actual, expected, op)) {
-				return false;
-			}
-			if ("LIKE".equals(op) && (actual == null || !String.valueOf(actual).contains(String.valueOf(expected)))) {
-				return false;
-			}
+			counted = true;
+			any |= ok;
+			all &= ok;
+		}
+		return !counted || (andLink ? all : any);
+	}
+
+	private boolean matchesCondition(Object row, Condition condition) {
+		Object actual = ReflectUtil.getFieldValue(row, condition.getColumn());
+		Object expected = condition.getValue();
+		String op = condition.getOperation();
+		if ("=".equals(op) && !Objects.equals(actual, expected)) {
+			return false;
+		}
+		if ("<>".equals(op) && Objects.equals(actual, expected)) {
+			return false;
+		}
+		if ("IN".equals(op) && expected instanceof java.util.Collection<?> values && !values.contains(actual)) {
+			return false;
+		}
+		if ("IS NULL".equals(op) && actual != null) {
+			return false;
+		}
+		if ("IS NOT NULL".equals(op) && actual == null) {
+			return false;
+		}
+		if (("<".equals(op) || "<=".equals(op) || ">".equals(op) || ">=".equals(op)) && !compares(actual, expected, op)) {
+			return false;
+		}
+		if ("LIKE".equals(op) && (actual == null || !String.valueOf(actual).contains(String.valueOf(expected)))) {
+			return false;
 		}
 		return true;
 	}

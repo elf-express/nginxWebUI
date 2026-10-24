@@ -24,6 +24,7 @@ import com.cym.sqlhelper.bean.Page;
 import com.cym.sqlhelper.bean.Sort;
 import com.cym.sqlhelper.bean.Sort.Direction;
 import com.cym.sqlhelper.utils.ConditionAndWrapper;
+import com.cym.sqlhelper.utils.ConditionOrWrapper;
 import com.cym.sqlhelper.utils.SqlHelper;
 import com.cym.utils.IpMatch;
 
@@ -40,6 +41,8 @@ public class WafEventService {
 	static final long DAY_MS = 86_400_000L;
 	static final int ID_CHUNK = 500;
 	static final int MAX_LIMIT = 200;
+	static final int MAX_DAYS = 3650;
+	static final int MAX_PAGE = 100_000;
 
 	@Inject
 	SqlHelper sqlHelper;
@@ -70,27 +73,31 @@ public class WafEventService {
 	}
 
 	/**
-	 * 存入一批命中，回新增的事件數。已存過的 alert id 跳過（重疊拉取、翻頁重複都會遇到）；
+	 * 去重鍵：alert id 加建立時間（秒）。CrowdSec 資料庫重建後 alert id 會從 1 重來，只看 id 會把保留期內的新 alert 當成舊的。
+	 */
+	static String alertKey(WafAlertParser.Hit h) {
+		return h.alertId() + "@" + h.time().getEpochSecond();
+	}
+
+	/**
+	 * 存入一批命中，回新增的事件數。已存過的 alert（alertKey）跳過（重疊拉取、翻頁重複都會遇到）；
 	 * 同一個請求的 vpatch 與 CRS alert 併成一個事件（也併進先前已存的同一個請求）。
 	 */
 	public synchronized int store(List<WafAlertParser.Hit> hits) {
 		Set<String> seen = existingAlertIds(hits);
 		List<WafAlertParser.Hit> fresh = new ArrayList<>();
 		for (WafAlertParser.Hit h : hits) {
-			if (seen.add(h.alertId())) {
+			if (seen.add(alertKey(h))) {
 				fresh.add(h);
 			}
 		}
 		fresh.sort(Comparator.comparing(WafAlertParser.Hit::time));
-		Map<String, WafEvent> byKey = new LinkedHashMap<>();
+		Map<String, WafEvent> byKey = loadEvents(fresh);
 		Set<String> dirty = new LinkedHashSet<>();
 		int added = 0;
 		for (WafAlertParser.Hit h : fresh) {
 			String key = eventKey(h);
 			WafEvent e = byKey.get(key);
-			if (e == null) {
-				e = sqlHelper.findOneByQuery(new ConditionAndWrapper().eq("eventKey", key), WafEvent.class);
-			}
 			if (e == null) {
 				e = newEvent(h, key);
 				merge(e, h);
@@ -104,7 +111,7 @@ public class WafEventService {
 			for (WafAlertParser.Rule r : h.rules()) {
 				WafEventRule row = new WafEventRule();
 				row.setEventId(e.getId());
-				row.setAlertId(h.alertId());
+				row.setAlertId(alertKey(h));
 				row.setEventTime(e.getEventTime());
 				row.setRuleName(r.name());
 				row.setRuleSource(r.source());
@@ -117,6 +124,19 @@ public class WafEventService {
 			sqlHelper.updateById(byKey.get(key));
 		}
 		return added;
+	}
+
+	/** 這批命中對應的、已存在的事件（eventKey → 事件），分塊一次查出 */
+	private Map<String, WafEvent> loadEvents(List<WafAlertParser.Hit> hits) {
+		List<String> keys = hits.stream().map(WafEventService::eventKey).distinct().toList();
+		Map<String, WafEvent> byKey = new LinkedHashMap<>();
+		for (int i = 0; i < keys.size(); i += ID_CHUNK) {
+			List<String> chunk = keys.subList(i, Math.min(i + ID_CHUNK, keys.size()));
+			for (WafEvent e : sqlHelper.findListByQuery(new ConditionAndWrapper().in("eventKey", chunk), WafEvent.class)) {
+				byKey.putIfAbsent(e.getEventKey(), e);
+			}
+		}
+		return byKey;
 	}
 
 	private WafEvent newEvent(WafAlertParser.Hit h, String key) {
@@ -166,7 +186,7 @@ public class WafEventService {
 	}
 
 	private Set<String> existingAlertIds(List<WafAlertParser.Hit> hits) {
-		List<String> ids = hits.stream().map(WafAlertParser.Hit::alertId).distinct().toList();
+		List<String> ids = hits.stream().map(WafEventService::alertKey).distinct().toList();
 		Set<String> found = new HashSet<>();
 		for (int i = 0; i < ids.size(); i += ID_CHUNK) {
 			List<String> chunk = ids.subList(i, Math.min(i + ID_CHUNK, ids.size()));
@@ -182,8 +202,9 @@ public class WafEventService {
 	@SuppressWarnings("unchecked")
 	public Result list(Query q, long now, List<Server> httpServers) {
 		ConditionAndWrapper c = new ConditionAndWrapper();
-		if (q.days() != null && q.days() > 0) {
-			c.gte("eventTime", now - q.days() * DAY_MS);
+		Long from = fromTime(q, now);
+		if (from != null) {
+			c.gte("eventTime", from);
 		}
 		if (StrUtil.isNotBlank(q.category())) {
 			c.like("categories", "," + q.category().trim() + ",");
@@ -200,17 +221,30 @@ public class WafEventService {
 			}
 		}
 		if (StrUtil.isNotBlank(q.serverId())) {
-			List<String> hosts = hostsOf(q.serverId().trim(), httpServers);
+			List<String> hosts = hostsOf(q.serverId().trim(), httpServers, from);
 			if (hosts.isEmpty()) {
 				return new Result(List.of(), 0);
 			}
-			c.in("host", hosts);
+			if (hosts.size() <= ID_CHUNK) {
+				c.in("host", hosts);
+			} else {
+				ConditionOrWrapper any = new ConditionOrWrapper();
+				for (int i = 0; i < hosts.size(); i += ID_CHUNK) {
+					any.or(new ConditionAndWrapper().in("host", hosts.subList(i, Math.min(i + ID_CHUNK, hosts.size()))));
+				}
+				c.and(any);
+			}
 		}
 		Page<WafEvent> page = new Page<>();
-		page.setCurr(Math.max(1, q.page()));
+		page.setCurr(Math.max(1, Math.min(q.page(), MAX_PAGE)));
 		page.setLimit(Math.max(1, Math.min(q.limit(), MAX_LIMIT)));
 		page = sqlHelper.findPage(c, newestFirst(), page, WafEvent.class);
 		return new Result(withRules((List<WafEvent>) page.getRecords()), page.getCount());
+	}
+
+	/** 期間下限（epoch 毫秒）；days 為 null 或 0 以下表示不限，最多回溯 MAX_DAYS 天 */
+	private static Long fromTime(Query q, long now) {
+		return q.days() != null && q.days() > 0 ? now - Math.min(q.days(), MAX_DAYS) * DAY_MS : null;
 	}
 
 	/** 這個 IP 最近的事件；不是單一 IP 回空清單 */
@@ -239,11 +273,15 @@ public class WafEventService {
 		return new Sort("eventTime", Direction.DESC).add("id", Direction.DESC);
 	}
 
-	/** 資料表裡出現過、會落到這個站台的 host */
-	List<String> hostsOf(String serverId, List<Server> httpServers) {
+	/** 資料表裡出現過（from 不為 null 時只看該時間之後）、會落到這個站台的 host */
+	List<String> hostsOf(String serverId, List<Server> httpServers, Long from) {
 		HttpServerSelector selector = new HttpServerSelector(httpServers);
 		Set<String> hosts = new TreeSet<>();
-		for (String h : sqlHelper.findPropertiesByQuery(new ConditionAndWrapper().isNotNull("host"), WafEvent.class, "host")) {
+		ConditionAndWrapper seen = new ConditionAndWrapper().isNotNull("host");
+		if (from != null) {
+			seen.gte("eventTime", from);
+		}
+		for (String h : sqlHelper.findPropertiesByQuery(seen, WafEvent.class, "host")) {
 			if (StrUtil.isNotBlank(h)) {
 				hosts.add(h);
 			}

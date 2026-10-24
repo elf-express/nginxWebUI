@@ -10,6 +10,8 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import cn.hutool.json.JSONObject;
+
 import com.cym.model.Server;
 import com.cym.model.WafEvent;
 import com.cym.model.WafEventRule;
@@ -82,7 +84,8 @@ class WafEventServiceTest {
 		assertEquals("Detect access to .env files", e.getMessage());
 		List<WafEventRule> rules = sql.findAll(WafEventRule.class);
 		assertEquals(List.of("crowdsecurity/vpatch-env-access", "930130"), rules.stream().map(WafEventRule::getRuleName).toList());
-		assertEquals(List.of("1", "2"), rules.stream().map(WafEventRule::getAlertId).toList());
+		long sec = AT.getEpochSecond();
+		assertEquals(List.of("1@" + sec, "2@" + sec), rules.stream().map(WafEventRule::getAlertId).toList());
 		assertTrue(rules.stream().allMatch(r -> e.getId().equals(r.getEventId()) && AT.toEpochMilli() == r.getEventTime()));
 	}
 
@@ -95,7 +98,7 @@ class WafEventServiceTest {
 	@Test
 	void alertsAlreadyStoredAreSkippedAcrossCallsAndWithinOneCall() {
 		seed();
-		assertEquals(0, service.store(hits(array(vpatch(1, "198.51.100.9", AT, SHOP), crsSqli(3, "198.51.100.10", AT, BLOG)))));
+		assertEquals(0, service.store(hits(array(vpatch(1, "198.51.100.9", AT, SHOP), crsSqli(3, "198.51.100.10", AT.minusSeconds(30), BLOG)))));
 		assertEquals(0, service.store(hits(array(crsLfi(9, "198.51.100.9", AT, SHOP), crsLfi(9, "198.51.100.9", AT, SHOP)))));
 		assertEquals(2, sql.findAll(WafEvent.class).size());
 		// seed 有 4 筆規則；alert 9 併進既有的 /.env 事件，同一批重複的只算一次，多 1 筆
@@ -186,7 +189,83 @@ class WafEventServiceTest {
 		service.store(hits(array(vpatch(7, "198.51.100.30", AT.minusSeconds(40 * 86400), SHOP))));
 		assertEquals(1, service.cleanup(AT.minusSeconds(30 * 86400).toEpochMilli()));
 		assertEquals(2, sql.findAll(WafEvent.class).size());
-		assertTrue(sql.findAll(WafEventRule.class).stream().noneMatch(r -> "7".equals(r.getAlertId())));
+		assertTrue(sql.findAll(WafEventRule.class).stream().noneMatch(r -> r.getAlertId().startsWith("7@")));
+	}
+
+	@Test
+	void sameAlertIdWithAnotherCreationTimeIsNew() {
+		// CrowdSec 資料庫重建後 alert id 從 1 重來
+		assertEquals(1, service.store(hits(array(vpatch(1, "198.51.100.9", AT, SHOP)))));
+		assertEquals(0, service.store(hits(array(vpatch(1, "198.51.100.9", AT, SHOP)))));
+		assertEquals(1, service.store(hits(array(vpatch(1, "198.51.100.9", AT.plusSeconds(3600), SHOP)))));
+		assertEquals(2, sql.findAll(WafEvent.class).size());
+		assertEquals(List.of("1@" + AT.getEpochSecond(), "1@" + AT.plusSeconds(3600).getEpochSecond()),
+				sql.findAll(WafEventRule.class).stream().map(WafEventRule::getAlertId).toList());
+	}
+
+	/** 超過一個分塊（500）的批次：已存過的 alert 與既有事件都要查得到 */
+	@Test
+	void storesMoreThanOneChunkAndSkipsThemAgain() {
+		JSONObject[] alerts = new JSONObject[600];
+		for (int i = 0; i < alerts.length; i++) {
+			alerts[i] = vpatch(1000 + i, "198.51.100.9", AT.minusSeconds(i), SHOP);
+		}
+		assertEquals(600, service.store(hits(array(alerts))));
+		assertEquals(0, service.store(hits(array(alerts))));
+		assertEquals(600, sql.findAll(WafEvent.class).size());
+		assertEquals(600, sql.findAll(WafEventRule.class).size());
+		// 同一批請求再來一個不同 alert：併進既有事件，不新增
+		JSONObject[] again = new JSONObject[600];
+		for (int i = 0; i < again.length; i++) {
+			again[i] = crsLfi(5000 + i, "198.51.100.9", AT.minusSeconds(i), SHOP);
+		}
+		assertEquals(0, service.store(hits(array(again))));
+		assertEquals(600, sql.findAll(WafEvent.class).size());
+		assertEquals(1200, sql.findAll(WafEventRule.class).size());
+	}
+
+	/** 站台的 host 超過一個分塊時以 OR 串起各塊的 IN */
+	@Test
+	void siteFilterWorksWithMoreHostsThanOneChunk() {
+		server("s-wild", "*.wild.test");
+		JSONObject[] alerts = new JSONObject[600];
+		for (int i = 0; i < alerts.length; i++) {
+			alerts[i] = vpatch(1000 + i, "198.51.100.9", AT.minusSeconds(i), "h" + i + ".wild.test");
+		}
+		service.store(hits(array(alerts)));
+		seed();
+		assertEquals(600, list("s-wild", null, null, null, null).count());
+		assertEquals(1, list("s-blog", null, null, null, null).count());
+	}
+
+	@Test
+	void siteHostsOnlyComeFromTheRequestedPeriod() {
+		service.store(hits(array(vpatch(1, "198.51.100.9", AT.minusSeconds(5 * 86400), "old.wild.test"))));
+		server("s-wild", "*.wild.test");
+		assertEquals(1, list("s-wild", null, null, null, 30).count());
+		assertEquals(0, list("s-wild", null, null, null, 1).count());
+	}
+
+	@Test
+	void nestedOrConditionsAreEvaluatedByTheInMemoryHelper() {
+		seed();
+		com.cym.sqlhelper.utils.ConditionOrWrapper any = new com.cym.sqlhelper.utils.ConditionOrWrapper();
+		any.or(new com.cym.sqlhelper.utils.ConditionAndWrapper().in("ip", List.of("198.51.100.10")));
+		any.or(new com.cym.sqlhelper.utils.ConditionAndWrapper().in("ip", List.of("203.0.113.1")));
+		assertEquals(1L, sql.findCountByQuery(new com.cym.sqlhelper.utils.ConditionAndWrapper().and(any), WafEvent.class));
+		assertEquals(0L, sql.findCountByQuery(new com.cym.sqlhelper.utils.ConditionAndWrapper().eq("action", "log").and(
+				new com.cym.sqlhelper.utils.ConditionOrWrapper().or(new com.cym.sqlhelper.utils.ConditionAndWrapper().in("ip", List.of("198.51.100.9")))), WafEvent.class));
+	}
+
+	@Test
+	void daysAndPageAreClamped() {
+		seed();
+		// days 最多回溯 3650 天
+		service.store(hits(array(vpatch(8, "198.51.100.40", AT.minusSeconds(4000L * 86400), SHOP))));
+		assertEquals(3, list(null, null, null, null, 0).count());
+		assertEquals(2, list(null, null, null, null, Integer.MAX_VALUE).count());
+		WafEventService.Result r = service.list(new WafEventService.Query(null, null, null, null, null, Integer.MAX_VALUE, 20), NOW, servers);
+		assertEquals(0, r.rows().size());
 	}
 
 	private static List<String> ips(WafEventService.Result r) {
