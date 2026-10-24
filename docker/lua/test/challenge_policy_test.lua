@@ -34,20 +34,40 @@ check(p.safe_return(nil) == "/" and p.safe_return("") == "/" and p.safe_return("
 
 -- reserved path routes
 local R = p.PREFIX
-for _, name in ipairs({ "altcha.js", "altcha.css", "altcha-worker.js", "page.js", "page.css" }) do
-  local route, asset = p.reserved_route("GET", R .. name)
-  check(route == "asset" and asset == name, "asset " .. name)
-  check(p.reserved_route("POST", R .. name) == "asset", "asset " .. name .. " for any method")
+-- rr: route of a request whose raw path is the same as $uri (query string allowed)
+local function rr(method, uri, query)
+  return p.reserved_route(method, uri, uri .. (query or ""))
 end
-check(p.reserved_route("GET", R .. "page.html") == nil and p.reserved_route("GET", R .. "altcha.LICENSE.txt") == nil)
-check(p.reserved_route("GET", R .. "x/page.js") == nil and p.reserved_route("GET", "/page.js") == nil)
-check(p.ASSETS["page.js"]:find("javascript", 1, true) and p.ASSETS["altcha-worker.js"]:find("javascript", 1, true))
-check(p.ASSETS["page.css"]:find("text/css", 1, true) and p.ASSETS["altcha.css"]:find("text/css", 1, true))
-check(p.reserved_route("GET", R) == "page" and p.reserved_route("HEAD", R) == "page")
-check(p.reserved_route("POST", R) == nil, "POST to the page")
-check(p.reserved_route("POST", R .. "verify") == "verify" and p.reserved_route("GET", R .. "verify") == nil)
-check(p.reserved_route("GET", R .. "callback") == "callback" and p.reserved_route("HEAD", R .. "callback") == "callback")
-check(p.reserved_route("POST", R .. "callback") == nil and p.reserved_route("GET", R .. "x") == nil)
+for _, name in ipairs({ "altcha.js", "altcha.css", "altcha-worker.js", "page.js", "page.css" }) do
+  local route, asset = rr("GET", R .. name)
+  check(route == "asset" and asset == name, "asset " .. name)
+  check(rr("POST", R .. name) == "asset", "asset " .. name .. " for any method")
+  check(rr("GET", R .. name, "?v=1") == "asset", "asset " .. name .. " with a query")
+end
+check(rr("GET", R .. "page.html") == nil and rr("GET", R .. "altcha.LICENSE.txt") == nil)
+check(rr("GET", R .. "x/page.js") == nil and rr("GET", "/page.js") == nil)
+check(p.ASSETS["page.js"].type:find("javascript", 1, true) and p.ASSETS["altcha-worker.js"].type:find("javascript", 1, true))
+check(p.ASSETS["page.css"].type:find("text/css", 1, true) and p.ASSETS["altcha.css"].type:find("text/css", 1, true))
+check(p.ASSETS["page.js"].cache == "no-cache" and p.ASSETS["page.css"].cache == "no-cache", "page assets revalidate")
+check(p.ASSETS["altcha.js"].cache == "public, max-age=86400" and p.ASSETS["altcha-worker.js"].cache == "public, max-age=86400")
+check(rr("GET", R) == "page" and rr("HEAD", R) == "page" and rr("GET", R, "?r=%2Fa") == "page")
+check(rr("POST", R) == nil, "POST to the page")
+check(rr("POST", R .. "verify") == "verify" and rr("GET", R .. "verify") == nil)
+check(rr("GET", R .. "callback") == "callback" and rr("HEAD", R .. "callback") == "callback")
+check(rr("POST", R .. "callback") == nil and rr("GET", R .. "x") == nil)
+-- raw path not exactly $uri (nginx merged slashes, decoded %XX or removed dot segments): unknown path
+check(p.reserved_route("GET", R .. "page.js", R .. "/page.js") == nil, "double slash")
+check(p.reserved_route("GET", R .. "page.js", "/.well-known/nwu-challenge//page.js?n") == nil, "double slash, query")
+check(p.reserved_route("GET", R .. "page.js", R .. "page%2Ejs") == nil, "%2E")
+check(p.reserved_route("GET", R .. "page.js", R .. "x/../page.js") == nil, "dot segment")
+check(p.reserved_route("GET", R, R .. "page.js/../") == nil, "dot segment to the page")
+check(p.reserved_route("POST", R .. "verify", R .. "/verify") == nil, "double slash verify")
+check(p.reserved_route("GET", R .. "page.js", nil) == nil, "no request_uri")
+check(p.raw_path("/a/b?c=d?e") == "/a/b" and p.raw_path("/a") == "/a" and p.raw_path(nil) == "")
+-- on_reserved_path: normalized $uri or raw path on the reserved path
+check(p.on_reserved_path(R .. "x", R .. "x") and p.on_reserved_path(R, "//.well-known/nwu-challenge/"))
+check(p.on_reserved_path("/", R .. "..%2F..%2F"), "raw path on the prefix, $uri outside")
+check(not p.on_reserved_path("/x", "/x?r=" .. R) and not p.on_reserved_path("/", nil))
 
 -- where a client without a captcha decision is sent from the reserved path
 check(p.bounce_target("page", "/cart?id=1") == "/cart?id=1")

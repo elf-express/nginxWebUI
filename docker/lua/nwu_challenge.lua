@@ -269,7 +269,7 @@ end
 -- and never handed to the site, so a site that answers 200 everywhere cannot have it counted as a failed challenge.
 -- The assets are not served.
 function _M.handle_unloaded()
-  local route = policy.reserved_route(ngx.req.get_method(), ngx.var.uri)
+  local route = policy.reserved_route(ngx.req.get_method(), ngx.var.uri, ngx.var.request_uri)
   if route == "asset" then
     return ngx.exit(ngx.HTTP_NOT_FOUND)
   end
@@ -279,10 +279,10 @@ end
 -- Every request on the reserved path from a client that is not allowlisted and not banned.
 -- captcha: the client has a captcha decision; without one it only gets the assets and redirects back.
 function _M.handle(ip, captcha)
-  local route, name = policy.reserved_route(ngx.req.get_method(), ngx.var.uri)
+  local route, name = policy.reserved_route(ngx.req.get_method(), ngx.var.uri, ngx.var.request_uri)
   if route == "asset" then
-    ngx.header["Content-Type"] = policy.ASSETS[name]
-    ngx.header["Cache-Control"] = "public, max-age=86400"
+    ngx.header["Content-Type"] = policy.ASSETS[name].type
+    ngx.header["Cache-Control"] = policy.ASSETS[name].cache
     ngx.print(assets[name])
     return ngx.exit(ngx.HTTP_OK)
   end

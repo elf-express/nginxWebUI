@@ -139,12 +139,10 @@ local function probe_appsec()
   return res ~= nil and (res.status == 200 or res.status == 403)
 end
 
--- Stream mode: cs.allowIp walks the cached prefixes of ip from the most specific (/32, /128) to /0 and returns the first
--- decision, so the IP's own captcha hides a whitelist or a ban on a range around it. Called when that walk returned a
--- captcha: walks the same prefixes in the same order, skips captchas and returns the action of the first other decision
--- ("allow" for a whitelist, "ban" for any other type), or "captcha" when there is none. Besides captchas, ban and
--- whitelist are thus decided by the most specific prefix, as without the challenge. Cache keys and netmasks as in
--- lua-cs-bouncer v1.2.3 crowdsec.lua.
+-- For a client whose cs.allowIp result is a captcha (stream mode): walks the cached prefixes of ip in the order of
+-- cs.allowIp (most specific first, /32 or /128 down to /0), skips captchas and returns the action of the first other
+-- decision ("allow" for a whitelist, "ban" for any other type), or "captcha" when there is none. Cache keys and netmasks
+-- as in lua-cs-bouncer v1.2.3 crowdsec.lua.
 local function action_behind_captcha(ip)
   local key, ip_version = decision_utils.item_to_string(ip, "Ip")
   if key == nil then
@@ -164,6 +162,7 @@ local function action_behind_captcha(ip)
       item = ip_version .. "_" .. table.concat(netmask, ":") .. "_" .. iputils.ipv6_band(address, netmask)
     end
     local value, flag = cache:get("decision_cache/" .. item)
+    -- skips the live mode entries without a decision ("none", flag 1)
     local remediation = type(value) == "string" and value ~= "none" and flag ~= 1 and value:match("^([^/]+)")
     if remediation then
       local action = policy.remediation(false, remediation)
@@ -248,7 +247,7 @@ function _M.access()
   if action == "allow" then
     return
   end
-  if challenge_policy.is_reserved(ngx.var.uri) then
+  if challenge_policy.on_reserved_path(ngx.var.uri, ngx.var.request_uri) then
     if challenge then
       return challenge.handle(ip, action == "captcha")
     end

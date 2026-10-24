@@ -213,7 +213,7 @@ test.describe('CrowdSec 分頁（共用 server，沒有 CrowdSec 變數）', () 
       expect(html).toContain(`data-style="${style}"`);
       expect(html.includes('auto="onload"')).toBe(style === 'auto');
       expect(html).not.toMatch(/https?:\/\//);
-      // 預覽引用後台網址（需登入）而不是 nginx 的保留路徑，後台沒有那條路徑
+      // 預覽引用後台網址，不引用 nginx 的保留路徑
       for (const asset of ['altcha.js', 'altcha.css', 'altcha-worker.js', 'page.js', 'page.css']) {
         expect(html).toContain(`"/adminPage/crowdsec/challengeAsset?name=${asset}"`);
         expect(html).not.toContain(`/.well-known/nwu-challenge/${asset}`);
@@ -234,9 +234,15 @@ test.describe('CrowdSec 分頁（共用 server，沒有 CrowdSec 變數）', () 
     }
   });
 
-  test('預覽用的驗證頁檔案需要登入', async ({ playwright, baseURL }) => {
+  test('預覽用的驗證頁檔案需要登入', async ({ page, playwright, baseURL }) => {
+    const url = '/adminPage/crowdsec/challengeAsset?name=page.js';
+    const own = await page.request.get(url, { maxRedirects: 0 });
+    expect(own.status()).toBe(200);
+    expect(await own.text()).toContain('nwu-strings');
     const anon = await playwright.request.newContext({ baseURL });
-    const res = await anon.get('/adminPage/crowdsec/challengeAsset?name=page.js', { maxRedirects: 0 });
+    const res = await anon.get(url, { maxRedirects: 0 });
+    expect(res.status()).toBe(302);
+    expect(res.headers()['location']).toContain('/adminPage/login');
     expect(await res.text()).not.toContain('nwu-strings');
     await anon.dispose();
   });

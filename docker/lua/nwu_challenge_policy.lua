@@ -99,20 +99,34 @@ function _M.safe_return(path)
   return path
 end
 
--- Static files on the reserved path (name -> content type): the ALTCHA widget, its styles and its Web Worker from the
--- image, page.js / page.css written with the pages. The pages carry no inline script or style, so the challenge still
--- works on a site that sends Content-Security-Policy "default-src 'self'".
+-- Static files on the reserved path: name -> { type = Content-Type, cache = Cache-Control }. The ALTCHA widget, its
+-- styles and its Web Worker come from the image; page.js / page.css are written with the pages.
+local JS, CSS = "application/javascript; charset=utf-8", "text/css; charset=utf-8"
+local LONG, REVALIDATE = "public, max-age=86400", "no-cache"
 _M.ASSETS = {
-  ["altcha.js"] = "application/javascript; charset=utf-8",
-  ["altcha.css"] = "text/css; charset=utf-8",
-  ["altcha-worker.js"] = "application/javascript; charset=utf-8",
-  ["page.js"] = "application/javascript; charset=utf-8",
-  ["page.css"] = "text/css; charset=utf-8",
+  ["altcha.js"] = { type = JS, cache = LONG },
+  ["altcha.css"] = { type = CSS, cache = LONG },
+  ["altcha-worker.js"] = { type = JS, cache = LONG },
+  ["page.js"] = { type = JS, cache = REVALIDATE },
+  ["page.css"] = { type = CSS, cache = REVALIDATE },
 }
 
+-- The path of $request_uri as sent by the client (no query, not decoded or normalized).
+function _M.raw_path(request_uri)
+  return type(request_uri) == "string" and request_uri:match("^[^?]*") or ""
+end
+
+-- Whether a request belongs to the reserved path: its normalized $uri or its raw path starts with the prefix.
+function _M.on_reserved_path(uri, request_uri)
+  return _M.is_reserved(uri) or _M.is_reserved(_M.raw_path(request_uri))
+end
+
 -- What a request on the reserved path is: "asset" (second value: the file name), "page", "verify", "callback";
--- nil for anything else.
-function _M.reserved_route(method, uri)
+-- nil for anything else, also when the raw path of request_uri is not exactly uri (//x, %2E, dot segments, %2F).
+function _M.reserved_route(method, uri, request_uri)
+  if _M.raw_path(request_uri) ~= uri then
+    return nil
+  end
   local get = method == "GET" or method == "HEAD"
   if _M.is_reserved(uri) and _M.ASSETS[uri:sub(#_M.PREFIX + 1)] then
     return "asset", uri:sub(#_M.PREFIX + 1)

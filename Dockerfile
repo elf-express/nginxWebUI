@@ -80,11 +80,9 @@ COPY docker/lua/patches/cs-stream-delete-by-type.sh /tmp/nwu-patches/
 RUN sh /tmp/nwu-patches/cs-stream-delete-by-type.sh "${CS_NGINX_BOUNCER_VERSION}" \
         /usr/local/lib/crowdsec/lua/plugins/crowdsec/stream.lua \
     && rm -rf /tmp/nwu-patches
-# ALTCHA widget (MIT) for the self-hosted challenge page, pinned + sha256 verified. Lua serves it on the reserved path
-# /.well-known/nwu-challenge/ (altcha.js, altcha.css, altcha-worker.js), so the challenge page loads nothing from
-# outside. The dist_external build keeps the styles and the Web Worker in their own same-origin files (the default
-# build injects a <style> element and starts the Worker from a blob: URL), so the page also works on a site that sends
-# Content-Security-Policy "default-src 'self'"; the page points the widget at the worker with workerurl.
+# ALTCHA widget (MIT) for the self-hosted challenge page, pinned + sha256 verified: the dist_external build (script,
+# styles and Web Worker as separate files). Lua serves them on the reserved path /.well-known/nwu-challenge/ as
+# altcha.js, altcha.css and altcha-worker.js; the page points the widget at the worker with workerurl.
 ARG ALTCHA_VERSION=2.3.0
 ARG ALTCHA_SHA256=559c584cd1fa932767c51497b56b2955282a7cbc08c1a3bb943665e572b45d3f
 RUN curl -fL --retry 3 -o /tmp/altcha.tgz "https://registry.npmjs.org/altcha/-/altcha-${ALTCHA_VERSION}.tgz" \

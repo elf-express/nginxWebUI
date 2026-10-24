@@ -36,7 +36,7 @@ import cn.hutool.json.JSONUtil;
 /**
  * 自架驗證頁（E-387）的設定與套用：驗證方式、樣式、外部網址、有效時間存在 setting；
  * 套用設定時寫 challenge.conf（金鑰與 Lua 參數，權限 600）、四個頁面與 page.js / page.css 給 nginx Lua 讀。
- * 頁面不含 inline script 與 style，網站送 Content-Security-Policy "default-src 'self'" 時也能通過驗證。
+ * 頁面不含 inline script 與 style。
  */
 @Component
 public class CrowdSecChallenge {

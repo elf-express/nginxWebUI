@@ -20,6 +20,8 @@ CrowdSec 判定為「可疑」的 IP 不直接封鎖，而是先送到驗證頁�
 
 沒有驗證決策的 IP 不出題：在保留路徑上除了頁面用的靜態檔（`altcha.js`、`altcha.css`、`altcha-worker.js`、`page.js`、`page.css`，不計數）照常提供之外，一律 303 導回同網域路徑（頁面與 `verify` 導回表單的 `r`，`callback` 導回交接票內的路徑，其他導回 `/`），
 不出題、不驗答、不發 cookie，也不計數。這樣第三方網頁就算讓訪客的瀏覽器反覆開驗證頁或送答案，也無法讓訪客被封鎖或被通報。
+計數比對的是 access log 裡的原始網址，所以保留路徑上原始網址和 nginx 正規化後的路徑不同的請求（例如 `//altcha.js`、`page%2Ejs`、`x/../verify`、`..%2F`）
+一律當成不認得的路徑：沒有驗證決策的 303 導回 `/`，有驗證決策的回 404，不給頁面、不驗答、不給靜態檔。
 驗證頁沒有載入時（升級後還沒套用設定，或下面說的退回模式），只要 bouncer 有載入，保留路徑一樣由 nginx 直接 303 導回（靜態檔回 404），不交給網站本身。
 nginxWebUI 沒有設定 CrowdSec（bouncer 沒有載入）時，保留路徑會交給網站本身；如果網站對這個路徑回 200（例如單頁應用把所有路徑都導到首頁），
 第三方網頁仍可能觸發 `nginxwebui/challenge-fail` 封鎖（第 3 條，不通報 AbuseIPDB）。
@@ -37,6 +39,7 @@ nginx image 在安裝官方 lua-cs-bouncer（`CS_NGINX_BOUNCER_VERSION=v1.2.3`�
 補丁後只有快取中的決策類型和被刪的決策相同時才刪除。
 原版收到新決策時也直接覆蓋同一 IP 的快取；IP 還在一筆較長的封鎖期間（例如 25 小時前下的 168 小時封鎖，已超出第 1 條的 24 小時回溯）又拿到驗證決策時，
 封鎖會被驗證蓋掉。補丁後新的驗證決策不覆蓋快取中的封鎖。
+這時驗證決策沒有寫進快取；如果封鎖比驗證決策先到期，該 IP 在快取中就沒有任何決策，驗證決策剩下的時間內不會被送去驗證，要等下一次判定。
 
 補丁腳本會先檢查 bouncer 版本是 `v1.2.3`、要替換的兩行原始程式碼（整行比對）各恰好出現一次，補丁後再確認新內容各出現一次、檔案行數符合、
 LuaJIT 能編譯，任何一項不符就讓 image build 失敗。
@@ -57,7 +60,7 @@ LuaJIT 能編譯，任何一項不符就讓 image build 失敗。
 ## 網站送 Content-Security-Policy 時
 
 驗證頁與三個訊息頁不含 inline script 與 style：三語字串放在不會執行的 `<script type="application/json">`，
-script 與樣式是保留路徑上的同源檔案（`page.js`、`page.css`）。ALTCHA 用官方給嚴格 CSP 用的 `dist_external` 版本，
+script 與樣式是保留路徑上的同源檔案（`page.js`、`page.css`，`Cache-Control: no-cache`，升版後瀏覽器會重新確認；ALTCHA 三個檔快取 1 天）。ALTCHA 用官方給嚴格 CSP 用的 `dist_external` 版本，
 樣式（`altcha.css`）與 Web Worker（`altcha-worker.js`，由元件的 `workerurl` 指定）都是同源檔案；預設版本會插入 `<style>`、用 `blob:` 網址啟動 Worker，
 在 `default-src 'self'` 下會被擋。
 所以網站套用內建的 Security Headers 範本（`Content-Security-Policy "default-src 'self'"`）時驗證頁照常可用，不需要放寬網站的 CSP。

@@ -22,8 +22,9 @@
 #   13 external mode with a fake external site: request ticket valid; signed response ticket -> cookie -> 200;
 #      replayed / tampered / expired / other-IP tickets -> 429
 #   14 a client without any decision (as if pushed there by a third-party page) opens the challenge page 11 times and
-#      posts 6 answers (303 back) and loads each page asset 11 times (200): after more than the decision wait no
-#      decision and no challenge-fail alert
+#      posts 6 answers (303 back), loads each page asset 11 times (200) and 4 raw paths that nginx normalizes onto the
+#      reserved path (//altcha.js?n, page%2Ejs, x/../page.js, //?r=) 11 times each (303): after more than the decision
+#      wait no decision and no challenge-fail alert
 #   15 the https site sends Content-Security-Policy "default-src 'self'" (Security Headers template): the challenge page
 #      carries it, has no inline script or style, and its assets (altcha.js / .css / -worker.js, page.js / .css) are 200
 #   B  with --browser: the network is not internal and https is published on 127.0.0.1:18443; real Chromium from
@@ -491,6 +492,10 @@ while [ "$i" -lt 6 ]; do c xsite -o /dev/null -d altcha=Zm9v "https://nginxwebui
 xs_assets="$(docker exec "$PROJECT-client-xsite" sh -c "i=0; while [ \$i -lt 11 ]; do \
   for a in altcha.js altcha.css altcha-worker.js page.js page.css; do \
     curl -gsk -m 10 -o /dev/null -w '%{http_code}\n' https://nginxwebui${P}\$a; done; i=\$((i + 1)); done" | sort | uniq -c | tr -s ' ')"
+# raw paths that nginx normalizes to an asset or the page (a third-party page can send these): 303, never counted
+xs_odd="$(docker exec "$PROJECT-client-xsite" sh -c "i=0; while [ \$i -lt 11 ]; do \
+  for a in /altcha.js?n=\$i page%2Ejs x/../page.js /?r=%2F; do \
+    curl -gsk -m 10 --path-as-is -o /dev/null -w '%{http_code}\n' https://nginxwebui${P}\$a; done; i=\$((i + 1)); done" | sort | uniq -c | tr -s ' ')"
 T_XSITE=$(now)
 
 # ---------- 5. too many challenge page views ----------
@@ -544,10 +549,10 @@ xs_dec="$(echo "$xs_dec_raw" | awk -F, 'NR > 1 { print $5 }' | tr '\n' ',')"
 xs_alerts="$(echo "$xs_al_raw" | grep -c 'challenge-fail')"
 if [ "$xs_cscli" = ok ] && [ "$xs_page" = "0 303 https://nginxwebui/cart" ] \
   && [ "$xs_verify" = "0 303 https://nginxwebui/cart" ] && [ -z "$xs_dec" ] && [ "$xs_alerts" = "0" ] \
-  && [ "$xs_assets" = " 55 200" ]; then
-  pass 14 "no decision: 11 page views + 6 answers -> 303 back, 11 x 5 assets -> 200; after $(($(now) - T_XSITE))s no decision, no challenge-fail alert"
+  && [ "$xs_assets" = " 55 200" ] && [ "$xs_odd" = " 44 303" ]; then
+  pass 14 "no decision: 11 page views + 6 answers -> 303 back, 11 x 5 assets -> 200, 11 x 4 odd raw paths -> 303; after $(($(now) - T_XSITE))s no decision, no challenge-fail alert"
 else
-  fail 14 "cscli=[$xs_cscli] page=[$xs_page] verify=[$xs_verify] assets=[$xs_assets] decisions=[$xs_dec] challenge-fail alerts=$xs_alerts"
+  fail 14 "cscli=[$xs_cscli] page=[$xs_page] verify=[$xs_verify] assets=[$xs_assets] odd=[$xs_odd] decisions=[$xs_dec] challenge-fail alerts=$xs_alerts"
 fi
 
 # ---------- 2. checkbox style ----------
