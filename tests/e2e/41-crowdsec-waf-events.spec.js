@@ -219,6 +219,8 @@ test.describe('WAF 事件分頁（假 LAPI）', () => {
   let proc = null;
   let context = null;
   let page = null;
+  // 這組所有測試（篩選、展開、查這個 IP）共用同一頁，最後一個測試斷言沒有 CDN 請求
+  const cdn = [];
 
   test.beforeAll(async ({ browser }) => {
     test.setTimeout(180000);
@@ -257,6 +259,11 @@ test.describe('WAF 事件分頁（假 LAPI）', () => {
 
     context = await browser.newContext({ baseURL: ENV_BASE });
     page = await context.newPage();
+    page.on('request', (r) => {
+      if (CDN.test(r.url())) {
+        cdn.push(r.url());
+      }
+    });
     await login(page);
     // 兩個 HTTP 站台：SQL 注入那筆的 host 是 shop.e2e.test、/.env 那筆是 blog.e2e.test（帶埠）
     for (const serverName of ['shop.e2e.test', 'blog.e2e.test']) {
@@ -352,5 +359,6 @@ test.describe('WAF 事件分頁（假 LAPI）', () => {
     await expect(app.locator('.ip-waf-item')).toHaveAttribute('data-action', 'block');
     const r = await api(page, `/adminPage/crowdsecGuard/ipLookup?ip=${IP_ENV}`);
     expect(r.wafEvents[0].rules.map((x) => x.ruleName)).toEqual(['crowdsecurity/vpatch-env-access', '930130']);
+    expect(cdn).toEqual([]);
   });
 });

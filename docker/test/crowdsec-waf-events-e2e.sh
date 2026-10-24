@@ -1,7 +1,7 @@
 #!/bin/sh
 # End-to-end check of the WAF events (E-394, acceptance of E-384) on a real compose stack.
 # Starts a throwaway compose project with the security profile, creates a test site and checks:
-#   1. the crowdsec image keeps up to 50000 alerts (db_config.flush.max_items from config.yaml.local)
+#   1. the crowdsec image keeps up to 50000 alerts for 7 days (db_config.flush.max_items from config.yaml.local, max_age unchanged)
 #   2. GET /.env (403) and a SQL injection from the client container show up in /adminPage/crowdsecGuard/waf/events
 #      within 100 s without a manual sync: 2 events, host e2e.test, the client's User-Agent, the /.env event blocked
 #      with the vpatch rule and CRS 930130 merged into it
@@ -13,6 +13,7 @@
 #      crowdsec started again: sync succeeds (new machine JWT) and the error is cleared
 # Nothing of an existing deployment is touched: project nwu-e394-e2e, own container names, own volumes, own network,
 # no published ports. Everything is removed on exit (also on failure). Takes about 5 minutes.
+# The subnet (198.51.100.0/24) is the same as in crowdsec-guard-e2e.sh: do not run the two scripts at the same time.
 # Usage: sh docker/test/crowdsec-waf-events-e2e.sh <nginxwebui image> <nginxwebui-crowdsec image>
 #   e.g. sh docker/test/crowdsec-waf-events-e2e.sh nginxwebui:e394 nginxwebui-crowdsec:e394
 set -u
@@ -275,8 +276,14 @@ sleep 12
 
 # ---------- 1. alert cap ----------
 flush="$(cscli config show 2>/dev/null | grep -i 'Flush size')"
+flush_age="$(cscli config show 2>/dev/null | grep -i 'Flush age')"
 case "$flush" in
-*50000*) pass 1 "crowdsec keeps up to 50000 alerts ($(echo "$flush" | tr -s ' '))" ;;
+*50000*)
+  case "$flush_age" in
+  *168h*) pass 1 "crowdsec keeps up to 50000 alerts for 7 days ($(echo "$flush" | tr -s ' '), $(echo "$flush_age" | tr -s ' '))" ;;
+  *) fail 1 "flush age: '$flush_age'" ;;
+  esac
+  ;;
 *) fail 1 "flush size: '$flush'" ;;
 esac
 
@@ -285,7 +292,7 @@ c_env="$(get /.env)"
 c_sqli="$(get "$SQLI_PATH")"
 info "GET /.env -> $c_env, SQL injection -> $c_sqli"
 ev="$(wait_count "ip=$IP_CLIENT&days=0" 2 100)"
-if [ "$c_env" = "403" ] && [ "$c_sqli" != "403" ] && echo "$ev" | grep -q '"count":2' \
+if [ "$c_env" = "403" ] && [ "$c_sqli" != "403" ] && echo "$ev" | grep -qE '"count":2[,}]' \
   && echo "$ev" | grep -q "\"host\":\"$HOST\"" && echo "$ev" | grep -qF "\"userAgent\":\"$UA\"" \
   && echo "$ev" | grep -q '"action":"block"' && echo "$ev" | grep -q '"ruleName":"crowdsecurity/vpatch-env-access"' \
   && echo "$ev" | grep -q '"ruleName":"930130"'; then
@@ -296,7 +303,7 @@ fi
 
 # ---------- 3. category filter ----------
 r="$(api "/adminPage/crowdsecGuard/waf/events?ip=$IP_CLIENT&days=0&category=crs-sqli")"
-if echo "$r" | grep -q '"count":1' && echo "$r" | grep -q '"category":"crs-sqli"' && ! echo "$r" | grep -q 'vpatch-env-access'; then
+if echo "$r" | grep -qE '"count":1[,}]' && echo "$r" | grep -q '"category":"crs-sqli"' && ! echo "$r" | grep -q 'vpatch-env-access'; then
   pass 3 "category crs-sqli lists only the SQL injection"
 else
   fail 3 "crs-sqli: $r"
@@ -314,15 +321,22 @@ fi
 # Right after a finished sync (so a running scheduled sync cannot write its sync point over ours), drop the events and
 # move the sync point 30 minutes back. The stack is younger than that, so CrowdSec has no alert older than the sync
 # point: the next sync restores both events and records a gap starting at the sync point.
-sync_now >/dev/null
-back=$(( $(now) * 1000 - 1800000 ))
-docker exec "$PG" psql -q -U nginxwebui -d nginxwebui -c "DELETE FROM waf_event_rule; DELETE FROM waf_event; \
+# A scheduled sync can run between the delete and the check and bring the events back; then the reset is repeated (3 tries).
+tries=0
+gone=""
+while [ "$tries" -lt 3 ]; do
+  sync_now >/dev/null
+  back=$(( $(now) * 1000 - 1800000 ))
+  docker exec "$PG" psql -q -U nginxwebui -d nginxwebui -c "DELETE FROM waf_event_rule; DELETE FROM waf_event; \
 UPDATE setting SET value='$back' WHERE key='crowdsecWafSyncedUntil'; DELETE FROM setting WHERE key IN ('crowdsecWafGapFrom','crowdsecWafGapTo');" >/dev/null
-gone="$(api "/adminPage/crowdsecGuard/waf/events?ip=$IP_CLIENT&days=0")"
+  gone="$(api "/adminPage/crowdsecGuard/waf/events?ip=$IP_CLIENT&days=0")"
+  case "$gone" in *'"count":0'[,}]*) break ;; esac
+  tries=$((tries + 1))
+done
 s5="$(sync_now)"
 ev="$(api "/adminPage/crowdsecGuard/waf/events?ip=$IP_CLIENT&days=0")"
 st="$(api /adminPage/crowdsecGuard/waf/status)"
-if echo "$gone" | grep -q '"count":0' && echo "$s5" | grep -q '"outcome":"ok"' && echo "$ev" | grep -q '"count":2' \
+if echo "$gone" | grep -qE '"count":0[,}]' && echo "$s5" | grep -q '"outcome":"ok"' && echo "$ev" | grep -qE '"count":2[,}]' \
   && echo "$st" | grep -q "\"gapFrom\":$back"; then
   pass 5 "events restored from the sync point 30 minutes back; gap marked from $back"
 else
@@ -335,12 +349,18 @@ s_down="$(sync_now)"
 st_down="$(api /adminPage/crowdsecGuard/waf/status)"
 kept="$(api "/adminPage/crowdsecGuard/waf/events?ip=$IP_CLIENT&days=0")"
 docker start "$CS" >/dev/null
-wait_crowdsec || info "crowdsec did not register the machine again within 120 s"
-sleep 5
-s_up="$(sync_now)"
+# The machine record lives in the volume, so wait_crowdsec returns at once; poll the sync until the LAPI answers (about 60 s).
+i=0
+s_up=""
+while [ "$i" -lt 12 ]; do
+  s_up="$(sync_now)"
+  case "$s_up" in *'"outcome":"ok"'*) break ;; esac
+  i=$((i + 1))
+  sleep 5
+done
 st_up="$(api /adminPage/crowdsecGuard/waf/status)"
 if echo "$s_down" | grep -q '"error":"crowdsec_lapi_unavailable"' \
-  && echo "$st_down" | grep -q '"lastError":"crowdsec_lapi_unavailable"' && echo "$kept" | grep -q '"count":2' \
+  && echo "$st_down" | grep -q '"lastError":"crowdsec_lapi_unavailable"' && echo "$kept" | grep -qE '"count":2[,}]' \
   && echo "$s_up" | grep -q '"outcome":"ok"' && ! echo "$st_up" | grep -q '"lastError":"'; then
   pass 6 "crowdsec down: sync failed (lapi unavailable), events kept; up again: sync ok and the error cleared"
 else

@@ -43,7 +43,7 @@ test.describe('CrowdSec 防護頁', () => {
     await page.goto('/adminPage/protectionCert');
     await page.locator('a[href$="/adminPage/crowdsecGuard"]').click();
     await expect(page.locator('h1')).toHaveText(/CrowdSec/);
-    // 預設就在 IP 查詢，所以先切到其他兩個，最後切回來
+    // 預設就在 IP 查詢，所以先切到其他三個，最後切回來
     const tabs = [
       [/封鎖名單|封锁名单|Ban list/, 'bans'],
       [/WAF 事件|WAF events/, 'waf'],
