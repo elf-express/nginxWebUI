@@ -1,0 +1,37 @@
+docker/test/challenge-browser.cjs
+  s_1006f5e1b97097::t_7df5cf1e7af75d 5-8,10-11,13-71,132-134
+docker/test/crowdsec-challenge-e2e.sh
+  s_1006f5e1b97097::t_6a944312135aea 477-484,486
+src/main/java/com/cym/service/CrowdSecChallenge.java
+  s_1006f5e1b97097::t_707644d1ce6c66 306-309,319-320
+src/main/resources/crowdsec/challenge-page.css
+  s_1006f5e1b97097::t_48bf8aa58ac1fb 1-24
+src/main/resources/crowdsec/challenge-page.js
+  s_1006f5e1b97097::t_7b5577b9260523 26-36
+src/main/resources/messages.properties
+  s_1006f5e1b97097::t_899e67b715fd80 1100
+src/main/resources/messages_en_US.properties
+  s_1006f5e1b97097::t_a92fee7d2dd08b 1100
+src/main/resources/messages_zh_TW.properties
+  s_1006f5e1b97097::t_1441bf214b77bb 1100
+src/test/java/com/cym/service/CrowdSecChallengeTest.java
+  s_1006f5e1b97097::t_8fce371140c3d6 235-236,275,279-295
+tests/e2e/39-crowdsec-tab.spec.js
+  s_1006f5e1b97097::t_4791de24a99a87 206-224,233,250
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c4e4a23c1757bbe2e346acd1ead471f9833a6393",
+  "prompts": {},
+  "sessions": {
+    "s_1006f5e1b97097": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c42c83a6-6d55-484a-9615-af8cf8c3bdc0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
