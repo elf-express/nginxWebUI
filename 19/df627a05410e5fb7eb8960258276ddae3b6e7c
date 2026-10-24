@@ -1,0 +1,45 @@
+README.md
+  s_fbddda1be869be::t_9eec15159d3008 78,241-246
+README_TW.md
+  s_fbddda1be869be::t_28a52db11d3729 78,236-239
+docker/crowdsec/Dockerfile
+  s_fbddda1be869be::t_c863bfb93d207b 38-39
+docker/crowdsec/config.yaml.local
+  s_fbddda1be869be::t_f540c6a15c8935 1-6
+docker/test/crowdsec-waf-events-e2e.sh
+  s_fbddda1be869be::t_60c46f676ede20 1-351
+docs/memory/conventions.md
+  s_fbddda1be869be::t_1865004e32fa44 34-35
+docs/memory/feature-inventory.md
+  s_fbddda1be869be::t_731f3cca9dbf6b 26-29
+docs/superpowers/state/E-384.yaml
+  s_fbddda1be869be::t_b5174b8f70ba2e 3
+tests/e2e/40-crowdsec-guard.spec.js
+  s_fbddda1be869be::t_13d0dce95aabde 39,49
+tests/e2e/41-crowdsec-waf-events.spec.js
+  s_a28b699e4790bd::t_8bb4eb74888590 1-356
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "19df627a05410e5fb7eb8960258276ddae3b6e7c",
+  "prompts": {},
+  "sessions": {
+    "s_a28b699e4790bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "195abc9b-fbd8-4977-9ae6-70d5fcc76908",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    },
+    "s_fbddda1be869be": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3e7779be-a10c-42c4-bc5a-4ffe39cec920",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
