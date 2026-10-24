@@ -1,0 +1,37 @@
+frontend/src/pages/crowdsecGuard/GuardPage.vue
+  s_fbddda1be869be::t_6bccf4d46803e2 8,66-68
+frontend/src/pages/crowdsecGuard/IpLookupTab.vue
+  s_fbddda1be869be::t_083fc617518c48 8-23,38,164-181,219-233
+frontend/src/pages/crowdsecGuard/WafEventsTab.vue
+  s_fbddda1be869be::t_e7f78ab78b151c 1-277
+frontend/src/pages/crowdsecGuard/api.test.ts
+  s_fbddda1be869be::t_f7b9477cfe0a35 2,31-50
+frontend/src/pages/crowdsecGuard/api.ts
+  s_fbddda1be869be::t_e68b674b1bb28d 46-47,94-156
+frontend/src/pages/crowdsecGuard/view.test.ts
+  s_fbddda1be869be::t_6a3481e8144aba 13,17-23,27,39,297-353
+frontend/src/pages/crowdsecGuard/view.ts
+  s_fbddda1be869be::t_9ef4b8a935f5e0 1,3-4,6,200-273
+src/main/resources/messages.properties
+  s_fbddda1be869be::t_6f83e8dd0da2a0 1084,1173-1218
+src/main/resources/messages_en_US.properties
+  s_fbddda1be869be::t_d234688f82dba1 1084,1173-1218
+src/main/resources/messages_zh_TW.properties
+  s_fbddda1be869be::t_590f6bfc30fe8e 1084,1173-1218
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "28ffe8c1734cb9ebbf30819e2fa351a8f2be51aa",
+  "prompts": {},
+  "sessions": {
+    "s_fbddda1be869be": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3e7779be-a10c-42c4-bc5a-4ffe39cec920",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
