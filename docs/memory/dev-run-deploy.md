@@ -100,7 +100,8 @@ LAPI 8080、AppSec 7422 只在 compose 網路內，不 publish。
 > 約 10 分鐘；用獨立 project `nwu-e376-e2e` 與自己的 volume／網段，不碰既有部署）。
 > machine 帳號：`sh docker/test/crowdsec-machine.sh <crowdsec image>`（secrets 檔／環境變數註冊、重啟、可登入）、
 > `sh docker/test/crowdsec-admin-e2e.sh <nginxwebui image> <crowdsec image>`（後台新增／刪除封鎖、ASN 撤銷、錯誤密碼，約 3 分鐘，
-> 獨立 project `nwu-e390-e2e`）。
+> 獨立 project `nwu-e390-e2e`）、`sh docker/test/crowdsec-waf-events-e2e.sh <nginxwebui image> <crowdsec image>`
+> （WAF 事件：排程同步、篩選、IP 查詢、回補與缺口、CrowdSec 停掉再啟動，約 5 分鐘、6 項，獨立 project `nwu-e394-e2e`）。
 > 注意：Loki / Promtail / Grafana monitoring profile 已於 2026-06-30 從本專案移除。
 > 若 server 上還有 `nginxwebui_loki_data` / `nginxwebui_grafana_data` volume 是歷史遺留，可手動 `docker volume rm` 清理。
 

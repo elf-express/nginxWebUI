@@ -34,6 +34,7 @@ import com.cym.service.LogService;
 import com.cym.service.RemoteService;
 import com.cym.service.SettingService;
 import com.cym.service.UpstreamService;
+import com.cym.service.WafEventSyncService;
 import com.cym.sqlhelper.utils.ConditionAndWrapper;
 import com.cym.sqlhelper.utils.SqlHelper;
 import com.cym.utils.BLogFileTailer;
@@ -92,6 +93,8 @@ public class ScheduleTask {
 	CrowdSecWhitelistService crowdSecWhitelistService;
 	@Inject
 	CrowdSecClient crowdSecClient;
+	@Inject
+	WafEventSyncService wafEventSyncService;
 
 	// 舊版「CrowdSec 白名單」建立的 type=whitelist decision 清除一次（E-385）；CrowdSec 未設定或連不上就下次再試
 	@Scheduled(cron = "0 */5 * * * ?")
@@ -99,6 +102,18 @@ public class ScheduleTask {
 		if (crowdSecClient.isConfigured() && crowdSecClient.canRead()) {
 			crowdSecWhitelistService.cleanupLegacyWhitelistDecisions();
 		}
+	}
+
+	// WAF 事件同步（E-394）：每分鐘第 30 秒把 CrowdSec AppSec alert 抄進資料庫；沒有 machine 憑證時直接略過
+	@Scheduled(cron = "30 * * * * ?")
+	public void syncWafEvents() {
+		wafEventSyncService.sync(System.currentTimeMillis());
+	}
+
+	// 每天 03:40 清掉超過保留天數（預設 30 天）的 WAF 事件
+	@Scheduled(cron = "0 40 3 * * ?")
+	public void cleanupWafEvents() {
+		wafEventSyncService.cleanup(System.currentTimeMillis());
 	}
 
 	// 检查更新

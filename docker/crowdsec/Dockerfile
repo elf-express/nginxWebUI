@@ -35,6 +35,8 @@ RUN find /var/lib/crowdsec/data -mindepth 1 -maxdepth 1 ! -name 'crowdsec.db*' \
 RUN sed -i '/cscli_if_clean parsers install crowdsecurity\/\(docker\|cri\)-logs/d' /docker_start.sh \
     && ! grep -q 'crowdsecurity/\(docker\|cri\)-logs' /docker_start.sh
 
+# Raise the alert cap so a busy week of WAF alerts stays in CrowdSec until nginxWebUI has copied it (E-394).
+COPY config.yaml.local /etc/crowdsec/config.yaml.local
 COPY acquis.yml     /etc/crowdsec/acquis.yaml
 COPY appsec.yaml    /etc/crowdsec/acquis.d/appsec.yaml
 COPY profiles.yaml  /etc/crowdsec/profiles.yaml

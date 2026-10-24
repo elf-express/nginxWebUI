@@ -1,0 +1,6 @@
+# nginxWebUI override, merged by CrowdSec over config.yaml at start.
+# Keep up to 50000 alerts (default 5000); max_age stays at the default 7d.
+# nginxWebUI copies the WAF alerts into its own database every minute (E-394).
+db_config:
+  flush:
+    max_items: 50000

@@ -75,7 +75,7 @@ docker compose up -d          # image 預設拉 :latest，永遠跟最新 releas
 - **GeoIP2 國家封鎖** — 預設白名單 17 國（CN/JP/HK/KR/SG/TH/MY/TW/VN/GB/FR/DE/GR/CA/US/MO/LA），用戶可自訂
 - **ASN 封鎖** — 按 Autonomous System Number 封整段網路
 - **CrowdSec 整合** — 官方 nginx Lua bouncer 直接在 nginx 裡執行：被封鎖的 IP 直接斷線（444）、被 AppSec WAF 擋下的請求回 403、白名單 IP 跳過所有防護層（見 [CrowdSec 防護](#crowdsec-防護)）
-- **CrowdSec 防護頁** — 一頁查出某個 IP 被哪一層擋下（白名單、國家封鎖、黑名單、CrowdSec 封鎖）、列出最近被擋下的 IP、管理 CrowdSec 封鎖名單（手動封鎖、解除、加入白名單），並放 CrowdSec 連線設定
+- **CrowdSec 防護頁** — 一頁查出某個 IP 被哪一層擋下（白名單、國家封鎖、黑名單、CrowdSec 封鎖）、列出最近被擋下的 IP、管理 CrowdSec 封鎖名單（手動封鎖、解除、加入白名單）、列出 WAF 事件（存在 nginxWebUI 資料庫保留 30 天，可依站台、類別、結果篩選），並放 CrowdSec 連線設定
 - **防爬蟲憑證** — 「防護與憑證」頁面集中管理
 
 ### 🌐 反向代理 / 負載均衡
@@ -233,6 +233,10 @@ bouncer 容器。`nginxwebui-crowdsec` image 已烤入日誌解析器與 AppSec 
 - 沒填時 CrowdSec 照常封鎖，只是後台不能管理封鎖、ASN 推送維持停用。
 - 「**CrowdSec 防護**」頁的**連線設定**分頁會顯示兩組憑證的遮罩值與來源、CrowdSec 位址、寬限秒數（可改，改完要套用設定）、
   測試連線與狀態燈，以及 nginx 最後一次成功檢查的時間。
+- 「**CrowdSec 防護**」頁的 **WAF 事件**分頁列出被 AppSec WAF 命中的請求。nginxWebUI 每分鐘用 machine 帳號從 CrowdSec
+  抄一次 WAF alert（沒填 machine 密碼就不同步，已存的事件照樣顯示），保留 30 天（分頁上可改，每天 03:40 清理）。
+  同一個請求同時命中已知漏洞規則與 CRS 時算一個事件。`nginxwebui-crowdsec` image 最多保留 50000 筆 alert、7 天；
+  同步中斷過、而 CrowdSec 已經沒有中斷前的 alert 時，分頁會標示這段期間可能不完整。IP 查詢也會列出該 IP 最近 10 筆 WAF 事件。
 - 後台加的封鎖 reason 一律 `nginxwebui:` 開頭。crowdsec image 烤進去的 `profiles.yaml` 已設定排除它們、不通報給
   AbuseIPDB；這點以設定檔檢查驗證，未對 AbuseIPDB 實際送測。
 

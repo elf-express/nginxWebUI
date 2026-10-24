@@ -1,6 +1,8 @@
 package com.cym.utils;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
@@ -37,5 +39,14 @@ class IpMatchTest {
 		assertFalse(IpMatch.isSingleIp("203.0.113.0/24"));
 		assertFalse(IpMatch.isSingleIp("example.com"));
 		assertFalse(IpMatch.isSingleIp(" "));
+	}
+
+	@Test
+	void canonicalGivesOneSpellingPerAddress() {
+		assertEquals("203.0.113.5", IpMatch.canonical(" 203.0.113.5 "));
+		assertEquals(IpMatch.canonical("2001:db8::1"), IpMatch.canonical("2001:0DB8:0:0:0:0:0:1"));
+		assertNull(IpMatch.canonical("203.0.113.0/24"));
+		assertNull(IpMatch.canonical("example.com"));
+		assertNull(IpMatch.canonical(null));
 	}
 }

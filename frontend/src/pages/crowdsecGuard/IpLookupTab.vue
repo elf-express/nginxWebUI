@@ -5,7 +5,22 @@ import { t } from '../../shared/i18n'
 import { notifyError } from '../../shared/notify'
 import { lookupIp, whitelistIp, type LookupResult } from './api'
 import BlockedIps from './BlockedIps.vue'
-import { blockedByKey, createLatest, geoSiteKeys, layerColor, layerStateKey, shouldLookup, sourceKeyOf, verdictType, whitelistMessage } from './view'
+import {
+  WAF_RECENT_LIMIT,
+  blockedByKey,
+  createLatest,
+  formatTime,
+  geoSiteKeys,
+  layerColor,
+  layerStateKey,
+  shouldLookup,
+  sourceKeyOf,
+  verdictType,
+  wafActionColor,
+  wafActionKey,
+  wafRuleLabel,
+  whitelistMessage,
+} from './view'
 
 const ip = defineModel<string>('ip', { default: '' })
 // refresh 每變一次就重查目前的 ip（其他分頁的「查這個 IP」，即使是同一個 IP）
@@ -20,6 +35,7 @@ const whitelisting = ref(false)
 
 const layers = computed(() => data.value?.result.layers ?? [])
 const verdict = computed(() => verdictType(data.value?.result.blockedBy ?? 'none'))
+const wafEvents = computed(() => data.value?.wafEvents ?? [])
 
 // 連續查不同 IP 時，只採用最後一次查詢的結果
 const latest = createLatest()
@@ -145,6 +161,24 @@ watch(
         </li>
       </ol>
       <p class="ip-order-note">{{ t('crowdsecGuardStr.orderNote') }}</p>
+      <section class="ip-waf" aria-labelledby="ip-waf-title">
+        <h3 id="ip-waf-title" class="ip-waf-title">{{ t('crowdsecGuardStr.wafRecentTitle') }}</h3>
+        <p v-if="!wafEvents.length" class="ip-waf-none">{{ t('crowdsecGuardStr.wafRecentNone') }}</p>
+        <template v-else>
+          <ul class="ip-waf-list">
+            <li v-for="e in wafEvents" :key="e.id" class="ip-waf-item" :data-action="e.action">
+              <Space wrap :size="4">
+                <span>{{ formatTime(e.eventTime) }}</span>
+                <span>{{ e.host || '—' }}</span>
+                <span class="ip-waf-uri">{{ e.method || '' }} {{ e.uri || '' }}</span>
+                <span>{{ e.rules.map((r) => wafRuleLabel(r)).join(', ') }}</span>
+                <Tag :color="wafActionColor(e.action)">{{ t(wafActionKey(e.action)) }}</Tag>
+              </Space>
+            </li>
+          </ul>
+          <p class="ip-order-note">{{ t('crowdsecGuardStr.wafRecentNote', WAF_RECENT_LIMIT) }}</p>
+        </template>
+      </section>
     </div>
 
     <BlockedIps @lookup="run" />
@@ -181,5 +215,20 @@ watch(
 .ip-order-note {
   color: #888;
   font-size: 12px;
+}
+.ip-waf-title {
+  font-size: 14px;
+  font-weight: 500;
+  margin: 16px 0 4px;
+}
+.ip-waf-list {
+  padding-left: 20px;
+  margin: 0;
+}
+.ip-waf-uri {
+  word-break: break-all;
+}
+.ip-waf-none {
+  color: #888;
 }
 </style>

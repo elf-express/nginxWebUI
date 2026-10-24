@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import org.noear.solon.annotation.Controller;
 import org.noear.solon.annotation.Inject;
@@ -24,6 +25,7 @@ import com.cym.service.HttpServerSelector;
 import com.cym.service.IpLookupService;
 import com.cym.service.OperateLogService;
 import com.cym.service.ServerService;
+import com.cym.service.WafEventService;
 import com.cym.utils.BaseController;
 import com.cym.utils.IpMatch;
 import com.cym.utils.JsonResult;
@@ -38,6 +40,8 @@ import cn.hutool.json.JSONObject;
 public class CrowdSecGuardController extends BaseController {
 	private static final Logger logger = LoggerFactory.getLogger(CrowdSecGuardController.class);
 	static final int MAX_MINUTES = 7 * 24 * 60;
+	/** IP 查詢一併列出這個 IP 最近的 WAF 事件，最多幾筆 */
+	static final int RECENT_WAF_EVENTS = 10;
 
 	@Inject
 	IpLookupService ipLookupService;
@@ -51,6 +55,8 @@ public class CrowdSecGuardController extends BaseController {
 	OperateLogService operateLogService;
 	@Inject
 	ServerService serverService;
+	@Inject
+	WafEventService wafEventService;
 
 	@Mapping("")
 	public ModelAndView index(ModelAndView modelAndView) {
@@ -87,7 +93,18 @@ public class CrowdSecGuardController extends BaseController {
 			names.put(s.getId(), serverLabel(s));
 		}
 		obj.put("serverNames", names);
+		obj.put("wafEvents", recentWafEvents(() -> wafEventService.recentForIp(ip, RECENT_WAF_EVENTS)));
 		return renderSuccess(obj);
+	}
+
+	/** 最近的 WAF 事件查詢失敗時回空清單，不影響 IP 查詢的主結果 */
+	static List<Map<String, Object>> recentWafEvents(Supplier<List<WafEventService.Row>> query) {
+		try {
+			return WafEventController.rows(query.get());
+		} catch (RuntimeException e) {
+			logger.warn("waf recent events failed: {}", e.getClass().getSimpleName());
+			return new ArrayList<>();
+		}
 	}
 
 	@Mapping("blocked")
