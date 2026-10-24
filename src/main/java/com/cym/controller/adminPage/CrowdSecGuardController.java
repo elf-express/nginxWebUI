@@ -24,6 +24,7 @@ import com.cym.service.HttpServerSelector;
 import com.cym.service.IpLookupService;
 import com.cym.service.OperateLogService;
 import com.cym.service.ServerService;
+import com.cym.service.WafEventService;
 import com.cym.utils.BaseController;
 import com.cym.utils.IpMatch;
 import com.cym.utils.JsonResult;
@@ -38,6 +39,8 @@ import cn.hutool.json.JSONObject;
 public class CrowdSecGuardController extends BaseController {
 	private static final Logger logger = LoggerFactory.getLogger(CrowdSecGuardController.class);
 	static final int MAX_MINUTES = 7 * 24 * 60;
+	/** IP 查詢一併列出這個 IP 最近的 WAF 事件，最多幾筆 */
+	static final int RECENT_WAF_EVENTS = 10;
 
 	@Inject
 	IpLookupService ipLookupService;
@@ -51,6 +54,8 @@ public class CrowdSecGuardController extends BaseController {
 	OperateLogService operateLogService;
 	@Inject
 	ServerService serverService;
+	@Inject
+	WafEventService wafEventService;
 
 	@Mapping("")
 	public ModelAndView index(ModelAndView modelAndView) {
@@ -87,6 +92,7 @@ public class CrowdSecGuardController extends BaseController {
 			names.put(s.getId(), serverLabel(s));
 		}
 		obj.put("serverNames", names);
+		obj.put("wafEvents", WafEventController.rows(wafEventService.recentForIp(ip, RECENT_WAF_EVENTS)));
 		return renderSuccess(obj);
 	}
 
