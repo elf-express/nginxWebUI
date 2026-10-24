@@ -1,0 +1,62 @@
+docker/test/challenge-smoke.sh
+  s_a28b699e4790bd::t_531c396df5f0fe 19-20,22-30
+  s_a28b699e4790bd::t_6a0e50686e54a1 49-55,61,212
+  s_a28b699e4790bd::t_d6ec0e959f39f1 7-8,11-14
+  s_a28b699e4790bd::t_819668c26f0c82 31,62-63,96-97,210-211,213-232,243-245,342-344,365-367,369,377-378,381-426
+docker/lua/patches/cs-stream-delete-by-type.sh
+  s_a28b699e4790bd::t_273d049bfeb690 4-10,29,31-35,37-46,48-58,60-61,64-79
+docker/lua/nwu_crowdsec.lua
+  s_a28b699e4790bd::t_6e2bd73bed3369 9-10
+  s_a28b699e4790bd::t_ea2a63cae3f826 142-148,151-156,159,167-169,171
+  s_a28b699e4790bd::t_f83863105adc49 11,170,172,175,242-243
+docker/lua/test/challenge_policy_test.lua
+  s_a28b699e4790bd::t_a222615c99f2bc 37-45
+src/main/resources/crowdsec/challenge-message.html
+  s_a28b699e4790bd::t_b7aac10263ab21 8-10
+Dockerfile
+  s_a28b699e4790bd::t_3241ca940afe7b 84-87,93-97
+docker/crowdsec/nwu-challenge-fail.yaml
+  s_a28b699e4790bd::t_5b6bb81b9ab556 4-5,17-20
+docker/lua/nwu_challenge.lua
+  s_a28b699e4790bd::t_94d84b9beaa5a9 4,6-7,27-32,35,79-85,270,273,280,282-284,286
+docker/lua/nwu_challenge_policy.lua
+  s_a28b699e4790bd::t_568cd0fd251700 102-114,117-118,132
+docker/test/challenge-browser.cjs
+  s_a28b699e4790bd::t_34d31f64cc4e37 3-4,24-35,44-46,50-54,63-65
+docker/test/crowdsec-challenge-e2e.sh
+  s_a28b699e4790bd::t_3f71a5e76b0e27 25-28,30-32,312-316,319-322,447-461,476,490-493,546-548,550
+docs/crowdsec-challenge.md
+  s_a28b699e4790bd::t_9c433149051d7e 21,23,28-31,38-39,41-42,55-63
+src/main/java/com/cym/controller/adminPage/CrowdSecController.java
+  s_a28b699e4790bd::t_2916a8786e6aba 160-171
+src/main/java/com/cym/service/CrowdSecChallenge.java
+  s_a28b699e4790bd::t_57dc7a3c09bf61 38-39,55-62,172,186-188,197-209,271-306,308-315
+src/main/resources/crowdsec/challenge-page.css
+  s_a28b699e4790bd::t_648e5c4f48f916 1-7
+src/main/resources/crowdsec/challenge-page.html
+  s_a28b699e4790bd::t_694793cb51f266 8-11,21
+src/main/resources/crowdsec/challenge-page.js
+  s_a28b699e4790bd::t_6e1b8c864ad318 1-28
+src/test/java/com/cym/service/CrowdSecChallengeTest.java
+  s_a28b699e4790bd::t_021a3f50c6e1ce 10,13-15,49-50,133-135,175-185,238-304
+src/test/java/com/cym/service/CrowdSecNginxConfTest.java
+  s_a28b699e4790bd::t_b79d58f9bf69b2 407-408
+tests/e2e/39-crowdsec-tab.spec.js
+  s_a28b699e4790bd::t_b9d0a6e28f6a62 216-233,237-243
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fc2366937a6ac1a8459efd70e897c7c9cfc26ade",
+  "prompts": {},
+  "sessions": {
+    "s_a28b699e4790bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "195abc9b-fbd8-4977-9ae6-70d5fcc76908",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
