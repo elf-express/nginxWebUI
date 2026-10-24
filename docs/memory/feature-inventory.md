@@ -13,7 +13,8 @@ HTTP 參數面板 phase 2/3：三態啟用模式 + nginx 模組可用性過濾�
 （header、sidebar、表格操作、modal、captcha）· 語意地標（`<nav>` sidebar、關鍵頁 `<h1>`）· icon 按鈕 `aria-label`。
 由 specs 27-a11y-buttons 加上 crawler 式斷言把關。
 
-**Security：** CrowdSec（IDS + bouncer）· GeoIP2 國家封鎖 ·
+**Security：** CrowdSec（IDS + bouncer）·
+**自架驗證頁**（CrowdSec 判可疑的 IP 先走 ALTCHA 驗證或外部驗證站，不通過才封鎖；[docs/crowdsec-challenge.md](../crowdsec-challenge.md)）· GeoIP2 國家封鎖 ·
 **ASN 大區段封鎖走 CrowdSec range**（ipverse as-metadata catalog `AsMeta` + as-ip-blocks prefix 抓取；
 防護 profile `light`/`manual`/`strict` 存在 `protection.profile`；intent `AsBlockIntent` 的 reason 是
 `nginxwebui:as-ban:AS{n}`；AsnRule 的 nginx `$blocked_asn` map 已棄用，只能透過 `asn.nginxMapEnabled` opt-in）·
@@ -23,6 +24,10 @@ Protection Cert · Real-IP 模組 ·
 在 http/stream 層自動套用 —— allow 先於 deny、預設 allow、**沒有 per-server 綁定**
 （舊綁定 UI 已於 5.2.6 移除，Settings/欄位保留但不讀）；存檔時拒絕跨型別 IP 衝突；
 CrowdSec 誤判白名單可選擇同步到 DenyAllow allow）·
+**CrowdSec 防護頁 WAF 事件（E-394）：** `WafEventSyncService` 每分鐘第 30 秒以 machine JWT 拉 `GET /v1/alerts`（`include_capi=false`、
+`since`／`until` 秒數，重疊 5 分鐘、alert id 去重）寫入 `WafEvent`＋`WafEventRule`；同請求（IP＋方法＋網址＋秒）的 vpatch 與 CRS 併一列；
+保留 `crowdsecWafRetentionDays`（預設 30）每天 03:40 清理；缺口判斷見 `WafEventSyncService` 類別註解；crowdsec image 的
+`config.yaml.local` 把 `db_config.flush.max_items` 調到 50000 ·
 **防火牆頁 = 6 個 tab**（IP 資料庫／黑名單／白名單／GeoIP 國家／ASN／Protection Cert）。
 
 **GeoIP DB 模組（v5.2.0+）：** header 以 2×2 grid 顯示 Country/City/ASN/Cloudflare 狀態

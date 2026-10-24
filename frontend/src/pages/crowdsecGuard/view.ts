@@ -1,9 +1,9 @@
-import type { BlockedRow, GeoSite, WhitelistOutcome } from './api'
+import type { BlockedRow, GeoSite, WafStatus, WafSyncResult, WhitelistOutcome } from './api'
 
-export type TabKey = 'ip' | 'bans' | 'conn'
-export const TABS: TabKey[] = ['ip', 'bans', 'conn']
+export type TabKey = 'ip' | 'bans' | 'waf' | 'conn'
+export const TABS: TabKey[] = ['ip', 'bans', 'waf', 'conn']
 
-/** #ip=<IP>、#bans、#conn；其他一律回 IP 查詢 */
+/** #ip=<IP>、#bans、#waf、#conn；其他一律回 IP 查詢 */
 export function parseHash(hash: string): { tab: TabKey; ip: string } {
   const text = hash.replace(/^#/, '')
   const [key, value = ''] = text.split('=', 2)
@@ -196,4 +196,78 @@ export function formatTime(ms: number | null | undefined): string {
   const d = new Date(ms)
   const p = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
+}
+
+/** WAF 事件分頁的期間選項（天）；0 表示保留期內全部 */
+export const WAF_DAYS = [1, 7, 30, 0]
+/** IP 查詢列出的最近 WAF 事件筆數（與後端 CrowdSecGuardController.RECENT_WAF_EVENTS 相同） */
+export const WAF_RECENT_LIMIT = 10
+
+export function wafCategoryKey(code: string): string {
+  return `crowdsecGuardStr.wafCat_${code.replace(/-/g, '_')}`
+}
+
+export function wafActionKey(action: string): string {
+  return action === 'block' ? 'crowdsecGuardStr.wafActionBlock' : 'crowdsecGuardStr.wafActionLog'
+}
+
+export function wafActionColor(action: string): string {
+  return action === 'block' ? 'error' : 'default'
+}
+
+/** 規則顯示名稱：CRS 規則編號前加 CRS，vpatch 去掉 crowdsecurity/ 前綴 */
+export function wafRuleLabel(r: { ruleName: string; ruleSource: string }): string {
+  return r.ruleSource === 'crs' ? `CRS ${r.ruleName}` : r.ruleName.replace(/^crowdsecurity\//, '')
+}
+
+export function retentionValid(days: number | null | undefined): days is number {
+  return typeof days === 'number' && Number.isInteger(days) && days >= 1 && days <= 365
+}
+
+/** 同步失敗的錯誤碼對應文案：管理憑證被拒、連不上、沒有 machine 憑證，其他用通用文案 */
+export function wafErrorKey(code: string | null | undefined): string {
+  if (code === 'crowdsec_machine_unauthorized') {
+    return 'crowdsecStr.machineInvalid'
+  }
+  if (code === 'crowdsec_lapi_unavailable') {
+    return 'crowdsecStr.statusUnreachable'
+  }
+  if (code === 'notConfigured.machine') {
+    return 'crowdsecGuardStr.wafNotConfigured'
+  }
+  return 'crowdsecGuardStr.wafSyncFailed'
+}
+
+export interface WafNotice {
+  key: 'notConfigured' | 'error' | 'gap'
+  type: 'info' | 'warning' | 'error'
+  text: string
+}
+
+/** WAF 事件分頁上方的提示：沒有 machine 憑證（不再提上次錯誤）、上次同步失敗、CrowdSec 已清掉部分紀錄 */
+export function wafStatusNotices(s: WafStatus, tr: Translate): WafNotice[] {
+  const list: WafNotice[] = []
+  if (!s.configured) {
+    list.push({ key: 'notConfigured', type: 'info', text: tr('crowdsecGuardStr.wafNotConfigured') })
+  } else if (s.lastError) {
+    list.push({ key: 'error', type: 'error', text: tr('crowdsecGuardStr.wafLastError', formatTime(s.lastErrorAt), tr(wafErrorKey(s.lastError))) })
+  }
+  if (s.gapFrom && s.gapTo) {
+    list.push({ key: 'gap', type: 'warning', text: tr('crowdsecGuardStr.wafGap', formatTime(s.gapFrom), formatTime(s.gapTo)) })
+  }
+  return list
+}
+
+/** 「立即同步」的結果訊息 */
+export function wafSyncMessage(r: WafSyncResult, tr: Translate): { type: 'success' | 'warning'; text: string } {
+  if (r.outcome === 'ok') {
+    return { type: 'success', text: tr('crowdsecGuardStr.wafSynced', r.added) }
+  }
+  if (r.outcome === 'busy') {
+    return { type: 'warning', text: tr('crowdsecGuardStr.wafSyncBusy') }
+  }
+  if (r.outcome === 'notConfigured') {
+    return { type: 'warning', text: tr('crowdsecGuardStr.wafNotConfigured') }
+  }
+  return { type: 'warning', text: tr(wafErrorKey(r.error)) }
 }

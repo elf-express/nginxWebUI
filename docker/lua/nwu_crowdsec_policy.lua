@@ -50,9 +50,22 @@ function _M.conf_missing(text, errno)
   return text == nil and errno == 2
 end
 
--- cs.allowIp returns ok=false when the IP is banned.
-function _M.is_ban(ok, remediation)
-  return ok == false
+-- Map the cs.allowIp result (BOUNCING_ON_TYPE=all) to what the access phase does:
+--   "pass"    : no decision, or the lookup failed -> continue with AppSec
+--   "allow"   : CrowdSec whitelist decision -> like the allowlist, skip every check
+--   "captcha" : challenge the client
+--   "ban"     : any other decision type -> 444
+function _M.remediation(ok, remediation)
+  if ok ~= false then
+    return "pass"
+  end
+  if remediation == "captcha" then
+    return "captcha"
+  end
+  if remediation == "whitelist" then
+    return "allow"
+  end
+  return "ban"
 end
 
 -- Serialize the probe state (epoch seconds, floored) as JSON.

@@ -7,7 +7,7 @@ vi.mock('../../shared/http', () => ({
 }))
 
 import { get, post } from '../../shared/http'
-import { useCrowdSecStore, type CrowdSecConfig } from './store'
+import { useCrowdSecStore, type ChallengeConfig, type CrowdSecConfig } from './store'
 
 function makeConfig(): CrowdSecConfig {
   return {
@@ -73,4 +73,46 @@ it('saveGrace 只送 graceSeconds 並更新本地值', async () => {
   await store.saveGrace(45)
   expect(post).toHaveBeenCalledWith('/adminPage/crowdsec/saveConfig', { graceSeconds: 45 })
   expect(store.config?.graceSeconds).toBe(45)
+})
+
+function makeChallenge(): ChallengeConfig {
+  return {
+    enabled: true,
+    mode: 'builtin',
+    style: 'auto',
+    externalUrl: '',
+    ttlMinutes: 60,
+    cookieSecret: { masked: '', source: 'NONE', configured: false, file: '/run/secrets/nwu_challenge_secret', env: 'NWU_CHALLENGE_SECRET' },
+    ticketSecret: {
+      masked: '••••••7d21',
+      source: 'ENV',
+      configured: true,
+      file: '/run/secrets/nwu_challenge_ticket_secret',
+      env: 'NWU_CHALLENGE_TICKET_SECRET',
+    },
+    problem: null,
+    lastError: null,
+  }
+}
+
+it('loadChallenge 讀 getChallenge', async () => {
+  vi.mocked(get).mockResolvedValue(makeChallenge())
+  const store = useCrowdSecStore()
+  await store.loadChallenge()
+  expect(get).toHaveBeenCalledWith('/adminPage/crowdsec/getChallenge')
+  expect(store.challenge?.ticketSecret.masked).toBe('••••••7d21')
+})
+
+it('saveChallenge 送四個欄位後重新讀取', async () => {
+  vi.mocked(get).mockResolvedValue({ ...makeChallenge(), style: 'checkbox', ttlMinutes: 30 })
+  const store = useCrowdSecStore()
+  await store.saveChallenge({ mode: 'builtin', style: 'checkbox', externalUrl: '', ttlMinutes: 30 })
+  expect(post).toHaveBeenCalledWith('/adminPage/crowdsec/saveChallenge', {
+    mode: 'builtin',
+    style: 'checkbox',
+    externalUrl: '',
+    ttlMinutes: 30,
+  })
+  expect(get).toHaveBeenCalledWith('/adminPage/crowdsec/getChallenge')
+  expect(store.challenge?.style).toBe('checkbox')
 })

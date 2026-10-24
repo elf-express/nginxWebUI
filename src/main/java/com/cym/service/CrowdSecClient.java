@@ -527,6 +527,39 @@ public class CrowdSecClient {
 		}
 	}
 
+	/**
+	 * 一頁 alert（不含 CAPI 社群名單的 alert），machine JWT，結果新到舊。
+	 * sinceSeconds／untilSeconds 是距今秒數（LAPI 的 since、until 只收相對時長，例 since=360s），最小 1；untilSeconds 為 null 表示到現在。
+	 * 連不上或逾時丟 LapiUnavailableException；LAPI 回非 2xx 丟 IllegalStateException（訊息只含狀態碼）。
+	 */
+	public String alertsRaw(long sinceSeconds, Long untilSeconds, int limit) {
+		ensureConfigured();
+		StringBuilder url = new StringBuilder(base()).append("/v1/alerts?include_capi=false&since=")
+				.append(Math.max(1, sinceSeconds)).append('s');
+		if (untilSeconds != null) {
+			url.append("&until=").append(Math.max(1, untilSeconds)).append('s');
+		}
+		url.append("&limit=").append(limit <= 0 ? LIST_PAGE_SIZE : limit);
+		String target = url.toString();
+		HttpResponse response;
+		try {
+			response = sendWithJwt(t -> HttpRequest.get(target)
+					.header("User-Agent", USER_AGENT)
+					.bearerAuth(t)
+					.timeout(DEFAULT_TIMEOUT_MS));
+		} catch (MachineAuthException | LapiUnavailableException e) {
+			throw e;
+		} catch (RuntimeException e) {
+			throw new LapiUnavailableException("crowdsec alerts unreachable", e);
+		}
+		try (HttpResponse resp = response) {
+			if (!resp.isOk()) {
+				throw new IllegalStateException("crowdsec alerts HTTP " + resp.getStatus());
+			}
+			return resp.body();
+		}
+	}
+
 	/** 涵蓋這個 IP 的有效 decisions（含網段），bouncer 金鑰 */
 	public String decisionsForIpRaw(String ip) {
 		ensureBouncerKey();

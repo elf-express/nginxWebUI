@@ -10,13 +10,21 @@ import {
   layerStateKey,
   parseHash,
   reasonKeysOf,
+  retentionValid,
   shouldLookup,
   sourceKeyOf,
   verdictType,
+  wafActionColor,
+  wafActionKey,
+  wafCategoryKey,
+  wafErrorKey,
+  wafRuleLabel,
+  wafStatusNotices,
+  wafSyncMessage,
   whitelistMessage,
   type Outcome,
 } from './view'
-import type { WhitelistOutcome } from './api'
+import type { WafStatus, WhitelistOutcome } from './api'
 
 // 測試用的翻譯：key 加參數，方便斷言用到哪一句
 const tr = (key: string, ...args: (string | number)[]) => (args.length ? `${key}(${args.join(',')})` : key)
@@ -28,6 +36,7 @@ function outcome(patch: Partial<WhitelistOutcome> = {}): WhitelistOutcome {
 describe('parseHash', () => {
   it('分頁與 IP', () => {
     expect(parseHash('#ip=203.0.113.5')).toEqual({ tab: 'ip', ip: '203.0.113.5' })
+    expect(parseHash('#waf')).toEqual({ tab: 'waf', ip: '' })
     expect(parseHash('#bans')).toEqual({ tab: 'bans', ip: '' })
     expect(parseHash('#conn')).toEqual({ tab: 'conn', ip: '' })
     expect(parseHash('')).toEqual({ tab: 'ip', ip: '' })
@@ -283,5 +292,62 @@ describe('國家層每個站台的說明文字', () => {
       'crowdsecGuardStr.geoModeAllow',
       'crowdsecGuardStr.geoUnknown',
     ])
+  })
+})
+
+function wafStatus(patch: Partial<WafStatus> = {}): WafStatus {
+  return { configured: true, retentionDays: 30, categories: [], ...patch }
+}
+
+describe('WAF 事件', () => {
+  it('類別與結果的文案 key、結果顏色', () => {
+    expect(wafCategoryKey('crs-sqli')).toBe('crowdsecGuardStr.wafCat_crs_sqli')
+    expect(wafCategoryKey('vpatch')).toBe('crowdsecGuardStr.wafCat_vpatch')
+    expect(wafActionKey('block')).toBe('crowdsecGuardStr.wafActionBlock')
+    expect(wafActionKey('log')).toBe('crowdsecGuardStr.wafActionLog')
+    expect(wafActionColor('block')).toBe('error')
+    expect(wafActionColor('log')).toBe('default')
+  })
+
+  it('規則名稱：CRS 前面加 CRS，vpatch 去掉 crowdsecurity/', () => {
+    expect(wafRuleLabel({ ruleName: '942100', ruleSource: 'crs' })).toBe('CRS 942100')
+    expect(wafRuleLabel({ ruleName: 'crowdsecurity/vpatch-env-access', ruleSource: 'vpatch' })).toBe('vpatch-env-access')
+  })
+
+  it('保留天數只接受 1–365 的整數', () => {
+    expect(retentionValid(1)).toBe(true)
+    expect(retentionValid(365)).toBe(true)
+    for (const bad of [0, 366, 7.5, null, undefined]) {
+      expect(retentionValid(bad)).toBe(false)
+    }
+  })
+
+  it('同步失敗的錯誤碼對應文案', () => {
+    expect(wafErrorKey('crowdsec_machine_unauthorized')).toBe('crowdsecStr.machineInvalid')
+    expect(wafErrorKey('crowdsec_lapi_unavailable')).toBe('crowdsecStr.statusUnreachable')
+    expect(wafErrorKey('notConfigured.machine')).toBe('crowdsecGuardStr.wafNotConfigured')
+    expect(wafErrorKey('crowdsec_error')).toBe('crowdsecGuardStr.wafSyncFailed')
+    expect(wafErrorKey(null)).toBe('crowdsecGuardStr.wafSyncFailed')
+  })
+
+  it('立即同步的訊息', () => {
+    expect(wafSyncMessage({ outcome: 'ok', added: 3 }, tr)).toEqual({ type: 'success', text: 'crowdsecGuardStr.wafSynced(3)' })
+    expect(wafSyncMessage({ outcome: 'busy', added: 0 }, tr)).toEqual({ type: 'warning', text: 'crowdsecGuardStr.wafSyncBusy' })
+    expect(wafSyncMessage({ outcome: 'notConfigured', added: 0 }, tr).text).toBe('crowdsecGuardStr.wafNotConfigured')
+    expect(wafSyncMessage({ outcome: 'failed', added: 0, error: 'crowdsec_lapi_unavailable' }, tr).text).toBe(
+      'crowdsecStr.statusUnreachable',
+    )
+  })
+
+  it('狀態提示：沒有 machine 憑證、上次同步失敗、缺口', () => {
+    expect(wafStatusNotices(wafStatus(), tr)).toEqual([])
+    const notConfigured = wafStatusNotices(wafStatus({ configured: false, lastError: 'crowdsec_error' }), tr)
+    expect(notConfigured.map((n) => n.key)).toEqual(['notConfigured'])
+    const failed = wafStatusNotices(wafStatus({ lastError: 'crowdsec_machine_unauthorized', lastErrorAt: 1 }), tr)
+    expect(failed.map((n) => [n.key, n.type])).toEqual([['error', 'error']])
+    expect(failed[0].text).toContain('crowdsecStr.machineInvalid')
+    const gap = wafStatusNotices(wafStatus({ gapFrom: 1, gapTo: 2 }), tr)
+    expect(gap.map((n) => [n.key, n.type])).toEqual([['gap', 'warning']])
+    expect(gap[0].text.startsWith('crowdsecGuardStr.wafGap(')).toBe(true)
   })
 })

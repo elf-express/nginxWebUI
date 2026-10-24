@@ -1,0 +1,57 @@
+# Clients that do not pass the nginxWebUI challenge (E-387). Both buckets count requests on the reserved path
+# /.well-known/nwu-challenge/ in the nginx access log by status code: only a client with a captcha decision gets the
+# challenge page (200) or a rejected answer (429); a client without one is sent back with 303 and is never counted.
+# The static assets of the page (altcha.js, altcha.css, altcha-worker.js, page.js, page.css; nwu_challenge_policy.lua
+# ASSETS) are 200 for every client and never counted.
+# The alerts become bans (not reported to AbuseIPDB) in profiles.yaml.
+type: leaky
+format: 2.0
+name: nginxwebui/challenge-fail
+description: "Was shown the nginxWebUI challenge page more than 10 times in about 10 minutes"
+filter: |
+  evt.Meta.log_type == 'http_access-log'
+  && evt.Meta.http_status == '200'
+  && evt.Meta.http_verb in ['GET', 'HEAD']
+  && evt.Meta.http_path startsWith '/.well-known/nwu-challenge/'
+  && not (evt.Meta.http_path startsWith '/.well-known/nwu-challenge/altcha.js')
+  && not (evt.Meta.http_path startsWith '/.well-known/nwu-challenge/altcha.css')
+  && not (evt.Meta.http_path startsWith '/.well-known/nwu-challenge/altcha-worker.js')
+  && not (evt.Meta.http_path startsWith '/.well-known/nwu-challenge/page.js')
+  && not (evt.Meta.http_path startsWith '/.well-known/nwu-challenge/page.css')
+  && not (evt.Meta.http_path startsWith '/.well-known/nwu-challenge/callback')
+groupby: evt.Meta.source_ip
+capacity: 10
+leakspeed: 1m
+blackhole: 1m
+labels:
+  service: http
+  behavior: "http:scan"
+  label: "nginxWebUI challenge not passed"
+  confidence: 2
+  spoofable: 0
+  classification:
+    - attack.T1595
+  remediation: true
+---
+type: leaky
+format: 2.0
+name: nginxwebui/challenge-fail-answer
+description: "Had more than 5 challenge answers or handoff tickets rejected in about 10 minutes"
+filter: |
+  evt.Meta.log_type == 'http_access-log'
+  && evt.Meta.http_status == '429'
+  && ((evt.Meta.http_verb == 'POST' && evt.Meta.http_path startsWith '/.well-known/nwu-challenge/verify')
+      || (evt.Meta.http_verb in ['GET', 'HEAD'] && evt.Meta.http_path startsWith '/.well-known/nwu-challenge/callback'))
+groupby: evt.Meta.source_ip
+capacity: 5
+leakspeed: 2m
+blackhole: 1m
+labels:
+  service: http
+  behavior: "http:scan"
+  label: "nginxWebUI challenge answers not accepted"
+  confidence: 2
+  spoofable: 0
+  classification:
+    - attack.T1595
+  remediation: true

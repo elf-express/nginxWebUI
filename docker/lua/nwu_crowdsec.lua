@@ -1,9 +1,18 @@
 -- nginxWebUI wrapper around the official CrowdSec lua-cs-bouncer.
 -- Provides: init(opts), init_worker(), access().
---   opts = { conf = <bouncer conf path>, grace = <seconds>, state = <state file path>, page = <503 page path> }
--- Decisions: IP ban -> ngx.exit(444); AppSec block -> ngx.exit(403);
--- CrowdSec unreachable longer than grace -> 503 page. Allowlisted clients ($nwu_allowlist = "1") bypass everything.
+--   opts = { conf = <bouncer conf path>, grace = <seconds>, state = <state file path>, page = <503 page path>,
+--            challenge = <optional nwu_challenge opts> }
+-- Decisions: IP ban -> ngx.exit(444); captcha -> nwu_challenge; CrowdSec whitelist -> pass everything;
+-- AppSec block -> ngx.exit(403); CrowdSec unreachable longer than grace -> 503 page.
+-- Allowlisted clients ($nwu_allowlist = "1") bypass everything. Banned clients get 444 on the reserved path too;
+-- clients without a decision are only redirected back from it. Without a loaded challenge the reserved path is still
+-- answered here (303 back, page assets 404), never by the site. In stream mode a captcha of the IP itself does not hide
+-- a whitelist or a ban on a range around it (action_behind_captcha): the next decision by prefix decides, a whitelist
+-- passes like the allowlist, a ban gets 444 (also with a valid nwu_pass cookie).
 local policy = require "nwu_crowdsec_policy"
+local challenge_policy = require "nwu_challenge_policy"
+local decision_utils = require "plugins.crowdsec.utils"
+local iputils = require "plugins.crowdsec.iputils"
 
 local _M = {}
 
@@ -13,6 +22,7 @@ local PROBE_TIMEOUT_MS = 2000
 local DICT_NAME = "nwu_crowdsec"
 
 local cs            -- the official crowdsec module
+local challenge     -- nwu_challenge when opts.challenge is given and its init succeeded
 local cfg = {}      -- parsed bouncer conf
 local opts = {}     -- opts given to init()
 local page_html     -- content of the 503 page
@@ -34,6 +44,7 @@ function _M.init(o)
   opts.grace = tonumber(opts.grace) or 120
   ready = false
   configured = true
+  challenge = nil
 
   local text, errno = read_file(opts.conf or "")
   if policy.conf_missing(text, errno) then
@@ -65,6 +76,13 @@ function _M.init(o)
   if res == "Disabled" then
     ngx.log(ngx.WARN, "[nwu_crowdsec] bouncer is disabled in conf (ENABLED=false)")
     return false
+  end
+
+  if opts.challenge then
+    local mod = require "nwu_challenge"
+    if mod.init(opts.challenge) then
+      challenge = mod
+    end
   end
 
   ready = true
@@ -119,6 +137,41 @@ local function probe_appsec()
     ssl_verify = cfg.SSL_VERIFY ~= "false",
   })
   return res ~= nil and (res.status == 200 or res.status == 403)
+end
+
+-- For a client whose cs.allowIp result is a captcha (stream mode): walks the cached prefixes of ip in the order of
+-- cs.allowIp (most specific first, /32 or /128 down to /0), skips captchas and returns the action of the first other
+-- decision ("allow" for a whitelist, "ban" for any other type), or "captcha" when there is none. Cache keys and netmasks
+-- as in lua-cs-bouncer v1.2.3 crowdsec.lua.
+local function action_behind_captcha(ip)
+  local key, ip_version = decision_utils.item_to_string(ip, "Ip")
+  if key == nil then
+    return "captcha"
+  end
+  local address = key:match("^[^_]+_[^_]+_(.+)$")
+  local netmasks = iputils.netmasks_by_key_type[ip_version]
+  if address == nil or netmasks == nil then
+    return "captcha"
+  end
+  local cache = ngx.shared.crowdsec_cache
+  for _, netmask in ipairs(netmasks) do
+    local item
+    if ip_version == "ipv4" then
+      item = ip_version .. "_" .. netmask .. "_" .. iputils.ipv4_band(address, netmask)
+    else
+      item = ip_version .. "_" .. table.concat(netmask, ":") .. "_" .. iputils.ipv6_band(address, netmask)
+    end
+    local value, flag = cache:get("decision_cache/" .. item)
+    -- skips the live mode entries without a decision ("none", flag 1)
+    local remediation = type(value) == "string" and value ~= "none" and flag ~= 1 and value:match("^([^/]+)")
+    if remediation then
+      local action = policy.remediation(false, remediation)
+      if action ~= "captcha" then
+        return action
+      end
+    end
+  end
+  return "captcha"
 end
 
 local function probe(premature)
@@ -184,8 +237,24 @@ function _M.access()
 
   local ip = ngx.var.remote_addr
   local ok, remediation = cs.allowIp(ip)
-  if policy.is_ban(ok, remediation) then
+  local action = policy.remediation(ok, remediation)
+  if action == "captcha" then
+    action = action_behind_captcha(ip)
+  end
+  if action == "ban" then
     return ngx.exit(444)
+  end
+  if action == "allow" then
+    return
+  end
+  if challenge_policy.on_reserved_path(ngx.var.uri, ngx.var.request_uri) then
+    if challenge then
+      return challenge.handle(ip, action == "captcha")
+    end
+    return require("nwu_challenge").handle_unloaded()
+  end
+  if challenge and action == "captcha" and not challenge.has_valid_cookie(ip) then
+    return challenge.challenge(ip)
   end
 
   if cfg.APPSEC_URL and cfg.APPSEC_URL ~= "" then

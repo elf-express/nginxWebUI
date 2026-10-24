@@ -43,6 +43,8 @@ export interface LookupResult {
     blockedBy: string
   }
   serverNames: Record<string, string>
+  /** 這個 IP 最近的 WAF 事件（最多 10 筆，新到舊） */
+  wafEvents?: WafEvent[] | null
 }
 
 export interface BlockedRow {
@@ -89,3 +91,66 @@ export const fetchBans = (scope: 'local' | 'community', q: string, page: number,
 export const banIp = (ip: string, duration: string, reason: string) => post(`${BASE}/ban`, { ip, duration, reason })
 export const unban = (decisionId: number, value: string) => post(`${BASE}/unban`, { decisionId, value })
 export const whitelistIp = (ip: string) => post<WhitelistOutcome>(`${BASE}/whitelist`, { ip })
+
+export interface WafRule {
+  ruleName: string
+  ruleSource: 'vpatch' | 'crs' | string
+  category: string
+  message?: string | null
+}
+
+export interface WafEvent {
+  id: string
+  eventTime: number
+  ip: string
+  country?: string | null
+  host?: string | null
+  method?: string | null
+  uri?: string | null
+  userAgent?: string | null
+  ruleSource: string
+  action: 'block' | 'log' | string
+  message?: string | null
+  rules: WafRule[]
+}
+
+export interface WafPage {
+  records: WafEvent[]
+  count: number
+}
+
+export interface WafStatus {
+  configured: boolean
+  retentionDays: number
+  lastSyncAt?: number | null
+  syncedUntil?: number | null
+  lastError?: string | null
+  lastErrorAt?: number | null
+  /** CrowdSec 已清掉、可能漏抄的期間；沒有缺口時省略 */
+  gapFrom?: number | null
+  gapTo?: number | null
+  categories: string[]
+}
+
+export interface WafSyncResult {
+  outcome: 'ok' | 'notConfigured' | 'busy' | 'failed'
+  added: number
+  error?: string | null
+}
+
+/** days 為 0 表示保留期內全部 */
+export type WafQuery = {
+  serverId: string
+  category: string
+  action: string
+  ip: string
+  days: number
+  page: number
+  limit: number
+}
+
+const WAF = `${BASE}/waf`
+export const fetchWafEvents = (q: WafQuery) => get<WafPage>(`${WAF}/events`, q)
+export const fetchWafStatus = () => get<WafStatus>(`${WAF}/status`)
+export const syncWaf = () => post<WafSyncResult>(`${WAF}/sync`)
+export const saveWafRetention = (days: number) => post(`${WAF}/retention`, { days })
