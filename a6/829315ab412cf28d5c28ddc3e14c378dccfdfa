@@ -1,0 +1,23 @@
+src/main/java/com/cym/controller/adminPage/CrowdSecGuardController.java
+  s_fbddda1be869be::t_a733eb31600c4a 11,96,100-109
+src/main/java/com/cym/controller/adminPage/WafEventController.java
+  s_fbddda1be869be::t_73bf79b4fc7bd7 14,37-38,75
+src/test/java/com/cym/controller/adminPage/CrowdSecGuardControllerTest.java
+  s_fbddda1be869be::t_d854a8035bb4aa 190-197
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a6829315ab412cf28d5c28ddc3e14c378dccfdfa",
+  "prompts": {},
+  "sessions": {
+    "s_fbddda1be869be": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3e7779be-a10c-42c4-bc5a-4ffe39cec920",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
