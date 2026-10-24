@@ -11,6 +11,7 @@ import org.noear.solon.annotation.Mapping;
 
 import com.cym.model.WafEvent;
 import com.cym.model.WafEventRule;
+import com.cym.service.OperateLogService;
 import com.cym.service.ServerService;
 import com.cym.service.WafCategories;
 import com.cym.service.WafEventService;
@@ -33,6 +34,8 @@ public class WafEventController extends BaseController {
 	WafEventSyncService wafEventSyncService;
 	@Inject
 	ServerService serverService;
+	@Inject
+	OperateLogService operateLogService;
 
 	/** serverId、category、action、ip 篩選；days 為 0 或空白表示保留期內全部 */
 	@Mapping("events")
@@ -69,6 +72,7 @@ public class WafEventController extends BaseController {
 			return renderError(m.get("crowdsecGuardStr.wafRetentionInvalid"));
 		}
 		wafEventSyncService.setRetentionDays(n);
+		operateLogService.addLog("", "[CrowdSec] WAF retention " + n + " days", getAdmin().getName());
 		return renderSuccess();
 	}
 

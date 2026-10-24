@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 import org.noear.solon.annotation.Controller;
 import org.noear.solon.annotation.Inject;
@@ -92,8 +93,18 @@ public class CrowdSecGuardController extends BaseController {
 			names.put(s.getId(), serverLabel(s));
 		}
 		obj.put("serverNames", names);
-		obj.put("wafEvents", WafEventController.rows(wafEventService.recentForIp(ip, RECENT_WAF_EVENTS)));
+		obj.put("wafEvents", recentWafEvents(() -> wafEventService.recentForIp(ip, RECENT_WAF_EVENTS)));
 		return renderSuccess(obj);
+	}
+
+	/** 最近的 WAF 事件查詢失敗時回空清單，不影響 IP 查詢的主結果 */
+	static List<Map<String, Object>> recentWafEvents(Supplier<List<WafEventService.Row>> query) {
+		try {
+			return WafEventController.rows(query.get());
+		} catch (RuntimeException e) {
+			logger.warn("waf recent events failed: {}", e.getClass().getSimpleName());
+			return new ArrayList<>();
+		}
 	}
 
 	@Mapping("blocked")

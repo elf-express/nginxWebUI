@@ -187,4 +187,12 @@ class CrowdSecGuardControllerTest {
 		assertEquals(false, a.get("ambiguous"));
 		assertFalse(a.containsKey("candidates"));
 	}
+
+	@Test
+	void recentWafEventsFailureYieldsEmptyListInsteadOfBreakingLookup() {
+		assertTrue(CrowdSecGuardController.recentWafEvents(() -> {
+			throw new IllegalStateException("db down");
+		}).isEmpty());
+		assertTrue(CrowdSecGuardController.recentWafEvents(List::of).isEmpty());
+	}
 }
