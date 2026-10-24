@@ -13,7 +13,8 @@ HTTP 參數面板 phase 2/3：三態啟用模式 + nginx 模組可用性過濾�
 （header、sidebar、表格操作、modal、captcha）· 語意地標（`<nav>` sidebar、關鍵頁 `<h1>`）· icon 按鈕 `aria-label`。
 由 specs 27-a11y-buttons 加上 crawler 式斷言把關。
 
-**Security：** CrowdSec（IDS + bouncer）· GeoIP2 國家封鎖 ·
+**Security：** CrowdSec（IDS + bouncer）·
+**自架驗證頁**（CrowdSec 判可疑的 IP 先走 ALTCHA 驗證或外部驗證站，不通過才封鎖；[docs/crowdsec-challenge.md](../crowdsec-challenge.md)）· GeoIP2 國家封鎖 ·
 **ASN 大區段封鎖走 CrowdSec range**（ipverse as-metadata catalog `AsMeta` + as-ip-blocks prefix 抓取；
 防護 profile `light`/`manual`/`strict` 存在 `protection.profile`；intent `AsBlockIntent` 的 reason 是
 `nginxwebui:as-ban:AS{n}`；AsnRule 的 nginx `$blocked_asn` map 已棄用，只能透過 `asn.nginxMapEnabled` opt-in）·

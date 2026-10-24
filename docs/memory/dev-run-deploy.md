@@ -69,7 +69,9 @@ docker compose ps                                # 全部 healthy
 **常駐** —— nginxwebui（host **12300**→8080、80、443）· postgres:18-alpine。
 **profile 可選** —— `security`：crowdsec（自建 `nginxwebui-crowdsec`：官方 v1.8.1 base + 烤 config 與 hub 內容）。
 沒有獨立 bouncer 容器：封鎖由 nginxwebui image 內的官方 Lua bouncer（`lua-cs-bouncer` v1.2.3）在 nginx access 階段執行，
-順序是白名單 → CrowdSec 連不到超過寬限（預設 120 秒）回 503 → IP decision 回 444 → AppSec 擋下回 403。
+順序是白名單 → CrowdSec 連不到超過寬限（預設 120 秒）回 503 → ban 決策回 444 → 保留路徑 `/.well-known/nwu-challenge/`
+與 captcha 決策交給自架驗證頁 → AppSec 擋下回 403。驗證頁的判定規則、兩種模式、金鑰與部署注意事項見
+[docs/crowdsec-challenge.md](../crowdsec-challenge.md)（E-387）。
 LAPI 8080、AppSec 7422 只在 compose 網路內，不 publish。
 
 > 注意：crowdsec config（acquis/profiles/abuseipdb）與 hub 內容（nginx 日誌解析、AppSec virtual patching + CRS）
@@ -98,6 +100,9 @@ LAPI 8080、AppSec 7422 只在 compose 網路內，不 publish。
 > 測試：`sh docker/test/lua-smoke.sh <image>`（Lua 載入、live 模式）、`sh docker/test/crowdsec-offline.sh <crowdsec image>`
 >（無網路啟動）、`sh docker/test/crowdsec-e2e.sh <nginxwebui image> <crowdsec image>`（整個 stack，stream 模式，
 > 約 10 分鐘；用獨立 project `nwu-e376-e2e` 與自己的 volume／網段，不碰既有部署）。
+> 驗證頁：`sh docker/test/lua-unit.sh <image>`（Lua 純函式與交接票測試資料）、`sh docker/test/challenge-smoke.sh <image>`
+>（image 內 nginx 出題／驗答／交接票）、`sh docker/test/crowdsec-challenge-e2e.sh <nginxwebui image> <crowdsec image>`
+>（整個 stack 跑在 internal 網路上，約 3 分鐘，獨立 project `nwu-e387-e2e`）。
 > machine 帳號：`sh docker/test/crowdsec-machine.sh <crowdsec image>`（secrets 檔／環境變數註冊、重啟、可登入）、
 > `sh docker/test/crowdsec-admin-e2e.sh <nginxwebui image> <crowdsec image>`（後台新增／刪除封鎖、ASN 撤銷、錯誤密碼，約 3 分鐘，
 > 獨立 project `nwu-e390-e2e`）、`sh docker/test/crowdsec-waf-events-e2e.sh <nginxwebui image> <crowdsec image>`

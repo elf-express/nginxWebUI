@@ -50,9 +50,13 @@ public class CrowdSecNginxConf {
 	SettingService settingService;
 	@Inject
 	NginxService nginxService;
+	@Inject
+	CrowdSecChallenge challenge;
 
 	CrowdSecCredentials credentials = CrowdSecCredentials.system();
 	String markerPath = MARKER_PATH;
+	/** 上次寫 bouncer 設定時驗證頁是否可用（決定 BOUNCING_ON_TYPE 與 http include 是否載入驗證） */
+	volatile boolean challengeOn;
 
 	/** 金鑰存在、LAPI 位址有填、Lua 相關 nginx 模組與包裝檔都在 */
 	public boolean isActive() {
@@ -142,7 +146,7 @@ public class CrowdSecNginxConf {
 		lines.add("API_KEY=" + credentials.bouncerKey().value());
 		lines.add("MODE=stream");
 		lines.add("UPDATE_FREQUENCY=10");
-		lines.add("BOUNCING_ON_TYPE=ban");
+		lines.add("BOUNCING_ON_TYPE=" + (challengeOn ? "all" : "ban"));
 		lines.add("APPSEC_URL=" + (appsec == null ? "" : appsec));
 		lines.add("APPSEC_FAILURE_ACTION=passthrough");
 		lines.add("ALWAYS_SEND_TO_APPSEC=false");
@@ -156,6 +160,9 @@ public class CrowdSecNginxConf {
 		lines.add("include " + LUA_PATHS_CONF + ";");
 		lines.add("lua_shared_dict crowdsec_cache 50m;");
 		lines.add("lua_shared_dict nwu_crowdsec 1m;");
+		if (challengeOn) {
+			lines.add("lua_shared_dict nwu_challenge 10m;");
+		}
 		if (addResolver) {
 			lines.add("resolver " + credentials.resolver() + " valid=30s ipv6=off;");
 		}
@@ -168,6 +175,13 @@ public class CrowdSecNginxConf {
 		lines.add("        grace = " + graceSeconds() + ",");
 		lines.add("        state = " + luaString(stateFilePath()) + ",");
 		lines.add("        page = " + luaString(PAUSED_PAGE) + ",");
+		if (challengeOn) {
+			lines.add("        challenge = {");
+			lines.add("            conf = " + luaString(challenge.confPath()) + ",");
+			lines.add("            pages = " + luaString(challenge.pagesDir()) + ",");
+			lines.add("            altcha = " + luaString(CrowdSecChallenge.ALTCHA_JS) + ",");
+			lines.add("        },");
+		}
 		lines.add("    })");
 		lines.add("}");
 		lines.add("init_worker_by_lua_block {");
@@ -180,9 +194,11 @@ public class CrowdSecNginxConf {
 	}
 
 	/**
-	 * 寫出 bouncer 設定檔（內容不同才寫，POSIX 上權限 rw-------），並建立 worker 可寫的狀態目錄。
+	 * 先準備驗證頁（可用時 bouncer 同時收 ban 與 captcha 決策，不可用時只收 ban），
+	 * 再寫出 bouncer 設定檔（內容不同才寫，POSIX 上權限 rw-------），並建立 worker 可寫的狀態目錄。
 	 */
 	public void writeBouncerConf() {
+		challengeOn = challenge != null && challenge.prepare();
 		try {
 			Path file = Paths.get(bouncerConfPath());
 			Files.createDirectories(file.getParent());

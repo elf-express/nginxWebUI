@@ -23,9 +23,14 @@ check(p.decide(false, 1000, 879, 120) == "paused")  -- beyond grace
 check(p.decide(false, 1000, 880, 120) == "check")   -- exactly at grace boundary
 check(p.decide(false, 1000, nil, 120) == "check")   -- graceStartsAtBoot: no record yet, do not block
 
--- is_ban(ok, remediation)
-check(p.is_ban(false, "ban") == true and p.is_ban(true, nil) == false)
-check(p.is_ban(nil, nil) == false, "nil ok is not a ban")
+-- remediation(ok, remediation)
+check(p.remediation(true, nil) == "pass")
+check(p.remediation(nil, nil) == "pass", "lookup error is not a ban")
+check(p.remediation(false, "ban") == "ban")
+check(p.remediation(false, "captcha") == "captcha")
+check(p.remediation(false, "whitelist") == "allow")
+check(p.remediation(false, "throttle") == "ban", "unknown decision types are bans")
+check(p.remediation(false, nil) == "ban")
 
 -- state_json(last_ok, lapi_ok, appsec_ok, checked_at)
 check(p.state_json(1, true, false, 2) == '{"lastOk":1,"lapiOk":true,"appsecOk":false,"checkedAt":2}')

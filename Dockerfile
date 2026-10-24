@@ -52,12 +52,14 @@ RUN    apk add --update --no-cache \
     && ln -sf /usr/share/zoneinfo/${TZ} /etc/localtime \
     && echo "${TZ}" > /etc/timezone \
     && rm -rf /var/cache/apk/* /tmp/*
-# resty.string (needed by lua-resty-http). The Alpine lua-resty-string package conflicts with nginx
-# (it pulls in openresty), so only the pure-Lua string.lua is extracted from the fetched package.
+# resty.string (needed by lua-resty-http) and resty.sha / resty.sha256 (nwu challenge, FFI to libcrypto). The Alpine
+# lua-resty-string package conflicts with nginx (it pulls in openresty), so only these pure-Lua files are extracted.
 RUN mkdir -p /tmp/lrs/x /usr/share/lua/common/resty \
     && apk fetch -q -o /tmp/lrs lua-resty-string \
     && tar xzf /tmp/lrs/lua-resty-string-*.apk -C /tmp/lrs/x usr/share/lua/common/resty/string.lua \
-    && cp /tmp/lrs/x/usr/share/lua/common/resty/string.lua /usr/share/lua/common/resty/string.lua \
+        usr/share/lua/common/resty/sha.lua usr/share/lua/common/resty/sha256.lua \
+    && cp /tmp/lrs/x/usr/share/lua/common/resty/string.lua /tmp/lrs/x/usr/share/lua/common/resty/sha.lua \
+        /tmp/lrs/x/usr/share/lua/common/resty/sha256.lua /usr/share/lua/common/resty/ \
     && rm -rf /tmp/lrs
 # CrowdSec official lua-cs-bouncer (from the cs-nginx-bouncer release tarball, pinned + sha256 verified).
 # Libraries go to /usr/local/lib/crowdsec/lua/, ban/captcha templates to /var/lib/crowdsec/lua/templates/.
@@ -71,8 +73,31 @@ RUN curl -fL --retry 3 -o /tmp/cs-nginx-bouncer.tgz \
     && cp -r /tmp/cs-nginx-bouncer/lua-mod/lib/. /usr/local/lib/crowdsec/lua/ \
     && cp -r /tmp/cs-nginx-bouncer/lua-mod/templates/. /var/lib/crowdsec/lua/templates/ \
     && rm -rf /tmp/cs-nginx-bouncer /tmp/cs-nginx-bouncer.tgz
-# nwu wrapper (nwu_crowdsec / nwu_crowdsec_policy), Lua path snippet and 503 page
-COPY docker/lua/nwu_crowdsec.lua docker/lua/nwu_crowdsec_policy.lua /usr/local/lib/nginxwebui/lua/
+# Bouncer patch: in stream mode the expiry of a captcha decision must not delete a later ban of the same IP from the
+# bouncer cache (stream.lua deletes by IP only). The script checks the bouncer version and the exact source lines
+# and fails the build otherwise, so upgrading CS_NGINX_BOUNCER_VERSION means re-checking the patch.
+COPY docker/lua/patches/cs-stream-delete-by-type.sh /tmp/nwu-patches/
+RUN sh /tmp/nwu-patches/cs-stream-delete-by-type.sh "${CS_NGINX_BOUNCER_VERSION}" \
+        /usr/local/lib/crowdsec/lua/plugins/crowdsec/stream.lua \
+    && rm -rf /tmp/nwu-patches
+# ALTCHA widget (MIT) for the self-hosted challenge page, pinned + sha256 verified: the dist_external build (script,
+# styles and Web Worker as separate files). Lua serves them on the reserved path /.well-known/nwu-challenge/ as
+# altcha.js, altcha.css and altcha-worker.js; the page points the widget at the worker with workerurl.
+ARG ALTCHA_VERSION=2.3.0
+ARG ALTCHA_SHA256=559c584cd1fa932767c51497b56b2955282a7cbc08c1a3bb943665e572b45d3f
+RUN curl -fL --retry 3 -o /tmp/altcha.tgz "https://registry.npmjs.org/altcha/-/altcha-${ALTCHA_VERSION}.tgz" \
+    && echo "${ALTCHA_SHA256}  /tmp/altcha.tgz" | sha256sum -c - \
+    && mkdir -p /tmp/altcha /usr/local/lib/nginxwebui/html \
+    && tar xzf /tmp/altcha.tgz -C /tmp/altcha package/dist_external/altcha.umd.cjs package/dist_external/altcha.css \
+       package/dist_external/worker.js package/LICENSE.txt \
+    && cp /tmp/altcha/package/dist_external/altcha.umd.cjs /usr/local/lib/nginxwebui/html/altcha.js \
+    && cp /tmp/altcha/package/dist_external/altcha.css /usr/local/lib/nginxwebui/html/altcha.css \
+    && cp /tmp/altcha/package/dist_external/worker.js /usr/local/lib/nginxwebui/html/altcha-worker.js \
+    && cp /tmp/altcha/package/LICENSE.txt /usr/local/lib/nginxwebui/html/altcha.LICENSE.txt \
+    && rm -rf /tmp/altcha /tmp/altcha.tgz
+# nwu wrapper (nwu_crowdsec / nwu_crowdsec_policy), nwu challenge, Lua path snippet and 503 page
+COPY docker/lua/nwu_crowdsec.lua docker/lua/nwu_crowdsec_policy.lua docker/lua/nwu_challenge.lua \
+     docker/lua/nwu_challenge_policy.lua /usr/local/lib/nginxwebui/lua/
 COPY docker/lua/crowdsec_lua_paths.conf /etc/nginx/nwu/crowdsec_lua_paths.conf
 COPY docker/lua/protection-paused.html /usr/local/lib/nginxwebui/html/protection-paused.html
 COPY target/nginxWebUI-*.jar /home/nginxWebUI.jar

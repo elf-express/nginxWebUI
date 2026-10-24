@@ -27,6 +27,11 @@ services:
       # 密碼也可改走 secrets 檔（docker-compose.secrets.yml），nginxWebUI 優先讀 /run/secrets/crowdsec_machine_password。
       CROWDSEC_MACHINE_ID: ${CROWDSEC_MACHINE_ID:-nginxwebui}
       CROWDSEC_MACHINE_PASSWORD: ${CROWDSEC_MACHINE_PASSWORD:-}
+      # 自架驗證頁（E-387，見 docs/crowdsec-challenge.md）：cookie 金鑰留空 = 套用設定時自動產生並存檔；
+      # 交接票金鑰只有「外部驗證站」模式需要，要與外部驗證站（Cloudflare Worker）設成同一把。
+      # 兩把都可改走 secrets 檔 /run/secrets/nwu_challenge_secret、/run/secrets/nwu_challenge_ticket_secret。
+      NWU_CHALLENGE_SECRET: ${NWU_CHALLENGE_SECRET:-}
+      NWU_CHALLENGE_TICKET_SECRET: ${NWU_CHALLENGE_TICKET_SECRET:-}
       # 首次啟動會在 web UI 引導設定管理員密碼（原作者設計）。
       # 自動化部署需跳過精靈時，在 .env 設 INIT_ADMIN/INIT_PASS 並把
       #   --init.admin=${INIT_ADMIN} --init.pass=${INIT_PASS}

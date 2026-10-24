@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title data-i18n="challengeStr.pageTitle">Security check</title>
+<link rel="stylesheet" href="/.well-known/nwu-challenge/altcha.css">
+<link rel="stylesheet" href="/.well-known/nwu-challenge/page.css">
+<script type="application/json" id="nwu-strings">@@STRINGS@@</script>
+<script src="/.well-known/nwu-challenge/page.js" defer></script>
+<script src="/.well-known/nwu-challenge/altcha.js" defer></script>
+</head>
+<body data-style="@@STYLE@@">
+<main>
+<h1 data-i18n="challengeStr.heading">Checking that you are not a robot</h1>
+<p data-i18n="@@HINT_KEY@@">@@HINT@@</p>
+<noscript><p class="nwu-noscript">@@NOSCRIPT@@</p></noscript>
+<form id="nwu-form" method="post" action="/.well-known/nwu-challenge/verify">
+<input type="hidden" name="r" value="{{RETURN}}">
+<altcha-widget challengejson="{{CHALLENGE}}" workerurl="/.well-known/nwu-challenge/altcha-worker.js" @@AUTO@@ hidefooter hidelogo></altcha-widget>
+</form>
+<p class="nwu-meta"><span data-i18n="challengeStr.yourIp">IP</span>: <span class="nwu-ip">{{IP}}</span> · <span data-i18n="challengeStr.time">Time</span>: <span class="nwu-time">{{TIME}}</span></p>
+</main>
+</body>
+</html>

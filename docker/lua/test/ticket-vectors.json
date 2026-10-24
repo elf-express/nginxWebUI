@@ -1,0 +1,16 @@
+{
+  "description": "Handoff ticket vectors shared by nginx (luajit) and the Cloudflare Worker (E-396). payload = the fields joined by \n in this order: nwu1, kind, exp, ip, host, path, nonce. Each test builds the token at run time: token = base64url(payload) + '.' + base64url(HMAC-SHA1(secret, payload)), base64url without padding; the secret is used as its literal string bytes. No signed token is stored here.",
+  "secret": "test-ticket-secret",
+  "vectors": [
+    {
+      "name": "response ticket, IPv4, path with query",
+      "fields": { "kind": "resp", "exp": 1893456000, "ip": "203.0.113.7", "host": "shop.example", "path": "/cart?id=1", "nonce": "0123456789abcdef0123456789abcdef" },
+      "payload": "nwu1\nresp\n1893456000\n203.0.113.7\nshop.example\n/cart?id=1\n0123456789abcdef0123456789abcdef"
+    },
+    {
+      "name": "request ticket, IPv6, mixed-case host, percent-encoded path",
+      "fields": { "kind": "req", "exp": 1893456300, "ip": "2001:db8::7", "host": "Shop.Example", "path": "/%E4%B8%AD?q=a%20b", "nonce": "ffeeddccbbaa99887766554433221100" },
+      "payload": "nwu1\nreq\n1893456300\n2001:db8::7\nShop.Example\n/%E4%B8%AD?q=a%20b\nffeeddccbbaa99887766554433221100"
+    }
+  ]
+}

@@ -1,5 +1,8 @@
+# force_inotify: watch /var/log/nginx even when the files do not exist yet. On a fresh stack crowdsec starts before
+# nginx creates access.log; without it the file is never tailed and no log-based scenario fires (E-387).
 filenames:
   - /var/log/nginx/access.log
   - /var/log/nginx/error.log
+force_inotify: true
 labels:
   type: nginx
