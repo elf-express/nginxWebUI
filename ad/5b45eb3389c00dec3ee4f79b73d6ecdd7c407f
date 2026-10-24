@@ -1,0 +1,96 @@
+docker/crowdsec/nwu-start.sh
+  s_1006f5e1b97097::t_d37fec35d23b1b 31-33,36-37,39
+docker/test/crowdsec-waf-watch.sh
+  s_1006f5e1b97097::t_ac08336e09d902 103
+  s_1006f5e1b97097::t_f9c2d21be7405b 95-96
+  s_1006f5e1b97097::t_333342d0c8f438 92-94
+  s_1006f5e1b97097::t_d7738b6213a46c 97-102
+  s_1006f5e1b97097::t_3070532764b1fe 104-106
+  s_cfc1d8699f7068::t_3978ae059c2275 8-11,107-111
+src/main/java/com/cym/service/WafTuningService.java
+  s_1006f5e1b97097::t_6b22a1b760a651 434
+  s_1006f5e1b97097::t_76bd0d6bfa16d1 431-433
+  s_1006f5e1b97097::t_0535eb19415c45 435-437
+  s_cfc1d8699f7068::t_ee8f2319b13111 6,383,397-430,438-443
+src/test/java/com/cym/service/WafTuningServiceTest.java
+  s_1006f5e1b97097::t_2cf9e209d81f35 300-301
+  s_1006f5e1b97097::t_92c1ddcf4ef5cb 309
+  s_1006f5e1b97097::t_ffa757dab43fcd 295
+  s_1006f5e1b97097::t_75790b753d12ae 292-294
+  s_1006f5e1b97097::t_6530703c18ec15 296-299
+  s_1006f5e1b97097::t_e01a868fdebde1 302-304,306-308
+  s_1006f5e1b97097::t_155f14c7af1531 310-312
+  s_cfc1d8699f7068::t_91cb4b20aaccb8 289-291,305,313-338
+docker/test/crowdsec-waf-tuning-e2e.sh
+  s_1006f5e1b97097::t_b8014ddba1dfe0 331-349
+  s_1006f5e1b97097::t_bfc85fe14edfe3 47-52
+  s_1006f5e1b97097::t_ae734ea217aff4 278-280
+  s_1006f5e1b97097::t_3be71e0cf0fbf1 15-23
+  s_1006f5e1b97097::t_2ff490eba8e38f 350,352,357,480-485,489-508,510,512
+  s_1006f5e1b97097::t_61028d56ba7ea3 486-488
+  s_e6eb75c69f54af::t_b54c49c493441d 53-56,80,276,281-282,286-288,291-293,351,353-356,509,511,513-519
+docs/memory/dev-run-deploy.md
+  s_1006f5e1b97097::t_15f7ee58cec0d5 111
+  s_1006f5e1b97097::t_4fce73c3a97649 110
+tests/e2e/42-crowdsec-waf-rules.spec.js
+  s_1006f5e1b97097::t_43ee188d2e4d38 30,33-35
+  s_1006f5e1b97097::t_aca0ce5c95a927 158-196
+  s_1006f5e1b97097::t_4d99c115466d90 137
+docker/crowdsec/nwu-waf-watch.sh
+  s_1006f5e1b97097::t_ab4a7018e62b9d 116-121,125-132
+  s_1006f5e1b97097::t_9617f9872cd132 75
+  s_1006f5e1b97097::t_ddcbc5cbafdf6c 23-38,43-44
+  s_1006f5e1b97097::t_5e1b7579ea21f7 13-14
+  s_1006f5e1b97097::t_6d4a8300cd5768 83
+  s_1006f5e1b97097::t_a1087a428982b1 100
+frontend/src/pages/crowdsecGuard/WafRulesTab.vue
+  s_1006f5e1b97097::t_f68e9956178918 8,143,167-178,194,229,305
+frontend/src/pages/crowdsecGuard/api.ts
+  s_1006f5e1b97097::t_a2f6f20e8b54cc 202-203
+frontend/src/pages/crowdsecGuard/wafRules.test.ts
+  s_1006f5e1b97097::t_60583a9dc34525 3,79-92
+frontend/src/pages/crowdsecGuard/wafRules.ts
+  s_1006f5e1b97097::t_094938b24513fb 103-112
+src/main/java/com/cym/controller/adminPage/CrowdSecWafController.java
+  s_1006f5e1b97097::t_53bff0e3bc23de 8,53-54,56,60-61,79,91,106-109
+src/main/resources/messages.properties
+  s_1006f5e1b97097::t_df9f3375ef03f6 1292,1300
+src/main/resources/messages_en_US.properties
+  s_1006f5e1b97097::t_af61e13296746b 1292,1300
+src/main/resources/messages_zh_TW.properties
+  s_1006f5e1b97097::t_df97e1bf2e6c62 1292,1300
+src/test/java/com/cym/controller/adminPage/CrowdSecWafControllerTest.java
+  s_1006f5e1b97097::t_c87d4bf15e0a3f 7,35,59-71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ad5b45eb3389c00dec3ee4f79b73d6ecdd7c407f",
+  "prompts": {},
+  "sessions": {
+    "s_1006f5e1b97097": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c42c83a6-6d55-484a-9615-af8cf8c3bdc0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    },
+    "s_cfc1d8699f7068": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "agent-a99b44b4267ace857",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    },
+    "s_e6eb75c69f54af": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "16bec318-997c-4dfe-840b-4181cf5ce0a3",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
