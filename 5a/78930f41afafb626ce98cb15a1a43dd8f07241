@@ -1,0 +1,35 @@
+README.md
+  s_fbddda1be869be::t_1aa28f49a21c0c 78
+docker/test/crowdsec-waf-events-e2e.sh
+  s_fbddda1be869be::t_c56c02b7d08d58 4,16,279,281-286,295,306,324-330,332-335,339,352-360,363
+docs/memory/dev-run-deploy.md
+  s_fbddda1be869be::t_59124e10890b0f 103-104
+tests/e2e/40-crowdsec-guard.spec.js
+  s_fbddda1be869be::t_7379417359dff8 46
+tests/e2e/41-crowdsec-waf-events.spec.js
+  s_a28b699e4790bd::t_01ae5f600b6340 222-223,262-266,362
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5a78930f41afafb626ce98cb15a1a43dd8f07241",
+  "prompts": {},
+  "sessions": {
+    "s_a28b699e4790bd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "195abc9b-fbd8-4977-9ae6-70d5fcc76908",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    },
+    "s_fbddda1be869be": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3e7779be-a10c-42c4-bc5a-4ffe39cec920",
+        "model": "unknown"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
