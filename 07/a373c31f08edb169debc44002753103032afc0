@@ -1,0 +1,31 @@
+src/main/java/com/cym/model/WafEvent.java
+  s_fbddda1be869be::t_07ecc3814fcfbb 1-134
+src/test/java/com/cym/service/WafEventServiceTest.java
+  s_fbddda1be869be::t_d0001eaf071372 1-195
+src/main/java/com/cym/service/WafEventService.java
+  s_fbddda1be869be::t_f9e3967d7bc999 1-271
+src/main/java/com/cym/model/WafEventRule.java
+  s_fbddda1be869be::t_15c6473f1205d4 1-76
+src/main/java/com/cym/utils/IpMatch.java
+  s_fbddda1be869be::t_d9e40c8d29547f 4,22-37
+src/test/java/com/cym/testsupport/InMemorySqlHelper.java
+  s_fbddda1be869be::t_1fe7ded593f18d 9-10,20,105-154,183-188
+src/test/java/com/cym/utils/IpMatchTest.java
+  s_fbddda1be869be::t_4555f5659a7907 3,5,43-51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "07a373c31f08edb169debc44002753103032afc0",
+  "prompts": {},
+  "sessions": {
+    "s_fbddda1be869be": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3e7779be-a10c-42c4-bc5a-4ffe39cec920",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
