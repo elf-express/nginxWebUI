@@ -9,6 +9,8 @@
 -- answered here (303 back, altcha.js 404), never by the site.
 local policy = require "nwu_crowdsec_policy"
 local challenge_policy = require "nwu_challenge_policy"
+local decision_utils = require "plugins.crowdsec.utils"
+local iputils = require "plugins.crowdsec.iputils"
 
 local _M = {}
 
@@ -135,6 +137,32 @@ local function probe_appsec()
   return res ~= nil and (res.status == 200 or res.status == 403)
 end
 
+local function has_matching_ban(ip)
+  local key, ip_version = decision_utils.item_to_string(ip, "Ip")
+  if key == nil then
+    return false
+  end
+
+  -- The pinned bouncer stops at the first matching prefix; a captcha there must not hide a broader ban.
+  local key_type, _, address = key:match("^([^_]+)_([^_]+)_(.+)$")
+  local netmasks = iputils.netmasks_by_key_type[key_type]
+  local cache = ngx.shared.crowdsec_cache
+  for _, netmask in pairs(netmasks) do
+    local item
+    if ip_version == "ipv4" then
+      item = ip_version .. "_" .. netmask .. "_" .. iputils.ipv4_band(address, netmask)
+    else
+      item = ip_version .. "_" .. table.concat(netmask, ":") .. "_" .. iputils.ipv6_band(address, netmask)
+    end
+    local value, flag = cache:get("decision_cache/" .. item)
+    local remediation = value and value:match("^([^/]+)")
+    if flag ~= 1 and remediation and policy.remediation(false, remediation) == "ban" then
+      return true
+    end
+  end
+  return false
+end
+
 local function probe(premature)
   if premature then
     return
@@ -199,6 +227,9 @@ function _M.access()
   local ip = ngx.var.remote_addr
   local ok, remediation = cs.allowIp(ip)
   local action = policy.remediation(ok, remediation)
+  if action == "captcha" and has_matching_ban(ip) then
+    action = "ban"
+  end
   if action == "ban" then
     return ngx.exit(444)
   end

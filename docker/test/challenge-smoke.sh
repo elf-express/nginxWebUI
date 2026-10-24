@@ -16,8 +16,8 @@
 #     challenge init fails): reserved path page, POST verify, callback and unknown paths -> 303 back, altcha.js -> 404,
 #     the site never sees the reserved path; ban still 444, whitelist still reaches the site
 #   no redirect loop: return targets inside the reserved path (r=/.well-known/nwu-challenge/..., ticket path) -> "/"
-#   stream mode (stub /v1/decisions/stream, IP 127.0.0.7): captcha -> ban -> the expired captcha is deleted -> still
-#     banned (the image patches the bouncer to delete by decision type) -> the ban is deleted -> 200
+#   stream mode (stub /v1/decisions/stream, IP 127.0.0.3): captcha -> covering /24 ban still blocks with a pass cookie ->
+#     the captcha is deleted -> still banned (the image patches deletion by decision type) -> the ban is deleted -> 200
 #   resty.sha256 inside nginx gives the known SHA-256 vector; no [error] lines besides the bouncer's captcha plugin
 # Usage: sh docker/test/challenge-smoke.sh <image>
 set -eu
@@ -318,10 +318,13 @@ grep -q "external mode needs TICKET_SECRET and EXTERNAL_URL" $W/logs/error.log &
 unloaded_checks "fallback"
 stop
 
-# ---------- stream mode: the expiry of a captcha does not delete a later ban ----------
-X=127.0.0.7
+# ---------- stream mode: overlapping captcha and range ban, and captcha expiry ----------
+X=127.0.0.3
 decision() { # decision <id> <type>
   echo "{\"id\":$1,\"origin\":\"crowdsec\",\"type\":\"$2\",\"scope\":\"Ip\",\"value\":\"$X\",\"duration\":\"1h\",\"scenario\":\"smoke\"}"
+}
+range_decision() { # range_decision <id> <type> <range>
+  echo "{\"id\":$1,\"origin\":\"crowdsec\",\"type\":\"$2\",\"scope\":\"Range\",\"value\":\"$3\",\"duration\":\"1h\",\"scenario\":\"smoke\"}"
 }
 # phase <json> : serve the stream answer, then wait until the bouncer fetched it at least twice after the switch
 phase() {
@@ -332,16 +335,17 @@ phase() {
   sleep 0.5
 }
 st() { code $X -H "Accept: text/html" $S/ | cut -d" " -f1; }
+st_cookie() { code $X -H "Accept: text/html" -b "nwu_pass=$COOKIE" $S/ | cut -d" " -f1; }
 echo "{\"new\":[],\"deleted\":[]}" > $W/stream.json
 start $W/builtin.conf $W/stream.conf
 phase "{\"new\":[$(decision 11 captcha)],\"deleted\":[]}"
 expect "stream: captcha" "$(st)" "302"
-phase "{\"new\":[$(decision 12 ban)],\"deleted\":[]}"
-expect "stream: ban replaces the captcha" "$(st)" "000"
+phase "{\"new\":[$(range_decision 12 ban 127.0.0.0/24)],\"deleted\":[]}"
+expect "stream: range ban overrides captcha despite pass cookie" "$(st_cookie)" "000"
 phase "{\"new\":[],\"deleted\":[$(decision 11 captcha)]}"
-expect "stream: expired captcha leaves the ban" "$(st)" "000"
-phase "{\"new\":[],\"deleted\":[$(decision 12 ban)]}"
-expect "stream: deleted ban" "$(st)" "200"
+expect "stream: expired IP captcha leaves range ban" "$(st_cookie)" "000"
+phase "{\"new\":[],\"deleted\":[$(range_decision 12 ban 127.0.0.0/24)]}"
+expect "stream: deleted range ban" "$(st_cookie)" "200"
 stop
 
 grep -v "no file" $W/logs/error.log | grep -E "\[(error|emerg|alert|crit)\]" | grep -v "error loading captcha plugin" \
