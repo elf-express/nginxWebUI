@@ -98,7 +98,7 @@ payload = "nwu1" \n kind \n exp \n ip \n host \n path \n nonce                  
 
 外部站驗證請求票（簽章、`kind=req`、未過期）並完成人機驗證後，轉址到 `https://<host>/.well-known/nwu-challenge/callback?token=<回應票>`。
 交接票金鑰的文字本身就是 HMAC 金鑰，兩端都直接取這串文字的位元組，不做 hex 解碼；`openssl rand -hex 32` 只是產生一串安全的隨機字串。
-兩端共用的測試資料在 `docker/lua/test/ticket-vectors.json`。
+兩端共用的測試資料在 `docker/lua/test/ticket-vectors.json`：只放欄位、payload 與測試金鑰，簽好的 token 由各端測試依上面的公式在執行時產生。
 
 ## 測試
 
