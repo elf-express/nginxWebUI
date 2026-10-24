@@ -77,6 +77,9 @@ public final class WafAlertFixtures {
 	}
 
 	public static JSONArray meta(String... keyValues) {
+		if ((keyValues.length % 2) != 0) {
+			throw new IllegalArgumentException("meta keyValues must contain key/value pairs");
+		}
 		JSONArray arr = new JSONArray();
 		for (int i = 0; i < keyValues.length; i += 2) {
 			arr.add(new JSONObject().set("key", keyValues[i]).set("value", keyValues[i + 1]));
