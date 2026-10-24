@@ -8,8 +8,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
+import java.util.function.Predicate;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,7 +19,10 @@ import org.junit.jupiter.api.io.TempDir;
 import com.cym.model.Server;
 import com.cym.service.BlockedRequestLogReader;
 
-/** 「最近被擋下的 IP」依站台篩選：站台沒有 server_name 時不能退化成顯示全部站台。 */
+/**
+ * 「最近被擋下的 IP」依站台篩選：每一行的 $host 依 nginx 選 server 的規則落到某個站台，只回落到被選站台的行。
+ * 站台沒有可比對的名稱、也不是預設站台時不能退化成顯示全部站台。
+ */
 class CrowdSecGuardControllerTest {
 	private static final Instant SINCE = Instant.parse("2026-10-23T00:00:00Z");
 
@@ -26,17 +30,32 @@ class CrowdSecGuardControllerTest {
 	Path tmp;
 
 	private Path log;
+	private final List<Server> servers = new ArrayList<>();
 
 	private static String line(String ip, int status, String host) {
 		return ip + " - - [23/Oct/2026:10:00:00 +0000] \"GET /a HTTP/1.1\" " + status + " 0 \"-\" \"curl/8.0\""
 				+ " \"TW\" \"Taipei\" \"3462\" \"Chunghwa Telecom\" \"" + host + "\"";
 	}
 
-	private static Server server(String serverName, String descr) {
+	private Server server(String id, String serverName, String descr) {
 		Server s = new Server();
+		s.setId(id);
 		s.setServerName(serverName);
 		s.setDescr(descr);
+		s.setProxyType(0);
+		s.setEnable(true);
+		s.setDef(0);
+		servers.add(s);
 		return s;
+	}
+
+	private BlockedRequestLogReader.Result read(String serverId) {
+		Predicate<String> filter = CrowdSecGuardController.hostFilter(servers, serverId);
+		return CrowdSecGuardController.readBlocked(log, filter, SINCE);
+	}
+
+	private List<String> ips(String serverId) {
+		return read(serverId).rows().stream().map(BlockedRequestLogReader.Row::ip).sorted().toList();
 	}
 
 	@BeforeEach
@@ -47,44 +66,79 @@ class CrowdSecGuardControllerTest {
 	}
 
 	@Test
-	void hostsOfSplitsServerNamesAndLowercases() {
-		assertEquals(Set.of("a.example.com", "www.a.example.com"), CrowdSecGuardController.hostsOf(server("A.Example.com  www.a.example.com", null)));
+	void serverNamesAreSplitAndCaseInsensitive() throws Exception {
+		Files.write(log, List.of(line("203.0.113.5", 444, "WWW.A.example.com"), line("203.0.113.6", 403, "b.example.com")),
+				StandardCharsets.UTF_8);
+		server("b", "b.example.com", null);
+		server("a", "A.Example.com  www.a.example.com", null);
+		assertEquals(List.of("203.0.113.5"), ips("a"));
 	}
 
 	@Test
-	void hostsOfIsEmptyForMissingServerOrBlankServerName() {
-		assertTrue(CrowdSecGuardController.hostsOf(null).isEmpty());
-		assertTrue(CrowdSecGuardController.hostsOf(server("  ", "described only")).isEmpty());
-		assertTrue(CrowdSecGuardController.hostsOf(server(null, "described only")).isEmpty());
-	}
+	void selectedServerWithoutNamesAndNotDefaultReturnsNoRowsButKeepsCoverage() {
+		server("a", "a.example.com", null);
+		server("b", "b.example.com", null);
+		server("c", "", "described only");
+		server("d", null, "described only");
 
-	@Test
-	void selectedServerWithoutHostsReturnsNoRowsButKeepsCoverage() {
-		Set<String> hosts = CrowdSecGuardController.hostsOf(server("", "described only"));
-
-		BlockedRequestLogReader.Result r = CrowdSecGuardController.readBlocked(log, hosts, SINCE);
-
-		assertTrue(r.rows().isEmpty());
-		assertTrue(r.hostSupported());
-		assertNotNull(r.coverFrom());
-		assertNotNull(r.coverTo());
+		for (String id : List.of("c", "d")) {
+			BlockedRequestLogReader.Result r = read(id);
+			assertTrue(r.rows().isEmpty());
+			assertTrue(r.hostSupported());
+			assertNotNull(r.coverFrom());
+			assertNotNull(r.coverTo());
+		}
 	}
 
 	@Test
 	void unknownServerReturnsNoRows() {
-		Set<String> hosts = CrowdSecGuardController.hostsOf(null);
+		server("a", "a.example.com", null);
+		assertTrue(read("nope").rows().isEmpty());
+	}
 
-		assertTrue(CrowdSecGuardController.readBlocked(log, hosts, SINCE).rows().isEmpty());
+	@Test
+	void disabledServerReturnsNoRows() {
+		server("b", "b.example.com", null);
+		server("a", "a.example.com", null).setEnable(false);
+		assertTrue(read("a").rows().isEmpty());
 	}
 
 	@Test
 	void selectedServerWithHostsOnlyReturnsItsRows() {
-		Set<String> hosts = CrowdSecGuardController.hostsOf(server("a.example.com", null));
+		server("b", "b.example.com", null);
+		server("a", "a.example.com", null);
+		assertEquals(List.of("203.0.113.5"), ips("a"));
+	}
 
-		List<BlockedRequestLogReader.Row> rows = CrowdSecGuardController.readBlocked(log, hosts, SINCE).rows();
+	@Test
+	void wildcardServerGetsItsSubdomains() {
+		server("b", "b.example.com", null);
+		server("w", "*.example.com", null);
+		// b.example.com 完全相同的名稱優先，只剩 a.example.com 落到萬用字元站台
+		assertEquals(List.of("203.0.113.5"), ips("w"));
+		assertEquals(List.of("203.0.113.6"), ips("b"));
+	}
 
-		assertEquals(1, rows.size());
-		assertEquals("203.0.113.5", rows.get(0).ip());
+	@Test
+	void regexServerGetsMatchingHosts() {
+		server("b", "b.example.com", null);
+		server("r", "~^a\\.example\\.com$", null);
+		assertEquals(List.of("203.0.113.5"), ips("r"));
+	}
+
+	@Test
+	void defaultServerGetsHostsNoOtherServerClaims() {
+		server("a", "a.example.com", null);
+		server("def", "_", "catch-all").setDef(1);
+		assertEquals(List.of("203.0.113.6"), ips("def"));
+		assertEquals(List.of("203.0.113.5"), ips("a"));
+	}
+
+	@Test
+	void firstServerIsDefaultWithoutDefaultServer() {
+		server("first", "", "described only");
+		server("a", "a.example.com", null);
+		assertEquals(List.of("203.0.113.6"), ips("first"));
 	}
 
 	@Test

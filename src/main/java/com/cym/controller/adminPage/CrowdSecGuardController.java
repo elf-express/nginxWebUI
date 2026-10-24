@@ -4,12 +4,10 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
+import java.util.function.Predicate;
 
 import org.noear.solon.annotation.Controller;
 import org.noear.solon.annotation.Inject;
@@ -22,8 +20,10 @@ import com.cym.model.Server;
 import com.cym.service.BlockedRequestLogReader;
 import com.cym.service.CrowdSecClient;
 import com.cym.service.CrowdSecWhitelistService;
+import com.cym.service.HttpServerSelector;
 import com.cym.service.IpLookupService;
 import com.cym.service.OperateLogService;
+import com.cym.service.ServerService;
 import com.cym.utils.BaseController;
 import com.cym.utils.IpMatch;
 import com.cym.utils.JsonResult;
@@ -49,6 +49,8 @@ public class CrowdSecGuardController extends BaseController {
 	CrowdSecController crowdSecController;
 	@Inject
 	OperateLogService operateLogService;
+	@Inject
+	ServerService serverService;
 
 	@Mapping("")
 	public ModelAndView index(ModelAndView modelAndView) {
@@ -91,12 +93,12 @@ public class CrowdSecGuardController extends BaseController {
 	@Mapping("blocked")
 	public JsonResult blocked(String serverId, Integer minutes) {
 		int span = minutes == null || minutes <= 0 ? 60 : Math.min(minutes, MAX_MINUTES);
-		Set<String> hosts = null;
+		Predicate<String> filter = null;
 		if (StrUtil.isNotBlank(serverId)) {
-			hosts = hostsOf(sqlHelper.findById(serverId, Server.class));
+			filter = hostFilter(serverService.getListByProxyType(new String[] { "0" }), serverId);
 		}
 		Path log = Path.of(homeConfig.home, "log", "access.log");
-		BlockedRequestLogReader.Result r = readBlocked(log, hosts, Instant.now().minusSeconds(span * 60L));
+		BlockedRequestLogReader.Result r = readBlocked(log, filter, Instant.now().minusSeconds(span * 60L));
 		List<Map<String, Object>> rows = new ArrayList<>();
 		for (BlockedRequestLogReader.Row row : r.rows()) {
 			Map<String, Object> item = new LinkedHashMap<>();
@@ -116,29 +118,21 @@ public class CrowdSecGuardController extends BaseController {
 		return renderSuccess(obj);
 	}
 
-	/** 站台的 server_name 展開成小寫 host 集合；站台不存在或 serverName 為空時回空集合 */
-	static Set<String> hostsOf(Server s) {
-		Set<String> hosts = new HashSet<>();
-		if (s != null && StrUtil.isNotBlank(s.getServerName())) {
-			for (String n : s.getServerName().trim().split("\\s+")) {
-				hosts.add(n.toLowerCase(Locale.ROOT));
-			}
-		}
-		return hosts;
+	/**
+	 * 選了某個站台時的 host 篩選：依 nginx 選 server 的規則（{@link HttpServerSelector}），只留落到這個站台的 host。
+	 * 站台不存在、停用、不是 HTTP 站台，或沒有任何 host 會落到它（沒有可比對的名稱也不是預設站台）時，一行都不符合。
+	 */
+	static Predicate<String> hostFilter(List<Server> httpServers, String serverId) {
+		HttpServerSelector selector = new HttpServerSelector(httpServers);
+		return host -> serverId.equals(selector.select(host));
 	}
 
 	/**
-	 * 讀被擋下的請求。hosts 為 null 表示不篩站台；hosts 為空集合表示選了站台但沒有可比對的 host，
-	 * 此時 rows 回空（涵蓋時間、hostSupported、truncated 仍依日誌回傳），不回其他站台的資料。
+	 * 讀被擋下的請求。hostFilter 為 null 表示不篩站台；篩選時沒有 host 的行不算，
+	 * 涵蓋時間、hostSupported、truncated 仍依整份日誌回傳。
 	 */
-	static BlockedRequestLogReader.Result readBlocked(Path log, Set<String> hosts, Instant since) {
-		BlockedRequestLogReader.Result r = BlockedRequestLogReader.read(log, BlockedRequestLogReader.DEFAULT_MAX_BYTES,
-				hosts, since);
-		if (hosts != null && hosts.isEmpty()) {
-			return new BlockedRequestLogReader.Result(List.of(), r.hostSupported(), r.coverFrom(), r.coverTo(),
-					r.truncated());
-		}
-		return r;
+	static BlockedRequestLogReader.Result readBlocked(Path log, Predicate<String> hostFilter, Instant since) {
+		return BlockedRequestLogReader.readMatching(log, BlockedRequestLogReader.DEFAULT_MAX_BYTES, hostFilter, since);
 	}
 
 	@Mapping("bans")

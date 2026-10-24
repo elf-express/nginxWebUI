@@ -13,6 +13,11 @@ public final class IpMatch {
 		return StrUtil.isNotBlank(s) && s.trim().indexOf('/') < 0 && NetGuard.isValidCidr(s.trim());
 	}
 
+	/** 兩個單一 IP 是否為同一個位址（依位元組比對，IPv6 的壓縮、完整、大小寫寫法視為相同）；任一不是單一 IP 回 false */
+	public static boolean sameIp(String a, String b) {
+		return isSingleIp(a) && isSingleIp(b) && contains(a.trim(), b);
+	}
+
 	public static boolean contains(String cidrOrIp, String ip) {
 		if (!NetGuard.isValidCidr(cidrOrIp) || !isSingleIp(ip)) {
 			return false;

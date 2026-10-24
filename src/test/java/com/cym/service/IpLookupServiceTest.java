@@ -39,6 +39,8 @@ class IpLookupServiceTest {
 		svc.asnOf = ip -> Optional.of(new GeoLookup.Asn(4134, "Chinanet"));
 		svc.canReadCrowdSec = () -> canRead;
 		svc.decisionsOf = ip -> decisions;
+		// 正式環境是 ServerService.getListByProxyType({"0"})；記憶體 SqlHelper 的 IN 不轉型，這裡直接過濾 HTTP 站台
+		svc.httpServers = () -> sql.findAll(Server.class).stream().filter(s -> Integer.valueOf(0).equals(s.getProxyType())).toList();
 	}
 
 	private void list(String type, String name, String ips) {
@@ -50,22 +52,37 @@ class IpLookupServiceTest {
 	}
 
 	private void geo(String serverId, int mode, String countries) {
+		geo(serverId, mode, countries, true);
+	}
+
+	private void geo(String serverId, int mode, String countries, boolean enable) {
 		GeoRule r = new GeoRule();
 		r.setServerId(serverId);
 		r.setMode(mode);
 		r.setCountries(countries);
-		r.setEnable(true);
+		r.setEnable(enable);
 		sql.insertOrUpdate(r);
 	}
 
+	/** 啟用的 HTTP 站台 */
 	private String server(String name) {
+		return server(name, 0, true);
+	}
+
+	private String server(String name, int proxyType, boolean enable) {
 		Server s = new Server();
 		s.setServerName(name);
+		s.setProxyType(proxyType);
+		s.setEnable(enable);
 		return sql.insertOrUpdate(s);
 	}
 
 	private IpLookupService.Layer layer(IpLookupService.Result r, String name) {
 		return r.layers().stream().filter(l -> l.layer().equals(name)).findFirst().orElseThrow();
+	}
+
+	private Map<String, Object> site(IpLookupService.Layer geo, String serverId) {
+		return geo.details().stream().filter(d -> serverId.equals(d.get("scope"))).findFirst().orElseThrow();
 	}
 
 	@Test
@@ -79,36 +96,142 @@ class IpLookupServiceTest {
 
 	@Test
 	void globalAllowModeBlocksUnlistedCountry() {
+		String sid = server("site.example.com");
 		geo(null, 0, "TW,JP");
 		IpLookupService.Result r = svc.lookup("203.0.113.5");
 		assertEquals("blocked", layer(r, "geo").state());
 		assertEquals("geo", r.blockedBy());
+		Map<String, Object> d = site(layer(r, "geo"), sid);
+		assertEquals("global", d.get("source"));
+		assertEquals(0, d.get("mode"));
+		assertEquals(true, d.get("blocked"));
+	}
+
+	@Test
+	void onlyGlobalRuleAppliesToEverySite() {
+		String a = server("a.example.com");
+		String b = server("b.example.com");
+		geo(null, 1, "CN");
+		IpLookupService.Layer g = layer(svc.lookup("203.0.113.5"), "geo");
+		assertEquals("blocked", g.state());
+		assertEquals(2, g.details().size());
+		for (String sid : List.of(a, b)) {
+			assertEquals("global", site(g, sid).get("source"));
+			assertEquals(true, site(g, sid).get("blocked"));
+		}
 	}
 
 	@Test
 	void serverRuleOverridesGlobal() {
+		// 全域封鎖 CN；shop 有專屬規則只允許 CN → shop 依專屬規則放行，其他站台依全域規則封鎖
 		geo(null, 1, "CN");
-		String sid = server("shop.example.com");
-		geo(sid, 0, "CN");
+		String shop = server("shop.example.com");
+		String blog = server("blog.example.com");
+		geo(shop, 0, "CN");
 		IpLookupService.Layer g = layer(svc.lookup("203.0.113.5"), "geo");
 		assertEquals("blocked", g.state());
-		assertTrue(g.details().stream().anyMatch(d -> d.get("scope").equals("global") && d.get("blocked").equals(true)));
-		assertTrue(g.details().stream().anyMatch(d -> d.get("scope").equals(sid) && d.get("blocked").equals(false)));
+		assertEquals("server", site(g, shop).get("source"));
+		assertEquals(false, site(g, shop).get("blocked"));
+		assertEquals("global", site(g, blog).get("source"));
+		assertEquals(true, site(g, blog).get("blocked"));
+	}
+
+	@Test
+	void serverRuleOverridingGlobalOnEverySiteIsAllowed() {
+		// 唯一的站台有專屬規則放行：全域規則雖然會擋，但沒有任何站台套用它
+		geo(null, 1, "CN");
+		String shop = server("shop.example.com");
+		geo(shop, 0, "CN");
+		IpLookupService.Result r = svc.lookup("203.0.113.5");
+		assertEquals("allowed", layer(r, "geo").state());
+		assertEquals("none", r.blockedBy());
+		assertEquals(1, layer(r, "geo").details().size());
+	}
+
+	@Test
+	void serverRuleWithoutCountriesDoesNotFallBackToGlobal() {
+		// ConfService 選到站台專屬規則後，countries 為空就不產生 if，不會再回退全域規則
+		geo(null, 0, "TW");
+		String shop = server("shop.example.com");
+		geo(shop, 0, "");
+		IpLookupService.Layer g = layer(svc.lookup("203.0.113.5"), "geo");
+		assertEquals("allowed", g.state());
+		Map<String, Object> d = site(g, shop);
+		assertEquals("server", d.get("source"));
+		assertEquals(false, d.get("hasCountries"));
+		assertEquals(false, d.get("blocked"));
+	}
+
+	@Test
+	void disabledServerRuleFallsBackToGlobal() {
+		geo(null, 0, "TW");
+		String shop = server("shop.example.com");
+		geo(shop, 1, "RU", false);
+		Map<String, Object> d = site(layer(svc.lookup("203.0.113.5"), "geo"), shop);
+		assertEquals("global", d.get("source"));
+		assertEquals(true, d.get("blocked"));
+	}
+
+	@Test
+	void siteWithoutAnyRuleIsListedAsNone() {
+		String shop = server("shop.example.com");
+		IpLookupService.Layer g = layer(svc.lookup("203.0.113.5"), "geo");
+		assertEquals("allowed", g.state());
+		assertEquals("none", site(g, shop).get("source"));
+		assertEquals(false, site(g, shop).get("blocked"));
+	}
+
+	@Test
+	void disabledAndStreamServersAreNotListed() {
+		geo(null, 0, "TW");
+		String on = server("on.example.com");
+		server("off.example.com", 0, false);
+		server("tcp", 1, true);
+		IpLookupService.Layer g = layer(svc.lookup("203.0.113.5"), "geo");
+		assertEquals(1, g.details().size());
+		assertEquals(on, g.details().get(0).get("scope"));
+	}
+
+	@Test
+	void noHttpServerMeansNoCountryBlocking() {
+		// 沒有啟用的 HTTP 站台時 nginx 沒有任何 server 會執行國家封鎖的 if
+		geo(null, 0, "TW");
+		server("off.example.com", 0, false);
+		IpLookupService.Layer g = layer(svc.lookup("203.0.113.5"), "geo");
+		assertEquals("allowed", g.state());
+		assertTrue(g.details().isEmpty());
 	}
 
 	@Test
 	void unknownCountryWhenNoMmdb() {
 		country = GeoLookup.Country.unavailable();
+		String sid = server("site.example.com");
 		geo(null, 0, "TW");
 		IpLookupService.Result r = svc.lookup("203.0.113.5");
 		assertEquals("unknown", layer(r, "geo").state());
 		assertNull(r.country());
+		// 判斷不了是否封鎖：不帶 blocked
+		assertNull(site(layer(r, "geo"), sid).get("blocked"));
+		assertEquals("global", site(layer(r, "geo"), sid).get("source"));
+	}
+
+	@Test
+	void noMmdbIsNotUnknownWhenNoSiteUsesACountryRule() {
+		country = GeoLookup.Country.unavailable();
+		geo(null, 0, "TW");
+		String shop = server("shop.example.com");
+		geo(shop, 0, "");
+		assertEquals("allowed", layer(svc.lookup("203.0.113.5"), "geo").state());
+		// 沒有任何啟用的 HTTP 站台：同樣不是 unknown
+		sql.deleteById(shop, Server.class);
+		assertEquals("allowed", layer(svc.lookup("203.0.113.5"), "geo").state());
 	}
 
 	@Test
 	void noCountryRecordInAllowModeIsBlocked() {
 		// 資料庫有、但查不到這個 IP 的國家：nginx 的 $geoip2_data_country_code 是空字串，白名單模式走 default 1（封鎖）
 		country = GeoLookup.Country.none();
+		server("site.example.com");
 		geo(null, 0, "TW,JP");
 		IpLookupService.Result r = svc.lookup("203.0.113.5");
 		assertEquals("blocked", layer(r, "geo").state());
@@ -120,6 +243,7 @@ class IpLookupServiceTest {
 	void noCountryRecordInDenyModeIsAllowed() {
 		// 黑名單模式 default 0（放行）
 		country = GeoLookup.Country.none();
+		server("site.example.com");
 		geo(null, 1, "CN,RU");
 		IpLookupService.Result r = svc.lookup("203.0.113.5");
 		assertEquals("allowed", layer(r, "geo").state());
@@ -130,6 +254,7 @@ class IpLookupServiceTest {
 	void blankEntryInCountryListNeverMatchesMissingCountry() {
 		// ConfService 會略過空白項目，所以空字串國家不會因為清單有空項目而命中
 		country = GeoLookup.Country.none();
+		server("site.example.com");
 		geo(null, 1, "CN,,RU");
 		assertEquals("allowed", layer(svc.lookup("203.0.113.5"), "geo").state());
 	}
@@ -137,6 +262,7 @@ class IpLookupServiceTest {
 	@Test
 	void layerUnknownOrUnavailableWithoutAnyBlockIsUndetermined() {
 		country = GeoLookup.Country.unavailable();
+		server("site.example.com");
 		geo(null, 0, "TW");
 		assertEquals("undetermined", svc.lookup("203.0.113.5").blockedBy());
 
@@ -168,6 +294,7 @@ class IpLookupServiceTest {
 	void bouncerKeyNotConfiguredStillUndeterminedWhenCountryUnknown() {
 		canRead = false;
 		country = GeoLookup.Country.unavailable();
+		server("site.example.com");
 		geo(null, 0, "TW");
 		assertEquals("undetermined", svc.lookup("203.0.113.5").blockedBy());
 	}
@@ -186,6 +313,28 @@ class IpLookupServiceTest {
 		assertEquals("match", layer(r, "denylist").state());
 		assertEquals(List.of("bad nets"), layer(r, "denylist").lists());
 		assertEquals("denylist", r.blockedBy());
+	}
+
+	@Test
+	void slashZeroAndAllLinesAreNotMatchesBecauseNginxSkipsThem() {
+		// ConfService.collectIps 略過 all 與 /0，這些行不會出現在 allowlist geo 與 allow／deny 設定裡
+		list("allow", "allow world v4", "0.0.0.0/0");
+		list("allow", "allow world v6", "::/0");
+		list("allow", "allow all", "all");
+		list("deny", "deny world", "0.0.0.0/0\nall");
+		IpLookupService.Result r = svc.lookup("203.0.113.5");
+		assertEquals("none", layer(r, "allowlist").state());
+		assertEquals("none", layer(r, "denylist").state());
+		assertEquals("none", r.blockedBy());
+		assertEquals("none", layer(svc.lookup("2001:db8::1"), "allowlist").state());
+	}
+
+	@Test
+	void normalRangeStillMatchesNextToSkippedLines() {
+		list("allow", "office", "0.0.0.0/0\n203.0.113.0/24");
+		list("deny", "bad", "all\n198.51.100.0/24");
+		assertEquals(List.of("office"), layer(svc.lookup("203.0.113.5"), "allowlist").lists());
+		assertEquals(List.of("bad"), layer(svc.lookup("198.51.100.9"), "denylist").lists());
 	}
 
 	@Test

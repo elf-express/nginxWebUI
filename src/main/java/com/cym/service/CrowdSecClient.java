@@ -561,7 +561,7 @@ public class CrowdSecClient {
 	public record DeleteResult(int deleted, int rangesKept) {
 	}
 
-	/** 刪除 scope=Ip 且 value 等於這個 IP 的所有 decisions；涵蓋它的網段 decision 保留並計數 */
+	/** 刪除 scope=Ip 且 value 是同一個位址（依位元組比對）的所有 decisions；涵蓋它的網段 decision 保留並計數 */
 	public DeleteResult deleteIpDecisions(String ip) {
 		ensureConfigured();
 		String target = ip == null ? "" : ip.trim();
@@ -573,7 +573,7 @@ public class CrowdSecClient {
 			if (o == null) {
 				continue;
 			}
-			if (!"ip".equalsIgnoreCase(o.getStr("scope", "")) || !target.equals(o.getStr("value"))) {
+			if (!"ip".equalsIgnoreCase(o.getStr("scope", "")) || !IpMatch.sameIp(target, o.getStr("value"))) {
 				ranges++;
 				continue;
 			}

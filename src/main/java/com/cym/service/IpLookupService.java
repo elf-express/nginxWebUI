@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import org.noear.solon.annotation.Component;
 import org.noear.solon.annotation.Init;
@@ -14,6 +15,7 @@ import org.noear.solon.annotation.Inject;
 
 import com.cym.model.DenyAllow;
 import com.cym.model.GeoRule;
+import com.cym.model.Server;
 import com.cym.sqlhelper.utils.SqlHelper;
 import com.cym.utils.IpMatch;
 
@@ -35,11 +37,15 @@ public class IpLookupService {
 	GeoLookup geoLookup;
 	@Inject
 	CrowdSecClient crowdSecClient;
+	@Inject
+	ServerService serverService;
 
 	Function<String, GeoLookup.Country> countryOf;
 	Function<String, Optional<GeoLookup.Asn>> asnOf;
 	BooleanSupplier canReadCrowdSec;
 	Function<String, String> decisionsOf;
+	/** HTTP 站台，順序與 ConfService 產生設定時相同 */
+	Supplier<List<Server>> httpServers;
 
 	@Init
 	public void init() {
@@ -47,6 +53,7 @@ public class IpLookupService {
 		asnOf = ip -> geoLookup.asn(ip);
 		canReadCrowdSec = () -> crowdSecClient.canRead();
 		decisionsOf = ip -> crowdSecClient.decisionsForIpRaw(ip);
+		httpServers = () -> serverService.getListByProxyType(new String[] { "0" });
 	}
 
 	/** state：match／none（名單）、blocked／allowed／unknown（國家）、blocked／none／unavailable（CrowdSec）、skipped */
@@ -104,6 +111,7 @@ public class IpLookupService {
 		return new Layer(name, "skipped", List.of(), List.of(), List.of(), null);
 	}
 
+	/** 只算 nginx 實際會寫進設定的行：與 ConfService.collectIps 相同，all、非法 token 與 /0 都略過 */
 	private List<String> matchingLists(String type, String ip) {
 		List<String> names = new ArrayList<>();
 		for (DenyAllow da : denyAllowService.listByType(type)) {
@@ -111,7 +119,8 @@ public class IpLookupService {
 				continue;
 			}
 			for (String line : da.getIp().split("\n")) {
-				if (IpMatch.contains(line.trim(), ip)) {
+				String entry = line.trim();
+				if (ConfService.isValidIpOrCidr(entry) && IpMatch.contains(entry, ip)) {
 					names.add(da.getName());
 					break;
 				}
@@ -121,38 +130,54 @@ public class IpLookupService {
 	}
 
 	/**
-	 * 與 ConfService 相同：有 server 專屬規則用它，否則用全域規則；每條啟用的規則各列一筆。
+	 * 逐一計算每個啟用的 HTTP 站台，規則選法與 ConfService 產生 server block 時相同（{@link ConfService#effectiveGeoRule}）：
+	 * 有站台專屬規則用它，否則用全域規則；選到的規則沒有國家時該站台不做國家封鎖。
+	 * details 每筆一個站台：scope（站台 id）、source（server／global／none）、mode、hasCountries、blocked（判斷不了時不帶）。
 	 * 資料庫有、但查不到這個 IP 的國家時，國家代碼視為空字串（nginx 的 $geoip2_data_country_code 為空），
-	 * 不在任何清單內：白名單模式（mode 0）封鎖、黑名單模式放行。只有資料庫不可用才是 unknown。
+	 * 不在任何清單內：白名單模式（mode 0）封鎖、黑名單模式放行。
+	 * 整層：任一站台封鎖為 blocked；資料庫不可用且有站台套用了有國家的規則為 unknown；其他（含沒有任何站台）為 allowed。
 	 */
 	private Layer geoLayer(GeoLookup.Country geoCountry) {
 		List<Map<String, Object>> details = new ArrayList<>();
-		boolean anyRule = false;
 		boolean blocked = false;
+		boolean undecided = false;
 		String country = geoCountry.code() == null ? "" : geoCountry.code();
-		for (GeoRule rule : sqlHelper.findAll(GeoRule.class)) {
-			if (rule.getEnable() == null || !rule.getEnable() || StrUtil.isEmpty(rule.getCountries())) {
+		for (Server server : httpServers.get()) {
+			if (server.getEnable() == null || !server.getEnable()) {
 				continue;
 			}
-			anyRule = true;
-			if (!geoCountry.available()) {
-				continue;
-			}
-			boolean listed = false;
-			for (String c : rule.getCountries().split(",")) {
-				String code = c.trim();
-				listed |= !code.isEmpty() && code.equalsIgnoreCase(country);
-			}
-			boolean ruleBlocks = rule.getMode() != null && rule.getMode() == 0 ? !listed : listed;
-			blocked |= ruleBlocks;
+			GeoRule rule = ConfService.effectiveGeoRule(sqlHelper, server.getId());
+			boolean hasCountries = rule != null && StrUtil.isNotEmpty(rule.getCountries());
 			Map<String, Object> d = new LinkedHashMap<>();
-			d.put("scope", StrUtil.isEmpty(rule.getServerId()) ? "global" : rule.getServerId());
-			d.put("mode", rule.getMode());
-			d.put("blocked", ruleBlocks);
+			d.put("scope", server.getId());
+			d.put("source", rule == null ? "none" : rule.getServerId() == null ? "global" : "server");
+			if (rule != null) {
+				d.put("mode", rule.getMode());
+			}
+			d.put("hasCountries", hasCountries);
+			if (!hasCountries) {
+				d.put("blocked", false);
+			} else if (!geoCountry.available()) {
+				undecided = true;
+			} else {
+				boolean siteBlocks = ruleBlocks(rule, country);
+				blocked |= siteBlocks;
+				d.put("blocked", siteBlocks);
+			}
 			details.add(d);
 		}
-		String state = !anyRule ? "allowed" : !geoCountry.available() ? "unknown" : blocked ? "blocked" : "allowed";
+		String state = blocked ? "blocked" : undecided ? "unknown" : "allowed";
 		return new Layer("geo", state, List.of(), details, List.of(), null);
+	}
+
+	/** 與 ConfService.buildGeoMaps 的 map 相同：白名單模式（mode 0）列出的放行、其餘封鎖；黑名單模式列出的封鎖 */
+	private static boolean ruleBlocks(GeoRule rule, String country) {
+		boolean listed = false;
+		for (String c : rule.getCountries().split(",")) {
+			String code = c.trim();
+			listed |= !code.isEmpty() && code.equalsIgnoreCase(country);
+		}
+		return rule.getMode() != null && rule.getMode() == 0 ? !listed : listed;
 	}
 
 	private Layer crowdsecLayer(String ip) {

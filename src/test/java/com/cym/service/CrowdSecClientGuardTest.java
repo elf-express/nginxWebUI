@@ -106,6 +106,45 @@ class CrowdSecClientGuardTest {
 	}
 
 	@Test
+	void deleteIpDecisionsMatchesEquivalentIpv6Spellings() {
+		// LAPI 存壓縮寫法；使用者輸入完整寫法或大寫寫法，都是同一個位址
+		lapi.decisionsJson = "[{\"id\":7,\"type\":\"ban\",\"scope\":\"Ip\",\"value\":\"2001:db8::1\"},"
+				+ "{\"id\":8,\"type\":\"ban\",\"scope\":\"Range\",\"value\":\"2001:db8::/64\"},"
+				+ "{\"id\":9,\"type\":\"ban\",\"scope\":\"Ip\",\"value\":\"2001:DB8:0:0:0:0:0:1\"},"
+				+ "{\"id\":10,\"type\":\"ban\",\"scope\":\"Ip\",\"value\":\"2001:db8::2\"}]";
+
+		CrowdSecClient.DeleteResult r = client().deleteIpDecisions("2001:db8:0:0:0:0:0:1");
+
+		assertEquals(2, r.deleted());
+		assertEquals(2, r.rangesKept());
+		assertEquals(java.util.List.of("/v1/decisions/7", "/v1/decisions/9"), lapi.deletes);
+	}
+
+	@Test
+	void deleteIpDecisionsMatchesUppercaseInput() {
+		lapi.decisionsJson = "[{\"id\":7,\"type\":\"ban\",\"scope\":\"Ip\",\"value\":\"2001:db8::abcd\"}]";
+
+		CrowdSecClient.DeleteResult r = client().deleteIpDecisions("2001:DB8::ABCD");
+
+		assertEquals(1, r.deleted());
+		assertEquals(0, r.rangesKept());
+		assertEquals(java.util.List.of("/v1/decisions/7"), lapi.deletes);
+	}
+
+	@Test
+	void deleteIpDecisionsKeepsIpv4ExactMatchAndIgnoresGarbageValues() {
+		lapi.decisionsJson = "[{\"id\":7,\"type\":\"ban\",\"scope\":\"Ip\",\"value\":\"203.0.113.5\"},"
+				+ "{\"id\":8,\"type\":\"ban\",\"scope\":\"Ip\",\"value\":\"203.0.113.50\"},"
+				+ "{\"id\":9,\"type\":\"ban\",\"scope\":\"Ip\",\"value\":\"example.com\"}]";
+
+		CrowdSecClient.DeleteResult r = client().deleteIpDecisions("203.0.113.5");
+
+		assertEquals(1, r.deleted());
+		assertEquals(2, r.rangesKept());
+		assertEquals(java.util.List.of("/v1/decisions/7"), lapi.deletes);
+	}
+
+	@Test
 	void deleteLegacyWhitelistDecisionsOnlyTouchesWebuiOnes() {
 		lapi.decisionsJson = "[{\"id\":3,\"type\":\"whitelist\",\"scenario\":\"nginxwebui:fp-whitelist\"},"
 				+ "{\"id\":4,\"type\":\"whitelist\",\"scenario\":\"manual 'whitelist' from 'localhost'\"}]";

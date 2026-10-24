@@ -101,13 +101,15 @@ public class CrowdSecWhitelistService {
 		return names;
 	}
 
+	/** 只算 nginx 實際會寫進白名單的行：與 ConfService.collectIps 相同，all、非法 token 與 /0 都略過 */
 	private boolean alreadyAllowed(String ip) {
 		for (DenyAllow a : denyAllowService.listByType("allow")) {
 			if (a.getIp() == null) {
 				continue;
 			}
 			for (String line : a.getIp().split("\n")) {
-				if (IpMatch.contains(line.trim(), ip)) {
+				String entry = line.trim();
+				if (ConfService.isValidIpOrCidr(entry) && IpMatch.contains(entry, ip)) {
 					return true;
 				}
 			}

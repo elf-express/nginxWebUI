@@ -16,6 +16,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -72,6 +73,15 @@ public final class BlockedRequestLogReader {
 	 * @param since 只算這個時間之後；null 表示不篩
 	 */
 	public static Result read(Path file, long maxBytes, Set<String> hosts, Instant since) {
+		Predicate<String> filter = hosts == null || hosts.isEmpty() ? null : h -> hosts.contains(h.toLowerCase(Locale.ROOT));
+		return readMatching(file, maxBytes, filter, since);
+	}
+
+	/**
+	 * @param hostFilter 只算 host 符合的行（傳入原始 host，不為 null）；null 表示不篩，非 null 時沒有 host 的行一律不算
+	 * @param since      只算這個時間之後；null 表示不篩
+	 */
+	public static Result readMatching(Path file, long maxBytes, Predicate<String> hostFilter, Instant since) {
 		List<String> lines = new ArrayList<>();
 		boolean truncated = false;
 		if (file != null && Files.isRegularFile(file)) {
@@ -90,7 +100,6 @@ public final class BlockedRequestLogReader {
 				lines.clear();
 			}
 		}
-		boolean filterHost = hosts != null && !hosts.isEmpty();
 		boolean hostSupported = false;
 		Instant from = null;
 		Instant to = null;
@@ -108,7 +117,7 @@ public final class BlockedRequestLogReader {
 			if (!BLOCKED.contains(l.status()) || (since != null && l.time().isBefore(since))) {
 				continue;
 			}
-			if (filterHost && (l.host() == null || !hosts.contains(l.host().toLowerCase(Locale.ROOT)))) {
+			if (hostFilter != null && (l.host() == null || !hostFilter.test(l.host()))) {
 				continue;
 			}
 			String key = l.ip() + "\u0000" + (l.host() == null ? "" : l.host().toLowerCase(Locale.ROOT));

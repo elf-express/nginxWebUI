@@ -85,6 +85,32 @@ class CrowdSecWhitelistServiceTest {
 		assertEquals(1, allows().size());
 	}
 
+	private void allow(String name, String ips) {
+		DenyAllow da = new DenyAllow();
+		da.setType("allow");
+		da.setName(name);
+		da.setIp(ips);
+		sql.insertOrUpdate(da);
+	}
+
+	@Test
+	void slashZeroAllAndGarbageLinesDoNotCountAsAlreadyAllowed() {
+		// ConfService.collectIps 略過 all、/0 與非法行，nginx 的白名單裡沒有這些，所以照常新增
+		allow("world v4", "0.0.0.0/0");
+		allow("world v6 and junk", "::/0\nall\n203.0.113.5/abc\nnot-an-ip");
+		CrowdSecWhitelistService.Outcome o = svc.whitelist("203.0.113.5", "admin");
+		assertEquals("added", o.denyAllow());
+		assertEquals(3, allows().size());
+		assertTrue(allows().stream().anyMatch(a -> "203.0.113.5".equals(a.getIp())));
+	}
+
+	@Test
+	void normalRangeNextToSlashZeroStillCountsAsAllowed() {
+		allow("mixed", "0.0.0.0/0\n203.0.113.0/24");
+		assertEquals("exists", svc.whitelist("203.0.113.5", "admin").denyAllow());
+		assertEquals(1, allows().size());
+	}
+
 	@Test
 	void crowdsecNotConfiguredStillWritesAllowlist() {
 		configured = false;
