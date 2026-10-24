@@ -75,7 +75,7 @@ Only the core two services start by default; CrowdSec is opt-in via the compose 
 - **GeoIP2 country blocking** — default whitelist of 17 countries (CN/JP/HK/KR/SG/TH/MY/TW/VN/GB/FR/DE/GR/CA/US/MO/LA), user-customizable
 - **ASN blocking** — block whole network segments by Autonomous System Number
 - **CrowdSec integration** — the official nginx Lua bouncer runs inside nginx: banned IPs are dropped (444), requests stopped by the AppSec WAF get 403, allowlisted IPs bypass every layer (see [CrowdSec protection](#crowdsec-protection))
-- **CrowdSec Guard page** — one page that shows which layer (allowlist, country block, denylist, CrowdSec ban) stops a given IP, lists recently blocked IPs, manages the CrowdSec ban list (manual ban, unban, allowlist) and holds the CrowdSec connection settings
+- **CrowdSec Guard page** — one page that shows which layer (allowlist, country block, denylist, CrowdSec ban) stops a given IP, lists recently blocked IPs, manages the CrowdSec ban list (manual ban, unban, allowlist) lists WAF events (kept 30 days in nginxWebUI's database, filterable by site, category and result) and holds the CrowdSec connection settings
 - **Anti-bot certificate** — centrally managed in the "Protection" page
 
 ### 🌐 Reverse Proxy / Load Balancing
@@ -238,6 +238,12 @@ Only HTTP sites are protected; stream (TCP / UDP) servers are not.
 - The **Connection** tab of the **CrowdSec Guard** page shows both credentials masked with their source, the CrowdSec
   address, the grace period (editable; apply the configuration afterwards), a connection test with a status light and
   the time of the last successful check by nginx.
+- The **WAF events** tab of the **CrowdSec Guard** page lists the requests the AppSec WAF matched. nginxWebUI copies the
+  WAF alerts from CrowdSec every minute with the machine account (no machine password, no sync; stored events stay
+  visible) and keeps them 30 days (editable on the tab, cleaned daily at 03:40). A request matched by both a virtual
+  patching rule and CRS is one event. The `nginxwebui-crowdsec` image keeps up to 50000 alerts for 7 days; if the sync
+  was paused and CrowdSec no longer has the alerts from before that pause, the tab marks the period as possibly
+  incomplete. IP lookup also lists the latest 10 WAF events of the IP.
 - Bans added from the backend use reasons starting with `nginxwebui:`. The `profiles.yaml` baked into the crowdsec
   image is configured to exclude them from AbuseIPDB reporting; this is verified by checking the configuration file,
   not by sending anything to AbuseIPDB.
