@@ -47,6 +47,10 @@ public class FakeLapi implements AutoCloseable {
 	public final List<String> decisionQueries = new CopyOnWriteArrayList<>();
 	/** GET /v1/decisions 的回應內容 */
 	public volatile String decisionsJson = "null";
+	/** GET /v1/alerts 的解碼後查詢字串 */
+	public final List<String> alertQueries = new CopyOnWriteArrayList<>();
+	/** GET /v1/alerts 的回應內容 */
+	public volatile String alertsJson = "[]";
 	/** 登入回應的 expire（RFC 3339） */
 	public volatile String expire = "2099-01-01T00:00:00Z";
 	/** 為 true 時登入照常成功，但所有需要 JWT 的端點一律回 401 */
@@ -131,7 +135,9 @@ public class FakeLapi implements AutoCloseable {
 			send(ex, 201, "[\"1\"]");
 			return;
 		}
-		send(ex, 200, "[]");
+		String raw = ex.getRequestURI().getRawQuery();
+		alertQueries.add(raw == null ? "" : URLDecoder.decode(raw, StandardCharsets.UTF_8));
+		send(ex, 200, alertsJson);
 	}
 
 	private void decisions(HttpExchange ex) throws IOException {

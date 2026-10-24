@@ -75,6 +75,7 @@ docker compose up -d          # image 預設拉 :latest，永遠跟最新 releas
 - **GeoIP2 國家封鎖** — 預設白名單 17 國（CN/JP/HK/KR/SG/TH/MY/TW/VN/GB/FR/DE/GR/CA/US/MO/LA），用戶可自訂
 - **ASN 封鎖** — 按 Autonomous System Number 封整段網路
 - **CrowdSec 整合** — 官方 nginx Lua bouncer 直接在 nginx 裡執行：被封鎖的 IP 直接斷線（444）、被 AppSec WAF 擋下的請求回 403、白名單 IP 跳過所有防護層（見 [CrowdSec 防護](#crowdsec-防護)）
+- **CrowdSec 防護頁** — 一頁查出某個 IP 被哪一層擋下（白名單、國家封鎖、黑名單、CrowdSec 封鎖）、列出最近被擋下的 IP、管理 CrowdSec 封鎖名單（手動封鎖、解除、加入白名單），並放 CrowdSec 連線設定
 - **防爬蟲憑證** — 「防護與憑證」頁面集中管理
 
 ### 🌐 反向代理 / 負載均衡
@@ -230,7 +231,7 @@ bouncer 容器。`nginxwebui-crowdsec` image 已烤入日誌解析器與 AppSec 
 - crowdsec 容器每次啟動都會註冊（或更新）這個帳號，換密碼只要 `docker compose up -d`。用 secrets 覆寫檔時改放在
   `secrets/crowdsec_machine_password`。
 - 沒填時 CrowdSec 照常封鎖，只是後台不能管理封鎖、ASN 推送維持停用。
-- 「防護與憑證」頁的 **CrowdSec** 分頁會顯示兩組憑證的遮罩值與來源、CrowdSec 位址、寬限秒數（可改，改完要套用設定）、
+- 「**CrowdSec 防護**」頁的**連線設定**分頁會顯示兩組憑證的遮罩值與來源、CrowdSec 位址、寬限秒數（可改，改完要套用設定）、
   測試連線與狀態燈，以及 nginx 最後一次成功檢查的時間。
 - 後台加的封鎖 reason 一律 `nginxwebui:` 開頭。crowdsec image 烤進去的 `profiles.yaml` 已設定排除它們、不通報給
   AbuseIPDB；這點以設定檔檢查驗證，未對 AbuseIPDB 實際送測。

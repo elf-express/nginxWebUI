@@ -25,6 +25,8 @@ import com.cym.model.Remote;
 import com.cym.model.Upstream;
 import com.cym.model.UpstreamServer;
 import com.cym.service.AsnMetaService;
+import com.cym.service.CrowdSecClient;
+import com.cym.service.CrowdSecWhitelistService;
 import com.cym.service.DenyAllowService;
 import com.cym.service.GeoipService;
 import com.cym.service.HttpService;
@@ -86,6 +88,18 @@ public class ScheduleTask {
 	BLogFileTailer bLogFileTailer;
 	@Inject
 	VersionConfig versionConfig;
+	@Inject
+	CrowdSecWhitelistService crowdSecWhitelistService;
+	@Inject
+	CrowdSecClient crowdSecClient;
+
+	// 舊版「CrowdSec 白名單」建立的 type=whitelist decision 清除一次（E-385）；CrowdSec 未設定或連不上就下次再試
+	@Scheduled(cron = "0 */5 * * * ?")
+	public void cleanupLegacyCrowdSecWhitelist() {
+		if (crowdSecClient.isConfigured() && crowdSecClient.canRead()) {
+			crowdSecWhitelistService.cleanupLegacyWhitelistDecisions();
+		}
+	}
 
 	// 检查更新
 	@Scheduled(cron = "0 0 0 * * ?")
@@ -115,21 +129,35 @@ public class ScheduleTask {
 	// 下載走背景執行緒（City 約 60MB），避免卡住排程；同時只允許一個下載進行。
 	private final java.util.concurrent.atomic.AtomicBoolean geoipDownloading = new java.util.concurrent.atomic.AtomicBoolean(false);
 
+	// --project.skipGeoipFetch=true 關閉自動下載（E2E、離線環境用），預設開啟。
+	@Inject("${project.skipGeoipFetch:false}")
+	Boolean skipGeoipFetch;
+
+	/** 這一分鐘該做什麼：all＝下載全部、stale＝只補缺檔／過期、null＝不下載（關閉或不在時段） */
+	static String geoipFetchMode(boolean skip, String fetchTime, String nowHHmm) {
+		if (skip) {
+			return null;
+		}
+		if (nowHHmm.equals(fetchTime)) {
+			return "all";
+		}
+		return nowHHmm.endsWith(":00") ? "stale" : null;
+	}
+
 	@Scheduled(cron = "0 * * * * ?")
 	public void fetchGeoip() {
 		String fetchTime = geoipService.getFetchTime(); // 已驗證 HH:mm，無效則 03:00（code review I-1）
 		String nowHHmm = DateUtil.format(new Date(), "HH:mm");
 
-		boolean scheduled = nowHHmm.equals(fetchTime);
-		boolean hourly = !scheduled && nowHHmm.endsWith(":00");
-		if (!scheduled && !hourly) {
+		String mode = geoipFetchMode(Boolean.TRUE.equals(skipGeoipFetch), fetchTime, nowHHmm);
+		if (mode == null) {
 			return;
 		}
 
 		if (!geoipDownloading.compareAndSet(false, true)) {
 			return; // 已有下載進行中，跳過
 		}
-		final boolean doAll = scheduled;
+		final boolean doAll = "all".equals(mode);
 		new Thread(() -> {
 			try {
 				if (doAll) {

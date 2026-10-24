@@ -75,6 +75,7 @@ Only the core two services start by default; CrowdSec is opt-in via the compose 
 - **GeoIP2 country blocking** — default whitelist of 17 countries (CN/JP/HK/KR/SG/TH/MY/TW/VN/GB/FR/DE/GR/CA/US/MO/LA), user-customizable
 - **ASN blocking** — block whole network segments by Autonomous System Number
 - **CrowdSec integration** — the official nginx Lua bouncer runs inside nginx: banned IPs are dropped (444), requests stopped by the AppSec WAF get 403, allowlisted IPs bypass every layer (see [CrowdSec protection](#crowdsec-protection))
+- **CrowdSec Guard page** — one page that shows which layer (allowlist, country block, denylist, CrowdSec ban) stops a given IP, lists recently blocked IPs, manages the CrowdSec ban list (manual ban, unban, allowlist) and holds the CrowdSec connection settings
 - **Anti-bot certificate** — centrally managed in the "Protection" page
 
 ### 🌐 Reverse Proxy / Load Balancing
@@ -234,7 +235,7 @@ Only HTTP sites are protected; stream (TCP / UDP) servers are not.
 - The crowdsec container registers (or updates) this machine on every start, so changing the password only needs
   `docker compose up -d`. With the secrets override, put it in `secrets/crowdsec_machine_password` instead.
 - Without it CrowdSec still blocks; only the backend cannot manage bans and the ASN push stays disabled.
-- The **CrowdSec** tab on the Protection & Certs page shows both credentials masked with their source, the CrowdSec
+- The **Connection** tab of the **CrowdSec Guard** page shows both credentials masked with their source, the CrowdSec
   address, the grace period (editable; apply the configuration afterwards), a connection test with a status light and
   the time of the last successful check by nginx.
 - Bans added from the backend use reasons starting with `nginxwebui:`. The `profiles.yaml` baked into the crowdsec

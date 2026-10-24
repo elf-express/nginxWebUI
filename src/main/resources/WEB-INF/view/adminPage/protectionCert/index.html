@@ -2,7 +2,6 @@
 <html>
 <head>
 <#include "/adminPage/common.html"/>
-<link href="${ctx}/js/spa/crowdsec.css?v=${jsrandom}" rel="stylesheet" />
 <style type="text/css">
 .layui-form-label { width: 150px; }
 .layui-input-block { margin-left: 180px; }
@@ -84,7 +83,6 @@
 				<li>${geoStr.title}</li>
 				<li>${asnStr.title}</li>
 				<li>${menuStr.cert}</li>
-				<li>${crowdsecStr.tabTitle}</li>
 			</ul>
 			<div class="layui-tab-content">
 
@@ -271,7 +269,7 @@
 				<!-- ==================== Tab 5: ASN Block ==================== -->
 				<div class="layui-tab-item" id="asnTabContent">
 
-					<!-- Phase-1 scope: Light + catalog ready; Strict bulk post-merge -->
+					<!-- ASN 封鎖說明 -->
 					<div id="asnPhaseBanner" class="layui-bg-blue" style="padding:10px 14px;margin-bottom:12px;border-radius:4px;color:#fff;">
 						<i class="layui-icon layui-icon-tips"></i> ${asnStr.phase1Banner}
 					</div>
@@ -281,7 +279,7 @@
 						<i class="layui-icon layui-icon-about"></i> ${asnStr.crowdsecRequired}
 					</div>
 
-					<!-- Manual/Strict bulk push not production-hardened yet -->
+					<!-- 大型 ASN 推送提醒 -->
 					<div id="asnBulkWarnBanner" class="layui-bg-orange" style="display:none;padding:10px 14px;margin-bottom:12px;border-radius:4px;color:#fff;">
 						<i class="layui-icon layui-icon-about"></i> ${asnStr.bulkPushWarn}
 					</div>
@@ -377,8 +375,8 @@
 						<a href="${asnSourceUrls.tools}" target="_blank" rel="noopener noreferrer">${asnStr.sourceTools}</a>
 					</div>
 
-					<!-- Legacy AsnRule (deprecated until Task 8) -->
-					<details style="margin-top:8px;">
+					<!-- 舊版 ASN 規則：有資料才顯示 -->
+					<details id="asnLegacySection" style="margin-top:8px;display:none;">
 						<summary style="cursor:pointer;color:#999;font-size:13px;">${asnStr.legacyTitle}</summary>
 						<div style="margin:10px 0;">
 							<button type="button" class="layui-btn layui-btn-sm layui-btn-normal" onclick="addAsn()"><i class="layui-icon layui-icon-add-circle-fine"></i> ${commonStr.add}</button>
@@ -536,11 +534,6 @@
 						</tbody>
 					</table>
 					<div id="certPageInfo"></div>
-				</div>
-
-				<!-- ==================== Tab 7: CrowdSec（Vue，frontend/src/pages/crowdsec/） ==================== -->
-				<div class="layui-tab-item" id="crowdsecTabContent">
-					<div id="crowdsecApp" data-load-failed="${spaStr.loadFailed}"></div>
 				</div>
 
 			</div>
@@ -910,7 +903,6 @@
 <script src="${ctx}/js/adminPage/protectionCert/cert.js?v=${jsrandom}" type="text/javascript"></script>
 <script src="${ctx}/js/adminPage/denyAllow/asn.js?v=${jsrandom}" type="text/javascript"></script>
 <script src="${ctx}/js/adminPage/protectionCert/asnCatalog.js?v=${jsrandom}" type="text/javascript"></script>
-<script type="module" src="${ctx}/js/spa/crowdsec.js?v=${jsrandom}" onerror="var el=document.getElementById('crowdsecApp');el.textContent=el.getAttribute('data-load-failed');"></script>
 
 </body>
 </html>

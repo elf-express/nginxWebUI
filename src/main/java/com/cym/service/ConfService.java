@@ -926,6 +926,22 @@ public class ConfService {
 	}
 
 	/**
+	 * 站台實際套用的國家規則：先找該站台啟用的規則，沒有才用全域啟用規則（serverId 為 null）；都沒有回 null。
+	 * 選到的規則 countries 為空時，呼叫端不產生國家封鎖（不再回退全域規則）。
+	 */
+	static GeoRule effectiveGeoRule(SqlHelper sql, String serverId) {
+		ConditionAndWrapper geoCondition = new ConditionAndWrapper();
+		geoCondition.eq("serverId", serverId).eq("enable", true);
+		GeoRule geoRule = sql.findOneByQuery(geoCondition, GeoRule.class);
+		if (geoRule == null) {
+			ConditionAndWrapper globalCondition = new ConditionAndWrapper();
+			globalCondition.isNull("serverId").eq("enable", true);
+			geoRule = sql.findOneByQuery(globalCondition, GeoRule.class);
+		}
+		return geoRule;
+	}
+
+	/**
 	 * 嚴格驗證 IPv4/IPv6(可帶 CIDR prefix)。/0(封鎖全世界)一律拒絕 — feed 沒有正當理由包含它。
 	 */
 	static boolean isValidIpOrCidr(String s) {
@@ -1269,17 +1285,7 @@ public class ConfService {
 
 			// 國家存取控制 — if 指令放在 server block
 			{
-				// 先查 server 專屬規則
-				ConditionAndWrapper geoCondition = new ConditionAndWrapper();
-				geoCondition.eq("serverId", server.getId()).eq("enable", true);
-				GeoRule geoRule = sqlHelper.findOneByQuery(geoCondition, GeoRule.class);
-
-				if (geoRule == null) {
-					// 再查全域規則
-					ConditionAndWrapper globalCondition = new ConditionAndWrapper();
-					globalCondition.isNull("serverId").eq("enable", true);
-					geoRule = sqlHelper.findOneByQuery(globalCondition, GeoRule.class);
-				}
+				GeoRule geoRule = effectiveGeoRule(sqlHelper, server.getId());
 
 				if (geoRule != null && StrUtil.isNotEmpty(geoRule.getCountries())) {
 					String idPart = StrUtil.isEmpty(geoRule.getServerId()) ? "global" : geoRule.getServerId().replace("-", "");
