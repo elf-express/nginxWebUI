@@ -232,7 +232,8 @@ class CrowdSecChallengeTest {
 		String html = challenge.previewHtml("checkbox");
 		assertFalse(html.contains("{{"), html);
 		assertTrue(html.contains("203.0.113.10"));
-		assertTrue(html.contains("challengejson=\"\""));
+		assertFalse(html.contains("challengejson"), html);
+		assertTrue(html.contains("<altcha-widget test "), html);
 	}
 
 	/** 網站送 Content-Security-Policy "default-src 'self'" 時頁面仍要能用：沒有 inline script、style 與事件屬性 */
@@ -271,8 +272,25 @@ class CrowdSecChallengeTest {
 		assertTrue(js.contains("nwu-strings") && js.contains("\"verified\"") && js.contains("nwu-form"), js);
 		assertFalse(js.contains("@@"));
 		String css = assets.get("page.css");
-		assertTrue(css.contains(".nwu-meta{color:#666;"), css);
+		assertTrue(css.contains("color:rgba(0,0,0,.65);font-size:12px"), css);
 		assertFalse(css.contains("#888"), css);
+	}
+
+	/** 預覽頁的 widget 用 test 屬性、body 帶 data-preview 讓 page.js 不送出驗證結果；nginx 送出的頁面兩者都沒有 */
+	@Test
+	void previewMarksTheBodyAndTheRealPagesDoNot() {
+		for (String style : new String[] { "auto", "checkbox" }) {
+			String preview = challenge.previewHtml(style);
+			assertTrue(preview.contains("<body data-preview=\"1\" data-style=\"" + style + "\">"), preview);
+			for (Map.Entry<String, String> page : challenge.buildPages(style).entrySet()) {
+				assertFalse(page.getValue().contains("data-preview"), style + " " + page.getKey());
+				assertFalse(Pattern.compile("<altcha-widget[^>]*\\stest[\\s>]").matcher(page.getValue()).find(), style + " " + page.getKey());
+			}
+		}
+		assertTrue(challenge.buildPages("auto").get("challenge.html").contains("challengejson=\"{{CHALLENGE}}\""));
+		String js = challenge.assets().get("page.js");
+		assertTrue(js.contains("data-preview") && js.contains("challengeStr.previewNote"), js);
+		assertTrue(challenge.stringsJson().contains("\"challengeStr.previewNote\""));
 	}
 
 	@Test

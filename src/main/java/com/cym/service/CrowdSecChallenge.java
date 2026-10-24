@@ -303,7 +303,10 @@ public class CrowdSecChallenge {
 		}
 	}
 
-	/** 預覽：與 nginx 送出的驗證頁同一份 HTML，題目留空，只能看樣子不能通過；檔案改由後台網址提供 */
+	/**
+	 * 預覽：與 nginx 送出的驗證頁同一份 HTML；widget 改用 ALTCHA 的 test 屬性（自己產生題目，不需要伺服器），
+	 * body 帶 data-preview，page.js 不會送出驗證結果；檔案改由後台網址提供
+	 */
 	public String previewHtml(String style) {
 		String html = buildPages(style).get("challenge.html");
 		for (String asset : ALTCHA_FILES) {
@@ -313,6 +316,8 @@ public class CrowdSecChallenge {
 			html = html.replace("\"" + RESERVED_PREFIX + asset + "\"", "\"" + PREVIEW_ASSET_URL + asset + "\"");
 		}
 		return html
+				.replace("<body data-style=", "<body data-preview=\"1\" data-style=")
+				.replace(" challengejson=\"{{CHALLENGE}}\"", " test")
 				.replace("{{IP}}", "203.0.113.10")
 				.replace("{{TIME}}", LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
 				.replace("{{CHALLENGE}}", "")
