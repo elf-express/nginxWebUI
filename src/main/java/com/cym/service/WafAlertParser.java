@@ -28,6 +28,8 @@ public final class WafAlertParser {
 	static final int MAX_URI = 2048;
 	static final int MAX_USER_AGENT = 512;
 	static final int MAX_MESSAGE = 500;
+	static final int MAX_HOST = 255;
+	static final int MAX_METHOD = 16;
 
 	/** 命中的一條規則：name 是 CRS 規則編號（942100）或 vpatch 規則名稱（crowdsecurity/vpatch-env-access） */
 	public record Rule(String name, String source, String category, String message) {
@@ -57,7 +59,13 @@ public final class WafAlertParser {
 			if (time != null && (oldest == null || time.isBefore(oldest))) {
 				oldest = time;
 			}
-			Hit hit = parseAlert(alert, time);
+			Hit hit;
+			try {
+				hit = parseAlert(alert, time);
+			} catch (RuntimeException e) {
+				// 單一 alert 欄位形狀異常時只略過它，不影響同一頁其他 alert
+				hit = null;
+			}
 			if (hit != null) {
 				hits.add(hit);
 			}
@@ -100,17 +108,18 @@ public final class WafAlertParser {
 		}
 		String uri = first(meta.get("target_uri"));
 		String method = first(meta.get("method"));
-		return new Hit(id, time, ip.trim(), hostOf(fqdn), method == null ? null : method.toUpperCase(Locale.ROOT),
+		return new Hit(id, time, ip.trim(), cut(hostOf(fqdn), MAX_HOST),
+				method == null ? null : cut(method.toUpperCase(Locale.ROOT), MAX_METHOD),
 				cut(uri != null ? uri : eventUri, MAX_URI), cut(first(meta.get("user_agent")), MAX_USER_AGENT),
 				StrUtil.startWith(alert.getStr("message"), IN_BAND_PREFIX), rules);
 	}
 
 	/**
 	 * 規則清單：alert meta 的 name 優先（已不含 CRS 內部規則），說明取 events 中同名規則的 message，沒有時用 meta msg 同位置的值；
-	 * meta 沒有 name 時改用 events 的 rule_name，並略過 CRS 內部規則（編號小於 911000 或 949000 以上，例 901340、949110、980170）。
+	 * meta 沒有可用的 name（不存在或全是空白）時改用 events 的 rule_name，並略過 CRS 內部規則（編號小於 911000 或 949000 以上，例 901340、949110、980170）。
 	 */
 	static List<Rule> rules(List<String> names, List<String> msgs, Map<String, String> eventMessages) {
-		boolean fromEvents = names == null || names.isEmpty();
+		boolean fromEvents = names == null || names.stream().allMatch(n -> ruleName(n) == null);
 		List<String> source = fromEvents ? new ArrayList<>(eventMessages.keySet()) : names;
 		Map<String, Rule> rules = new LinkedHashMap<>();
 		for (int i = 0; i < source.size(); i++) {
@@ -153,7 +162,7 @@ public final class WafAlertParser {
 		if (h.startsWith("[")) {
 			int end = h.indexOf(']');
 			h = end > 0 ? h.substring(1, end) : h.substring(1);
-		} else if (h.indexOf(':') > 0 && h.indexOf(':') == h.lastIndexOf(':')) {
+		} else if (h.indexOf(':') >= 0 && h.indexOf(':') == h.lastIndexOf(':')) {
 			h = h.substring(0, h.indexOf(':'));
 		}
 		h = h.toLowerCase(Locale.ROOT);

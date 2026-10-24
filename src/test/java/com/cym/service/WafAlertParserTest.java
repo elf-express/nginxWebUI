@@ -101,18 +101,67 @@ class WafAlertParserTest {
 		assertEquals("203.0.113.5", WafAlertParser.hostOf("203.0.113.5:80"));
 		assertNull(WafAlertParser.hostOf(null));
 		assertNull(WafAlertParser.hostOf("  "));
+		assertNull(WafAlertParser.hostOf(":80"));
+	}
+
+	@Test
+	void malformedAlertIsSkippedWithoutLosingTheRestOfThePage() {
+		JSONObject sourceArray = vpatch(1, "198.51.100.9", AT, "a.test");
+		sourceArray.set("source", new cn.hutool.json.JSONArray().put("x"));
+		JSONObject metaString = vpatch(2, "198.51.100.9", AT, "a.test");
+		metaString.set("meta", "oops");
+		JSONObject badMetaValue = vpatch(3, "198.51.100.9", AT, "a.test");
+		badMetaValue.set("meta", meta("name", "[}]"));
+		JSONObject good = vpatch(4, "198.51.100.9", AT, "a.test");
+		WafAlertParser.Batch b = WafAlertParser.parseBatch(array(sourceArray, metaString, badMetaValue, good));
+		assertEquals(4, b.size());
+		assertEquals(AT, b.oldest());
+		assertEquals(List.of("4"), b.hits().stream().map(WafAlertParser.Hit::alertId).toList());
+	}
+
+	@Test
+	void blankMetaNamesFallBackToEventRules() {
+		JSONObject a = crsLfi(1, "198.51.100.9", AT, "a.test");
+		a.set("meta", meta("name", list("")));
+		a.set("events", new cn.hutool.json.JSONArray().put(event("native_rule:942100", "SQL Injection", "/x", "a.test")));
+		WafAlertParser.Hit h = WafAlertParser.parseBatch(array(a)).hits().get(0);
+		assertEquals(List.of("942100"), h.rules().stream().map(WafAlertParser.Rule::name).toList());
+	}
+
+	@Test
+	void hostAndMethodAreCut() {
+		JSONObject a = vpatch(1, "198.51.100.9", AT, "a".repeat(300) + ".test");
+		a.set("meta", meta("name", list("crowdsecurity/vpatch-env-access"), "method", list("x".repeat(50))));
+		WafAlertParser.Hit h = WafAlertParser.parseBatch(array(a)).hits().get(0);
+		assertEquals(WafAlertParser.MAX_HOST, h.host().length());
+		assertEquals(WafAlertParser.MAX_METHOD, h.method().length());
+	}
+
+	@Test
+	void crsInternalRulesAreThoseOutsideTheAttackRange() {
+		assertTrue(WafAlertParser.isCrsInternal("910999"));
+		assertFalse(WafAlertParser.isCrsInternal("911000"));
+		assertFalse(WafAlertParser.isCrsInternal("948999"));
+		assertTrue(WafAlertParser.isCrsInternal("949000"));
+		assertFalse(WafAlertParser.isCrsInternal("crowdsecurity/vpatch-env-access"));
 	}
 
 	@Test
 	void crsCategoriesFollowTheFirstThreeDigits() {
-		Map<String, String> expected = Map.of("911100", "crs-protocol", "913100", "crs-scanner", "920440", "crs-protocol",
-				"930130", "crs-lfi", "931100", "crs-rfi", "932100", "crs-rce", "933100", "crs-php", "941100", "crs-xss",
-				"942100", "crs-sqli", "950100", "crs-other");
+		Map<String, String> expected = new java.util.LinkedHashMap<>();
+		String[] pairs = { "911100", "crs-protocol", "913100", "crs-scanner", "920440", "crs-protocol", "921100",
+				"crs-protocol", "922100", "crs-protocol", "930130", "crs-lfi", "931100", "crs-rfi", "932100", "crs-rce",
+				"933100", "crs-php", "934100", "crs-generic", "941100", "crs-xss", "942100", "crs-sqli", "943100",
+				"crs-session", "944100", "crs-java", "950100", "crs-other" };
+		for (int i = 0; i < pairs.length; i += 2) {
+			expected.put(pairs[i], pairs[i + 1]);
+		}
 		expected.forEach((rule, cat) -> assertEquals(cat, WafCategories.categoryOf(rule), rule));
 		assertEquals("vpatch", WafCategories.categoryOf("crowdsecurity/vpatch-env-access"));
 		assertEquals("crs", WafCategories.sourceOf("942100"));
 		assertEquals("vpatch", WafCategories.sourceOf("crowdsecurity/vpatch-env-access"));
 		assertTrue(WafCategories.ALL.containsAll(expected.values()));
 		assertTrue(WafCategories.ALL.contains("vpatch"));
+		assertEquals(WafCategories.ALL.size(), WafCategories.ALL.stream().distinct().count());
 	}
 }
