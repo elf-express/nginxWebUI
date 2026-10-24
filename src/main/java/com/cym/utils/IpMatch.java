@@ -29,7 +29,12 @@ public final class IpMatch {
 		if (net == null || addr == null || net.length != addr.length) {
 			return false;
 		}
-		int prefix = slash < 0 ? net.length * 8 : Integer.parseInt(c.substring(slash + 1));
+		int prefix;
+		try {
+			prefix = slash < 0 ? net.length * 8 : Integer.parseInt(c.substring(slash + 1));
+		} catch (NumberFormatException e) {
+			return false;
+		}
 		if (prefix > net.length * 8) {
 			return false;
 		}
