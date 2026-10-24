@@ -1,14 +1,19 @@
 import type { BlockedRow, GeoSite, WafStatus, WafSyncResult, WhitelistOutcome } from './api'
 
-export type TabKey = 'ip' | 'bans' | 'waf' | 'conn'
-export const TABS: TabKey[] = ['ip', 'bans', 'waf', 'conn']
+export type TabKey = 'ip' | 'bans' | 'waf' | 'rules' | 'conn'
+export const TABS: TabKey[] = ['ip', 'bans', 'waf', 'rules', 'conn']
 
-/** #ip=<IP>、#bans、#waf、#conn；其他一律回 IP 查詢 */
-export function parseHash(hash: string): { tab: TabKey; ip: string } {
+/** #ip=<IP>、#bans、#waf、#rules=<規則>、#conn；其他一律回 IP 查詢 */
+export function parseHash(hash: string): { tab: TabKey; ip: string; rule: string } {
   const text = hash.replace(/^#/, '')
   const [key, value = ''] = text.split('=', 2)
   const tab = (TABS as string[]).includes(key) ? (key as TabKey) : 'ip'
-  return { tab, ip: tab === 'ip' ? safeDecode(value) : '' }
+  return { tab, ip: tab === 'ip' ? safeDecode(value) : '', rule: tab === 'rules' ? safeDecode(value) : '' }
+}
+
+/** WAF 規則分頁的網址 hash；rule 為空時只有分頁 */
+export function rulesHash(rule: string): string {
+  return rule ? `#rules=${encodeURIComponent(rule)}` : '#rules'
 }
 
 /** IP 查詢分頁的網址 hash；ip 為空時只有分頁 */

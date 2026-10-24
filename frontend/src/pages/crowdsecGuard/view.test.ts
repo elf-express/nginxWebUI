@@ -11,8 +11,10 @@ import {
   parseHash,
   reasonKeysOf,
   retentionValid,
+  rulesHash,
   shouldLookup,
   sourceKeyOf,
+  TABS,
   verdictType,
   wafActionColor,
   wafActionKey,
@@ -35,13 +37,19 @@ function outcome(patch: Partial<WhitelistOutcome> = {}): WhitelistOutcome {
 
 describe('parseHash', () => {
   it('分頁與 IP', () => {
-    expect(parseHash('#ip=203.0.113.5')).toEqual({ tab: 'ip', ip: '203.0.113.5' })
-    expect(parseHash('#waf')).toEqual({ tab: 'waf', ip: '' })
-    expect(parseHash('#bans')).toEqual({ tab: 'bans', ip: '' })
-    expect(parseHash('#conn')).toEqual({ tab: 'conn', ip: '' })
-    expect(parseHash('')).toEqual({ tab: 'ip', ip: '' })
-    expect(parseHash('#unknown')).toEqual({ tab: 'ip', ip: '' })
-    expect(parseHash('#ip=2001%3Adb8%3A%3A1')).toEqual({ tab: 'ip', ip: '2001:db8::1' })
+    expect(parseHash('#ip=203.0.113.5')).toEqual({ tab: 'ip', ip: '203.0.113.5', rule: '' })
+    expect(parseHash('#waf')).toEqual({ tab: 'waf', ip: '', rule: '' })
+    expect(parseHash('#bans')).toEqual({ tab: 'bans', ip: '', rule: '' })
+    expect(parseHash('#conn')).toEqual({ tab: 'conn', ip: '', rule: '' })
+    expect(parseHash('')).toEqual({ tab: 'ip', ip: '', rule: '' })
+    expect(parseHash('#unknown')).toEqual({ tab: 'ip', ip: '', rule: '' })
+    expect(parseHash('#ip=2001%3Adb8%3A%3A1')).toEqual({ tab: 'ip', ip: '2001:db8::1', rule: '' })
+  })
+  it('WAF 規則分頁與規則編號', () => {
+    expect(TABS).toEqual(['ip', 'bans', 'waf', 'rules', 'conn'])
+    expect(parseHash('#rules=942100')).toEqual({ tab: 'rules', ip: '', rule: '942100' })
+    expect(parseHash('#rules=crowdsecurity%2Fvpatch-env-access').rule).toBe('crowdsecurity/vpatch-env-access')
+    expect(parseHash('#rules')).toEqual({ tab: 'rules', ip: '', rule: '' })
   })
 })
 
@@ -59,8 +67,16 @@ describe('IP 查詢的網址 hash', () => {
   it('#ip=<encodeURIComponent(ip)>，與 parseHash 互為反向', () => {
     expect(ipHash('203.0.113.5')).toBe('#ip=203.0.113.5')
     expect(ipHash('2001:db8::1')).toBe('#ip=2001%3Adb8%3A%3A1')
-    expect(parseHash(ipHash('2001:db8::1'))).toEqual({ tab: 'ip', ip: '2001:db8::1' })
+    expect(parseHash(ipHash('2001:db8::1'))).toEqual({ tab: 'ip', ip: '2001:db8::1', rule: '' })
     expect(ipHash('')).toBe('#ip')
+  })
+})
+
+describe('WAF 規則分頁的網址 hash', () => {
+  it('#rules=<encodeURIComponent(規則)>，沒有規則時只有分頁', () => {
+    expect(rulesHash('a/b')).toBe('#rules=a%2Fb')
+    expect(rulesHash('')).toBe('#rules')
+    expect(parseHash(rulesHash('crowdsecurity/vpatch-env-access')).rule).toBe('crowdsecurity/vpatch-env-access')
   })
 })
 
