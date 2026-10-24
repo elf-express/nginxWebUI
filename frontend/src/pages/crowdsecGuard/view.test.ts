@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { blockedByKey, crowdsecErrorKey, layerStateKey, parseHash, reasonKeysOf, sourceKeyOf, verdictType, whitelistMessage } from './view'
+import {
+  blockedByKey,
+  createLatest,
+  crowdsecErrorKey,
+  geoSiteKeys,
+  layerStateKey,
+  parseHash,
+  reasonKeysOf,
+  sourceKeyOf,
+  verdictType,
+  whitelistMessage,
+  type Outcome,
+} from './view'
 import type { WhitelistOutcome } from './api'
 
 // 測試用的翻譯：key 加參數，方便斷言用到哪一句
@@ -106,5 +118,121 @@ describe('CrowdSec 錯誤碼對應文案', () => {
     expect(crowdsecErrorKey('crowdsec_error')).toBe('crowdsecGuardStr.wlCrowdsecFailed')
     expect(crowdsecErrorKey(undefined)).toBe('crowdsecGuardStr.wlCrowdsecFailed')
     expect(crowdsecErrorKey(null)).toBe('crowdsecGuardStr.wlCrowdsecFailed')
+  })
+})
+
+/** 可以從外部決定何時成功或失敗的 Promise，用來模擬回應先後順序 */
+function deferred<T>() {
+  let resolve!: (v: T) => void
+  let reject!: (e: unknown) => void
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
+describe('只採用最後一次請求的結果', () => {
+  it('較早發出、較晚回來的成功回應不覆蓋新結果', async () => {
+    const latest = createLatest()
+    const applied: Outcome<string>[] = []
+    const first = deferred<string>()
+    const second = deferred<string>()
+    const p1 = latest(() => first.promise, (o) => applied.push(o))
+    const p2 = latest(() => second.promise, (o) => applied.push(o))
+    second.resolve('new')
+    expect(await p2).toBe(true)
+    first.resolve('old')
+    expect(await p1).toBe(false)
+    expect(applied).toEqual([{ ok: true, value: 'new' }])
+  })
+
+  it('新請求失敗時，較晚回來的舊成功回應也不覆蓋', async () => {
+    const latest = createLatest()
+    const applied: Outcome<string>[] = []
+    const first = deferred<string>()
+    const second = deferred<string>()
+    const p1 = latest(() => first.promise, (o) => applied.push(o))
+    const p2 = latest(() => second.promise, (o) => applied.push(o))
+    const boom = new Error('boom')
+    second.reject(boom)
+    await p2
+    first.resolve('old')
+    await p1
+    expect(applied).toEqual([{ ok: false, error: boom }])
+  })
+
+  it('較早請求的失敗晚到時也丟棄', async () => {
+    const latest = createLatest()
+    const applied: Outcome<string>[] = []
+    const first = deferred<string>()
+    const second = deferred<string>()
+    const p1 = latest(() => first.promise, (o) => applied.push(o))
+    const p2 = latest(() => second.promise, (o) => applied.push(o))
+    second.resolve('new')
+    await p2
+    first.reject(new Error('late'))
+    expect(await p1).toBe(false)
+    expect(applied).toEqual([{ ok: true, value: 'new' }])
+  })
+
+  it('依序完成的請求各自採用；請求本身同步丟例外也當成失敗', async () => {
+    const latest = createLatest()
+    const applied: Outcome<number>[] = []
+    await latest(() => Promise.resolve(1), (o) => applied.push(o))
+    await latest(() => Promise.resolve(2), (o) => applied.push(o))
+    const err = new Error('sync')
+    await latest<number>(
+      () => {
+        throw err
+      },
+      (o) => applied.push(o),
+    )
+    expect(applied).toEqual([
+      { ok: true, value: 1 },
+      { ok: true, value: 2 },
+      { ok: false, error: err },
+    ])
+  })
+
+  it('不同元件各自建立，互不影響', async () => {
+    const a = createLatest()
+    const b = createLatest()
+    const applied: string[] = []
+    const pa = a(() => Promise.resolve('a'), (o) => o.ok && applied.push(o.value))
+    const pb = b(() => Promise.resolve('b'), (o) => o.ok && applied.push(o.value))
+    await Promise.all([pa, pb])
+    expect(applied.sort()).toEqual(['a', 'b'])
+  })
+})
+
+describe('國家層每個站台的說明文字', () => {
+  it('沒有套用規則', () => {
+    expect(geoSiteKeys({ scope: '1', source: 'none', hasCountries: false, blocked: false })).toEqual(['crowdsecGuardStr.geoSourceNone'])
+  })
+  it('規則沒有國家：不做國家封鎖', () => {
+    expect(geoSiteKeys({ scope: '1', source: 'server', mode: 0, hasCountries: false, blocked: false })).toEqual([
+      'crowdsecGuardStr.geoSourceServer',
+      'crowdsecGuardStr.geoNoCountries',
+    ])
+  })
+  it('套用規則：來源、模式、結果', () => {
+    expect(geoSiteKeys({ scope: '1', source: 'global', mode: 0, hasCountries: true, blocked: true })).toEqual([
+      'crowdsecGuardStr.geoSourceGlobal',
+      'crowdsecGuardStr.geoModeAllow',
+      'crowdsecGuardStr.geoBlocked',
+    ])
+    expect(geoSiteKeys({ scope: '1', source: 'server', mode: 1, hasCountries: true, blocked: false })).toEqual([
+      'crowdsecGuardStr.geoSourceServer',
+      'crowdsecGuardStr.geoModeDeny',
+      'crowdsecGuardStr.geoAllowed',
+    ])
+  })
+  it('GeoIP 資料庫不可用：後端省略 blocked，顯示查不到國家', () => {
+    expect(geoSiteKeys({ scope: '1', source: 'global', mode: 0, hasCountries: true })).toEqual([
+      'crowdsecGuardStr.geoSourceGlobal',
+      'crowdsecGuardStr.geoModeAllow',
+      'crowdsecGuardStr.geoUnknown',
+    ])
   })
 })

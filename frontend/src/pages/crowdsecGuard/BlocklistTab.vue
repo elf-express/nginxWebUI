@@ -5,7 +5,7 @@ import { SessionExpiredError } from '../../shared/http'
 import { t } from '../../shared/i18n'
 import { notifyError } from '../../shared/notify'
 import { banIp, fetchBans, unban, whitelistIp, type BansPage, type Decision } from './api'
-import { formatTime, sourceKeyOf, whitelistMessage } from './view'
+import { createLatest, formatTime, sourceKeyOf, whitelistMessage } from './view'
 
 const lookupIp = inject<(ip: string) => void>('lookupIp', () => {})
 const scope = ref<'local' | 'community'>('local')
@@ -27,19 +27,26 @@ const columns = [
   { title: t('crowdsecGuardStr.action'), key: 'action' },
 ]
 
+// 連續切換本機／社群、換頁、搜尋時，只採用最後一次請求的結果
+const latest = createLatest()
+
 async function load() {
   loading.value = true
   error.value = ''
-  try {
-    data.value = await fetchBans(scope.value, q.value, page.value, 20)
-  } catch (err) {
-    data.value = null
-    if (!(err instanceof SessionExpiredError)) {
-      error.value = err instanceof Error && err.message ? err.message : t('commonStr.errorInfo')
-    }
-  } finally {
-    loading.value = false
-  }
+  await latest(
+    () => fetchBans(scope.value, q.value, page.value, 20),
+    (o) => {
+      loading.value = false
+      if (o.ok) {
+        data.value = o.value
+        return
+      }
+      data.value = null
+      if (!(o.error instanceof SessionExpiredError)) {
+        error.value = o.error instanceof Error && o.error.message ? o.error.message : t('commonStr.errorInfo')
+      }
+    },
+  )
 }
 
 function onScope() {

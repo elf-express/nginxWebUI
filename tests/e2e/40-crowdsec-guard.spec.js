@@ -17,6 +17,20 @@ async function addList(page, type, name, ip) {
   await api(page, '/adminPage/denyAllow/addOver', { type, name, ip });
 }
 
+// 國家層逐站台計算：沒有啟用的 HTTP 站台時 nginx 不會執行國家封鎖，所以國家層的測試要先有一個站台，結束後刪掉
+async function withHttpServer(page, serverName, fn) {
+  const serverJson = JSON.stringify({ proxyType: 0, serverName, listen: '18990', enable: true, def: 0 });
+  await api(page, '/adminPage/server/addOver', { serverJson, serverParamJson: '[]', locationJson: '[]' });
+  const servers = await api(page, '/adminPage/crowdsecGuard/servers');
+  const created = servers.find((s) => s.name === serverName);
+  expect(created, JSON.stringify(servers)).toBeTruthy();
+  try {
+    await fn();
+  } finally {
+    await api(page, '/adminPage/server/del', { id: created.id });
+  }
+}
+
 test.describe('CrowdSec 防護頁', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
@@ -72,17 +86,25 @@ test.describe('CrowdSec 防護頁', () => {
   test('有層查不到結果且沒有任何層擋下：總結是警告，不是綠色「沒有被擋」', async ({ page }) => {
     // 測試環境沒有 GeoIP 資料庫，國家層查不到才是「無法完整判斷」的來源；
     // 沒設定 CrowdSec 不算（nginx 不載入 bouncer，結果是確定的），那個情況由 IpLookupServiceTest 驗證
-    await page.goto('/adminPage/crowdsecGuard#ip=203.0.113.21');
-    await expect(page.locator('.ip-layer[data-layer="geo"]')).toHaveAttribute('data-state', 'unknown');
-    await expect(page.locator('.ip-verdict')).toHaveAttribute('data-verdict', 'warning');
-    await expect(page.locator('.ip-verdict')).toContainText(/無法完整判斷|无法完整判断|cannot be fully determined/);
+    await withHttpServer(page, 'e385-geo-warn.test', async () => {
+      await page.goto('/adminPage/crowdsecGuard#ip=203.0.113.21');
+      await expect(page.locator('.ip-layer[data-layer="geo"]')).toHaveAttribute('data-state', 'unknown');
+      await expect(page.locator('.ip-verdict')).toHaveAttribute('data-verdict', 'warning');
+      await expect(page.locator('.ip-verdict')).toContainText(/無法完整判斷|无法完整判断|cannot be fully determined/);
+    });
   });
 
-  test('國家封鎖：測試環境沒有 GeoIP 資料庫時顯示查不到國家', async ({ page }) => {
+  test('國家封鎖：測試環境沒有 GeoIP 資料庫時顯示查不到國家，明細逐站台列出套用的規則', async ({ page }) => {
     // 預設種子是只允許 17 國的全域規則；E2E server 沒有 mmdb，國家判定的正確性由 IpLookupServiceTest 驗證，
     // 實機（有 mmdb）的被封鎖國家 IP 在步驟 5.4 的 Docker 驗證查一次
-    await page.goto('/adminPage/crowdsecGuard#ip=203.0.113.20');
-    await expect(page.locator('.ip-layer[data-layer="geo"]')).toHaveAttribute('data-state', 'unknown');
+    await withHttpServer(page, 'e385-geo.test', async () => {
+      await page.goto('/adminPage/crowdsecGuard#ip=203.0.113.20');
+      await expect(page.locator('.ip-layer[data-layer="geo"]')).toHaveAttribute('data-state', 'unknown');
+      const site = page.locator('.ip-geo-site', { hasText: 'e385-geo.test' });
+      await expect(site).toHaveAttribute('data-source', 'global');
+      await expect(site).toContainText(/全域規則|全局规则|Global rule/);
+      await expect(site).toContainText(/查不到國家|查不到国家|Country unknown/);
+    });
   });
 
   test('未設定 CrowdSec 時 CrowdSec 層顯示無法查詢', async ({ page }) => {
@@ -125,6 +147,95 @@ test.describe('CrowdSec 防護頁', () => {
     await expect(page.locator('.blocked .ant-table')).toBeVisible();
     // 站台下拉預設選「全部站台」，要看得到文字
     await expect(page.locator('.blocked-site')).toContainText(/全部站台|全部站点|All sites/);
+  });
+
+  test('連續查不同 IP：較早送出、較晚回來的結果不會蓋掉最後一次查詢', async ({ page }) => {
+    let release;
+    const gate = new Promise((r) => { release = r; });
+    await page.route('**/adminPage/crowdsecGuard/ipLookup**', async (route) => {
+      if (route.request().url().includes('203.0.113.61')) {
+        const res = await route.fetch();
+        await gate;
+        await route.fulfill({ response: res });
+      } else {
+        await route.continue();
+      }
+    });
+    // 查詢中的搜尋框不接受 Enter，第二次查詢改由網址 hash 觸發（與其他分頁的「查這個 IP」同一條路徑）
+    const first = page.waitForRequest((r) => r.url().includes('ipLookup') && r.url().includes('203.0.113.61'));
+    await page.goto('/adminPage/crowdsecGuard#ip=203.0.113.61');
+    await first;
+    await page.evaluate(() => { window.location.hash = '#ip=203.0.113.62'; });
+    await expect(page.locator('.ip-verdict')).toContainText('203.0.113.62');
+    // 最後一次查詢結束就結束 loading，不必等舊請求
+    await expect(page.locator('.ip-input .ant-btn-loading')).toHaveCount(0);
+    const late = page.waitForResponse((r) => r.url().includes('203.0.113.61'));
+    release();
+    await late;
+    await page.waitForTimeout(300);
+    await expect(page.locator('.ip-verdict')).toContainText('203.0.113.62');
+  });
+
+  test('最近被擋下的 IP：連續切換時間範圍時只顯示最後一次的結果', async ({ page }) => {
+    const body = (ip) => JSON.stringify({ success: true, status: '200', obj: {
+      rows: [{ ip, host: 'race.example.com', count: 1, lastTime: Date.now(), statuses: { 444: 1 } }],
+      hostSupported: true, truncated: false,
+    } });
+    let release;
+    const gate = new Promise((r) => { release = r; });
+    await page.route('**/adminPage/crowdsecGuard/blocked**', async (route) => {
+      const minutes = new URL(route.request().url()).searchParams.get('minutes');
+      if (minutes === '360') {
+        await gate;
+        await route.fulfill({ contentType: 'application/json', body: body('198.51.100.66') });
+      } else {
+        await route.fulfill({ contentType: 'application/json', body: body(minutes === '1440' ? '198.51.100.24' : '198.51.100.1') });
+      }
+    });
+    await page.goto('/adminPage/crowdsecGuard');
+    await expect(page.locator('.blocked .ant-table')).toContainText('198.51.100.1');
+    for (const label of [/6 (小時|小时|hours)/, /24 (小時|小时|hours)/]) {
+      await page.locator('.blocked-span').click();
+      await page.locator('.ant-select-item-option', { hasText: label }).click();
+    }
+    await expect(page.locator('.blocked .ant-table')).toContainText('198.51.100.24');
+    const late = page.waitForResponse((r) => r.url().includes('minutes=360'));
+    release();
+    await late;
+    await page.waitForTimeout(300);
+    await expect(page.locator('.blocked .ant-table')).toContainText('198.51.100.24');
+    await expect(page.locator('.blocked .ant-table')).not.toContainText('198.51.100.66');
+  });
+
+  test('封鎖名單：連續切換本機／社群時只顯示最後一次的結果', async ({ page }) => {
+    const body = (value) => JSON.stringify({ success: true, status: '200', obj: {
+      records: [{ id: value.length, type: 'ban', scope: 'Ip', value, origin: 'crowdsec', scenario: 'race', duration: '1h' }],
+      count: 1, createdAvailable: false,
+    } });
+    let release;
+    let localCalls = 0;
+    const gate = new Promise((r) => { release = r; });
+    await page.route('**/adminPage/crowdsecGuard/bans**', async (route) => {
+      const scope = new URL(route.request().url()).searchParams.get('scope');
+      if (scope === 'community') {
+        await gate;
+        await route.fulfill({ contentType: 'application/json', body: body('192.0.2.200') });
+      } else {
+        localCalls += 1;
+        await route.fulfill({ contentType: 'application/json', body: body(localCalls === 1 ? '192.0.2.1' : '192.0.2.22') });
+      }
+    });
+    await page.goto('/adminPage/crowdsecGuard#bans');
+    await expect(page.locator('.bans .ant-table')).toContainText('192.0.2.1');
+    await page.locator('.bans-scope').getByText(/社群名單|社区名单|Community/).click();
+    await page.locator('.bans-scope').getByText(/本機封鎖|本机封锁|Local/).click();
+    await expect(page.locator('.bans .ant-table')).toContainText('192.0.2.22');
+    const late = page.waitForResponse((r) => r.url().includes('scope=community'));
+    release();
+    await late;
+    await page.waitForTimeout(300);
+    await expect(page.locator('.bans .ant-table')).toContainText('192.0.2.22');
+    await expect(page.locator('.bans .ant-table')).not.toContainText('192.0.2.200');
   });
 
   test('封鎖名單：未設定 CrowdSec 時顯示錯誤與連線設定連結', async ({ page }) => {

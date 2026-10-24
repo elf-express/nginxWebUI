@@ -4,11 +4,21 @@ const BASE = '/adminPage/crowdsecGuard'
 
 // 後端序列化會省略值為 null 的欄位，所以可能為 null 的欄位一律可選，判斷用 == null 或 ??
 
+/** 國家層一個啟用的 HTTP 站台：scope 是站台 id，source 是實際套用的規則來源 */
+export interface GeoSite {
+  scope: string
+  source: 'server' | 'global' | 'none'
+  mode?: number | null
+  hasCountries: boolean
+  /** GeoIP 資料庫不可用、判斷不了時省略 */
+  blocked?: boolean | null
+}
+
 export interface Layer {
   layer: 'allowlist' | 'geo' | 'denylist' | 'crowdsec'
   state: string
   lists: string[]
-  details: { scope: string; mode: number; blocked: boolean }[]
+  details: GeoSite[]
   decisions: Decision[]
   reason?: string | null
 }

@@ -1,4 +1,4 @@
-import type { WhitelistOutcome } from './api'
+import type { GeoSite, WhitelistOutcome } from './api'
 
 export type TabKey = 'ip' | 'bans' | 'conn'
 export const TABS: TabKey[] = ['ip', 'bans', 'conn']
@@ -108,6 +108,50 @@ export function whitelistMessage(o: WhitelistOutcome, tr: Translate): { type: 's
   }
   parts.push(tr('crowdsecGuardStr.wlNeedApply'))
   return { type: o.crowdsec === 'failed' || conflicts.length > 0 ? 'warning' : 'success', text: parts.join(' ') }
+}
+
+export type Outcome<T> = { ok: true; value: T } | { ok: false; error: unknown }
+
+/**
+ * 同一個畫面連續發請求時只採用最後一次的結果。回傳的函式每呼叫一次就是一次新請求：
+ * 只有在這段期間沒有更新的請求時才呼叫 apply（成功或失敗都一樣），否則丟棄並回 false。
+ * loading 之類的狀態放在 apply 裡結束，就只會由最後一次請求結束。
+ */
+export function createLatest() {
+  let seq = 0
+  return async function latest<T>(request: () => Promise<T>, apply: (o: Outcome<T>) => void): Promise<boolean> {
+    const mine = ++seq
+    let outcome: Outcome<T>
+    try {
+      outcome = { ok: true, value: await request() }
+    } catch (error) {
+      outcome = { ok: false, error }
+    }
+    if (mine !== seq) {
+      return false
+    }
+    apply(outcome)
+    return true
+  }
+}
+
+const GEO_SOURCE: Record<GeoSite['source'], string> = {
+  server: 'crowdsecGuardStr.geoSourceServer',
+  global: 'crowdsecGuardStr.geoSourceGlobal',
+  none: 'crowdsecGuardStr.geoSourceNone',
+}
+
+/** 國家層一個站台的說明：套用來源、模式、是否封鎖；blocked 省略表示 GeoIP 資料庫不可用、判斷不了 */
+export function geoSiteKeys(d: GeoSite): string[] {
+  if (d.source === 'none') {
+    return [GEO_SOURCE.none]
+  }
+  if (!d.hasCountries) {
+    return [GEO_SOURCE[d.source], 'crowdsecGuardStr.geoNoCountries']
+  }
+  const mode = d.mode === 0 ? 'crowdsecGuardStr.geoModeAllow' : 'crowdsecGuardStr.geoModeDeny'
+  const result = d.blocked == null ? 'crowdsecGuardStr.geoUnknown' : d.blocked ? 'crowdsecGuardStr.geoBlocked' : 'crowdsecGuardStr.geoAllowed'
+  return [GEO_SOURCE[d.source], mode, result]
 }
 
 export function formatTime(ms: number | null | undefined): string {

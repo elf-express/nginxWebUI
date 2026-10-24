@@ -5,7 +5,7 @@ import { t } from '../../shared/i18n'
 import { notifyError } from '../../shared/notify'
 import { lookupIp, whitelistIp, type LookupResult } from './api'
 import BlockedIps from './BlockedIps.vue'
-import { blockedByKey, layerStateKey, sourceKeyOf, verdictType, whitelistMessage } from './view'
+import { blockedByKey, createLatest, geoSiteKeys, layerStateKey, sourceKeyOf, verdictType, whitelistMessage } from './view'
 
 const ip = defineModel<string>('ip', { default: '' })
 // 從空字串開始：分頁第一次掛載時 ip 可能已有值（網址 hash 或其他分頁帶來），要讓 watch 立刻查
@@ -31,6 +31,9 @@ function color(layer: string, state: string): string {
   return BLOCKED_STATES.includes(state) ? 'error' : 'default'
 }
 
+// 連續查不同 IP 時，只採用最後一次查詢的結果
+const latest = createLatest()
+
 async function run(value: string) {
   const target = value.trim()
   if (!target) {
@@ -39,23 +42,28 @@ async function run(value: string) {
   input.value = target
   ip.value = target
   loading.value = true
-  try {
-    data.value = await lookupIp(target)
-  } catch (err) {
-    data.value = null
-    notifyError(err)
-  } finally {
-    loading.value = false
-  }
+  await latest(
+    () => lookupIp(target),
+    (o) => {
+      loading.value = false
+      if (o.ok) {
+        data.value = o.value
+      } else {
+        data.value = null
+        notifyError(o.error)
+      }
+    },
+  )
 }
 
 async function addWhitelist() {
   if (!data.value) {
     return
   }
+  const target = data.value.result.ip
   whitelisting.value = true
   try {
-    const o = await whitelistIp(data.value.result.ip)
+    const o = await whitelistIp(target)
     const m = whitelistMessage(o, t)
     // 警告訊息較長（失敗原因、黑名單衝突），多停留一會兒
     if (m.type === 'warning') {
@@ -63,7 +71,10 @@ async function addWhitelist() {
     } else {
       message.success(m.text)
     }
-    await run(data.value.result.ip)
+    // 加白名單期間已改查別的 IP 時不重查，免得舊 IP 的結果蓋掉新的查詢
+    if (ip.value === target) {
+      await run(target)
+    }
   } catch (err) {
     notifyError(err)
   } finally {
@@ -71,8 +82,9 @@ async function addWhitelist() {
   }
 }
 
-function geoScope(scope: string): string {
-  return scope === 'global' ? t('crowdsecGuardStr.allSites') : (data.value?.serverNames[scope] ?? scope)
+/** 國家層明細的站台名稱：serverNames 沒有或是空字串時顯示站台 id */
+function siteName(scope: string): string {
+  return data.value?.serverNames[scope] || scope
 }
 
 watch(
@@ -130,9 +142,8 @@ watch(
             <span v-if="l.reason" class="ip-reason">{{ t(`crowdsecGuardStr.reason_${l.reason.replace(/\./g, '_')}`) }}</span>
           </Space>
           <ul v-if="l.layer === 'geo' && l.details?.length" class="ip-detail">
-            <li v-for="d in l.details" :key="d.scope">
-              {{ geoScope(d.scope) }}：{{ t(d.mode === 0 ? 'crowdsecGuardStr.geoModeAllow' : 'crowdsecGuardStr.geoModeDeny') }}，
-              {{ t(d.blocked ? 'crowdsecGuardStr.geoBlocked' : 'crowdsecGuardStr.geoAllowed') }}
+            <li v-for="d in l.details" :key="d.scope" class="ip-geo-site" :data-source="d.source">
+              {{ siteName(d.scope) }}：{{ geoSiteKeys(d).map((k) => t(k)).join('，') }}
             </li>
           </ul>
           <ul v-if="l.decisions?.length" class="ip-detail">

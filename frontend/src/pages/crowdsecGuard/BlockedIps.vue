@@ -4,7 +4,7 @@ import { Alert, Button, Select, Space, Table, Tag } from 'ant-design-vue'
 import { t } from '../../shared/i18n'
 import { notifyError } from '../../shared/notify'
 import { fetchBlocked, fetchServers, type BlockedResult, type BlockedRow } from './api'
-import { formatTime, reasonKeysOf } from './view'
+import { createLatest, formatTime, reasonKeysOf } from './view'
 
 const emit = defineEmits<{ lookup: [ip: string] }>()
 const servers = ref<{ id: string; name: string }[]>([])
@@ -23,15 +23,22 @@ const columns = [
   { title: t('crowdsecGuardStr.action'), key: 'action' },
 ]
 
+// 連續切換站台或時間範圍時，只採用最後一次請求的結果
+const latest = createLatest()
+
 async function load() {
   loading.value = true
-  try {
-    data.value = await fetchBlocked(serverId.value, minutes.value)
-  } catch (err) {
-    notifyError(err)
-  } finally {
-    loading.value = false
-  }
+  await latest(
+    () => fetchBlocked(serverId.value, minutes.value),
+    (o) => {
+      loading.value = false
+      if (o.ok) {
+        data.value = o.value
+      } else {
+        notifyError(o.error)
+      }
+    },
+  )
 }
 
 onMounted(async () => {
