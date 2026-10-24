@@ -237,8 +237,12 @@ public class WafEventSyncService {
 		if (value == null || !value.trim().matches("\\d{1,3}")) {
 			return null;
 		}
-		int days = Integer.parseInt(value.trim());
-		return days >= MIN_RETENTION_DAYS && days <= MAX_RETENTION_DAYS ? days : null;
+		try {
+			int days = Integer.parseInt(value.trim());
+			return days >= MIN_RETENTION_DAYS && days <= MAX_RETENTION_DAYS ? days : null;
+		} catch (NumberFormatException e) {
+			return null;
+		}
 	}
 
 	/** 可以安全寫進 log 的描述 */
