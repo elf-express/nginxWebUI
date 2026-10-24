@@ -170,7 +170,8 @@ function _M.challenge(ip)
   if ngx.var.scheme ~= "https" then
     return send_page(429, pages.http)
   end
-  if not policy.is_page_request(ngx.req.get_method(), ngx.var.http_accept) then
+  if (ngx.var.http_x_requested_with or ""):lower() == "xmlhttprequest"
+      or not policy.is_page_request(ngx.req.get_method(), ngx.var.http_accept) then
     return send_too_many()
   end
   local path = policy.safe_return(ngx.var.request_uri)
