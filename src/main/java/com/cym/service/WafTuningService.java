@@ -1,11 +1,13 @@
 package com.cym.service;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -339,10 +341,35 @@ public class WafTuningService {
 		writeAtomic(dir.resolve("request"), requestId + "\n");
 	}
 
+	/** 暫存檔用隨機檔名建立（不跟隨共用目錄裡預先放的檔案或 symlink），rename 只取代目標本身，不會寫進 symlink 指向的檔案 */
 	private static void writeAtomic(Path target, String content) throws IOException {
-		Path tmp = target.resolveSibling("." + target.getFileName() + ".tmp");
-		Files.writeString(tmp, content, StandardCharsets.UTF_8);
-		Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+		Path tmp = Files.createTempFile(target.toAbsolutePath().getParent(), "." + target.getFileName() + ".", ".tmp");
+		try {
+			Files.writeString(tmp, content, StandardCharsets.UTF_8);
+			try {
+				Files.setPosixFilePermissions(tmp, PosixFilePermissions.fromString("rw-r--r--"));
+			} catch (UnsupportedOperationException e) {
+				// 非 POSIX 檔案系統沒有權限位元
+			}
+			Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+		} catch (IOException | RuntimeException e) {
+			Files.deleteIfExists(tmp);
+			throw e;
+		}
+	}
+
+	/** 共用目錄裡的檔案可能被另一個容器換成 symlink：只讀一般檔案，symlink、不存在或讀不到都回 null */
+	static String readRegular(Path file) {
+		try {
+			if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
+				return null;
+			}
+			try (InputStream in = Files.newInputStream(file, LinkOption.NOFOLLOW_LINKS)) {
+				return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+			}
+		} catch (IOException e) {
+			return null;
+		}
 	}
 
 	public Map<String, Hosts> hostsByServer() {
@@ -379,7 +406,7 @@ public class WafTuningService {
 		}
 		String yaml = render(cat, sqlHelper.findAll(WafRuleSetting.class), hosts);
 		Path custom = dir().resolve("custom.yaml");
-		String before = Files.isRegularFile(custom) ? Files.readString(custom, StandardCharsets.UTF_8) : "";
+		String before = StrUtil.nullToEmpty(readRegular(custom));
 		String id = String.valueOf(nextRequestId(System.currentTimeMillis(), readRequest()));
 		writeApply(dir(), yaml, id);
 		StringBuilder summary = new StringBuilder("[CrowdSec WAF] apply " + id + ":");
@@ -404,12 +431,7 @@ public class WafTuningService {
 	}
 
 	private String readRequest() {
-		Path file = dir().resolve("request");
-		try {
-			return Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) ? Files.readString(file, StandardCharsets.UTF_8) : null;
-		} catch (IOException e) {
-			return null;
-		}
+		return readRegular(dir().resolve("request"));
 	}
 
 	/** 資料庫設定產生的 YAML 與 CrowdSec 目前生效的設定是否一致；沒有規則目錄時視為一致 */
@@ -418,15 +440,7 @@ public class WafTuningService {
 		if (cat == null) {
 			return true;
 		}
-		String lastGood = null;
-		Path file = dir().resolve("last-good.yaml");
-		try {
-			if (Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
-				lastGood = Files.readString(file, StandardCharsets.UTF_8);
-			}
-		} catch (IOException e) {
-			lastGood = null;
-		}
+		String lastGood = readRegular(dir().resolve("last-good.yaml"));
 		return inSync(cat, sqlHelper.findAll(WafRuleSetting.class), hostsByServer(), lastGood);
 	}
 
@@ -445,15 +459,11 @@ public class WafTuningService {
 	public Map<String, Object> status(String requestId) {
 		Path d = dir();
 		String id = requestId;
-		try {
-			if (StrUtil.isBlank(id) && Files.isRegularFile(d.resolve("request"))) {
-				id = Files.readString(d.resolve("request"), StandardCharsets.UTF_8).trim();
-			}
-			String result = Files.isRegularFile(d.resolve("result.json")) ? Files.readString(d.resolve("result.json"), StandardCharsets.UTF_8) : null;
-			return statusOf(StrUtil.blankToDefault(id, null), result);
-		} catch (IOException e) {
-			return statusOf(id, null);
+		if (StrUtil.isBlank(id)) {
+			String request = readRegular(d.resolve("request"));
+			id = request == null ? null : request.trim();
 		}
+		return statusOf(StrUtil.blankToDefault(id, null), readRegular(d.resolve("result.json")));
 	}
 
 	static Map<String, Object> statusOf(String requestId, String resultJson) {

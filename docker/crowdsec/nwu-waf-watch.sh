@@ -11,7 +11,8 @@
 #   startup-applying set while last-good.yaml is reloaded at start; if crowdsec dies then, last-good.yaml is dropped
 # A config is only reloaded after `crowdsec -t` accepts it; otherwise the previous one is restored.
 # Files in /nwu-waf are written through a temp file in the same directory plus mv -f, so a symlink planted there is replaced
-# instead of followed; symlinks are never read (a symlinked request/custom.yaml fails that apply, other ones are deleted).
+# instead of followed; symlinks and other non-regular files are never read (such a request/custom.yaml fails that apply,
+# other ones are deleted).
 set -u
 dir=/nwu-waf
 active=/etc/crowdsec/appsec-configs/nwu-custom.yaml
@@ -20,11 +21,55 @@ poll="${NWU_WAF_POLL:-3}"
 
 log() { echo "nwu-waf: $*" >&2; }
 
-# put <dest> : stdin -> temp file next to <dest> -> mv -f onto <dest>
+# Files the other container can write are never read in place: snap copies them into a private mktemp directory and the
+# checks and reads use the copy, so swapping the file for a symlink or a FIFO between a check and a read has no effect.
+# The copy is made by GNU cp (/bin/cp, coreutils is installed in the image): with -P it opens the source with O_NOFOLLOW
+# (busybox cp does not), and `timeout` keeps a FIFO swapped in at the last moment from blocking the watcher.
+CP=/bin/cp
+TIMEOUT=/usr/bin/timeout
+DD=/bin/dd
+max_size=1048576
+snapdir=""
+SNAP=""
+SNAP_WHY=""
+trap 'rm -rf "$snapdir"' EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
+
+# snap <file> : 0 = $SNAP is a regular copy of <file> (remove it after use); 1 = nothing to read (missing, mktemp failed);
+# 2 = <file> is a symlink; 3 = <file> is not a regular file, is larger than 1 MiB or could not be copied. For 2 and 3 $SNAP_WHY says why
+# and nothing is left in $SNAP.
+snap() {
+  if [ -z "$snapdir" ]; then
+    snapdir="$(mktemp -d /tmp/nwu-snap.XXXXXX)" || { snapdir=""; log "mktemp failed, not reading $1"; return 1; }
+    SNAP="$snapdir/copy"
+  fi
+  rm -f "$SNAP"
+  SNAP_WHY=""
+  if [ -L "$1" ]; then SNAP_WHY="a symlink"; return 2; fi
+  [ -e "$1" ] || return 1
+  if [ ! -f "$1" ]; then SNAP_WHY="not a regular file"; return 3; fi
+  # ulimit -f (1024-byte blocks) caps the copy a little above 1 MiB, so a device swapped in at the last moment cannot fill /tmp
+  if ! ( ulimit -f 1025; exec "$TIMEOUT" 10 "$CP" -P -- "$1" "$SNAP" ) 2>/dev/null; then
+    rm -f "$SNAP"
+    SNAP_WHY="not a regular file (or larger than 1 MiB)"
+    return 3
+  fi
+  if [ -L "$SNAP" ]; then rm -f "$SNAP"; SNAP_WHY="a symlink"; return 2; fi
+  if [ ! -f "$SNAP" ]; then rm -f "$SNAP"; SNAP_WHY="not a regular file"; return 3; fi
+  if [ "$(wc -c < "$SNAP")" -gt "$max_size" ]; then rm -f "$SNAP"; SNAP_WHY="not a regular file (larger than 1 MiB)"; return 3; fi
+  return 0
+}
+
+# put <dest> : stdin -> new temp file next to <dest> -> mv -f onto <dest>. The temp file is created by GNU dd with
+# conv=excl (O_CREAT|O_EXCL: never an existing file or symlink) and oflag=nofollow, with umask 022 so it is born 644 and
+# needs no chmod (chmod would follow a symlink swapped in after the file was created).
 put() {
   local t
-  t="$(mktemp "$(dirname "$1")/.nwu.XXXXXX")" || return 1
-  if cat > "$t" && chmod 644 "$t" && mv -f "$t" "$1"; then return 0; fi
+  t="$(mktemp -u "$(dirname "$1")/.nwu.XXXXXX")" || return 1
+  if ( umask 022; "$TIMEOUT" 10 "$DD" of="$t" conv=excl oflag=nofollow status=none ) && [ -f "$t" ] && [ ! -L "$t" ] && mv -f "$t" "$1"; then
+    return 0
+  fi
   rm -f "$t"
   return 1
 }
@@ -104,31 +149,57 @@ if [ -f "$dir/startup-applying" ]; then
   mv -f "$dir/last-good.yaml" "$dir/last-good.broken.yaml" 2>/dev/null || true
   rm -f "$dir/startup-applying"
 fi
-if [ -f "$dir/applying" ]; then
-  id="$(tr -d '[:space:]' < "$dir/applying")"
-  rm -f "$dir/applying"
+snap "$dir/applying"
+rc=$?
+if [ "$rc" -eq 0 ]; then
+  id="$(tr -d '[:space:]' < "$SNAP")"
+  rm -f "$SNAP" "$dir/applying"
   write_result "$id" failed "crowdsec could not reload this config and restarted; the previous settings are back in use"
+elif [ "$rc" -ge 2 ]; then
+  rm -f "$dir/applying"
+  log "applying is $SNAP_WHY, removed"
 fi
-if [ -f "$dir/last-good.yaml" ] && ! cmp -s "$dir/last-good.yaml" "$active"; then
-  apply "$dir/last-good.yaml" "" || log "last-good.yaml rejected, keeping the default config"
+snap "$dir/last-good.yaml"
+rc=$?
+if [ "$rc" -eq 0 ]; then
+  if ! cmp -s "$SNAP" "$active"; then
+    apply "$SNAP" "" || log "last-good.yaml rejected, keeping the default config"
+  fi
+  rm -f "$SNAP"
+elif [ "$rc" -ge 2 ]; then
+  rm -f "$dir/last-good.yaml"
+  log "last-good.yaml is $SNAP_WHY, removed"
 fi
 while true; do
-  drop_link "$dir/processed"
-  if [ -L "$dir/request" ]; then
+  snap "$dir/request"
+  rc=$?
+  if [ "$rc" -ge 2 ]; then
     rm -f "$dir/request"
-    log "request is a symlink, refused"
-    write_result symlink failed "request is a symlink, refused"
-  elif [ -f "$dir/request" ]; then
-    id="$(tr -d '[:space:]' < "$dir/request")"
-    done_id="$(tr -d '[:space:]' < "$dir/processed" 2>/dev/null || true)"
+    log "request is $SNAP_WHY, refused"
+    write_result refused failed "request is $SNAP_WHY, refused"
+  elif [ "$rc" -eq 0 ]; then
+    id="$(tr -d '[:space:]' < "$SNAP")"
+    rm -f "$SNAP"
+    done_id=""
+    snap "$dir/processed"
+    rc=$?
+    if [ "$rc" -eq 0 ]; then
+      done_id="$(tr -d '[:space:]' < "$SNAP")"
+      rm -f "$SNAP"
+    elif [ "$rc" -ge 2 ]; then
+      rm -f "$dir/processed"
+      log "processed is $SNAP_WHY, removed"
+    fi
     if [ -n "$id" ] && [ "$id" != "$done_id" ]; then
-      if [ -L "$dir/custom.yaml" ]; then
+      snap "$dir/custom.yaml"
+      rc=$?
+      if [ "$rc" -ge 2 ]; then
         rm -f "$dir/custom.yaml"
-        log "custom.yaml is a symlink, refused"
-        write_result "$id" failed "custom.yaml is a symlink, refused"
-      elif [ -f "$dir/custom.yaml" ]; then
-        cp -f "$dir/custom.yaml" /tmp/nwu-new.yaml
-        apply /tmp/nwu-new.yaml "$id" || true
+        log "custom.yaml is $SNAP_WHY, refused"
+        write_result "$id" failed "custom.yaml is $SNAP_WHY, refused"
+      elif [ "$rc" -eq 0 ]; then
+        apply "$SNAP" "$id" || true
+        rm -f "$SNAP"
       fi
     fi
   fi

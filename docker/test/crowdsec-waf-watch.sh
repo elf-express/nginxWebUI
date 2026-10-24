@@ -9,6 +9,11 @@
 #      in the message, the active config unchanged
 #   7. result.json replaced by a symlink to /tmp/nwu-victim, then a valid apply -> /tmp/nwu-victim untouched, result.json is
 #      a regular file with status ok
+#   8. request replaced by a FIFO + a new custom.yaml -> the watcher does not hang (result failed, not a regular file),
+#      and a regular request + valid custom.yaml afterwards still gets result ok
+#   9. the watcher copies with GNU cp (/bin/cp is coreutils, O_NOFOLLOW with -P) and GNU timeout
+#  10. request replaced by a character device (/dev/zero) -> refused, no file over 2 MiB appears in /tmp, and a regular
+#      request + valid custom.yaml afterwards still gets result ok
 # Usage: sh docker/test/crowdsec-waf-watch.sh <nginxwebui-crowdsec image>
 set -u
 export MSYS_NO_PATHCONV=1
@@ -107,6 +112,36 @@ if [ "$s7" = ok ] && [ "$victim" = untouched ] && x 'test -f /nwu-waf/result.jso
   pass 7 "symlinked result.json replaced, not followed (victim '$victim', apply $s7)"
 else
   fail 7 "status '$s7', victim '$victim'"
+fi
+
+x 'rm -f /nwu-waf/request /nwu-waf/custom.yaml; mkfifo /nwu-waf/request; cp /nwu/nwu-custom.default.yaml /nwu-waf/custom.yaml'
+s8a="$(wait_result refused)"
+msg8="$(x 'cat /nwu-waf/result.json' 2>/dev/null)"
+x 'rm -f /nwu-waf/request; sed "s#^outofband_rules:#on_load:\n - apply:\n   - RemoveInBandRuleByName(\"crowdsecurity/vpatch-env-access\")\noutofband_rules:#" /nwu/nwu-custom.default.yaml > /nwu-waf/custom.yaml && echo 1008 > /nwu-waf/request'
+s8="$(wait_result 1008)"
+if [ "$s8a" = failed ] && echo "$msg8" | grep -q 'not a regular file' && [ "$s8" = ok ]; then
+  pass 8 "FIFO request refused without hanging ($(echo "$msg8" | head -c 120)), next apply $s8"
+else
+  fail 8 "FIFO: status '$s8a', result '$msg8', next apply '$s8'"
+fi
+
+cpv="$(x '/bin/cp --version | head -n 1; /usr/bin/timeout --version | head -n 1' 2>&1)"
+if [ "$(echo "$cpv" | grep -c coreutils)" -eq 2 ]; then
+  pass 9 "GNU cp and timeout ($(echo "$cpv" | head -n 1))"
+else
+  fail 9 "cp/timeout versions: $cpv"
+fi
+
+x 'rm -f /nwu-waf/result.json /nwu-waf/request; mknod /nwu-waf/request c 1 5'
+s10a="$(wait_result refused)"
+msg10="$(x 'cat /nwu-waf/result.json' 2>/dev/null)"
+big10="$(x 'find /tmp -type f -size +2048k 2>/dev/null' | head -n 3)"
+x 'rm -f /nwu-waf/request; sed "s#^outofband_rules:#on_load:\n - apply:\n   - RemoveInBandRuleByName(\"crowdsecurity/vpatch-git-config\")\noutofband_rules:#" /nwu/nwu-custom.default.yaml > /nwu-waf/custom.yaml && echo 1010 > /nwu-waf/request'
+s10="$(wait_result 1010)"
+if [ "$s10a" = failed ] && echo "$msg10" | grep -q 'not a regular file' && [ -z "$big10" ] && [ "$s10" = ok ]; then
+  pass 10 "character device request refused, nothing large in /tmp ($(echo "$msg10" | head -c 120)), next apply $s10"
+else
+  fail 10 "char device: status '$s10a', result '$msg10', large files '$big10', next apply '$s10'"
 fi
 
 echo "== $PASS_N passed, $FAIL_N failed"

@@ -47,6 +47,10 @@ COPY abuseipdb.yaml /etc/crowdsec/notifications/abuseipdb.yaml
 # WAF rule tuning (E-395): one custom appsec-config replaces the two stock ones (same content until the admin
 # changes something), the rule catalog is exported here so it exists offline, and a watcher applies new configs.
 COPY nwu-custom.yaml /nwu/nwu-custom.default.yaml
+# GNU coreutils: the watcher copies files from the shared volume with /bin/cp -P, which (unlike busybox cp) opens the
+# source with O_NOFOLLOW, and with /usr/bin/timeout; busybox cp would follow a symlink swapped in at the last moment.
+# Alpine installs GNU cp at /bin/cp (replacing the busybox applet), not /usr/bin/cp.
+RUN apk add --no-cache coreutils     && /bin/cp --version | grep -q coreutils     && /usr/bin/timeout --version | grep -q coreutils
 COPY nwu-waf-catalog.sh nwu-waf-watch.sh /nwu/
 RUN set -eux; \
     chmod 755 /nwu/nwu-waf-catalog.sh /nwu/nwu-waf-watch.sh; \

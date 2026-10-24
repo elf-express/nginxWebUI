@@ -2,13 +2,16 @@ package com.cym.service;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -247,6 +250,64 @@ class WafTuningServiceTest {
 		assertEquals(1, logs.size());
 		assertEquals("admin", logs.get(0).getAdminName());
 		assertTrue(logs.get(0).getAfterConf().startsWith("[CrowdSec WAF] apply " + id), logs.get(0).getAfterConf());
+	}
+
+	/** 建 symlink；沒有權限（例如 Windows 未開啟開發人員模式）或檔案系統不支援時跳過測試 */
+	static void symlink(Path link, Path target) {
+		try {
+			Files.createSymbolicLink(link, target);
+		} catch (IOException | UnsupportedOperationException | SecurityException e) {
+			Assumptions.assumeTrue(false, "cannot create symlinks here: " + e);
+		}
+	}
+
+	@Test
+	void applyReplacesSymlinksInTheSharedDirectoryInsteadOfFollowingThem(@TempDir Path home) throws Exception {
+		Env env = new Env(home);
+		env.writeCatalog();
+		Path outside = Files.createDirectories(home.resolve("outside"));
+		Path victimYaml = Files.writeString(outside.resolve("custom.yaml"), "SECRET-YAML");
+		Path victimTmp = Files.writeString(outside.resolve("tmp"), "SECRET-TMP");
+		Path victimRequest = Files.writeString(outside.resolve("request"), "99");
+		symlink(env.wafDir.resolve("custom.yaml"), victimYaml);
+		symlink(env.wafDir.resolve(".custom.yaml.tmp"), victimTmp);
+		symlink(env.wafDir.resolve("request"), victimRequest);
+
+		String id = env.service.apply(List.of(s("rule", ENV, "log", "")), "admin");
+
+		assertEquals("SECRET-YAML", Files.readString(victimYaml));
+		assertEquals("SECRET-TMP", Files.readString(victimTmp));
+		assertEquals("99", Files.readString(victimRequest));
+		assertTrue(Files.isRegularFile(env.wafDir.resolve("custom.yaml"), LinkOption.NOFOLLOW_LINKS));
+		assertTrue(Files.isRegularFile(env.wafDir.resolve("request"), LinkOption.NOFOLLOW_LINKS));
+		assertTrue(Files.readString(env.wafDir.resolve("custom.yaml")).contains("SetRemediation"));
+		assertEquals(id + "\n", Files.readString(env.wafDir.resolve("request")));
+		OperateLog log = env.db.findAll(OperateLog.class).get(0);
+		assertFalse(log.getBeforeConf().contains("SECRET"), log.getBeforeConf());
+		assertEquals("", log.getBeforeConf());
+		try (var files = Files.list(env.wafDir)) {
+			assertEquals(Set.of("catalog", "custom.yaml", ".custom.yaml.tmp", "request"),
+					files.map(p -> p.getFileName().toString()).collect(java.util.stream.Collectors.toSet()), "no temp files left");
+		}
+	}
+
+	@Test
+	void symlinkedStatusFilesAreNotRead(@TempDir Path home) throws Exception {
+		Env env = new Env(home);
+		env.writeCatalog();
+		Path outside = Files.createDirectories(home.resolve("outside"));
+		Path result = Files.writeString(outside.resolve("result.json"), "{\"id\":\"5\",\"status\":\"ok\",\"message\":\"SECRET\"}");
+		Path request = Files.writeString(outside.resolve("request"), "5\n");
+		Path lastGood = Files.writeString(outside.resolve("last-good.yaml"), render(List.of(), Map.of()));
+		symlink(env.wafDir.resolve("result.json"), result);
+		symlink(env.wafDir.resolve("request"), request);
+		symlink(env.wafDir.resolve("last-good.yaml"), lastGood);
+
+		assertEquals("none", env.service.status(null).get("state"));
+		assertEquals("pending", env.service.status("5").get("state"));
+		assertNull(WafTuningService.readRegular(env.wafDir.resolve("request")));
+		env.service.apply(List.of(s("rule", ENV, "log", "")), "admin");
+		assertFalse(env.service.inSync(), "a symlinked last-good.yaml counts as no last-good");
 	}
 
 	@Test
