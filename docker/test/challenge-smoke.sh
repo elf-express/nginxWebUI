@@ -12,6 +12,10 @@
 #   external mode: page request -> 302 to the external URL with a valid request ticket; callback with a signed response
 #     ticket -> cookie; replayed / tampered / expired / other-IP / other-host tickets -> 429; POST verify -> 404;
 #     HTTP/1.0 without Host on a server without server_name (empty $host) -> 429
+#   bouncer loaded without the challenge, both the old conf before apply (no challenge in init) and fallback mode (the
+#     challenge init fails): reserved path page, POST verify, callback and unknown paths -> 303 back, altcha.js -> 404,
+#     the site never sees the reserved path; ban still 444, whitelist still reaches the site
+#   no redirect loop: return targets inside the reserved path (r=/.well-known/nwu-challenge/..., ticket path) -> "/"
 #   stream mode (stub /v1/decisions/stream, IP 127.0.0.7): captcha -> ban -> the expired captcha is deleted -> still
 #     banned (the image patches the bouncer to delete by decision type) -> the ban is deleted -> 200
 #   resty.sha256 inside nginx gives the known SHA-256 vector; no [error] lines besides the bouncer's captcha plugin
@@ -79,7 +83,12 @@ BOUNCING_ON_TYPE=all
 BAN_TEMPLATE_PATH=/var/lib/crowdsec/lua/templates/ban.html
 CONF
 
-write_conf() { # write_conf <challenge conf> [bouncer conf]
+write_conf() { # write_conf <challenge conf, or - for none> [bouncer conf]
+if [ "$1" = "-" ]; then
+  CHALLENGE="nil"
+else
+  CHALLENGE="{ conf = \"$1\", pages = \"$W/pages/\", altcha = \"/usr/local/lib/nginxwebui/html/altcha.js\" }"
+fi
 cat > $W/nginx.conf <<CONF
 load_module /usr/lib/nginx/modules/ndk_http_module.so;
 load_module /usr/lib/nginx/modules/ngx_http_lua_module.so;
@@ -94,7 +103,7 @@ http {
     init_by_lua_block {
         assert(require("nwu_crowdsec").init({ conf = "${2:-$W/bouncer.conf}", grace = 60, state = "$W/state.json",
             page = "/usr/local/lib/nginxwebui/html/protection-paused.html",
-            challenge = { conf = "$1", pages = "$W/pages/", altcha = "/usr/local/lib/nginxwebui/html/altcha.js" } }))
+            challenge = $CHALLENGE }))
     }
     init_worker_by_lua_block { require("nwu_crowdsec").init_worker() }
     server {
@@ -130,7 +139,7 @@ http {
         location / {
             set \$nwu_allowlist 0;
             access_by_lua_block { require("nwu_crowdsec").access() }
-            content_by_lua_block { ngx.print("ok") }
+            content_by_lua_block { ngx.log(ngx.NOTICE, "smoke backend got ", ngx.var.uri); ngx.print("ok") }
         }
     }
     server {
@@ -174,6 +183,13 @@ stop() {
 
 NOW=$(date +%s)
 sign() { $LUA /t/ticket_sign.lua "$@"; }
+# no_loop <label> <ip> : return targets inside the reserved path are never used (no redirect loop), always "/"
+no_loop() {
+  expect "$1: page r=reserved" "$(code $2 "$S/.well-known/nwu-challenge/?r=%2F.well-known%2Fnwu-challenge%2F")" "303 $S/"
+  expect "$1: page r=reserved?r=" "$(code $2 "$S/.well-known/nwu-challenge/?r=%2F.well-known%2Fnwu-challenge%2F%3Fr%3D%252Fa")" "303 $S/"
+  expect "$1: verify r=reserved" "$(code $2 -d altcha=Zm9v --data-urlencode "r=/.well-known/nwu-challenge/?r=/a" $S/.well-known/nwu-challenge/verify)" "303 $S/"
+  expect "$1: callback path=reserved" "$(code $2 "$S/.well-known/nwu-challenge/callback?token=$(sign $TICKET_SECRET resp $(($(date +%s) + 60)) $2 shop.test "/.well-known/nwu-challenge/?r=/a" "nl$1")")" "303 $S/"
+}
 
 # ---------- builtin mode ----------
 start $W/builtin.conf
@@ -223,6 +239,7 @@ expect "no decision: callback" "$(code 127.0.0.5 "$S/.well-known/nwu-challenge/c
 expect "no decision: bad callback" "$(code 127.0.0.5 "$S/.well-known/nwu-challenge/callback?token=x")" "303 $S/"
 expect "no decision: unknown reserved path" "$(code 127.0.0.5 $S/.well-known/nwu-challenge/x)" "303 $S/"
 expect "no decision: plain http page" "$(code 127.0.0.5 "$H/.well-known/nwu-challenge/?r=%2Fa")" "303 $H/a"
+no_loop "no decision" 127.0.0.5
 $C --interface 127.0.0.5 -D $W/bounce.h -o /dev/null "$S/.well-known/nwu-challenge/?r=%2Fa"
 head -1 $W/bounce.h | grep -q " 303 " && grep -qi "^cache-control: no-store" $W/bounce.h && ! grep -qi "^set-cookie:" $W/bounce.h \
   && pass "no decision: no-store, no cookie" || fail "no decision headers: $(cat $W/bounce.h)"
@@ -257,6 +274,50 @@ expect "request ticket is not a response" "$(code 127.0.0.3 "$S/.well-known/nwu-
 expect "verify in external mode" "$(code 127.0.0.3 -d altcha=x $S/.well-known/nwu-challenge/verify)" "404 "
 stop
 
+# ---------- bouncer loaded without the challenge ----------
+# Two states: the old bouncer conf before apply (init gets no challenge at all) and fallback mode (init gets a challenge
+# whose init fails, here external mode without TICKET_SECRET). The reserved path never reaches the site (which answers
+# 200 everywhere here): 303 back to a same-site path outside the reserved path, altcha.js 404; ban and allow unchanged.
+backend_hits() { grep -c "smoke backend got $1" $W/logs/error.log; }
+cat > $W/fallback.conf <<CONF
+MODE=external
+TTL_SECONDS=3600
+COOKIE_SECRET=$COOKIE_SECRET
+TICKET_SECRET=
+EXTERNAL_URL=https://verify.example/check
+CONF
+unloaded_checks() { # unloaded_checks <label>
+  n="$1"
+  B0=$(backend_hits /.well-known/nwu-challenge/); X0=$(backend_hits /x1); Y0=$(backend_hits /x2)
+  expect "$n: page" "$(code 127.0.0.5 "$S/.well-known/nwu-challenge/?r=%2Fcart%3Fid%3D1")" "303 $S/cart?id=1"
+  expect "$n: page, captcha IP" "$(code 127.0.0.3 -H "Accept: text/html" "$S/.well-known/nwu-challenge/?r=%2Fa")" "303 $S/a"
+  expect "$n: verify" "$(code 127.0.0.5 -d altcha=Zm9v --data-urlencode "r=/cart?id=1" $S/.well-known/nwu-challenge/verify)" \
+    "303 $S/cart?id=1"
+  expect "$n: callback" "$(code 127.0.0.5 "$S/.well-known/nwu-challenge/callback?token=$(sign $TICKET_SECRET resp $(($(date +%s) + 60)) 127.0.0.5 shop.test "/cart?id=1" "nc$n")")" \
+    "303 $S/cart?id=1"
+  expect "$n: unknown reserved path" "$(code 127.0.0.5 $S/.well-known/nwu-challenge/x)" "303 $S/"
+  expect "$n: plain http page" "$(code 127.0.0.5 "$H/.well-known/nwu-challenge/?r=%2Fa")" "303 $H/a"
+  expect "$n: altcha.js" "$(code 127.0.0.5 $S/.well-known/nwu-challenge/altcha.js)" "404 "
+  no_loop "$n" 127.0.0.5
+  $C --interface 127.0.0.5 -D $W/nc.h -o /dev/null "$S/.well-known/nwu-challenge/?r=%2Fa"
+  head -1 $W/nc.h | grep -q " 303 " && grep -qi "^cache-control: no-store" $W/nc.h && ! grep -qi "^set-cookie:" $W/nc.h \
+    && pass "$n: no-store, no cookie" || fail "$n headers: $(cat $W/nc.h)"
+  rc=0; $C --interface 127.0.0.2 -o /dev/null "$S/.well-known/nwu-challenge/" || rc=$?
+  case "$rc" in 52|56) pass "$n: banned IP on reserved path closed (curl exit $rc)" ;; *) fail "$n: banned IP curl exit $rc" ;; esac
+  expect "$n: whitelist decision passes the site" "$(code 127.0.0.4 $S/x1)" "200 "
+  expect "$n: site path" "$(code 127.0.0.5 $S/x2)" "200 "
+  expect "$n: site got the site paths" "$(($(backend_hits /x1) - X0))$(($(backend_hits /x2) - Y0))" "11"
+  expect "$n: site got no reserved path" "$(($(backend_hits /.well-known/nwu-challenge/) - B0))" "0"
+}
+start -
+unloaded_checks "old conf"
+stop
+start $W/fallback.conf
+grep -q "external mode needs TICKET_SECRET and EXTERNAL_URL" $W/logs/error.log && pass "fallback: challenge init failed" \
+  || fail "fallback: challenge init did not fail"
+unloaded_checks "fallback"
+stop
+
 # ---------- stream mode: the expiry of a captcha does not delete a later ban ----------
 X=127.0.0.7
 decision() { # decision <id> <type>
@@ -284,6 +345,7 @@ expect "stream: deleted ban" "$(st)" "200"
 stop
 
 grep -v "no file" $W/logs/error.log | grep -E "\[(error|emerg|alert|crit)\]" | grep -v "error loading captcha plugin" \
+  | grep -v "external mode needs TICKET_SECRET and EXTERNAL_URL" \
   && fail "errors in nginx error.log" || pass "no unexpected errors in error.log"
 echo "challenge smoke: $PASS_N PASS, $FAIL_N FAIL"
 [ "$FAIL_N" = "0" ]

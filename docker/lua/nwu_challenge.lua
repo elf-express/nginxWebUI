@@ -1,7 +1,7 @@
 -- nwu challenge: serves the reserved path /.well-known/nwu-challenge/ and decides what a client with a
 -- CrowdSec captcha decision gets. Used by nwu_crowdsec when its init opts carry a challenge table.
 --   init(opts)  opts = { conf = <challenge conf>, pages = <dir of generated pages, ends with />, altcha = <altcha.js> }
---   enabled(), has_valid_cookie(ip), challenge(ip), handle(ip, captcha)
+--   enabled(), has_valid_cookie(ip), challenge(ip), handle(ip, captcha), handle_unloaded() (works without init)
 -- A client without a captcha decision gets only altcha.js on the reserved path; everything else is a 303 back to a
 -- same-site path, so a third-party page cannot make visitors fail the challenge.
 -- Builtin mode: ALTCHA proof of work (SHA-256) on the reserved path, POST verify issues the nwu_pass cookie.
@@ -238,6 +238,7 @@ local function post_args()
 end
 
 -- A client without a captcha decision on the reserved path: no challenge, no check, no cookie, back to a same-site path.
+-- Needs no init: nwu_crowdsec also uses it (handle_unloaded) while the challenge is not loaded.
 local function bounce(route)
   local r, token
   if route == "page" then
@@ -250,6 +251,17 @@ local function bounce(route)
   end
   ngx.header["Cache-Control"] = "no-store"
   return ngx.redirect(policy.bounce_target(route, r, token), 303)
+end
+
+-- The reserved path while the challenge is not loaded (old bouncer conf before apply, fallback mode): answered here
+-- and never handed to the site, so a site that answers 200 everywhere cannot have it counted as a failed challenge.
+-- altcha.js is not served.
+function _M.handle_unloaded()
+  local route = policy.reserved_route(ngx.req.get_method(), ngx.var.uri)
+  if route == "altcha" then
+    return ngx.exit(ngx.HTTP_NOT_FOUND)
+  end
+  return bounce(route)
 end
 
 -- Every request on the reserved path from a client that is not allowlisted and not banned.

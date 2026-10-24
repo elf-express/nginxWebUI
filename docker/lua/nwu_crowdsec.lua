@@ -5,7 +5,8 @@
 -- Decisions: IP ban -> ngx.exit(444); captcha -> nwu_challenge; CrowdSec whitelist -> pass everything;
 -- AppSec block -> ngx.exit(403); CrowdSec unreachable longer than grace -> 503 page.
 -- Allowlisted clients ($nwu_allowlist = "1") bypass everything. Banned clients get 444 on the reserved path too;
--- clients without a decision are only redirected back from it.
+-- clients without a decision are only redirected back from it. Without a loaded challenge the reserved path is still
+-- answered here (303 back, altcha.js 404), never by the site.
 local policy = require "nwu_crowdsec_policy"
 local challenge_policy = require "nwu_challenge_policy"
 
@@ -204,13 +205,14 @@ function _M.access()
   if action == "allow" then
     return
   end
-  if challenge then
-    if challenge_policy.is_reserved(ngx.var.uri) then
+  if challenge_policy.is_reserved(ngx.var.uri) then
+    if challenge then
       return challenge.handle(ip, action == "captcha")
     end
-    if action == "captcha" and not challenge.has_valid_cookie(ip) then
-      return challenge.challenge(ip)
-    end
+    return require("nwu_challenge").handle_unloaded()
+  end
+  if challenge and action == "captcha" and not challenge.has_valid_cookie(ip) then
+    return challenge.challenge(ip)
   end
 
   if cfg.APPSEC_URL and cfg.APPSEC_URL ~= "" then

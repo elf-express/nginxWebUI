@@ -503,13 +503,23 @@ fi
 # ---------- 14. (check) no ban and no report for the client without a decision ----------
 left=$((95 - ($(now) - T_XSITE)))   # longer than wait_decision (30 x 3s)
 [ "$left" -gt 0 ] && sleep "$left"
-xs_dec="$(decisions $IP_XSITE)"
-xs_alerts="$(cscli alerts list -i $IP_XSITE -o raw 2>/dev/null | grep -c 'challenge-fail')"
-if [ "$xs_page" = "0 303 https://nginxwebui/cart" ] && [ "$xs_verify" = "0 303 https://nginxwebui/cart" ] \
-  && [ -z "$xs_dec" ] && [ "$xs_alerts" = "0" ]; then
+# both cscli queries must succeed (exit 0, the expected CSV header) before their result is read; a failed or empty
+# answer is a FAIL, never "no decision / no alert"
+xs_dec_raw="$(cscli decisions list -i $IP_XSITE -o raw 2>"$WORK/xs.err")"; xs_dec_rc=$?; xs_dec_err="$(head -2 "$WORK/xs.err")"
+xs_al_raw="$(cscli alerts list -i $IP_XSITE -o raw 2>"$WORK/xs.err")"; xs_al_rc=$?; xs_al_err="$(head -2 "$WORK/xs.err")"
+xs_cscli=ok
+if [ "$xs_dec_rc" -ne 0 ] || ! echo "$xs_dec_raw" | head -1 | grep -q '^id,source,ip,reason,action,'; then
+  xs_cscli="decisions list failed (exit $xs_dec_rc): $(printf '%s\n%s' "$xs_dec_raw" "$xs_dec_err" | head -3 | tr '\n' ' ')"
+elif [ "$xs_al_rc" -ne 0 ] || ! echo "$xs_al_raw" | head -1 | grep -q '^id,scope,value,reason,'; then
+  xs_cscli="alerts list failed (exit $xs_al_rc): $(printf '%s\n%s' "$xs_al_raw" "$xs_al_err" | head -3 | tr '\n' ' ')"
+fi
+xs_dec="$(echo "$xs_dec_raw" | awk -F, 'NR > 1 { print $5 }' | tr '\n' ',')"
+xs_alerts="$(echo "$xs_al_raw" | grep -c 'challenge-fail')"
+if [ "$xs_cscli" = ok ] && [ "$xs_page" = "0 303 https://nginxwebui/cart" ] \
+  && [ "$xs_verify" = "0 303 https://nginxwebui/cart" ] && [ -z "$xs_dec" ] && [ "$xs_alerts" = "0" ]; then
   pass 14 "no decision: 11 page views + 6 answers -> 303 back; after $(($(now) - T_XSITE))s no decision, no challenge-fail alert"
 else
-  fail 14 "page=[$xs_page] verify=[$xs_verify] decisions=[$xs_dec] challenge-fail alerts=$xs_alerts"
+  fail 14 "cscli=[$xs_cscli] page=[$xs_page] verify=[$xs_verify] decisions=[$xs_dec] challenge-fail alerts=$xs_alerts"
 fi
 
 # ---------- 2. checkbox style ----------
