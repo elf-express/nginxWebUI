@@ -1,6 +1,7 @@
 package com.cym.controller.adminPage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -40,6 +41,19 @@ public class I18nControllerTest {
 			Map<String, String> messages = I18nController.toMessages(properties);
 			assertEquals(properties.stringPropertyNames().size(), messages.size(), file);
 			assertEquals(properties.getProperty("basicStr.add"), messages.get("basicStr.add"), file);
+		}
+	}
+
+	/**
+	 * common.html 把每個 key 輸出成 JS 的「前綴.名稱 = 值」；key 多一個點（a.b.c）會在執行時丟 TypeError，
+	 * 後面所有 *Str 全域變數都不見，頁面上的 JS 文案整批變成 undefined。
+	 */
+	@Test
+	void everyKeyIsPrefixDotName() throws IOException {
+		for (String file : FILES) {
+			for (String key : load(file).stringPropertyNames()) {
+				assertTrue(key.matches("[A-Za-z_][A-Za-z0-9_]*\\.[A-Za-z_][A-Za-z0-9_]*"), file + ": " + key);
+			}
 		}
 	}
 

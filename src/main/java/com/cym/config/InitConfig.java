@@ -190,8 +190,8 @@ public class InitConfig {
 			// ASN 大封主路徑 = CrowdSec AsBlockIntent；AsnRule nginx map 僅 asn.nginxMapEnabled=true 時產生
 			// （預設 false；seed 的 if ($blocked_asn) 模板保留給手動重開 map 的使用者）
 
-			// 日誌格式（含真實 IP + GeoIP + ASN）
-			https.add(new Http("log_format", "main '$remote_addr - $remote_user [$time_local] \"$request\" '\r\n                      '$status $body_bytes_sent \"$http_referer\" '\r\n                      '\"$http_user_agent\" \"$geoip2_data_country_code\" \"$geoip2_data_city_name\" \"$geoip2_data_asn\" \"$geoip2_data_asn_org\"'", seq++, "logging"));
+			// 日誌格式（含真實 IP + GeoIP + ASN + 站台）
+			https.add(new Http("log_format", LogFormatHostMigration.SEED_WITH_HOST, seq++, "logging"));
 
 			// 預設開啟日誌（供 CrowdSec 收集）
 			https.add(new Http("access_log", homeConfig.home + "log/access.log main", seq++, "logging"));
@@ -253,6 +253,13 @@ public class InitConfig {
 			int removedTemplates = LegacyCrowdSecTemplateMigration.run(sqlHelper);
 			settingService.set("crowdsecAuthRequestRemoved20261021", "1");
 			logger.info("Migration: removed {} legacy CrowdSec Auth Request template(s)", removedTemplates);
+		}
+
+		// 遷移：種子 log_format main 補 "$host"（CrowdSec 防護頁依站台篩選被擋請求）；使用者改過的不動
+		if (!"1".equals(settingService.get("logFormatHost20261023"))) {
+			int changed = LogFormatHostMigration.run(sqlHelper);
+			settingService.set("logFormatHost20261023", "1");
+			logger.info("Migration: appended $host to {} seed log_format row(s)", changed);
 		}
 
 		// 遷移：既有庫補 stream 連線限制模板（參數不動舊四個 rateLimit；zone 名 s_conn_perip 與 http 隔離）

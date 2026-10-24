@@ -1,7 +1,6 @@
 package com.cym.controller.adminPage;
 
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 
 import org.noear.solon.annotation.Controller;
@@ -10,10 +9,9 @@ import org.noear.solon.annotation.Mapping;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.cym.model.DenyAllow;
 import com.cym.service.CrowdSecClient;
 import com.cym.service.CrowdSecNginxConf;
-import com.cym.service.DenyAllowService;
+import com.cym.service.CrowdSecWhitelistService;
 import com.cym.service.SettingService;
 import com.cym.utils.BaseController;
 import com.cym.utils.CrowdSecCredentials;
@@ -37,7 +35,7 @@ public class CrowdSecController extends BaseController {
 	@Inject
 	CrowdSecNginxConf crowdSecNginxConf;
 	@Inject
-	DenyAllowService denyAllowService;
+	CrowdSecWhitelistService crowdSecWhitelistService;
 
 	CrowdSecCredentials credentials = CrowdSecCredentials.system();
 
@@ -203,86 +201,16 @@ public class CrowdSecController extends BaseController {
 	}
 
 	/**
-	 * Whitelist a single IP via a decision {@code type=whitelist}.
-	 * Optional {@code syncDenyAllow=true} also inserts a site-wide DenyAllow type=allow
-	 * for false-positive recovery (does not fail the CS whitelist if DenyAllow conflicts).
-	 *
-	 * @param duration default {@code 4h} when blank
-	 * @param reason default {@code nginxwebui:fp-whitelist} when blank
-	 * @param syncDenyAllow when true/1, create DenyAllow allow entry for the IP
+	 * 加入白名單（舊端點，保留給舊呼叫端）：刪除該 IP 的 CrowdSec decisions 並寫入 DenyAllow 白名單。
+	 * duration、reason、syncDenyAllow 不再使用。
 	 */
 	@Mapping("whitelistIp")
 	public JsonResult whitelistIp(String ip, String duration, String reason, String syncDenyAllow) {
-		JsonResult missing = missingCredentials(true, false);
-		if (missing != null) {
-			return missing;
-		}
-		if (StrUtil.isBlank(ip)) {
-			return renderError("ip_required");
-		}
-		ip = ip.trim();
-		if (StrUtil.isBlank(duration)) {
-			duration = DEFAULT_DURATION;
-		} else {
-			duration = duration.trim();
-		}
-		if (!NetGuard.isValidCidr(ip)) {
+		try {
+			return renderSuccess(crowdSecWhitelistService.whitelist(ip, getAdmin().getName()));
+		} catch (IllegalArgumentException e) {
 			return renderError(msgOr("crowdsecStr.invalidCidr", NetGuard.ERR_INVALID_CIDR));
 		}
-		if (!NetGuard.isValidDuration(duration)) {
-			return renderError(msgOr("crowdsecStr.invalidDuration", NetGuard.ERR_INVALID_DURATION));
-		}
-		if (StrUtil.isBlank(reason)) {
-			reason = "nginxwebui:fp-whitelist";
-		}
-		try {
-			crowdSecClient.whitelistIp(ip, duration, reason);
-		} catch (Exception e) {
-			return fail(e);
-		}
-
-		boolean sync = "true".equalsIgnoreCase(syncDenyAllow) || "1".equals(syncDenyAllow)
-				|| "on".equalsIgnoreCase(syncDenyAllow);
-		if (sync) {
-			try {
-				syncDenyAllowIp(ip);
-			} catch (Exception e) {
-				logger.warn("CrowdSec whitelist ok but DenyAllow sync failed for {}: {}", ip, e.getMessage());
-				return renderSuccess("whitelist_ok_denyallow_failed");
-			}
-		}
-		return renderSuccess();
-	}
-
-	/**
-	 * Insert a DenyAllow type=allow for a single IP if no cross-type conflict.
-	 * Skips insert when IP already present on an allow list.
-	 */
-	private void syncDenyAllowIp(String ip) {
-		// already on an allow list?
-		List<DenyAllow> allows = sqlHelper.findListByQuery(
-				new com.cym.sqlhelper.utils.ConditionAndWrapper().eq("type", "allow"), DenyAllow.class);
-		for (DenyAllow a : allows) {
-			if (a.getIp() == null) {
-				continue;
-			}
-			for (String line : a.getIp().split("\n")) {
-				if (ip.equals(line.trim())) {
-					return;
-				}
-			}
-		}
-
-		DenyAllow da = new DenyAllow();
-		da.setName("CrowdSec FP " + ip);
-		da.setIp(ip);
-		da.setType("allow");
-		List<String> conflicts = denyAllowService.findConflictIps(da, "allow");
-		if (!conflicts.isEmpty()) {
-			throw new IllegalStateException("denyallow_type_conflict");
-		}
-		denyAllowService.removeSame(da);
-		sqlHelper.insertOrUpdate(da);
 	}
 
 	/**

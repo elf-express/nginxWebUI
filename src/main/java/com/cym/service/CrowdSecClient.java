@@ -19,6 +19,7 @@ import java.util.function.LongSupplier;
 import org.noear.solon.annotation.Component;
 
 import com.cym.utils.CrowdSecCredentials;
+import com.cym.utils.IpMatch;
 import com.cym.utils.NetGuard;
 
 import cn.hutool.core.util.StrUtil;
@@ -102,6 +103,11 @@ public class CrowdSecClient {
 			super(code);
 		}
 	}
+
+	/** 本機封鎖的 decision origin（行為偵測、cscli／後台、console、WAF） */
+	public static final String LOCAL_ORIGINS = "crowdsec,cscli,cscli-import,console,appsec";
+	/** 社群名單的 decision origin */
+	public static final String COMMUNITY_ORIGINS = "CAPI,lists";
 
 	/** 測試連線結果：每項為 ok / invalid / unreachable / notConfigured / unchecked */
 	public record Probe(String lapi, String bouncerKey, String machine) {
@@ -389,13 +395,6 @@ public class CrowdSecClient {
 	}
 
 	/**
-	 * Whitelist a single IP via a decision {@code type=whitelist}, {@code scope=ip}.
-	 */
-	public void whitelistIp(String ip, String duration, String reason) {
-		postDecision(duration, reason, "ip", ip, "whitelist");
-	}
-
-	/**
 	 * Pure input gates for {@link #postDecision} — unit-tested so removing call-site gates fails CI.
 	 * Ban reason is free text; duration always; CIDR for ip/range.
 	 */
@@ -526,6 +525,103 @@ public class CrowdSecClient {
 			}
 			return resp.body();
 		}
+	}
+
+	/** 涵蓋這個 IP 的有效 decisions（含網段），bouncer 金鑰 */
+	public String decisionsForIpRaw(String ip) {
+		ensureBouncerKey();
+		if (!IpMatch.isSingleIp(ip)) {
+			throw new IllegalArgumentException(NetGuard.ERR_INVALID_CIDR);
+		}
+		return getDecisions("ip=" + URLEncoder.encode(ip.trim(), StandardCharsets.UTF_8));
+	}
+
+	/** 封鎖名單：只列 ban 類型；community=false 為本機，true 為社群名單 */
+	public String listBansRaw(boolean community) {
+		ensureBouncerKey();
+		return getDecisions("type=ban&origins=" + (community ? COMMUNITY_ORIGINS : LOCAL_ORIGINS));
+	}
+
+	/** 有有效 decision 的 alert（含 created_at 與 decisions[].id），用來補封鎖時間；machine JWT */
+	public String activeDecisionAlertsRaw() {
+		ensureConfigured();
+		String url = base() + "/v1/alerts?has_active_decision=true&include_capi=false&limit=1000";
+		try (HttpResponse resp = sendWithJwt(t -> HttpRequest.get(url)
+				.header("User-Agent", USER_AGENT)
+				.bearerAuth(t)
+				.timeout(DEFAULT_TIMEOUT_MS))) {
+			if (!resp.isOk()) {
+				throw new IllegalStateException("crowdsec activeDecisionAlerts HTTP " + resp.getStatus());
+			}
+			return resp.body();
+		}
+	}
+
+	/** 刪除某 IP 的結果：刪掉的筆數、保留下來的網段封鎖筆數（網段可能是 ASN 推送，不因單一 IP 解除） */
+	public record DeleteResult(int deleted, int rangesKept) {
+	}
+
+	/** 刪除 scope=Ip 且 value 是同一個位址（依位元組比對）的所有 decisions；涵蓋它的網段 decision 保留並計數 */
+	public DeleteResult deleteIpDecisions(String ip) {
+		ensureConfigured();
+		String target = ip == null ? "" : ip.trim();
+		JSONArray arr = parseArray(decisionsForIpRaw(target));
+		int deleted = 0;
+		int ranges = 0;
+		for (int i = 0; i < arr.size(); i++) {
+			JSONObject o = arr.getJSONObject(i);
+			if (o == null) {
+				continue;
+			}
+			if (!"ip".equalsIgnoreCase(o.getStr("scope", "")) || !IpMatch.sameIp(target, o.getStr("value"))) {
+				ranges++;
+				continue;
+			}
+			deleteDecision(String.valueOf(o.get("id")));
+			deleted++;
+		}
+		return new DeleteResult(deleted, ranges);
+	}
+
+	/** 清除舊版後台建立的 whitelist decision（scenario 以 nginxwebui: 開頭）；回刪除筆數 */
+	public int deleteLegacyWhitelistDecisions() {
+		ensureConfigured();
+		ensureBouncerKey();
+		JSONArray arr = parseArray(getDecisions("type=whitelist"));
+		int deleted = 0;
+		for (int i = 0; i < arr.size(); i++) {
+			JSONObject o = arr.getJSONObject(i);
+			if (o != null && NetGuard.isAllowedWebuiReason(o.getStr("scenario"))) {
+				deleteDecision(String.valueOf(o.get("id")));
+				deleted++;
+			}
+		}
+		return deleted;
+	}
+
+	/** 連線失敗（連不上、逾時）丟 LapiUnavailableException，訊息不含金鑰；LAPI 有回應但狀態碼不是 2xx 仍丟 IllegalStateException */
+	private String getDecisions(String query) {
+		HttpResponse response;
+		try {
+			response = HttpRequest.get(base() + "/v1/decisions?" + query)
+					.header("User-Agent", USER_AGENT)
+					.header("X-Api-Key", credentials.bouncerKey().value())
+					.timeout(DEFAULT_TIMEOUT_MS)
+					.execute();
+		} catch (RuntimeException e) {
+			throw new LapiUnavailableException("crowdsec decisions unreachable", e);
+		}
+		try (HttpResponse resp = response) {
+			if (!resp.isOk()) {
+				throw new IllegalStateException("crowdsec decisions HTTP " + resp.getStatus());
+			}
+			return resp.body();
+		}
+	}
+
+	/** JSON 陣列字串轉 JSONArray；空白、null 或非陣列回空陣列。Task 3 的 controller 也會用，故為 public */
+	public static JSONArray parseArray(String body) {
+		return StrUtil.isNotBlank(body) && JSONUtil.isTypeJSONArray(body) ? JSONUtil.parseArray(body) : new JSONArray();
 	}
 
 	int deleteMatching(String reasonPrefix) {

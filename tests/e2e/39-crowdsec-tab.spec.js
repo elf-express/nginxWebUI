@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const http = require('http');
 const { PROJECT_ROOT, JAR_PATH, TEST_ADMIN, TEST_PASS, TEST_CAPTCHA, login } = require('./helpers');
 
-// 「防護與憑證」頁的 CrowdSec 分頁（E-390，Vue）：
+// 「CrowdSec 防護」頁的「連線設定」分頁（E-390 起在「防護與憑證」頁，E-385 搬到獨立頁面，Vue）：
 //   1) 共用測試 server（18080，沒有任何 CROWDSEC_* 環境變數）→「未設定」提示、寬限秒數保存與後端驗證、
 //      測試連線紅燈、A11y、離線
 //   2) 本檔另起一個帶 bouncer 金鑰、machine 密碼與連不到的 LAPI 位址的 server（18082）→ 只顯示遮罩值與來源、
@@ -31,10 +31,9 @@ const MACHINE_PASSWORD = crypto.randomBytes(16).toString('hex');
 const MASK = '••••••';
 
 async function openTab(page) {
-  await page.goto('/adminPage/protectionCert');
-  await page.locator('.layui-tab-title li', { hasText: /^\s*CrowdSec\s*$/ }).click();
-  const app = page.locator('#crowdsecApp');
-  await expect(app.locator('h2')).toBeVisible();
+  await page.goto('/adminPage/crowdsecGuard#conn');
+  const app = page.locator('#crowdsecGuardApp');
+  await expect(app.locator('h2#crowdsec-title')).toBeVisible();
   await expect(app.locator('.crowdsec-desc')).toBeVisible();
   // 掛載時會自動測一次連線，等它回來再操作
   await expect(app.locator('.crowdsec-light')).not.toHaveAttribute('data-light', 'gray', { timeout: 15000 });
