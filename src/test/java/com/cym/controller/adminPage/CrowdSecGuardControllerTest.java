@@ -160,12 +160,12 @@ class CrowdSecGuardControllerTest {
 
 	@Test
 	void sameNameOnTwoServersListsTheRowForEitherAndMarksItAmbiguous() {
-		// 兩個不同埠的站台都叫 a.example.com：篩選任一個都列出 a.example.com 的行，並標示可能屬於多個站台
+		// 兩個不同埠的站台都叫 a.example.com；8080 只有 a8080，其他名稱送到 8080 也會落到它
 		server("a80", "a.example.com", null).setListen("80");
 		server("a8080", "a.example.com", null).setListen("8080");
-		server("b", "b.example.com", null);
+		server("b", "b.example.com", null).setListen("80");
 		assertEquals(List.of("203.0.113.5"), ips("a80"));
-		assertEquals(List.of("203.0.113.5"), ips("a8080"));
+		assertEquals(List.of("203.0.113.5", "203.0.113.6"), ips("a8080"));
 		assertEquals(List.of("203.0.113.6"), ips("b"));
 
 		for (String id : new String[] { "a8080", null }) {
@@ -175,8 +175,8 @@ class CrowdSecGuardControllerTest {
 			assertEquals(List.of("a.example.com (80)", "a.example.com (8080)"), a.get("candidates"));
 		}
 		Map<String, Object> b = row(rows(null), "203.0.113.6");
-		assertEquals(false, b.get("ambiguous"));
-		assertFalse(b.containsKey("candidates"));
+		assertEquals(true, b.get("ambiguous"));
+		assertEquals(List.of("a.example.com (8080)", "b.example.com (80)"), b.get("candidates"));
 	}
 
 	@Test
