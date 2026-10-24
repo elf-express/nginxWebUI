@@ -346,6 +346,13 @@ phase "{\"new\":[],\"deleted\":[$(decision 11 captcha)]}"
 expect "stream: expired IP captcha leaves range ban" "$(st_cookie)" "000"
 phase "{\"new\":[],\"deleted\":[$(range_decision 12 ban 127.0.0.0/24)]}"
 expect "stream: deleted range ban" "$(st_cookie)" "200"
+# A 143h remainder models a 168h ban created 25h earlier, outside the 24h profile lookback.
+phase "{\"new\":[{\"id\":13,\"origin\":\"crowdsec\",\"type\":\"ban\",\"scope\":\"Ip\",\"value\":\"$X\",\"duration\":\"143h\",\"scenario\":\"smoke\"}],\"deleted\":[]}"
+expect "stream: active 143h IP ban blocks" "$(st_cookie)" "000"
+phase "{\"new\":[$(decision 14 captcha)],\"deleted\":[]}"
+expect "stream: newer captcha cannot replace active IP ban" "$(st_cookie)" "000"
+phase "{\"new\":[],\"deleted\":[{\"id\":13,\"origin\":\"crowdsec\",\"type\":\"ban\",\"scope\":\"Ip\",\"value\":\"$X\",\"duration\":\"143h\",\"scenario\":\"smoke\"}]}"
+expect "stream: deleted IP ban" "$(st_cookie)" "200"
 stop
 
 grep -v "no file" $W/logs/error.log | grep -E "\[(error|emerg|alert|crit)\]" | grep -v "error loading captcha plugin" \
