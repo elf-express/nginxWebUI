@@ -90,7 +90,14 @@ class WafEventSyncServiceTest {
 
 	private Long setting(String key) {
 		String v = settings.get(key);
-		return v == null ? null : Long.valueOf(v);
+		if (v == null) {
+			return null;
+		}
+		try {
+			return Long.valueOf(v);
+		} catch (NumberFormatException e) {
+			return null;
+		}
 	}
 
 	@Test
