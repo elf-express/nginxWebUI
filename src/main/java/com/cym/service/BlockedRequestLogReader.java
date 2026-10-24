@@ -61,11 +61,17 @@ public final class BlockedRequestLogReader {
 		} catch (RuntimeException e) {
 			return null;
 		}
+		int status;
+		try {
+			status = Integer.parseInt(m.group(4));
+		} catch (NumberFormatException e) {
+			return null;
+		}
 		String host = m.group(6);
 		if (host != null && (host.isEmpty() || "-".equals(host))) {
 			host = null;
 		}
-		return new Line(m.group(1), time, Integer.parseInt(m.group(4)), m.group(3), m.group(5), host);
+		return new Line(m.group(1), time, status, m.group(3), m.group(5), host);
 	}
 
 	/**
