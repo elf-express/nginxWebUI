@@ -4,7 +4,7 @@ import { Alert, Button, Select, Space, Table, Tag } from 'ant-design-vue'
 import { t } from '../../shared/i18n'
 import { notifyError } from '../../shared/notify'
 import { fetchBlocked, fetchServers, type BlockedResult, type BlockedRow } from './api'
-import { createLatest, formatTime, reasonKeysOf } from './view'
+import { ambiguousSiteText, createLatest, formatTime, reasonKeysOf } from './view'
 
 const emit = defineEmits<{ lookup: [ip: string] }>()
 const servers = ref<{ id: string; name: string }[]>([])
@@ -77,7 +77,10 @@ onMounted(async () => {
       :pagination="{ pageSize: 20 }"
     >
       <template #bodyCell="{ column, record }">
-        <template v-if="column.key === 'host'">{{ record.host ?? '—' }}</template>
+        <template v-if="column.key === 'host'">
+          {{ record.host ?? '—' }}
+          <div v-if="ambiguousSiteText(record as BlockedRow, t)" class="blocked-ambiguous">{{ ambiguousSiteText(record as BlockedRow, t) }}</div>
+        </template>
         <template v-else-if="column.key === 'reason'">
           <Tag v-for="k in reasonKeysOf(record.statuses)" :key="k">{{ t(k) }}</Tag>
         </template>
@@ -105,6 +108,10 @@ onMounted(async () => {
 }
 .blocked-cover {
   color: #888;
+  font-size: 12px;
+}
+.blocked-ambiguous {
+  color: #d48806;
   font-size: 12px;
 }
 </style>

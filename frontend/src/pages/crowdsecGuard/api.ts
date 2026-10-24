@@ -51,6 +51,10 @@ export interface BlockedRow {
   count: number
   lastTime: number
   statuses: Record<string, number>
+  /** host 在同一優先層級有多個候選站台（例如不同埠的同名站台），分不出是哪一個 */
+  ambiguous?: boolean
+  /** 候選站台名稱；不是 ambiguous 時後端省略 */
+  candidates?: string[] | null
 }
 
 export interface BlockedResult {

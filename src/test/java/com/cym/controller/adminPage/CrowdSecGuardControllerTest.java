@@ -1,6 +1,7 @@
 package com.cym.controller.adminPage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -10,6 +11,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Predicate;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -144,5 +146,45 @@ class CrowdSecGuardControllerTest {
 	@Test
 	void noServerSelectedReturnsAllRows() {
 		assertEquals(2, CrowdSecGuardController.readBlocked(log, null, SINCE).rows().size());
+	}
+
+	private List<Map<String, Object>> rows(String serverId) {
+		List<BlockedRequestLogReader.Row> raw = serverId == null ? CrowdSecGuardController.readBlocked(log, null, SINCE).rows()
+				: read(serverId).rows();
+		return CrowdSecGuardController.blockedRows(raw, servers);
+	}
+
+	private Map<String, Object> row(List<Map<String, Object>> rows, String ip) {
+		return rows.stream().filter(r -> ip.equals(r.get("ip"))).findFirst().orElseThrow();
+	}
+
+	@Test
+	void sameNameOnTwoServersListsTheRowForEitherAndMarksItAmbiguous() {
+		// 兩個不同埠的站台都叫 a.example.com：篩選任一個都列出 a.example.com 的行，並標示可能屬於多個站台
+		server("a80", "a.example.com", null).setListen("80");
+		server("a8080", "a.example.com", null).setListen("8080");
+		server("b", "b.example.com", null);
+		assertEquals(List.of("203.0.113.5"), ips("a80"));
+		assertEquals(List.of("203.0.113.5"), ips("a8080"));
+		assertEquals(List.of("203.0.113.6"), ips("b"));
+
+		for (String id : new String[] { "a8080", null }) {
+			List<Map<String, Object>> list = rows(id);
+			Map<String, Object> a = row(list, "203.0.113.5");
+			assertEquals(true, a.get("ambiguous"));
+			assertEquals(List.of("a.example.com (80)", "a.example.com (8080)"), a.get("candidates"));
+		}
+		Map<String, Object> b = row(rows(null), "203.0.113.6");
+		assertEquals(false, b.get("ambiguous"));
+		assertFalse(b.containsKey("candidates"));
+	}
+
+	@Test
+	void singleCandidateRowIsNotAmbiguous() {
+		server("a", "a.example.com", null);
+		server("w", "*.example.com", null);
+		Map<String, Object> a = row(rows(null), "203.0.113.5");
+		assertEquals(false, a.get("ambiguous"));
+		assertFalse(a.containsKey("candidates"));
 	}
 }

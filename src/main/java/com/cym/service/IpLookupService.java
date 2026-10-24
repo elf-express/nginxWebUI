@@ -39,11 +39,15 @@ public class IpLookupService {
 	CrowdSecClient crowdSecClient;
 	@Inject
 	ServerService serverService;
+	@Inject
+	CrowdSecNginxConf crowdSecNginxConf;
 
 	Function<String, GeoLookup.Country> countryOf;
 	Function<String, Optional<GeoLookup.Asn>> asnOf;
 	BooleanSupplier canReadCrowdSec;
 	Function<String, String> decisionsOf;
+	/** nginx 是否會載入 CrowdSec bouncer（與 ConfService 產生 bouncer 設定的判斷相同） */
+	BooleanSupplier bouncerActive;
 	/** HTTP 站台，順序與 ConfService 產生設定時相同 */
 	Supplier<List<Server>> httpServers;
 
@@ -53,10 +57,11 @@ public class IpLookupService {
 		asnOf = ip -> geoLookup.asn(ip);
 		canReadCrowdSec = () -> crowdSecClient.canRead();
 		decisionsOf = ip -> crowdSecClient.decisionsForIpRaw(ip);
+		bouncerActive = () -> crowdSecNginxConf.isActive();
 		httpServers = () -> serverService.getListByProxyType(new String[] { "0" });
 	}
 
-	/** state：match／none（名單）、blocked／allowed／unknown（國家）、blocked／none／unavailable（CrowdSec）、skipped */
+	/** state：match／none（名單）、blocked／allowed／unknown（國家）、blocked／notEnforced／none／unavailable（CrowdSec）、skipped */
 	public record Layer(String layer, String state, List<String> lists, List<Map<String, Object>> details,
 			List<Map<String, Object>> decisions, String reason) {
 	}
@@ -196,7 +201,9 @@ public class IpLookupService {
 			}
 			// bouncer 只對 ban 類型的 decision 斷線；其他類型（captcha、舊版 whitelist）照列但不判定擋下
 			boolean banned = decisions.stream().anyMatch(d -> "ban".equalsIgnoreCase(String.valueOf(d.get("type"))));
-			return new Layer("crowdsec", banned ? "blocked" : "none", List.of(), List.of(), decisions, null);
+			// 有 ban 但 nginx 沒有載入 bouncer（缺 Lua 模組或包裝檔）：照列 decision，標為 notEnforced，不算擋下
+			String state = !banned ? "none" : bouncerActive.getAsBoolean() ? "blocked" : "notEnforced";
+			return new Layer("crowdsec", state, List.of(), List.of(), decisions, null);
 		} catch (CrowdSecClient.LapiUnavailableException e) {
 			return new Layer("crowdsec", "unavailable", List.of(), List.of(), List.of(), CrowdSecClient.LapiUnavailableException.CODE);
 		} catch (RuntimeException e) {

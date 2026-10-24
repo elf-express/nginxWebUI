@@ -93,24 +93,15 @@ public class CrowdSecGuardController extends BaseController {
 	@Mapping("blocked")
 	public JsonResult blocked(String serverId, Integer minutes) {
 		int span = minutes == null || minutes <= 0 ? 60 : Math.min(minutes, MAX_MINUTES);
+		List<Server> httpServers = serverService.getListByProxyType(new String[] { "0" });
 		Predicate<String> filter = null;
 		if (StrUtil.isNotBlank(serverId)) {
-			filter = hostFilter(serverService.getListByProxyType(new String[] { "0" }), serverId);
+			filter = hostFilter(httpServers, serverId);
 		}
 		Path log = Path.of(homeConfig.home, "log", "access.log");
 		BlockedRequestLogReader.Result r = readBlocked(log, filter, Instant.now().minusSeconds(span * 60L));
-		List<Map<String, Object>> rows = new ArrayList<>();
-		for (BlockedRequestLogReader.Row row : r.rows()) {
-			Map<String, Object> item = new LinkedHashMap<>();
-			item.put("ip", row.ip());
-			item.put("host", row.host());
-			item.put("count", row.count());
-			item.put("lastTime", row.lastTime().toEpochMilli());
-			item.put("statuses", row.statuses());
-			rows.add(item);
-		}
 		Map<String, Object> obj = new LinkedHashMap<>();
-		obj.put("rows", rows);
+		obj.put("rows", blockedRows(r.rows(), httpServers));
 		obj.put("hostSupported", r.hostSupported());
 		obj.put("coverFrom", r.coverFrom() == null ? null : r.coverFrom().toEpochMilli());
 		obj.put("coverTo", r.coverTo() == null ? null : r.coverTo().toEpochMilli());
@@ -119,12 +110,44 @@ public class CrowdSecGuardController extends BaseController {
 	}
 
 	/**
-	 * 選了某個站台時的 host 篩選：依 nginx 選 server 的規則（{@link HttpServerSelector}），只留落到這個站台的 host。
+	 * 選了某個站台時的 host 篩選：依 nginx 選 server 的規則（{@link HttpServerSelector}），只留這個站台在候選站台內的 host
+	 * （同名等分不出站台的 host，每個候選站台都列出）。
 	 * 站台不存在、停用、不是 HTTP 站台，或沒有任何 host 會落到它（沒有可比對的名稱也不是預設站台）時，一行都不符合。
 	 */
 	static Predicate<String> hostFilter(List<Server> httpServers, String serverId) {
 		HttpServerSelector selector = new HttpServerSelector(httpServers);
-		return host -> serverId.equals(selector.select(host));
+		return host -> selector.candidates(host).contains(serverId);
+	}
+
+	/**
+	 * 回傳給畫面的行。host 在同一優先層級有多個候選站台時（{@link HttpServerSelector#candidates}），
+	 * ambiguous 為 true，candidates 列出候選站台名稱（名稱後附 listen，區分同名站台）；其他行 ambiguous 為 false、不帶 candidates。
+	 */
+	static List<Map<String, Object>> blockedRows(List<BlockedRequestLogReader.Row> rows, List<Server> httpServers) {
+		HttpServerSelector selector = new HttpServerSelector(httpServers);
+		Map<String, String> labels = new HashMap<>();
+		for (Server s : httpServers) {
+			if (s != null) {
+				String label = serverLabel(s);
+				labels.put(s.getId(), StrUtil.isBlank(s.getListen()) ? label : label + " (" + s.getListen().trim() + ")");
+			}
+		}
+		List<Map<String, Object>> list = new ArrayList<>();
+		for (BlockedRequestLogReader.Row row : rows) {
+			Map<String, Object> item = new LinkedHashMap<>();
+			item.put("ip", row.ip());
+			item.put("host", row.host());
+			item.put("count", row.count());
+			item.put("lastTime", row.lastTime().toEpochMilli());
+			item.put("statuses", row.statuses());
+			List<String> ids = selector.candidates(row.host());
+			item.put("ambiguous", ids.size() > 1);
+			if (ids.size() > 1) {
+				item.put("candidates", ids.stream().map(id -> labels.getOrDefault(id, id)).toList());
+			}
+			list.add(item);
+		}
+		return list;
 	}
 
 	/**

@@ -1,4 +1,4 @@
-import type { GeoSite, WhitelistOutcome } from './api'
+import type { BlockedRow, GeoSite, WhitelistOutcome } from './api'
 
 export type TabKey = 'ip' | 'bans' | 'conn'
 export const TABS: TabKey[] = ['ip', 'bans', 'conn']
@@ -9,6 +9,19 @@ export function parseHash(hash: string): { tab: TabKey; ip: string } {
   const [key, value = ''] = text.split('=', 2)
   const tab = (TABS as string[]).includes(key) ? (key as TabKey) : 'ip'
   return { tab, ip: tab === 'ip' ? safeDecode(value) : '' }
+}
+
+/** IP 查詢分頁的網址 hash；ip 為空時只有分頁 */
+export function ipHash(ip: string): string {
+  return ip ? `#ip=${encodeURIComponent(ip)}` : '#ip'
+}
+
+/**
+ * IP 查詢分頁要不要發查詢：ip 與畫面上的不同時查；forced（其他分頁的「查這個 IP」）時同一個 IP 也重查。
+ * ip 為空不查。
+ */
+export function shouldLookup(ip: string, shown: string, forced: boolean): boolean {
+  return !!ip && (forced || ip !== shown)
 }
 
 function safeDecode(value: string): string {
@@ -59,6 +72,22 @@ export function layerStateKey(layer: LayerName, state: string): string {
   }
   const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
   return `crowdsecGuardStr.${layer}${cap(state)}`
+}
+
+const BLOCKED_STATES = ['blocked', 'match']
+
+/** 層狀態標籤的顏色：白名單命中綠色、擋下紅色；查不到、無法查詢、有封鎖紀錄但 nginx 不會擋是警告色 */
+export function layerColor(layer: LayerName, state: string): string {
+  if (state === 'skipped' || state === 'none' || state === 'allowed') {
+    return 'default'
+  }
+  if (layer === 'allowlist') {
+    return 'success'
+  }
+  if (state === 'unknown' || state === 'unavailable' || state === 'notEnforced') {
+    return 'warning'
+  }
+  return BLOCKED_STATES.includes(state) ? 'error' : 'default'
 }
 
 export function blockedByKey(blockedBy: string): string {
@@ -152,6 +181,12 @@ export function geoSiteKeys(d: GeoSite): string[] {
   const mode = d.mode === 0 ? 'crowdsecGuardStr.geoModeAllow' : 'crowdsecGuardStr.geoModeDeny'
   const result = d.blocked == null ? 'crowdsecGuardStr.geoUnknown' : d.blocked ? 'crowdsecGuardStr.geoBlocked' : 'crowdsecGuardStr.geoAllowed'
   return [GEO_SOURCE[d.source], mode, result]
+}
+
+/** 「最近被擋下的 IP」站台欄的補充：host 可能屬於多個站台時列出候選站台，其他行回空字串 */
+export function ambiguousSiteText(row: BlockedRow, tr: Translate): string {
+  const names = row.candidates ?? []
+  return row.ambiguous && names.length > 0 ? tr('crowdsecGuardStr.ambiguousSite', names.join('、')) : ''
 }
 
 export function formatTime(ms: number | null | undefined): string {

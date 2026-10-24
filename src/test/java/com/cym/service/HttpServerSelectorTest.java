@@ -182,5 +182,79 @@ class HttpServerSelectorTest {
 	void nullHostSelectsNothing() {
 		add("first", "first.example.com");
 		assertNull(select(null));
+		assertEquals(List.of(), candidates(null));
+	}
+
+	private List<String> candidates(String host) {
+		return new HttpServerSelector(servers).candidates(host);
+	}
+
+	@Test
+	void sameExactNameOnTwoServersIsAmbiguous() {
+		// 不同 listen 埠的兩個站台都叫 example.com：access log 只有 $host，分不出是哪一個
+		add("p80", "example.com");
+		add("p8080", "Example.com www.example.com");
+		assertEquals(List.of("p80", "p8080"), candidates("example.com"));
+		assertEquals("p80", select("example.com"));
+		assertEquals(List.of("p8080"), candidates("www.example.com"));
+	}
+
+	@Test
+	void exactNameBeatsWildcardWithoutAmbiguity() {
+		add("wild", "*.example.com");
+		add("exact", "www.example.com");
+		assertEquals(List.of("exact"), candidates("www.example.com"));
+	}
+
+	@Test
+	void sameLengthWildcardsAreAmbiguous() {
+		add("first", "first.example.com");
+		add("w1", "*.example.com");
+		add("w2", ".example.com");
+		add("long", "*.shop.example.com");
+		assertEquals(List.of("w1", "w2"), candidates("www.example.com"));
+		// 較長的萬用字元仍勝出
+		assertEquals(List.of("long"), candidates("a.shop.example.com"));
+		// .example.com 另外涵蓋 example.com 本身，*.example.com 不涵蓋
+		assertEquals(List.of("w2"), candidates("example.com"));
+
+		servers.clear();
+		add("t1", "www.example.*");
+		add("t2", "www.example.*");
+		assertEquals(List.of("t1", "t2"), candidates("www.example.net"));
+	}
+
+	@Test
+	void sameRegexOnTwoServersIsAmbiguousButDifferentRegexesAreNot() {
+		add("r1", "~^shop\\.");
+		add("r2", "~^shop\\.");
+		add("r3", "~\\.example\\.com$");
+		assertEquals(List.of("r1", "r2"), candidates("shop.example.com"));
+		assertEquals(List.of("r3"), candidates("blog.example.com"));
+		// 不分大小寫的同一個式子是不同的正規式
+		servers.clear();
+		add("cs", "~^api\\.");
+		add("ci", "~*^api\\.");
+		assertEquals(List.of("cs"), candidates("api.example.com"));
+	}
+
+	@Test
+	void severalDefaultServersMakeTheDefaultAmbiguous() {
+		add("first", "first.example.com");
+		add("d1", "_").setDef(1);
+		add("d2", "d2.example.com").setDef(1);
+		assertEquals(List.of("d1", "d2"), candidates("nobody.example.com"));
+		assertEquals("d1", select("nobody.example.com"));
+		assertEquals(List.of("first"), candidates("first.example.com"));
+	}
+
+	@Test
+	void singleCandidateWhenNamesAreUnique() {
+		add("first", "first.example.com");
+		add("def", "_").setDef(1);
+		assertEquals(List.of("def"), candidates("nobody.example.com"));
+		// 同一個站台重複列同一個名稱不算多個候選
+		add("dup", "dup.example.com dup.example.com DUP.example.com");
+		assertEquals(List.of("dup"), candidates("dup.example.com"));
 	}
 }

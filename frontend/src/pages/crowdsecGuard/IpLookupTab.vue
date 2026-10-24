@@ -5,31 +5,21 @@ import { t } from '../../shared/i18n'
 import { notifyError } from '../../shared/notify'
 import { lookupIp, whitelistIp, type LookupResult } from './api'
 import BlockedIps from './BlockedIps.vue'
-import { blockedByKey, createLatest, geoSiteKeys, layerStateKey, sourceKeyOf, verdictType, whitelistMessage } from './view'
+import { blockedByKey, createLatest, geoSiteKeys, layerColor, layerStateKey, shouldLookup, sourceKeyOf, verdictType, whitelistMessage } from './view'
 
 const ip = defineModel<string>('ip', { default: '' })
+// refresh 每變一次就重查目前的 ip（其他分頁的「查這個 IP」，即使是同一個 IP）
+const props = withDefaults(defineProps<{ refresh?: number }>(), { refresh: 0 })
+// 每次送出查詢都通知外層，由外層決定要不要同步網址 hash
+const emit = defineEmits<{ query: [ip: string] }>()
 // 從空字串開始：分頁第一次掛載時 ip 可能已有值（網址 hash 或其他分頁帶來），要讓 watch 立刻查
 const input = ref('')
 const loading = ref(false)
 const data = ref<LookupResult | null>(null)
 const whitelisting = ref(false)
 
-const BLOCKED_STATES = ['blocked', 'match']
 const layers = computed(() => data.value?.result.layers ?? [])
 const verdict = computed(() => verdictType(data.value?.result.blockedBy ?? 'none'))
-
-function color(layer: string, state: string): string {
-  if (state === 'skipped' || state === 'none' || state === 'allowed') {
-    return 'default'
-  }
-  if (layer === 'allowlist') {
-    return 'success'
-  }
-  if (state === 'unknown' || state === 'unavailable') {
-    return 'warning'
-  }
-  return BLOCKED_STATES.includes(state) ? 'error' : 'default'
-}
 
 // 連續查不同 IP 時，只採用最後一次查詢的結果
 const latest = createLatest()
@@ -41,6 +31,7 @@ async function run(value: string) {
   }
   input.value = target
   ip.value = target
+  emit('query', target)
   loading.value = true
   await latest(
     () => lookupIp(target),
@@ -88,9 +79,9 @@ function siteName(scope: string): string {
 }
 
 watch(
-  ip,
-  (v) => {
-    if (v && v !== input.value) {
+  [ip, () => props.refresh],
+  ([v, n], old) => {
+    if (shouldLookup(v, input.value, old !== undefined && n !== old[1])) {
       void run(v)
     }
   },
@@ -137,7 +128,7 @@ watch(
         <li v-for="l in layers" :key="l.layer" class="ip-layer" :data-layer="l.layer" :data-state="l.state">
           <Space wrap>
             <strong>{{ t(`crowdsecGuardStr.layer_${l.layer}`) }}</strong>
-            <Tag :color="color(l.layer, l.state)">{{ t(layerStateKey(l.layer, l.state)) }}</Tag>
+            <Tag :color="layerColor(l.layer, l.state)">{{ t(layerStateKey(l.layer, l.state)) }}</Tag>
             <span v-if="l.lists?.length">{{ l.lists.join('、') }}</span>
             <span v-if="l.reason" class="ip-reason">{{ t(`crowdsecGuardStr.reason_${l.reason.replace(/\./g, '_')}`) }}</span>
           </Space>

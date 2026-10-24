@@ -26,6 +26,7 @@ class IpLookupServiceTest {
 	private GeoLookup.Country country = GeoLookup.Country.of("CN");
 	private String decisions = "null";
 	private boolean canRead = true;
+	private boolean bouncerActive = true;
 
 	@BeforeEach
 	void setUp() {
@@ -39,6 +40,7 @@ class IpLookupServiceTest {
 		svc.asnOf = ip -> Optional.of(new GeoLookup.Asn(4134, "Chinanet"));
 		svc.canReadCrowdSec = () -> canRead;
 		svc.decisionsOf = ip -> decisions;
+		svc.bouncerActive = () -> bouncerActive;
 		// 正式環境是 ServerService.getListByProxyType({"0"})；記憶體 SqlHelper 的 IN 不轉型，這裡直接過濾 HTTP 站台
 		svc.httpServers = () -> sql.findAll(Server.class).stream().filter(s -> Integer.valueOf(0).equals(s.getProxyType())).toList();
 	}
@@ -344,6 +346,47 @@ class IpLookupServiceTest {
 		assertEquals("blocked", layer(r, "crowdsec").state());
 		assertEquals(1, layer(r, "crowdsec").decisions().size());
 		assertEquals("crowdsec", r.blockedBy());
+	}
+
+	@Test
+	void banWithoutActiveBouncerIsNotEnforced() {
+		// 憑證有效、LAPI 有 ban，但本機缺 Lua 模組或包裝檔：nginx 不載入 bouncer，這個 ban 不會擋人
+		bouncerActive = false;
+		decisions = "[{\"id\":7,\"type\":\"ban\",\"scope\":\"Ip\",\"value\":\"203.0.113.5\",\"origin\":\"crowdsec\",\"scenario\":\"crowdsecurity/http-probing\",\"duration\":\"3h59m\"}]";
+		IpLookupService.Result r = svc.lookup("203.0.113.5");
+		assertEquals("notEnforced", layer(r, "crowdsec").state());
+		assertEquals(1, layer(r, "crowdsec").decisions().size());
+		assertEquals("none", r.blockedBy());
+	}
+
+	@Test
+	void banWithActiveBouncerIsBlocked() {
+		bouncerActive = true;
+		decisions = "[{\"id\":7,\"type\":\"ban\",\"scope\":\"Ip\",\"value\":\"203.0.113.5\"}]";
+		IpLookupService.Result r = svc.lookup("203.0.113.5");
+		assertEquals("blocked", layer(r, "crowdsec").state());
+		assertEquals("crowdsec", r.blockedBy());
+	}
+
+	@Test
+	void noDecisionWithoutActiveBouncerIsStillNone() {
+		bouncerActive = false;
+		decisions = "[{\"id\":8,\"type\":\"captcha\",\"scope\":\"Ip\",\"value\":\"203.0.113.5\"}]";
+		IpLookupService.Result r = svc.lookup("203.0.113.5");
+		assertEquals("none", layer(r, "crowdsec").state());
+		assertEquals("none", r.blockedBy());
+		decisions = "null";
+		assertEquals("none", layer(svc.lookup("203.0.113.5"), "crowdsec").state());
+	}
+
+	@Test
+	void notEnforcedDoesNotHideUndetermined() {
+		bouncerActive = false;
+		decisions = "[{\"id\":7,\"type\":\"ban\",\"scope\":\"Ip\",\"value\":\"203.0.113.5\"}]";
+		country = GeoLookup.Country.unavailable();
+		server("site.example.com");
+		geo(null, 0, "TW");
+		assertEquals("undetermined", svc.lookup("203.0.113.5").blockedBy());
 	}
 
 	@Test

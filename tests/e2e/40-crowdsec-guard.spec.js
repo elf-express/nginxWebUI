@@ -114,6 +114,28 @@ test.describe('CrowdSec 防護頁', () => {
     await expect(page.locator('.ip-layer[data-layer="crowdsec"] .ip-reason')).toContainText(/bouncer/i);
   });
 
+  test('CrowdSec 有封鎖紀錄但 nginx 沒載入 bouncer：顯示不會擋，標籤是警告色', async ({ page }) => {
+    // 測試 server 沒有 CrowdSec，這個狀態的判定由 IpLookupServiceTest 驗證，這裡只驗畫面
+    const ip = '203.0.113.76';
+    const layer = (name, state, extra = {}) => ({ layer: name, state, lists: [], details: [], decisions: [], ...extra });
+    await page.route('**/adminPage/crowdsecGuard/ipLookup**', (route) => route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, status: '200', obj: {
+        result: { ip, layers: [
+          layer('allowlist', 'none'), layer('geo', 'allowed'), layer('denylist', 'none'),
+          layer('crowdsec', 'notEnforced', { decisions: [{ id: 76, type: 'ban', scope: 'Ip', value: ip, origin: 'cscli', scenario: 'manual', duration: '4h' }] }),
+        ], blockedBy: 'none' },
+        serverNames: {},
+      } }),
+    }));
+    await page.goto(`/adminPage/crowdsecGuard#ip=${ip}`);
+    const cs = page.locator('.ip-layer[data-layer="crowdsec"]');
+    await expect(cs).toHaveAttribute('data-state', 'notEnforced');
+    await expect(cs.locator('.ant-tag')).toContainText(/nginx 未啟用 CrowdSec|nginx 未启用 CrowdSec|not enforced/);
+    await expect(cs.locator('.ant-tag')).toHaveClass(/ant-tag-warning/);
+    await expect(cs.locator('.ip-detail')).toContainText(ip);
+  });
+
   test('加入白名單後「黑名單／白名單」分頁看得到該 IP', async ({ page }) => {
     await page.goto('/adminPage/crowdsecGuard#ip=203.0.113.40');
     await page.locator('.ip-whitelist').click();
@@ -174,6 +196,86 @@ test.describe('CrowdSec 防護頁', () => {
     await late;
     await page.waitForTimeout(300);
     await expect(page.locator('.ip-verdict')).toContainText('203.0.113.62');
+  });
+
+  test('封鎖名單對已查過的同一個 IP 按「查這個 IP」會重新查詢', async ({ page }) => {
+    const ip = '203.0.113.70';
+    await page.route('**/adminPage/crowdsecGuard/bans**', (route) => route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, status: '200', obj: {
+        records: [{ id: 70, type: 'ban', scope: 'Ip', value: ip, origin: 'cscli', scenario: 'manual', duration: '4h' }],
+        count: 1, createdAvailable: false,
+      } }),
+    }));
+    let lookups = 0;
+    page.on('request', (r) => { if (r.url().includes('/ipLookup') && r.url().includes(ip)) lookups += 1; });
+    await page.goto(`/adminPage/crowdsecGuard#ip=${ip}`);
+    await expect(page.locator('.ip-verdict')).toContainText(ip);
+    await expect.poll(() => lookups).toBe(1);
+    await page.getByRole('tab', { name: /封鎖名單|封锁名单|Ban list/ }).click();
+    await page.locator('.bans-lookup').first().click();
+    await expect(page.getByRole('tab', { name: /IP 查詢|IP 查询|IP lookup/ })).toHaveAttribute('aria-selected', 'true');
+    await expect.poll(() => lookups).toBe(2);
+    await expect.poll(() => page.evaluate(() => window.location.hash)).toBe(`#ip=${ip}`);
+  });
+
+  test('搜尋框查 IP 會更新網址 hash，重新整理後查的是同一個 IP', async ({ page }) => {
+    await page.goto('/adminPage/crowdsecGuard#ip=203.0.113.71');
+    await expect(page.locator('.ip-verdict')).toContainText('203.0.113.71');
+    await page.locator('.ip-input input').fill('203.0.113.72');
+    await page.locator('.ip-input input').press('Enter');
+    await expect(page.locator('.ip-verdict')).toContainText('203.0.113.72');
+    await expect.poll(() => page.evaluate(() => window.location.hash)).toBe('#ip=203.0.113.72');
+    const again = page.waitForRequest((r) => r.url().includes('/ipLookup') && r.url().includes('203.0.113.72'));
+    await page.reload();
+    await again;
+    await expect(page.locator('.ip-verdict')).toContainText('203.0.113.72');
+  });
+
+  test('最近被擋下的 IP：「查這個 IP」更新網址 hash；分不出站台的行列出候選站台', async ({ page }) => {
+    await page.route('**/adminPage/crowdsecGuard/blocked**', (route) => route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true, status: '200', obj: {
+        rows: [
+          { ip: '198.51.100.73', host: 'same.example.com', count: 2, lastTime: Date.now(), statuses: { 444: 2 },
+            ambiguous: true, candidates: ['same.example.com (80)', 'same.example.com (8080)'] },
+          { ip: '198.51.100.74', host: 'one.example.com', count: 1, lastTime: Date.now(), statuses: { 403: 1 }, ambiguous: false },
+        ],
+        hostSupported: true, truncated: false,
+      } }),
+    }));
+    await page.goto('/adminPage/crowdsecGuard');
+    const ambiguous = page.locator('.blocked .ant-table-row', { hasText: '198.51.100.73' }).locator('.blocked-ambiguous');
+    await expect(ambiguous).toContainText(/可能屬於多個站台|可能属于多个站点|May belong to several sites/);
+    await expect(ambiguous).toContainText('same.example.com (8080)');
+    await expect(page.locator('.blocked .ant-table-row', { hasText: '198.51.100.74' }).locator('.blocked-ambiguous')).toHaveCount(0);
+    await page.locator('.blocked .ant-table-row', { hasText: '198.51.100.74' }).locator('.blocked-lookup').click();
+    await expect(page.locator('.ip-verdict')).toContainText('198.51.100.74');
+    await expect.poll(() => page.evaluate(() => window.location.hash)).toBe('#ip=198.51.100.74');
+  });
+
+  test('加白名單後的背景重查不會在切到其他分頁後改掉網址', async ({ page }) => {
+    const ip = '203.0.113.75';
+    let release;
+    const gate = new Promise((r) => { release = r; });
+    await page.route('**/adminPage/crowdsecGuard/whitelist**', async (route) => {
+      const res = await route.fetch();
+      await gate;
+      await route.fulfill({ response: res });
+    });
+    await page.goto(`/adminPage/crowdsecGuard#ip=${ip}`);
+    await expect(page.locator('.ip-verdict')).toContainText(ip);
+    await page.locator('.ip-whitelist').click();
+    const posted = page.waitForRequest((r) => r.url().includes('/whitelist'));
+    await page.locator('.ant-popconfirm .ant-btn-primary').click();
+    await posted;
+    await page.getByRole('tab', { name: /連線設定|连接设置|Connection/ }).click();
+    await expect.poll(() => page.evaluate(() => window.location.hash)).toBe('#conn');
+    const relookup = page.waitForRequest((r) => r.url().includes('/ipLookup') && r.url().includes(ip));
+    release();
+    await relookup;
+    await page.waitForTimeout(300);
+    expect(await page.evaluate(() => window.location.hash)).toBe('#conn');
   });
 
   test('最近被擋下的 IP：連續切換時間範圍時只顯示最後一次的結果', async ({ page }) => {

@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import {
+  ambiguousSiteText,
   blockedByKey,
   createLatest,
   crowdsecErrorKey,
   geoSiteKeys,
+  ipHash,
+  layerColor,
   layerStateKey,
   parseHash,
   reasonKeysOf,
+  shouldLookup,
   sourceKeyOf,
   verdictType,
   whitelistMessage,
@@ -29,6 +33,25 @@ describe('parseHash', () => {
     expect(parseHash('')).toEqual({ tab: 'ip', ip: '' })
     expect(parseHash('#unknown')).toEqual({ tab: 'ip', ip: '' })
     expect(parseHash('#ip=2001%3Adb8%3A%3A1')).toEqual({ tab: 'ip', ip: '2001:db8::1' })
+  })
+})
+
+describe('IP 查詢分頁何時要發查詢', () => {
+  it('IP 變了才查；其他分頁的「查這個 IP」即使是同一個 IP 也要重查', () => {
+    expect(shouldLookup('203.0.113.5', '', false)).toBe(true)
+    expect(shouldLookup('203.0.113.5', '203.0.113.9', false)).toBe(true)
+    expect(shouldLookup('203.0.113.5', '203.0.113.5', false)).toBe(false)
+    expect(shouldLookup('203.0.113.5', '203.0.113.5', true)).toBe(true)
+    expect(shouldLookup('', '203.0.113.5', true)).toBe(false)
+  })
+})
+
+describe('IP 查詢的網址 hash', () => {
+  it('#ip=<encodeURIComponent(ip)>，與 parseHash 互為反向', () => {
+    expect(ipHash('203.0.113.5')).toBe('#ip=203.0.113.5')
+    expect(ipHash('2001:db8::1')).toBe('#ip=2001%3Adb8%3A%3A1')
+    expect(parseHash(ipHash('2001:db8::1'))).toEqual({ tab: 'ip', ip: '2001:db8::1' })
+    expect(ipHash('')).toBe('#ip')
   })
 })
 
@@ -58,6 +81,18 @@ describe('層狀態文字', () => {
     expect(layerStateKey('geo', 'unknown')).toBe('crowdsecGuardStr.geoUnknown')
     expect(layerStateKey('denylist', 'skipped')).toBe('crowdsecGuardStr.skipped')
     expect(layerStateKey('crowdsec', 'unavailable')).toBe('crowdsecGuardStr.crowdsecUnavailable')
+    expect(layerStateKey('crowdsec', 'notEnforced')).toBe('crowdsecGuardStr.crowdsecNotEnforced')
+  })
+  it('層狀態的標籤顏色：有封鎖紀錄但 nginx 不會擋是警告色', () => {
+    expect(layerColor('crowdsec', 'notEnforced')).toBe('warning')
+    expect(layerColor('crowdsec', 'blocked')).toBe('error')
+    expect(layerColor('crowdsec', 'unavailable')).toBe('warning')
+    expect(layerColor('crowdsec', 'none')).toBe('default')
+    expect(layerColor('geo', 'unknown')).toBe('warning')
+    expect(layerColor('denylist', 'match')).toBe('error')
+    expect(layerColor('allowlist', 'match')).toBe('success')
+    expect(layerColor('geo', 'skipped')).toBe('default')
+    expect(layerColor('geo', 'allowed')).toBe('default')
   })
   it('結論', () => {
     expect(blockedByKey('none')).toBe('crowdsecGuardStr.verdictNone')
@@ -203,6 +238,20 @@ describe('只採用最後一次請求的結果', () => {
     const pb = b(() => Promise.resolve('b'), (o) => o.ok && applied.push(o.value))
     await Promise.all([pa, pb])
     expect(applied.sort()).toEqual(['a', 'b'])
+  })
+})
+
+describe('最近被擋下的 IP：分不出站台的行', () => {
+  const base = { ip: '203.0.113.5', host: 'a.example.com', count: 1, lastTime: 1, statuses: {} }
+  it('有多個候選站台：列出候選站台名稱', () => {
+    expect(ambiguousSiteText({ ...base, ambiguous: true, candidates: ['a.example.com (80)', 'a.example.com (8080)'] }, tr)).toBe(
+      'crowdsecGuardStr.ambiguousSite(a.example.com (80)、a.example.com (8080))',
+    )
+  })
+  it('只有一個候選或後端省略欄位：不顯示', () => {
+    expect(ambiguousSiteText({ ...base, ambiguous: false }, tr)).toBe('')
+    expect(ambiguousSiteText(base, tr)).toBe('')
+    expect(ambiguousSiteText({ ...base, ambiguous: true, candidates: null }, tr)).toBe('')
   })
 })
 

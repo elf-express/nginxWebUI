@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,7 +16,7 @@ import org.junit.jupiter.api.Test;
 
 /** 用手工組出的最小 mmdb（單一節點、所有 IPv4 指向同一筆資料）驗證 maxmind-db 4.2.0 能把記錄解成 Map。 */
 class GeoLookupTest {
-	/** 放 target/ 下而不用 @TempDir：Windows 上被 memory map 的檔案要等 GC 才能刪，@TempDir 的清理會失敗；mvn clean 會清掉 */
+	/** 放 target/ 下，mvn clean 會清掉 */
 	private final Path tmp = Path.of("target", "geo-lookup-test", String.valueOf(System.nanoTime()));
 
 	@BeforeEach
@@ -94,6 +95,55 @@ class GeoLookupTest {
 			assertFalse(geo.country("not-an-ip").available());
 		} finally {
 			geo.close(); // Windows 上對映中的檔案無法刪除
+		}
+	}
+
+	private void writeCountry(String code) throws Exception {
+		ByteArrayOutputStream country = new ByteArrayOutputStream();
+		map(country, 1);
+		str(country, "country");
+		map(country, 1);
+		str(country, "iso_code");
+		str(country, code);
+		write("GeoLite2-Country.mmdb", country.toByteArray());
+	}
+
+	@Test
+	void databaseCanBeDeletedAndReplacedAfterLookup() throws Exception {
+		// GeoipService.download() 會換掉 mmdb：查詢過後檔案不能被鎖住（Windows 上 memory map 的檔案無法刪除或覆寫）
+		writeCountry("TW");
+		Path file = tmp.resolve("GeoLite2-Country.mmdb");
+		GeoLookup geo = new GeoLookup();
+		geo.dir = tmp.toString();
+		try {
+			assertEquals("TW", geo.country("203.0.113.5").code());
+			Files.delete(file);
+			writeCountry("JP");
+			file.toFile().setLastModified(file.toFile().lastModified() + 10_000);
+			assertEquals("JP", geo.country("203.0.113.5").code());
+		} finally {
+			geo.close();
+		}
+	}
+
+	@Test
+	void readerIsReusedUntilModifiedTimeChanges() throws Exception {
+		writeCountry("TW");
+		File file = tmp.resolve("GeoLite2-Country.mmdb").toFile();
+		long mtime = file.lastModified();
+		GeoLookup geo = new GeoLookup();
+		geo.dir = tmp.toString();
+		try {
+			assertEquals("TW", geo.country("203.0.113.5").code());
+			// 內容換了但修改時間相同：沿用快取的 Reader，不重讀
+			writeCountry("JP");
+			assertTrue(file.setLastModified(mtime));
+			assertEquals("TW", geo.country("203.0.113.5").code());
+			// 修改時間變了：重讀
+			assertTrue(file.setLastModified(mtime + 10_000));
+			assertEquals("JP", geo.country("203.0.113.5").code());
+		} finally {
+			geo.close();
 		}
 	}
 

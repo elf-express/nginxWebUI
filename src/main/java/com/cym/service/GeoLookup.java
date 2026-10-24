@@ -15,7 +15,9 @@ import com.maxmind.db.Reader;
 
 /**
  * 查 IP 的國家與 ASN（GeoLite2 Country／ASN mmdb，與 nginx geoip2 同一份）。
- * Reader 依（檔名, 修改時間）快取並用 MEMORY_MAPPED，不把整個檔案讀進 heap；
+ * Reader 用 FileMode.MEMORY 把整個檔案讀進 heap（與 GeoipService.readBuildDate() 相同），讀完即關檔，
+ * 不會鎖住 mmdb，GeoipService 下載後可以直接換檔；Country＋ASN 兩檔約 20 MB 常駐 heap。
+ * Reader 依（檔名, 修改時間）快取，修改時間變了才重讀，換掉的舊 Reader 會關閉；
  * 國家查詢分三種結果：資料庫不可用、沒有國家記錄、國家代碼（見 {@link Country}）。
  */
 @Component
@@ -91,7 +93,7 @@ public class GeoLookup {
 				}
 				closeQuietly(old);
 				try {
-					return new Cached(f.lastModified(), new Reader(f, Reader.FileMode.MEMORY_MAPPED));
+					return new Cached(f.lastModified(), new Reader(f, Reader.FileMode.MEMORY));
 				} catch (Exception e) {
 					throw new IllegalStateException(e);
 				}
