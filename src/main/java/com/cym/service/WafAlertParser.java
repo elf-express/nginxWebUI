@@ -145,8 +145,12 @@ public final class WafAlertParser {
 		if (!WafCategories.isCrsRule(name)) {
 			return false;
 		}
-		int id = Integer.parseInt(name);
-		return id < 911000 || id >= 949000;
+		try {
+			int id = Integer.parseInt(name);
+			return id < 911000 || id >= 949000;
+		} catch (NumberFormatException ex) {
+			return false;
+		}
 	}
 
 	/** native_rule:942100 → 942100；其他名稱原樣；空白回 null */
