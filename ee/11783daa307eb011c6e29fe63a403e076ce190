@@ -1,0 +1,23 @@
+src/main/java/com/cym/service/WafAlertParser.java
+  s_fbddda1be869be::t_a15410229f767c 31-32,62-68,111-112,119,122,165
+src/main/java/com/cym/service/WafCategories.java
+  s_fbddda1be869be::t_7c76b44e7b3afa 35
+src/test/java/com/cym/service/WafAlertParserTest.java
+  s_fbddda1be869be::t_6a1fbdf9356637 104-146,151-158,165
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ee11783daa307eb011c6e29fe63a403e076ce190",
+  "prompts": {},
+  "sessions": {
+    "s_fbddda1be869be": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3e7779be-a10c-42c4-bc5a-4ffe39cec920",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
