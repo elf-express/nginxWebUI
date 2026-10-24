@@ -24,4 +24,17 @@ else
     unset AGENT_USERNAME AGENT_PASSWORD
 fi
 
+# WAF 規則調整（E-395）：每次啟動都先用預設的自訂 appsec-config，crowdsec 起來後由監看程式套用上一份成功的設定。
+# 沒有共用 volume 時不做其他事；複製規則目錄失敗只印警告，不讓 crowdsec 起不來。
+cp -f /nwu/nwu-custom.default.yaml /etc/crowdsec/appsec-configs/nwu-custom.yaml
+if [ -d /nwu-waf ]; then
+    {
+        mkdir -p /nwu-waf/catalog
+        for f in /nwu/catalog/*; do
+            cp -f "$f" "/nwu-waf/catalog/.$(basename "$f").tmp" && mv -f "/nwu-waf/catalog/.$(basename "$f").tmp" "/nwu-waf/catalog/$(basename "$f")"
+        done
+    } || echo "nwu-waf: catalog copy failed" >&2
+    /bin/bash /nwu/nwu-waf-watch.sh &
+fi
+
 exec /bin/bash /docker_start.sh "$@"

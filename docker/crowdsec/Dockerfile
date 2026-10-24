@@ -40,6 +40,16 @@ COPY appsec.yaml    /etc/crowdsec/acquis.d/appsec.yaml
 COPY profiles.yaml  /etc/crowdsec/profiles.yaml
 COPY abuseipdb.yaml /etc/crowdsec/notifications/abuseipdb.yaml
 
+# WAF rule tuning (E-395): one custom appsec-config replaces the two stock ones (same content until the admin
+# changes something), the rule catalog is exported here so it exists offline, and a watcher applies new configs.
+COPY nwu-custom.yaml /nwu/nwu-custom.default.yaml
+COPY nwu-waf-catalog.sh nwu-waf-watch.sh /nwu/
+RUN set -eux; \
+    chmod 755 /nwu/nwu-waf-catalog.sh /nwu/nwu-waf-watch.sh; \
+    cp /nwu/nwu-custom.default.yaml /etc/crowdsec/appsec-configs/nwu-custom.yaml; \
+    sh /nwu/nwu-waf-catalog.sh /nwu/catalog; \
+    test -s /nwu/catalog/vpatch.json; test -s /nwu/catalog/crs.tsv; test -s /nwu/catalog/meta.json
+
 # Start wrapper: hands the nginxWebUI machine password (secrets file or env) to the official start script,
 # which registers the machine with `cscli machines add --force` on every start.
 COPY nwu-start.sh /nwu-start.sh

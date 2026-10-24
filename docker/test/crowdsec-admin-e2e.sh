@@ -123,6 +123,8 @@ volumes:
     name: ${PROJECT}_crowdsec_data
   nginxwebui_geoip:
     name: ${PROJECT}_geoip
+  nginxwebui_waf:
+    name: ${PROJECT}_waf
 EOF
 
 # api <path> [curl args...] : admin API call from inside the nginxwebui container (session kept in a cookie jar)
