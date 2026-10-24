@@ -2,6 +2,7 @@ package com.cym.service;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -25,9 +26,8 @@ import cn.hutool.core.util.StrUtil;
  * → 預設站台（{@code def == 1} 的站台，沒有就用第一個站台）。
  * 只看啟用的站台；無效的正規式與萬用字元、{@code _}、空字串、變數不參與比對。
  * <p>
- * access log 只有 $host，分不出 listen 埠：同一優先層級有兩個以上站台都接得到這個 host 時
- * （同名、同長度的萬用字元、同一個正規式、多個 {@code def == 1}），{@link #candidates} 列出全部候選站台，
- * {@link #select} 回第一個。
+ * access log 只有 $host，分不出 listen 端點：{@link #candidates} 合併各 listen 端點的可能站台，
+ * {@link #select} 依站台順序回傳第一個。
  */
 public final class HttpServerSelector {
 	private static final Logger logger = LoggerFactory.getLogger(HttpServerSelector.class);
@@ -46,9 +46,35 @@ public final class HttpServerSelector {
 	private final List<Regex> regexes = new ArrayList<>();
 	private final List<String> defaultIds;
 	private final Map<String, List<String>> cache = new HashMap<>();
+	private final List<HttpServerSelector> listenGroups;
+	private final List<String> serverOrder;
 
 	/** @param servers HTTP 站台，順序與 ConfService 產生設定時相同（ServerService.getListByProxyType） */
 	public HttpServerSelector(List<Server> servers) {
+		Map<String, List<Server>> groups = new LinkedHashMap<>();
+		serverOrder = new ArrayList<>();
+		for (Server server : servers) {
+			if (server == null || server.getEnable() == null || !server.getEnable()) {
+				continue;
+			}
+			if (!serverOrder.contains(server.getId())) {
+				serverOrder.add(server.getId());
+			}
+			for (String listener : listenerGroups(server)) {
+				groups.computeIfAbsent(listener, k -> new ArrayList<>()).add(server);
+			}
+		}
+		listenGroups = groups.values().stream().map(HttpServerSelector::newGroup).toList();
+		defaultIds = List.of();
+	}
+
+	private static HttpServerSelector newGroup(List<Server> servers) {
+		return new HttpServerSelector(servers, true);
+	}
+
+	private HttpServerSelector(List<Server> servers, boolean listenGroup) {
+		listenGroups = List.of();
+		serverOrder = List.of();
 		String first = null;
 		List<String> defs = new ArrayList<>();
 		for (Server s : servers) {
@@ -68,6 +94,40 @@ public final class HttpServerSelector {
 			}
 		}
 		defaultIds = !defs.isEmpty() ? List.copyOf(defs) : first != null ? List.of(first) : List.of();
+	}
+
+	private static List<String> listenerGroups(Server server) {
+		String listen = StrUtil.trim(server.getListen());
+		if (StrUtil.isBlank(listen)) {
+			return List.of("");
+		}
+		int separator = listen.lastIndexOf(':');
+		String address = separator < 0 ? "*" : listen.substring(0, separator).trim().toLowerCase(Locale.ROOT);
+		String portSpec = separator < 0 ? listen : listen.substring(separator + 1);
+		Set<String> listeners = new LinkedHashSet<>();
+		for (String part : portSpec.split(",", -1)) {
+			String[] range = part.trim().split("-", -1);
+			try {
+				int start = Integer.parseInt(range[0].trim());
+				int end = range.length == 1 ? start : Integer.parseInt(range[1].trim());
+				if (range.length > 2 || start < 1 || end < 1 || start > 65535 || end > 65535) {
+					return List.of(listen.toLowerCase(Locale.ROOT));
+				}
+				int step = start <= end ? 1 : -1;
+				for (int port = start;; port += step) {
+					listeners.add(address + ":" + port);
+					if (Integer.valueOf(1).equals(server.getIpv6())) {
+						listeners.add("[::]:" + port);
+					}
+					if (port == end) {
+						break;
+					}
+				}
+			} catch (NumberFormatException e) {
+				return List.of(listen.toLowerCase(Locale.ROOT));
+			}
+		}
+		return List.copyOf(listeners);
 	}
 
 	private static String unquote(String name) {
@@ -137,13 +197,20 @@ public final class HttpServerSelector {
 
 	/** 同一優先層級接得到這個 Host 的站台 id，依站台順序；沒有任何啟用站台或 host 為 null 時回空清單 */
 	public List<String> candidates(String host) {
-		if (host == null || defaultIds.isEmpty()) {
+		if (host == null || listenGroups.isEmpty() && defaultIds.isEmpty()) {
 			return List.of();
 		}
 		return cache.computeIfAbsent(normalize(host.trim()), this::resolve);
 	}
 
 	private List<String> resolve(String host) {
+		if (!listenGroups.isEmpty()) {
+			Set<String> possible = new LinkedHashSet<>();
+			for (HttpServerSelector group : listenGroups) {
+				possible.addAll(group.candidates(host));
+			}
+			return serverOrder.stream().filter(possible::contains).toList();
+		}
 		Set<String> ids = exact.get(host);
 		if (ids != null) {
 			return List.copyOf(ids);

@@ -192,11 +192,18 @@ class HttpServerSelectorTest {
 	@Test
 	void sameExactNameOnTwoServersIsAmbiguous() {
 		// 不同 listen 埠的兩個站台都叫 example.com：access log 只有 $host，分不出是哪一個
-		add("p80", "example.com");
-		add("p8080", "Example.com www.example.com");
+		add("p80", "example.com").setListen("80");
+		add("p8080", "Example.com www.example.com").setListen("8080");
 		assertEquals(List.of("p80", "p8080"), candidates("example.com"));
 		assertEquals("p80", select("example.com"));
-		assertEquals(List.of("p8080"), candidates("www.example.com"));
+		assertEquals(List.of("p80", "p8080"), candidates("www.example.com"));
+	}
+
+	@Test
+	void hostnamePrecedenceIsResolvedSeparatelyForEachListenPort() {
+		add("wildcard80", "*.example.com").setListen("80");
+		add("exact8080", "www.example.com").setListen("8080");
+		assertEquals(List.of("wildcard80", "exact8080"), candidates("www.example.com"));
 	}
 
 	@Test
