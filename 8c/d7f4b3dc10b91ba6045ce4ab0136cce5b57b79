@@ -1,0 +1,25 @@
+src/main/java/com/cym/model/WafEventRule.java
+  s_fbddda1be869be::t_5c6f7a072217b8 6
+src/main/java/com/cym/service/WafEventService.java
+  s_fbddda1be869be::t_13871d830a4127 27,44-45,76-83,90,95,114,129-141,189,205-207,224,228-236,239,245-249,276-277,280-284
+src/test/java/com/cym/service/WafEventServiceTest.java
+  s_fbddda1be869be::t_0947ef6532efd5 13-14,87-88,101,192-268
+src/test/java/com/cym/testsupport/InMemorySqlHelper.java
+  s_fbddda1be869be::t_3849c4dde24159 20,155,161-172,175-205
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8cd7f4b3dc10b91ba6045ce4ab0136cce5b57b79",
+  "prompts": {},
+  "sessions": {
+    "s_fbddda1be869be": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3e7779be-a10c-42c4-bc5a-4ffe39cec920",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
