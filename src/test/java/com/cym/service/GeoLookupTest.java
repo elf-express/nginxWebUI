@@ -119,7 +119,9 @@ class GeoLookupTest {
 			assertEquals("TW", geo.country("203.0.113.5").code());
 			Files.delete(file);
 			writeCountry("JP");
-			file.toFile().setLastModified(file.toFile().lastModified() + 10_000);
+			File countryFile = file.toFile();
+			long newModifiedTime = countryFile.lastModified() + 10_000;
+			assertTrue(countryFile.setLastModified(newModifiedTime), "Failed to update mmdb lastModified time");
 			assertEquals("JP", geo.country("203.0.113.5").code());
 		} finally {
 			geo.close();
