@@ -1,0 +1,27 @@
+README.md
+  s_1006f5e1b97097::t_731391791634c7 78
+README_TW.md
+  s_1006f5e1b97097::t_6a5b498bcf66d6 78
+docs/memory/dev-run-deploy.md
+  s_1006f5e1b97097::t_7c4cf25b15aa2e 110-111
+docs/memory/feature-inventory.md
+  s_1006f5e1b97097::t_d00328e09dae4b 31-35
+docs/superpowers/plans/docker-guide.md
+  s_1006f5e1b97097::t_daf70f1b63511b 189,231-232
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b05f968e0631b0f1adcf1b65110a0cfdb3b70543",
+  "prompts": {},
+  "sessions": {
+    "s_1006f5e1b97097": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c42c83a6-6d55-484a-9615-af8cf8c3bdc0",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
