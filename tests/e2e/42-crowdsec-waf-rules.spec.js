@@ -106,6 +106,17 @@ test.describe.serial('WAF 規則分頁（共用 server，規則目錄與結果�
     expect(cdn).toEqual([]);
   });
 
+  test('工具列和下一行說明不重疊', async ({ page }) => {
+    writeCatalog();
+    await page.goto('/adminPage/crowdsecGuard#rules');
+    await expect(page.locator('.waf-catalog')).toBeVisible();
+    const box = await page.evaluate(() => ({
+      barBottom: document.querySelector('.waf-bar').getBoundingClientRect().bottom,
+      catalogTop: document.querySelector('.waf-catalog').getBoundingClientRect().top,
+    }));
+    expect(box.barBottom).toBeLessThanOrEqual(box.catalogTop);
+  });
+
   test('調整分類與單條、排除站台，套用後寫出設定與操作日誌，重新整理仍保留', async ({ page }) => {
     writeCatalog();
     const serverJson = JSON.stringify({ proxyType: 0, serverName: 'waf-e2e.test', listen: '18991', enable: true, def: 0 });
@@ -179,6 +190,8 @@ test.describe.serial('WAF 規則分頁（共用 server，規則目錄與結果�
       });
       await page.reload();
       await expect(page.locator('.waf-not-applied')).toBeVisible();
+      // 尚未套用時不顯示上一次的「套用成功」，兩則訊息互相矛盾
+      await expect(page.locator('.waf-status')).toHaveCount(0);
 
       // 不改任何規則直接套用：寫出新的套用編號，設定檔帶新的網域
       const before = fs.readFileSync(path.join(WAF_DIR, 'request'), 'utf8').trim();

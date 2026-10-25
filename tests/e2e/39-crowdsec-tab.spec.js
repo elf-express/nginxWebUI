@@ -203,6 +203,25 @@ test.describe('CrowdSec 分頁（共用 server，沒有 CrowdSec 變數）', () 
     expect([c.mode, c.style, c.ttlMinutes, c.enabled]).toEqual(['builtin', 'checkbox', 30, false]);
   });
 
+  test('預覽驗證頁：不啟動驗證，顯示預覽說明而不是「驗證失敗」', async ({ page }) => {
+    const NOTE = /預覽模式|预览模式|Preview only/;
+    // 測試 server 沒有 image 內的 ALTCHA：用替身元件模擬「沒帶 test 就沒有題目，驗證失敗」（真的 ALTCHA 由 Docker 腳本的 --browser 檢查）
+    await page.route('**/adminPage/crowdsec/challengeAsset?name=altcha.js', (route) => route.fulfill({
+      contentType: 'application/javascript',
+      body: "customElements.define('altcha-widget', class extends HTMLElement { connectedCallback() { if (!this.hasAttribute('test')) { this.textContent = 'Verification failed'; } } });",
+    }));
+    for (const style of ['auto', 'checkbox']) {
+      await page.goto(`/adminPage/crowdsec/challengePreview?style=${style}`);
+      await expect(page.locator('.nwu-preview')).toHaveText(NOTE);
+      await expect(page.locator('body')).toHaveAttribute('data-preview', '1');
+      // 預覽的 widget 用 test 屬性自己產生題目，不帶空的 challengejson
+      await expect(page.locator('altcha-widget')).toHaveAttribute('test', '');
+      await expect(page.locator('altcha-widget')).not.toHaveAttribute('challengejson', /.*/);
+      await page.waitForTimeout(500);
+      expect(await page.locator('body').innerText()).not.toMatch(/驗證失敗|验证失败|Verification failed/);
+    }
+  });
+
   test('預覽驗證頁：兩種樣式都是同一份頁面，不從外網載資源', async ({ page }) => {
     for (const style of ['auto', 'checkbox']) {
       const res = await page.request.get(`/adminPage/crowdsec/challengePreview?style=${style}`);
@@ -211,6 +230,7 @@ test.describe('CrowdSec 分頁（共用 server，沒有 CrowdSec 變數）', () 
       const html = await res.text();
       expect(html).toContain('<altcha-widget');
       expect(html).toContain(`data-style="${style}"`);
+      expect(html).toContain('data-preview="1"');
       expect(html.includes('auto="onload"')).toBe(style === 'auto');
       expect(html).not.toMatch(/https?:\/\//);
       // 預覽引用後台網址，不引用 nginx 的保留路徑
@@ -227,7 +247,7 @@ test.describe('CrowdSec 分頁（共用 server，沒有 CrowdSec 變數）', () 
     const css = await page.request.get('/adminPage/crowdsec/challengeAsset?name=page.css');
     expect(css.status()).toBe(200);
     expect(css.headers()['content-type']).toContain('text/css');
-    expect(await css.text()).toContain('#666');
+    expect(await css.text()).toContain('rgba(0,0,0,.65)');
     for (const name of ['altcha.js', '../challenge.conf', 'challenge.html']) {
       expect((await page.request.get(`/adminPage/crowdsec/challengeAsset?name=${encodeURIComponent(name)}`)).status(),
         name).toBe(404);

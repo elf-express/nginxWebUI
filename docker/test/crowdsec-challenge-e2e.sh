@@ -474,9 +474,16 @@ browser() {
     i=$((i + 1))
     sleep 3
   done
-  out="$(node "$(native "$HERE/challenge-browser.cjs")" https://localhost:18443 "$1" 2>&1)"
+  # the admin preview of this style (HTML and the five files it loads), fetched through the admin API: the admin port is not published
+  pv="$(mktemp -d)"
+  api "/adminPage/crowdsec/challengePreview?style=$1" > "$pv/preview.html"
+  for a in altcha.js altcha.css altcha-worker.js page.js page.css; do
+    api "/adminPage/crowdsec/challengeAsset?name=$a" > "$pv/$a"
+  done
+  out="$(node "$(native "$HERE/challenge-browser.cjs")" https://localhost:18443 "$1" "$(native "$pv")" 2>&1)"
+  rm -rf "$pv"
   if [ "$out" = "ok $1" ]; then
-    pass B "real Chromium from the host ($gw): $1 style passes under the site CSP without CSP violations, cookie keeps working, nothing loaded from outside"
+    pass B "real Chromium from the host ($gw): $1 style passes under the site CSP without CSP violations, cookie keeps working, nothing loaded from outside; the admin preview shows the note and no ALTCHA error"
   else
     fail B "$1 style: $out"
   fi

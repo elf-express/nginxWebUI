@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { WafCategory, WafRule, WafRules } from './api'
-import { actionLabelKey, actionOptions, categoryName, changesOf, currentOf, editKey, canApply, notApplied, onlyHitsMode, resumeRequestId, statusMessage, visibleCategories, visibleRules, type Edit } from './wafRules'
+import { actionLabelKey, actionOptions, categoryName, changesOf, currentOf, editKey, canApply, notApplied, onlyHitsMode, resumeRequestId, statusMessage, visibleCategories, visibleRules, visibleStatusMessage, type Edit } from './wafRules'
 
 const tr = (k: string, ...a: (string | number)[]) => (a.length ? `${k}(${a.join(',')})` : k)
 
@@ -95,5 +95,21 @@ describe('wafRules', () => {
     expect(onlyHitsMode('  ', false)).toBe(true)
     expect(onlyHitsMode('sqli', false)).toBe(false)
     expect(onlyHitsMode('', true)).toBe(false)
+  })
+
+  it('尚未套用時不顯示上一次的套用成功，其他狀態照常顯示', () => {
+    const ok = { type: 'success', text: 'ok' }
+    const failed = { type: 'error', text: 'x' }
+    const pending = { type: 'info', text: '...' }
+    const stale = { ...DATA, inSync: false }
+    const synced = { ...DATA, inSync: true }
+    expect(visibleStatusMessage(ok, stale, false)).toBeNull()
+    expect(visibleStatusMessage(failed, stale, false)).toBe(failed)
+    expect(visibleStatusMessage(pending, stale, false)).toBe(pending)
+    expect(visibleStatusMessage(ok, stale, true)).toBe(ok)
+    expect(visibleStatusMessage(ok, synced, false)).toBe(ok)
+    expect(visibleStatusMessage(ok, DATA, false)).toBe(ok)
+    expect(visibleStatusMessage(ok, null, false)).toBe(ok)
+    expect(visibleStatusMessage(null, stale, false)).toBeNull()
   })
 })

@@ -23,6 +23,16 @@
       verified: s["challengeStr.altchaVerified"], error: s["challengeStr.altchaError"],
       expired: s["challengeStr.altchaExpired"]
     }));
-    w.addEventListener("verified", function () { document.getElementById("nwu-form").submit(); });
+    if (document.body.getAttribute("data-preview")) {
+      // 後台預覽：widget 用自己產生的題目，驗證完成也不送出表單，只顯示說明
+      var note = document.createElement("p");
+      note.className = "nwu-preview";
+      note.textContent = s["challengeStr.previewNote"] || "";
+      var form = document.getElementById("nwu-form");
+      form.parentNode.insertBefore(note, form);
+      form.addEventListener("submit", function (e) { e.preventDefault(); });
+    } else {
+      w.addEventListener("verified", function () { document.getElementById("nwu-form").submit(); });
+    }
   }
 })();

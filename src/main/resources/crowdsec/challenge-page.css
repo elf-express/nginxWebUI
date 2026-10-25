@@ -1,7 +1,24 @@
-body{font-family:sans-serif;background:#f5f5f5;color:#333;margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh}
-main{background:#fff;border:1px solid #ddd;border-radius:6px;padding:32px 40px;max-width:560px;text-align:center}
-h1{font-size:22px;margin:0 0 12px}
-p{margin:6px 0;line-height:1.6}
-altcha-widget{display:inline-block;margin:16px 0}
-.nwu-meta{color:#666;font-size:12px;margin-top:20px}
-.nwu-noscript{color:#c0392b}
+*,*::before,*::after{box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,'Noto Sans',sans-serif,'Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol','Noto Color Emoji';font-size:14px;line-height:1.5715;background:#f5f5f5;color:rgba(0,0,0,.88);margin:0;padding:24px 16px;display:flex;align-items:center;justify-content:center;min-height:100vh;-webkit-font-smoothing:antialiased}
+main{background:#fff;border-radius:8px;box-shadow:0 6px 16px 0 rgba(0,0,0,.08),0 3px 6px -4px rgba(0,0,0,.12),0 9px 28px 8px rgba(0,0,0,.05);padding:32px;width:100%;max-width:480px;text-align:center}
+h1{font-size:20px;font-weight:600;line-height:1.4;margin:0 0 16px}
+p{margin:0 0 8px}
+a{color:#1677ff;text-decoration:none}
+a:hover{color:#4096ff}
+a:focus-visible,button:focus-visible{outline:4px solid rgba(5,145,255,.1);outline-offset:1px}
+main p>a{display:inline-block;background:#1677ff;border-radius:6px;color:#fff;line-height:22px;margin-top:16px;padding:4px 15px}
+main p>a:hover{background:#4096ff;color:#fff}
+altcha-widget{display:block;margin:24px auto 8px;max-width:320px;text-align:left;--altcha-color-base:#fff;--altcha-color-border:#d9d9d9;--altcha-color-border-focus:#1677ff;--altcha-color-text:rgba(0,0,0,.88);--altcha-color-active:#1677ff;--altcha-color-error-text:#ff4d4f;--altcha-color-footer-bg:transparent;--altcha-border-radius:6px;--altcha-border-width:1px;--altcha-max-width:100%}
+.altcha{transition:border-color .2s}
+.altcha:hover{border-color:#1677ff}
+.altcha[data-state=verified]{border-color:#52c41a}
+.altcha[data-state=error]{border-color:#ff4d4f}
+.altcha-main{gap:8px;padding:12px 16px}
+.altcha-label{font-size:14px}
+.altcha-checkbox input{accent-color:#1677ff}
+.altcha-error{padding:0 16px 12px}
+.nwu-meta{border-top:1px solid #f0f0f0;color:rgba(0,0,0,.65);font-size:12px;margin:24px 0 0;padding-top:16px}
+.nwu-noscript,.nwu-preview{border:1px solid;border-radius:8px;margin:0 0 16px;padding:8px 12px;text-align:left}
+.nwu-noscript{background:#fff2f0;border-color:#ffccc7;color:rgba(0,0,0,.88)}
+.nwu-preview{background:#e6f4ff;border-color:#91caff;color:rgba(0,0,0,.88)}
+@media (max-width:480px){body{padding:16px}main{padding:24px 16px}}

@@ -15,7 +15,8 @@ import {
   message,
 } from 'ant-design-vue'
 import { SessionExpiredError } from '../../shared/http'
-import { t } from '../../shared/i18n'
+import { antLocaleOf } from '../../shared/antLocale'
+import { getLang, t } from '../../shared/i18n'
 import { notifyError } from '../../shared/notify'
 import { useCrowdSecStore, type ChallengeMode, type ChallengeStyle, type SecretView } from './store'
 import {
@@ -44,6 +45,7 @@ const form = reactive<{ mode: ChallengeMode; style: ChallengeStyle; externalUrl:
 
 // 主色對齊舊版 Layui 的 layui-btn-normal
 const theme = { token: { colorPrimary: '#1e9fff' } }
+const locale = antLocaleOf(getLang())
 
 const light = computed(() => lightOf(store.probe))
 const statusText = computed(() =>
@@ -176,7 +178,7 @@ onMounted(reload)
 </script>
 
 <template>
-  <ConfigProvider :theme="theme">
+  <ConfigProvider :theme="theme" :locale="locale">
     <section class="crowdsec-tab" aria-labelledby="crowdsec-title">
       <h2 id="crowdsec-title" class="crowdsec-title">{{ t('crowdsecStr.connTitle') }}</h2>
 
@@ -188,7 +190,7 @@ onMounted(reload)
 
       <Descriptions v-else-if="store.config" class="crowdsec-desc" bordered size="small" :column="1">
         <DescriptionsItem :label="t('crowdsecStr.status')">
-          <Space wrap>
+          <Space>
             <span class="crowdsec-light" :data-light="light">
               <Badge :status="BADGE[light]" :text="statusText" />
             </span>
@@ -237,7 +239,7 @@ onMounted(reload)
         </DescriptionsItem>
 
         <DescriptionsItem :label="t('crowdsecStr.graceSeconds')">
-          <Space wrap>
+          <Space>
             <InputNumber
               :value="grace"
               class="crowdsec-grace"
@@ -340,7 +342,7 @@ onMounted(reload)
         </DescriptionsItem>
       </Descriptions>
 
-      <Space class="crowdsec-challenge-actions" wrap>
+      <Space class="crowdsec-challenge-actions">
         <Button
           type="primary"
           class="crowdsec-challenge-save"
