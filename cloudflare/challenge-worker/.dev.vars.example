@@ -1,0 +1,6 @@
+# Required: use the same ticket secret configured by nginxWebUI.
+# Never commit a populated .dev.vars file.
+NWU_CHALLENGE_TICKET_SECRET=""
+TURNSTILE_SECRET_KEY=""
+TURNSTILE_SITE_KEY=""
+TURNSTILE_HOSTNAME=""

@@ -1,0 +1,7 @@
+name = "nginxwebui-challenge"
+main = "src/index.js"
+compatibility_date = "2026-10-24"
+
+[vars]
+TURNSTILE_SITE_KEY = ""
+TURNSTILE_HOSTNAME = ""
