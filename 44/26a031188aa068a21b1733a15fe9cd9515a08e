@@ -1,0 +1,19 @@
+.github/workflows/build.yml
+  s_a87c06cffd0bb6::t_445d66b6b959ae 90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4426a031188aa068a21b1733a15fe9cd9515a08e",
+  "prompts": {},
+  "sessions": {
+    "s_a87c06cffd0bb6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a16a52-3b40-7651-beb3-472ebd609ab8",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
