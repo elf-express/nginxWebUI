@@ -1,0 +1,12 @@
+{
+  "name": "nginxwebui-challenge-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test ../../tests/unit/challenge-worker.test.js",
+    "build": "wrangler deploy --dry-run --outdir dist"
+  },
+  "devDependencies": {
+    "wrangler": "4.152.0"
+  }
+}
