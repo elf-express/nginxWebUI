@@ -1,0 +1,37 @@
+cloudflare/challenge-worker/scripts/build-messages.cjs
+  s_a87c06cffd0bb6::t_3af03ded8f14e1 1-36
+cloudflare/challenge-worker/src/index.js
+  s_a87c06cffd0bb6::t_0318430ef19b32 3,6-10,33,35-45,49,51-52,54-58,60,67,74-76
+cloudflare/challenge-worker/src/messages.generated.js
+  s_a87c06cffd0bb6::t_860d39531cd512 1-84
+cloudflare/challenge-worker/src/page.js
+  s_a87c06cffd0bb6::t_43f8563e6b9a41 1-88
+cloudflare/challenge-worker/test/browser-server.cjs
+  s_a87c06cffd0bb6::t_78c400c8262824 1-38
+src/main/resources/messages.properties
+  s_a87c06cffd0bb6::t_9dc5084b68649a 1307-1312
+src/main/resources/messages_en_US.properties
+  s_a87c06cffd0bb6::t_d7d1c8ad25a271 1307-1312
+src/main/resources/messages_zh_TW.properties
+  s_a87c06cffd0bb6::t_519b88148fd507 1307-1312
+tests/e2e/challenge-worker.spec.js
+  s_a87c06cffd0bb6::t_d6614f3c5e6c12 1-116
+tests/unit/challenge-worker.test.js
+  s_a87c06cffd0bb6::t_04232d361a6629 169-196
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ff6fcd17844447a96a62af03b135f62ad449778f",
+  "prompts": {},
+  "sessions": {
+    "s_a87c06cffd0bb6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a16a52-3b40-7651-beb3-472ebd609ab8",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
