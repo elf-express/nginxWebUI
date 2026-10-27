@@ -1,0 +1,31 @@
+cloudflare/challenge-worker/src/index.js
+  s_a87c06cffd0bb6::t_36827a5870a495 1,74-79
+cloudflare/challenge-worker/src/page.js
+  s_a87c06cffd0bb6::t_59ca4780582a82 21
+cloudflare/challenge-worker/src/tickets.js
+  s_a87c06cffd0bb6::t_920f90e294e018 6-7,23-24,30,54-62
+cloudflare/challenge-worker/test/browser-server.cjs
+  s_a87c06cffd0bb6::t_4d921ab00480d1 10,12,30
+cloudflare/challenge-worker/test/nginx-roundtrip.cjs
+  s_a87c06cffd0bb6::t_8b3944c8eba86a 74,92-94,96,99,184-199
+tests/e2e/challenge-worker.spec.js
+  s_a87c06cffd0bb6::t_bae72ee7390ef6 117-132
+tests/unit/challenge-worker.test.js
+  s_a87c06cffd0bb6::t_c406d340d36a12 222-265
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6d3ad35bfed143e10484a7ffbdb3c6c74c450bd9",
+  "prompts": {},
+  "sessions": {
+    "s_a87c06cffd0bb6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a16a52-3b40-7651-beb3-472ebd609ab8",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
