@@ -166,3 +166,31 @@ test('handler_worker_config_requires_fixed_identity', () => {
   assert.match(config, /^main\s*=\s*"src\/index.js"$/m);
   assert.match(config, /^compatibility_date\s*=\s*"2026-10-24"$/m);
 });
+
+test('page dictionary stays reproducible and refuses missing translations', async () => {
+  const { spawnSync } = require('node:child_process');
+  const builder = path.join(root, 'cloudflare/challenge-worker/scripts/build-messages.cjs');
+  const checked = spawnSync(process.execPath, [builder, '--check'], { encoding: 'utf8' });
+  assert.equal(checked.status, 0, checked.stderr);
+  const { buildMessages, parseProperties } = require(builder);
+  assert.equal(parseProperties('challengeStr.test=\\u4F60\\u597D\\nworld')['challengeStr.test'], '你好\nworld');
+  assert.throws(() => buildMessages({ en: { 'challengeStr.x': 'x' }, 'zh-CN': {}, 'zh-TW': {} }), /Missing/);
+});
+test('page escapes all untrusted model values and carries a strict CSP', async () => {
+  const { renderPage } = await import('../../cloudflare/challenge-worker/src/page.js');
+  const evil = '"><script>window.pwned=1</script>';
+  const html = renderPage({ ticket: evil, nonce: evil, sitekey: evil, style: 'checkbox', locale: 'en', ip: evil, time: evil, error: null });
+  assert.equal(html.includes('<script>window.pwned=1</script>'), false);
+  assert.equal(html.includes('&lt;script&gt;'), true);
+  const response = await (await handlerApi()).createHandler({ now: () => NOW })(new Request('https://worker.example/?t=' + signReq({})), env);
+  assert.match(response.headers.get('content-security-policy'), /script-src 'self' https:\/\/challenges.cloudflare.com/);
+  assert.equal(response.headers.get('content-security-policy').includes('unsafe-inline'), false);
+});
+
+test('handler permits no-referrer form navigation only with same-origin Fetch Metadata', async () => {
+  const handle = (await handlerApi()).createHandler({ now: () => NOW, fetch: async () => Response.json(goodValidation()) });
+  const headers = { origin: 'null', 'sec-fetch-site': 'same-origin', 'sec-fetch-mode': 'navigate' };
+  assert.equal((await handle(post({}, { headers }), env)).status, 303);
+  for (const changed of [{ 'sec-fetch-site': 'cross-site' }, { 'sec-fetch-site': 'same-site' }, { 'sec-fetch-site': '' }, { 'sec-fetch-mode': '' }, { origin: '' }, { origin: 'https://evil.example' }])
+    assert.equal((await handle(post({}, { headers: { ...headers, ...changed } }), env)).status, 429);
+});
