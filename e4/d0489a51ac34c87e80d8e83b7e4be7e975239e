@@ -1,0 +1,29 @@
+cloudflare/challenge-worker/.dev.vars.example
+  s_a87c06cffd0bb6::t_79df38191d7ef6 1-6
+cloudflare/challenge-worker/package.json
+  s_a87c06cffd0bb6::t_088d7c43f1b4a2 6-7
+cloudflare/challenge-worker/src/index.js
+  s_a87c06cffd0bb6::t_abc4aa19a20afb 1-66
+cloudflare/challenge-worker/src/turnstile.js
+  s_a87c06cffd0bb6::t_a7dee61e666fbc 1-19
+cloudflare/challenge-worker/wrangler.toml
+  s_a87c06cffd0bb6::t_f247d7d2eb0bde 1-7
+tests/unit/challenge-worker.test.js
+  s_a87c06cffd0bb6::t_895b9d3bbb6e0f 70-168
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e4d0489a51ac34c87e80d8e83b7e4be7e975239e",
+  "prompts": {},
+  "sessions": {
+    "s_a87c06cffd0bb6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a16a52-3b40-7651-beb3-472ebd609ab8",
+        "model": "gpt-6.1-sol"
+      },
+      "human_author": "楊清雲 <41539966+TW199501@users.noreply.github.com>"
+    }
+  }
+}
