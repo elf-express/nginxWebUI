@@ -194,3 +194,28 @@ test('handler permits no-referrer form navigation only with same-origin Fetch Me
   for (const changed of [{ 'sec-fetch-site': 'cross-site' }, { 'sec-fetch-site': 'same-site' }, { 'sec-fetch-site': '' }, { 'sec-fetch-mode': '' }, { origin: '' }, { origin: 'https://evil.example' }])
     assert.equal((await handle(post({}, { headers: { ...headers, ...changed } }), env)).status, 429);
 });
+
+test('deployment docs and config keep the same fixed Worker identity', () => {
+  const worker = path.join(root, 'cloudflare/challenge-worker');
+  const config = fs.readFileSync(path.join(worker, 'wrangler.toml'), 'utf8');
+  assert.match(config, /^name = "nginxwebui-challenge"$/m);
+  const commands = [
+    'cd cloudflare/challenge-worker', 'npm ci', 'npm test', 'npm run build', 'npx wrangler login',
+    'npx wrangler secret put NWU_CHALLENGE_TICKET_SECRET', 'npx wrangler secret put TURNSTILE_SECRET_KEY', 'npx wrangler deploy',
+  ];
+  for (const file of ['README.md', 'README_TW.md']) {
+    const doc = fs.readFileSync(path.join(worker, file), 'utf8');
+    assert.match(doc, /nginxwebui-challenge/);
+    assert.match(doc, /main = "src\/index.js"/);
+    assert.match(doc, /compatibility_date = "2026-10-24"/);
+    assert.doesNotMatch(doc, /--name\b/);
+    let last = -1;
+    for (const command of commands) {
+      const position = doc.indexOf(command);
+      assert.ok(position > last, file + ': command order ' + command);
+      last = position;
+    }
+    for (const value of ['TURNSTILE_SITE_KEY', 'TURNSTILE_HOSTNAME', '?style=auto', '?style=checkbox', 'realip.conf', 'ngx.var.scheme', 'NWU_CHALLENGE_SECRET'])
+      assert.ok(doc.includes(value), file + ': missing ' + value);
+  }
+});
