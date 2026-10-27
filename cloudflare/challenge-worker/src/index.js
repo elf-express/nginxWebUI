@@ -1,4 +1,4 @@
-import { verifyRequestTicket, signResponseTicket, callbackUrl, TicketError } from './tickets.js';
+import { verifyRequestTicket, signResponseTicket, callbackUrl, safeReturn, TicketError } from './tickets.js';
 import { validateTurnstile, ServiceError } from './turnstile.js';
 import { renderPage, chooseLocale, clientScript, styleSheet } from './page.js';
 
@@ -71,6 +71,12 @@ export function createHandler(deps = {}) {
       const responseToken = await signResponseTicket(ticket, env.NWU_CHALLENGE_TICKET_SECRET, finalNow);
       return new Response(null, { status: 303, headers: { ...headers, location: callbackUrl(ticket.host, responseToken) } });
     } catch (error) {
+      if (error instanceof TicketError && error.expiredTicket) {
+        // Only verifyRequestTicket attaches this after full signature/schema validation.
+        const expired = error.expiredTicket;
+        model.returnUrl = 'https://' + expired.host + safeReturn(expired.path);
+        model.ip = expired.ip;
+      }
       if (error instanceof RangeError) return reply(413, 'invalidTicket');
       if (error instanceof ServiceError) return reply(503, 'serviceUnavailable');
       return reply(429, 'invalidTicket');

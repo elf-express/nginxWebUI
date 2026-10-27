@@ -114,3 +114,19 @@ test('noscript is readable with JavaScript disabled', async ({ browser }) => {
     expect(await page.locator('noscript').textContent()).toContain('Please enable JavaScript');
   } finally { await context.close(); }
 });
+
+test('review: expired ticket retry returns to original query for a fresh challenge', async ({ page }) => {
+  const expiredServer = await startServer();
+  try {
+    await widget(page);
+    const completed = page.waitForResponse(r => new URL(r.url()).pathname === '/verify');
+    await page.goto(expiredServer.url + '/?style=checkbox&t=' + expiredServer.ticket({ path: '/cart?q=one%20two%26three' }));
+    expiredServer.advance(301);
+    await page.getByRole('checkbox').check();
+    expect((await completed).status()).toBe(429);
+    expect(expiredServer.calls()).toBe(0);
+    await page.getByRole('button', { name: 'Try again' }).click();
+    await expect(page.getByRole('heading', { name: 'Returned' })).toBeVisible();
+    expect(page.url()).toBe('https://origin.example/cart?q=one%20two%26three');
+  } finally { await expiredServer.close(); }
+});

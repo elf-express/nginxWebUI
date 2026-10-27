@@ -3,7 +3,8 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder('utf-8', { fatal: true });
 const PREFIX = '/.well-known/nwu-challenge/';
 export class TicketError extends Error {
-  constructor() { super('Invalid handoff ticket'); this.name = 'TicketError'; }
+  // Authenticated expired fields are recovery metadata only, never authorization to sign.
+  constructor(expiredTicket = null) { super('Invalid handoff ticket'); this.name = 'TicketError'; this.expiredTicket = expiredTicket; }
 }
 const invalid = () => { throw new TicketError(); };
 function b64(bytes) {
@@ -19,14 +20,14 @@ function unb64(text) {
 }
 function validHost(host) {
   if (typeof host !== 'string' || !host || host.length > 253) return false;
-  if (/^\[[0-9a-fA-F:]+\]$/.test(host)) {
-    try { return new URL('https://' + host + '/').hostname === host.toLowerCase(); } catch { return false; }
+  if (/^\[[0-9a-fA-F:.]+\]$/.test(host)) {
+    try { new URL('https://' + host + '/'); return true; } catch { return false; }
   }
   return /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/i.test(host);
 }
 function validIp(ip) {
   if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(ip)) return ip.split('.').every(n => Number(n) <= 255);
-  if (!/^[a-fA-F0-9:]+$/.test(ip) || !ip.includes(':')) return false;
+  if (!/^[a-fA-F0-9:.]+$/.test(ip) || !ip.includes(':')) return false;
   try { new URL('https://[' + ip + ']/'); return true; } catch { return false; }
 }
 async function key(secret) {
@@ -50,10 +51,15 @@ export async function verifyRequestTicket(token, secret, now) {
         !/^\d+$/.test(fields[2]) || fields.some(v => !v || /[\r\x00]/.test(v))) invalid();
     const [, kind, expiry, ip, host, path, nonce] = fields;
     const exp = Number(expiry);
-    if (!Number.isSafeInteger(exp) || exp < now || exp > now + 300 ||
-        !validIp(ip) || !validHost(host) || !/^[a-fA-F0-9]{32}$/.test(nonce)) invalid();
-    return { kind, exp, ip, host, path, nonce };
-  } catch { invalid(); }
+    if (!Number.isSafeInteger(exp) || !validIp(ip) || !validHost(host) || !/^[a-fA-F0-9]{32}$/.test(nonce)) invalid();
+    const ticket = { kind, exp, ip, host, path, nonce };
+    if (exp < now) throw new TicketError(ticket);
+    if (exp > now + 300) invalid();
+    return ticket;
+  } catch (error) {
+    if (error instanceof TicketError) throw error;
+    invalid();
+  }
 }
 export async function signResponseTicket(req, secret, now) {
   if (!Number.isSafeInteger(now) || !validHost(req.host) || !validIp(req.ip) ||

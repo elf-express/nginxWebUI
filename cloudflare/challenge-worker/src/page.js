@@ -18,7 +18,7 @@ export function renderPage(model) {
   const e = escapeHtml;
   const t = key => e(m[key]);
   const active = Boolean(model.ticket && model.nonce);
-  const retryUrl = active ? '/?style=' + model.style + '&t=' + encodeURIComponent(model.ticket) : '/';
+  const retryUrl = model.returnUrl ?? (active ? '/?style=' + model.style + '&t=' + encodeURIComponent(model.ticket) : '/');
   return `<!doctype html>
 <html lang="${e(model.locale)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${t('challengeStr.pageTitle')}</title><link rel="stylesheet" href="/style.css">

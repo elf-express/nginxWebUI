@@ -71,6 +71,7 @@ http {
   }
   server {
     listen 127.0.0.1:18443 ssl;
+    listen [::]:18444 ssl ipv6only=off;
     server_name shop.test;
     ssl_certificate /tmp/e396/cert.pem;
     ssl_certificate_key /tmp/e396/key.pem;
@@ -88,11 +89,14 @@ nginx -c $W/nginx.conf -p $W/
 `);
     return {
       request(path, ip, cookie) {
+        const mapped = ip.includes(':');
+        const port = mapped ? 18444 : 18443;
+        const resolve = mapped ? 'shop.test:18444:[::ffff:127.0.0.1]' : 'shop.test:18443:127.0.0.1';
         const args = ['exec', name, 'curl', '-sk', '--max-time', '10', '--retry', '3', '--retry-connrefused',
-          '--retry-delay', '1', '--resolve', 'shop.test:18443:127.0.0.1', '--interface', ip,
+          '--retry-delay', '1', '--resolve', resolve, '--interface', ip,
           '-H', 'Accept: text/html', '-D', '-'];
         if (cookie) args.push('-H', 'Cookie: ' + cookie);
-        args.push('https://shop.test:18443' + path);
+        args.push('https://shop.test:' + port + path);
         const raw = docker(args), [head] = raw.split(/\r?\n\r?\n/);
         const lines = head.split(/\r?\n/), headers = {};
         for (const line of lines.slice(1)) {
@@ -177,7 +181,22 @@ async function main() {
     const respFields = { kind: 'resp', exp: Math.floor(Date.now() / 1000) - 1, ip: '127.0.0.3', host: 'shop.test', path: '/cart?item=one%20two', nonce: randomUUID().replaceAll('-', '') };
     rejected('expired response', sign(respFields));
     rejected('different host', sign({ ...respFields, exp: Math.floor(Date.now() / 1000) + 60, host: 'other.test' }));
-    console.log('7/7 roundtrip scenarios passed; cloud acceptance remains pending.');
+    const mappedIp = '::ffff:127.0.0.3';
+    const mappedSource = topology.request('/mapped?q=one%20two', mappedIp);
+    assert.equal(mappedSource.status, 302);
+    const mappedTicket = new URL(mappedSource.headers.location).searchParams.get('t');
+    assert.equal(Buffer.from(mappedTicket.split('.')[0], 'base64url').toString().split('\n')[3], mappedIp);
+    now = Math.floor(Date.now() / 1000);
+    const mappedResponse = await worker(mappedTicket);
+    assert.equal(mappedResponse.status, 303);
+    const mappedCallback = new URL(mappedResponse.headers.get('location'));
+    assert.equal(Buffer.from(mappedCallback.searchParams.get('token').split('.')[0], 'base64url').toString().split('\n')[3], mappedIp);
+    const mappedPassed = topology.request(mappedCallback.pathname + mappedCallback.search, mappedIp);
+    assert.equal(mappedPassed.status, 303);
+    assert.ok(mappedPassed.headers.location.endsWith('/mapped?q=one%20two'));
+    assert.equal(topology.request('/mapped?q=one%20two', mappedIp, mappedPassed.headers['set-cookie'].split(';')[0]).status, 200);
+    console.log('PASS real dual-stack IPv4-mapped IPv6 request and callback retain the original IP');
+    console.log('8/8 roundtrip scenarios passed; cloud acceptance remains pending.');
   } finally { topology.close(); }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

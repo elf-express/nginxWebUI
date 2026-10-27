@@ -219,3 +219,47 @@ test('deployment docs and config keep the same fixed Worker identity', () => {
       assert.ok(doc.includes(value), file + ': missing ' + value);
   }
 });
+
+test('review: mapped IPv6 addresses and noncanonical IPv6 hosts retain signed bytes', async () => {
+  const t = await api();
+  for (const ip of ['::ffff:203.0.113.7', '2001:db8::203.0.113.7']) {
+    const fields = { ...req, ip };
+    assert.deepEqual(await t.verifyRequestTicket(signReq({ ip }), secret, NOW), fields);
+    assert.equal(await t.signResponseTicket(fields, secret, NOW), signRaw(payload({ ...fields, kind: 'resp', exp: NOW + 60 })));
+  }
+  for (const ip of ['::ffff:999.0.0.1', '::ffff:203.0.113', '2001:::203.0.113.7'])
+    await assert.rejects(t.verifyRequestTicket(signReq({ ip }), secret, NOW));
+  for (const host of ['[::ffff:203.0.113.7]', '[2001:0db8:0:0:0:0:0:7]']) {
+    assert.equal((await t.verifyRequestTicket(signReq({ host }), secret, NOW)).host, host);
+    assert.equal(t.callbackUrl(host, 'a.b'), 'https://' + host + '/.well-known/nwu-challenge/callback?token=a.b');
+  }
+  for (const host of ['[::ffff:999.0.0.1]', '[2001:::7]', '[::1]:8443'])
+    assert.throws(() => t.callbackUrl(host, 'a.b'));
+});
+test('review: expired authenticated tickets recover at the original safe HTTPS path without signing', async () => {
+  let now = NOW;
+  let calls = 0;
+  const handle = (await handlerApi()).createHandler({ now: () => now, fetch: async () => { calls++; return Response.json(goodValidation()); } });
+  assert.equal((await handle(new Request('https://worker.example/?t=' + signReq({})), env)).status, 200);
+  now += 301;
+  for (const pathValue of ['/cart?q=one%20two%26three', '//evil.example/x', '/.well-known/nwu-challenge/callback']) {
+    const response = await handle(post({ t: signReq({ path: pathValue }), host: 'evil.example', callback: 'https://evil.example' }), env);
+    assert.equal(response.status, 429);
+    const html = await response.text();
+    const safe = pathValue.startsWith('/cart') ? pathValue.replaceAll('&', '&amp;') : '/';
+    assert.ok(html.includes('data-retry="https://Shop.Example' + safe + '"'), html);
+    assert.equal(response.headers.has('location'), false);
+    assert.equal(response.headers.has('set-cookie'), false);
+  }
+  assert.equal(calls, 0);
+  const invalid = await handle(post({ t: signReq({}).slice(0, -4) + 'AAAA', host: 'evil.example' }), env);
+  assert.equal((await invalid.text()).includes('data-retry="https://'), false);
+});
+test('review: expiry during Siteverify recovers without issuing a response ticket', async () => {
+  let now = NOW;
+  const handle = (await handlerApi()).createHandler({ now: () => now, fetch: async () => { now += 301; return Response.json(goodValidation()); } });
+  const response = await handle(post(), env);
+  assert.equal(response.status, 429);
+  assert.match(await response.text(), /data-retry="https:\/\/Shop.Example\/cart\?id=1"/);
+  assert.equal(response.headers.has('location'), false);
+});
