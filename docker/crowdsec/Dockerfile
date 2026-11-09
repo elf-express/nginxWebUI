@@ -2,7 +2,7 @@
 # Bakes acquisition / profiles / notification config and the hub content (log parsers + AppSec WAF)
 # into the image, so the container starts without reaching the CrowdSec hub.
 # Runtime secrets (BOUNCER_KEY, ABUSEIPDB_API_KEY) still come from .env
-FROM crowdsecurity/crowdsec:v1.8.1
+FROM crowdsecurity/crowdsec:v1.8.2
 
 # The official start script runs `cscli hub upgrade` on every start when the data dir is a volume
 # (compose always mounts one); this switch turns that off. Hub content only changes by rebuilding the image.
