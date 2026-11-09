@@ -7,6 +7,6 @@
     "build": "wrangler deploy --dry-run --outdir dist"
   },
   "devDependencies": {
-    "wrangler": "4.152.0"
+    "wrangler": "4.158.0"
   }
 }
