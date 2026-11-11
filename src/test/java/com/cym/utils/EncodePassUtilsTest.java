@@ -45,6 +45,18 @@ class EncodePassUtilsTest {
 	}
 
 	@Test
+	void bcryptVariantPrefixesAreRecognized() {
+		String hash = EncodePassUtils.encode("Admin123");
+
+		for (String prefix : new String[] { "$2b$", "$2y$" }) {
+			String variant = prefix + hash.substring(4);
+			assertFalse(EncodePassUtils.needsUpgrade(variant), variant);
+			assertTrue(EncodePassUtils.matches("Admin123", variant), variant);
+			assertFalse(EncodePassUtils.matches("Wrong123", variant), variant);
+		}
+	}
+
+	@Test
 	void matchesHandlesEmptyAndBrokenInput() {
 		String hash = EncodePassUtils.encode("Admin123");
 

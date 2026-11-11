@@ -13,8 +13,8 @@ public class EncodePassUtils {
 	static final String LEGACY_SALT = "nginxWebUI";
 	/** bcrypt cost */
 	static final int BCRYPT_ROUNDS = 12;
-	/** bcrypt 雜湊的開頭 */
-	private static final String BCRYPT_PREFIX = "$2a$";
+	/** bcrypt 雜湊的開頭（含 $2b$、$2y$ 變體） */
+	private static final String[] BCRYPT_PREFIXES = { "$2a$", "$2b$", "$2y$" };
 
 	private static volatile String dummyHash;
 
@@ -63,7 +63,7 @@ public class EncodePassUtils {
 	}
 
 	private static boolean isBcrypt(String hash) {
-		return hash.startsWith(BCRYPT_PREFIX);
+		return StrUtil.startWithAny(hash, BCRYPT_PREFIXES);
 	}
 
 }
