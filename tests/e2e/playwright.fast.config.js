@@ -5,6 +5,8 @@ const base = require('./playwright.config.js');
 
 module.exports = {
   ...base,
+  // 09-realip 檢查的是部署容器，另由 test:realip（playwright.realip.config.js）跑
+  testIgnore: ['09-realip.spec.js'],
   use: {
     ...base.use,
     headless: true,
