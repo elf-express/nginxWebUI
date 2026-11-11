@@ -25,9 +25,27 @@ public class AdminService {
 	AuthUtils authUtils;
 
 	public Admin login(String name, String pass) {
-		Admin admin = sqlHelper.findOneByQuery(new ConditionAndWrapper().eq(Admin::getName, name).eq(Admin::getPass, EncodePassUtils.encode(pass)), Admin.class);
+		if (StrUtil.isEmpty(name) || StrUtil.isEmpty(pass)) {
+			return null;
+		}
 
-		return admin;
+		List<Admin> admins = sqlHelper.findListByQuery(new ConditionAndWrapper().eq(Admin::getName, name), Admin.class);
+		for (Admin admin : admins) {
+			if (EncodePassUtils.matches(pass, admin.getPass())) {
+				// 舊格式雜湊登入成功時升級為 bcrypt
+				if (EncodePassUtils.needsUpgrade(admin.getPass())) {
+					admin.setPass(EncodePassUtils.encode(pass));
+					sqlHelper.updateById(admin);
+				}
+				return admin;
+			}
+		}
+
+		// 帳號不存在時也跑一次比對，讓回應時間與帳號存在時相近
+		if (admins.isEmpty()) {
+			EncodePassUtils.matches(pass, EncodePassUtils.dummyHash());
+		}
+		return null;
 	}
 
 	public Admin getByAutoKey(String autoKey) {
