@@ -151,6 +151,38 @@ describe('LogTailPage', () => {
     expect(button('Follow latest').attributes('aria-pressed')).toBe('false')
   })
 
+  it('toggles following off without stopping polling or replacing text nodes, then publishes latest when enabled', async () => {
+    // Arrange
+    await render()
+    const node = wrapper.get('code').element.firstChild
+    expect(button('Follow latest').attributes('aria-pressed')).toBe('true')
+    // Act
+    await button('Follow latest').trigger('click')
+    expect(button('Follow latest').attributes('aria-pressed')).toBe('false')
+    loadTail.mockResolvedValue(data(['latest background snapshot']))
+    await vi.advanceTimersByTimeAsync(1000)
+    // Assert
+    expect(loadTail).toHaveBeenCalledTimes(2)
+    expect(wrapper.get('pre').element.textContent).toBe(lines.join('\n'))
+    expect(wrapper.get('code').element.firstChild).toBe(node)
+    await button('Follow latest').trigger('click')
+    expect(button('Follow latest').attributes('aria-pressed')).toBe('true')
+    expect(wrapper.get('pre').element.textContent).toBe('latest background snapshot')
+  })
+
+  it('does not clear a viewer selection when explicitly disabling following', async () => {
+    // Arrange
+    await render()
+    const range = document.createRange()
+    range.selectNodeContents(wrapper.get('code').element)
+    document.getSelection()!.addRange(range)
+    // Act
+    await button('Follow latest').trigger('click')
+    // Assert
+    expect(button('Follow latest').attributes('aria-pressed')).toBe('false')
+    expect(document.getSelection()!.toString()).toBe(lines.join('\n'))
+  })
+
   it('explicitFollowResumes: resumes only when both pause and follow permit publishing', async () => {
     // Arrange
     await render()

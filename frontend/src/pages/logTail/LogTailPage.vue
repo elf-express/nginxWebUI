@@ -43,10 +43,11 @@ function onScroll(): void {
   if (region && region.scrollHeight - region.scrollTop - region.clientHeight > 4) setFollowing(false)
 }
 
-function followLatest(): void {
-  if (hasViewerSelection()) document.getSelection()?.removeAllRanges()
-  setFollowing(true)
-  void scrollToLatest()
+function toggleFollowing(): void {
+  const enabled = !following.value
+  if (enabled && hasViewerSelection()) document.getSelection()?.removeAllRanges()
+  setFollowing(enabled)
+  if (enabled) void scrollToLatest()
 }
 
 async function scrollToLatest(): Promise<void> {
@@ -85,7 +86,7 @@ defineExpose({ copyVisible })
         <div role="toolbar" :aria-label="t('logStr.toolbar')" class="toolbar">
           <Space class="toolbar-space" :size="[8, 8]">
             <Button :aria-label="pauseLabel" :aria-pressed="paused" @click="setPaused(!paused)">{{ pauseLabel }}</Button>
-            <Button :aria-label="t('logStr.followLatest')" :aria-pressed="following" @click="followLatest">{{ t('logStr.followLatest') }}</Button>
+            <Button :aria-label="t('logStr.followLatest')" :aria-pressed="following" @click="toggleFollowing">{{ t('logStr.followLatest') }}</Button>
             <Button :aria-label="t('logStr.copyVisible')" :disabled="loading" @click="copyVisible(visibleLines)">{{ t('logStr.copyVisible') }}</Button>
             <label class="wrap-control">
               <Switch v-model:checked="wrap" :aria-label="t('logStr.wrapLines')" />
