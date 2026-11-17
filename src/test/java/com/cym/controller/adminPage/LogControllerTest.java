@@ -199,9 +199,19 @@ class LogControllerTest {
 
 		assertTrue(result.isSuccess());
 		assertEquals("<div>&lt;script&gt;alert(1)&lt;/script&gt;</div>", result.getObj());
-		ModelAndView view = controller.tail(new ModelAndView(), "legacy", "http");
+		ModelAndView view = controller.tail(new ModelAndView(), "legacy", "http", "1");
 		assertEquals("/adminPage/log/tail.html", view.view());
 		assertEquals("legacy", view.model().get("id"));
+	}
+
+	@ParameterizedTest
+	@NullAndEmptySource
+	@ValueSource(strings = { "0", "true" })
+	void tailDefaultsToVueViewerAndPreservesRawIdForTemplateEscaping(String legacy) {
+		String id = "saved-\"<&>";
+		ModelAndView view = new LogController().tail(new ModelAndView(), id, "http", legacy);
+		assertEquals("/adminPage/log/tailSpa.html", view.view());
+		assertEquals(id, view.model().get("id"));
 	}
 
 	@Test

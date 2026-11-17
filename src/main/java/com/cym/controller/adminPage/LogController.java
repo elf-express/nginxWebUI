@@ -81,9 +81,9 @@ public class LogController extends BaseController {
 	}
 
 	@Mapping("tail")
-	public ModelAndView tail(ModelAndView modelAndView, String id, String protocol) {
+	public ModelAndView tail(ModelAndView modelAndView, String id, String protocol, String legacy) {
 		modelAndView.put("id", id);
-		modelAndView.view("/adminPage/log/tail.html");
+		modelAndView.view("1".equals(legacy) ? "/adminPage/log/tail.html" : "/adminPage/log/tailSpa.html");
 		return modelAndView;
 	}
 
