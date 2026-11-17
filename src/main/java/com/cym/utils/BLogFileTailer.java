@@ -5,6 +5,11 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +53,29 @@ public class BLogFileTailer {
 		// Bind the path and publish one started Tailer atomically for this viewer.
 		synchronized (sessions) {
 			TailSession session = sessions.get(guid);
+			if (session != null && !session.file.equals(file)) {
+				throw new IllegalArgumentException("Viewer is already bound to a different log path");
+			}
+			if (session != null && !session.stopped) {
+				try {
+					session.tailer.checkFailure();
+				} catch (RuntimeException e) {
+					sessions.remove(guid, session);
+					session.discardFailed();
+					throw e;
+				}
+				try {
+					if (!session.tailer.isCurrentFile()) {
+						session.stop();
+					}
+				} catch (RuntimeException e) {
+					session.stop();
+					throw e;
+				}
+			}
+			if (session != null && session.stopped) {
+				session = null;
+			}
 			if (session == null) {
 				session = new TailSession(file);
 				session.tailer = tailerFactory.apply(file, session::append);
@@ -58,8 +86,6 @@ public class BLogFileTailer {
 					throw e;
 				}
 				sessions.put(guid, session);
-			} else if (!session.file.equals(file)) {
-				throw new IllegalArgumentException("Viewer is already bound to a different log path");
 			}
 			try {
 				session.tailer.checkFailure();
@@ -69,6 +95,23 @@ public class BLogFileTailer {
 				throw e;
 			}
 			return session.snapshot();
+		}
+	}
+
+	/** Release a known unusable file, retaining its GUID/path binding until idle expiry. */
+	public void invalidate(String guid, String path) {
+		if (path == null) return;
+		File file;
+		try {
+			file = new File(path).getCanonicalFile();
+		} catch (IOException e) {
+			throw new IllegalArgumentException("Cannot resolve log path", e);
+		}
+		synchronized (sessions) {
+			TailSession session = sessions.get(guid);
+			if (session != null && session.file.equals(file)) {
+				session.stop();
+			}
 		}
 	}
 
@@ -84,7 +127,7 @@ public class BLogFileTailer {
 		private final File file;
 		private final ArrayDeque<String> lines = new ArrayDeque<>();
 		private TailerHandle tailer;
-		private boolean stopped;
+		private volatile boolean stopped;
 
 		private TailSession(File file) {
 			this.file = file;
@@ -129,6 +172,7 @@ public class BLogFileTailer {
 		void stop();
 		/** Report background failure only after closing this reader's resources. */
 		void checkFailure();
+		boolean isCurrentFile();
 	}
 
 	record LineUpdate(String line, boolean replaceLast) { }
@@ -144,6 +188,7 @@ public class BLogFileTailer {
 		private long unfinishedStart = -1;
 		private boolean skipLineFeed;
 		private volatile RuntimeException failure;
+		private BasicFileAttributes openedAttributes;
 
 		FileTailer(File file, Consumer<LineUpdate> handler, long periodMillis) {
 			this.file = file;
@@ -154,7 +199,11 @@ public class BLogFileTailer {
 		@Override
 		public synchronized void start() {
 			try {
+				openedAttributes = readAttributes();
 				cursor = new RandomAccessFile(file, "r");
+				if (!isCurrentFile()) {
+					throw new IOException("Log changed while opening");
+				}
 				seekInitialStart();
 				readAvailable(50).forEach(handler);
 				executor = Executors.newSingleThreadScheduledExecutor(task -> {
@@ -176,6 +225,52 @@ public class BLogFileTailer {
 						throw e;
 					}
 				}, 0, periodMillis, TimeUnit.MILLISECONDS);
+			} catch (IOException e) {
+				throw new UncheckedIOException(e);
+			}
+		}
+
+		BasicFileAttributes readAttributes() throws IOException {
+			return Files.readAttributes(file.toPath(), BasicFileAttributes.class);
+		}
+
+		@Override
+		public synchronized boolean isCurrentFile() {
+			try {
+				BasicFileAttributes current = readAttributes();
+				Object openedKey = openedAttributes.fileKey();
+				Object currentKey = current.fileKey();
+				if (openedKey != null && currentKey != null) {
+					return openedKey.equals(currentKey);
+				}
+				if (!openedAttributes.creationTime().equals(current.creationTime())) {
+					return false;
+				}
+				// Providers may omit file keys (and have coarse creation timestamps).
+				// Compare the open file with a fresh pathname handle in bounded blocks,
+				// including the middle of large files; equal path/size alone proves nothing.
+				// Positional reads preserve the tail/partial-line cursor. This slower path
+				// is used only when the provider cannot supply an identity key.
+				try (FileChannel currentFile = FileChannel.open(file.toPath(), StandardOpenOption.READ)) {
+					long length = cursor.length();
+					if (length != currentFile.size()) return false;
+					ByteBuffer oldBytes = ByteBuffer.allocate(8192);
+					ByteBuffer newBytes = ByteBuffer.allocate(8192);
+					for (long position = 0; position < length;) {
+						int count = (int) Math.min(oldBytes.capacity(), length - position);
+						oldBytes.clear().limit(count);
+						newBytes.clear().limit(count);
+						while (oldBytes.hasRemaining()) {
+							if (cursor.getChannel().read(oldBytes, position + oldBytes.position()) < 0) return false;
+						}
+						while (newBytes.hasRemaining()) {
+							if (currentFile.read(newBytes, position + newBytes.position()) < 0) return false;
+						}
+						if (!oldBytes.flip().equals(newBytes.flip())) return false;
+						position += count;
+					}
+					return cursor.length() == currentFile.size();
+				}
 			} catch (IOException e) {
 				throw new UncheckedIOException(e);
 			}

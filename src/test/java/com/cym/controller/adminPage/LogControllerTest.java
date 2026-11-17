@@ -94,6 +94,44 @@ class LogControllerTest {
 		assertEquals(List.of(), data.getLines());
 	}
 
+	@ParameterizedTest
+	@ValueSource(booleans = { false, true })
+	void liveMissingOrUnreadableRecreationDropsOldBufferAndClosesReaderBeforeLeaseExpires(boolean directoryAtPath) throws Exception {
+		Path file = Files.writeString(directory.resolve("live.log"), "old\n");
+		BLogFileTailer reader = new BLogFileTailer();
+		Path other = Files.writeString(directory.resolve("other.log"), "other\n");
+		LogController controller = controller(Map.of("live", file.toString(), "other", other.toString()), reader, "messages_en_US.properties");
+		assertEquals(List.of("old"), data(controller.tailData("live", "viewer-a")).getLines());
+		var sessionsField = BLogFileTailer.class.getDeclaredField("sessions");
+		sessionsField.setAccessible(true);
+		Object session = ((Map<?, ?>) sessionsField.get(reader)).get("viewer-a");
+		var tailerField = session.getClass().getDeclaredField("tailer");
+		tailerField.setAccessible(true);
+		Object tailer = tailerField.get(session);
+		var cursorField = tailer.getClass().getDeclaredField("cursor");
+		cursorField.setAccessible(true);
+		java.io.RandomAccessFile oldCursor;
+		synchronized (tailer) {
+			var original = (java.io.RandomAccessFile) cursorField.get(tailer);
+			long position = original.getFilePointer();
+			original.close();
+			Path rotated = file.resolveSibling("live.log.1");
+			Files.move(file, rotated);
+			oldCursor = new java.io.RandomAccessFile(rotated.toFile(), "r");
+			oldCursor.seek(position);
+			cursorField.set(tailer, oldCursor);
+		}
+		if (directoryAtPath) Files.createDirectory(file);
+		assertEquals(directoryAtPath ? "unreadable" : "missing", data(controller.tailData("live", "viewer-a")).getState());
+		assertThrows(IOException.class, oldCursor::length, "unavailable file must close the exact old reader immediately");
+		assertFalse(controller.tailData("other", "viewer-a").isSuccess(), "invalidation must retain GUID/path binding");
+		if (directoryAtPath) Files.delete(file);
+		Files.writeString(file, "new\n");
+		LogTailData recovered = data(controller.tailData("live", "viewer-a"));
+		assertEquals("ready", recovered.getState());
+		assertEquals(List.of("new"), recovered.getLines());
+	}
+
 	@Test
 	void emptyFileIsReady() throws Exception {
 		Path empty = Files.createFile(directory.resolve("empty.log"));

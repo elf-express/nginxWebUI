@@ -283,6 +283,78 @@ class BLogFileTailerTest {
 	}
 
 	@Test
+	void sameSizeReplacementReopensOnlyOneReaderAndRejectsOldCallbacks() throws Exception {
+		assertSameSizeReplacement(false);
+	}
+
+	@Test
+	void sameSizeReplacementWithoutFileKeysOrDistinctCreationTimesRecovers() throws Exception {
+		assertSameSizeReplacement(true);
+	}
+
+	private void assertSameSizeReplacement(boolean keyless) throws Exception {
+		// Equal head/tail samples cannot detect this middle-only change on a keyless provider.
+		String padding = keyless ? "same".repeat(3000) : "";
+		List<String> originalLines = keyless ? List.of(padding, "old", padding) : List.of("old");
+		List<String> replacementLines = keyless ? List.of(padding, "new", padding) : List.of("new");
+		List<String> appendedLines = new ArrayList<>(replacementLines);
+		appendedLines.add("appended");
+		Path file = Files.writeString(directory.resolve("rotated.log"), String.join("\n", originalLines) + "\n");
+		BLogFileTailer reader = new BLogFileTailer(20, TimeUnit.SECONDS, (source, handler) -> {
+			TrackedTailer tailer = new TrackedTailer(source, handler) {
+				@Override java.nio.file.attribute.BasicFileAttributes readAttributes() throws java.io.IOException {
+					var actual = super.readAttributes();
+					if (!keyless) return actual;
+					return (java.nio.file.attribute.BasicFileAttributes) java.lang.reflect.Proxy.newProxyInstance(
+						getClass().getClassLoader(), new Class<?>[] { java.nio.file.attribute.BasicFileAttributes.class },
+						(proxy, method, args) -> switch (method.getName()) {
+							case "fileKey" -> null;
+							case "creationTime" -> java.nio.file.attribute.FileTime.fromMillis(0);
+							default -> method.invoke(actual, args);
+						});
+				}
+			};
+			tailers.add(tailer);
+			return tailer;
+		});
+		List<String> old = reader.readLines("viewer-a", file.toString());
+		TrackedTailer previous = tailers.get(0);
+		long originalSize = Files.size(file);
+		rotateOpenFile(previous, file, String.join("\n", replacementLines) + "\n");
+		assertEquals(originalSize, Files.size(file), "replacement deliberately has the same size");
+		assertEquals(replacementLines, reader.readLines("viewer-a", file.toString()));
+		Files.writeString(file, "appended\n", StandardOpenOption.APPEND);
+		await(() -> reader.readLines("viewer-a", file.toString()).contains("appended"));
+		assertEquals(appendedLines, reader.readLines("viewer-a", file.toString()));
+		assertEquals(1, previous.stops);
+		assertEquals(2, tailers.size());
+		previous.handler.accept(new LineUpdate("late old generation", false));
+		assertEquals(appendedLines, reader.readLines("viewer-a", file.toString()));
+		assertEquals(originalLines, old);
+		Path other = write("other-generation.log", List.of("other"));
+		assertThrows(IllegalArgumentException.class, () -> reader.readLines("viewer-a", other.toString()));
+	}
+
+	// Windows RAF denies rename while open. Recreate exactly the POSIX state:
+	// the cursor still addresses the old inode at its old offset, P addresses a new file.
+	// This is a deterministic I/O seam, not a skip or a claim that Windows rotated it.
+	private void rotateOpenFile(TrackedTailer tailer, Path file, String replacement) throws Exception {
+		synchronized (tailer) {
+			var field = BLogFileTailer.FileTailer.class.getDeclaredField("cursor");
+			field.setAccessible(true);
+			var cursor = (java.io.RandomAccessFile) field.get(tailer);
+			long position = cursor.getFilePointer();
+			cursor.close();
+			Path rotated = file.resolveSibling(file.getFileName() + ".1");
+			Files.move(file, rotated);
+			Files.writeString(file, replacement);
+			var oldCursor = new java.io.RandomAccessFile(rotated.toFile(), "r");
+			oldCursor.seek(position);
+			field.set(tailer, oldCursor);
+		}
+	}
+
+	@Test
 	void emptyFileAcceptsAppend() throws Exception {
 		Path file = write("empty.log", List.of());
 		BLogFileTailer reader = reader(20, TimeUnit.SECONDS);

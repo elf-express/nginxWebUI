@@ -98,6 +98,7 @@ public class LogController extends BaseController {
 	public JsonResult tailCmd(String id, String guid) {
 		Log log = sqlHelper.findById(id, Log.class);
 		if (!FileUtil.exist(log.getPath())) {
+			bLogFileTailer.invalidate(guid, log.getPath());
 			return renderSuccess("");
 		}
 
@@ -125,9 +126,11 @@ public class LogController extends BaseController {
 			}
 			Path file = Path.of(path);
 			if (Files.notExists(file)) {
+				bLogFileTailer.invalidate(guid, path);
 				return renderSuccess(new LogTailData("missing", path, List.of()));
 			}
 			if (!Files.isRegularFile(file) || !Files.isReadable(file)) {
+				bLogFileTailer.invalidate(guid, path);
 				return renderSuccess(new LogTailData("unreadable", path, List.of()));
 			}
 		} catch (RuntimeException e) {

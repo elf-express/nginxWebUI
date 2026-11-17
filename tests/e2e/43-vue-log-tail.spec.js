@@ -306,6 +306,41 @@ test.describe('Vue log viewer through the real list iframe', () => {
     await expect(textOf(opened.viewer)).toHaveText('readable-again');
   });
 
+  test('same-size live replacement follows the new generation without reloading the iframe', async ({ logApp }) => {
+    test.skip(process.platform === 'win32', 'Windows RAF denies renaming open files; deterministic old-handle/new-path JUnit regression covers this state. This is not a Windows rotation PASS.');
+    const record = await logApp.create('old-generation\n');
+    const guids = new Set();
+    logApp.page.on('request', (req) => {
+      if (req.url().endsWith('/log/tailData')) guids.add(new URLSearchParams(req.postData()).get('guid'));
+    });
+    const { viewer } = await logApp.open(record);
+    await expect(textOf(viewer)).toHaveText('old-generation');
+    const originalSize = fs.statSync(record.file).size;
+    fs.renameSync(record.file, `${record.file}.1`);
+    fs.writeFileSync(record.file, 'new-generation\n');
+    expect(fs.statSync(record.file).size).toBe(originalSize);
+    await expect(textOf(viewer)).toHaveText('new-generation');
+    fs.appendFileSync(record.file, 'after-replacement\n');
+    await expect(textOf(viewer)).toHaveText('new-generation\nafter-replacement');
+    await expect(viewer.getByTestId('visible-range')).toContainText('顯示 2 行');
+    expect(guids.size).toBe(1);
+  });
+
+  test('a live missing log recovers within its lease without resurrecting the previous generation', async ({ logApp }) => {
+    test.skip(process.platform === 'win32', 'Windows RAF denies renaming open files; deterministic missing/invalidation/recreation JUnit regression covers this state. This is not a Windows rotation PASS.');
+    const record = await logApp.create('before-disappearance\n');
+    const { viewer } = await logApp.open(record);
+    await expect(textOf(viewer)).toHaveText('before-disappearance');
+    const started = Date.now();
+    fs.renameSync(record.file, `${record.file}.1`);
+    await expect(viewer.getByRole('status')).toHaveText('日誌檔案不存在');
+    fs.writeFileSync(record.file, 'after-recreation\n');
+    await expect(textOf(viewer)).toHaveText('after-recreation');
+    fs.appendFileSync(record.file, 'following-again\n');
+    await expect(textOf(viewer)).toHaveText('after-recreation\nfollowing-again');
+    expect(Date.now() - started).toBeLessThan(20000);
+  });
+
   test('transport errors retain the last snapshot and retry recovers without legacy fallback', async ({ logApp }) => {
     let fail = false;
     await logApp.page.route('**/adminPage/log/tailData', (route) => fail ? route.fulfill({ status: 503, body: '' }) : route.continue());
