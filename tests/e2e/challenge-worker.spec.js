@@ -49,8 +49,7 @@ for (const style of ['auto', 'checkbox']) {
     expect(response.status()).toBe(303);
     expect(response.headers()['location']).toMatch(/^https:\/\/origin\.example\/\.well-known\/nwu-challenge\/callback\?token=/);
     expect(observed).toEqual([{ action: 'nwu_challenge', cData: server.nonce }]);
-    // Stop the cross-origin redirect; actual callback and cookie are exercised against Lua in Task 4.
-    await page.goto('about:blank');
+    // The actual callback and cookie are exercised against Lua in Task 4.
   });
 }
 for (const mutate of ["delete observed.action;", "observed.action = 'login';", "delete observed.cData;", "observed.cData = 'bad';"]) {
