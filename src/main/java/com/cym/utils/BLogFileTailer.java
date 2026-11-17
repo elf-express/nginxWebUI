@@ -1,71 +1,221 @@
 package com.cym.utils;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Map;
-import java.util.Vector;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
 
 import org.noear.solon.annotation.Component;
 
-import cn.hutool.core.io.LineHandler;
-import cn.hutool.core.io.file.Tailer;
-import cn.hutool.core.util.StrUtil;
-import net.jodah.expiringmap.ExpirationListener;
+import cn.hutool.http.HtmlUtil;
 import net.jodah.expiringmap.ExpirationPolicy;
 import net.jodah.expiringmap.ExpiringMap;
 
 @Component
 public class BLogFileTailer {
-	// 定时过期map
-	public Map<String, Tailer> tailerMap = ExpiringMap//
-			.builder()//
-			.expiration(20, TimeUnit.SECONDS)//
-			.expirationPolicy(ExpirationPolicy.ACCESSED)//
-			.expirationListener(new ExpirationListener<String, Tailer>() {
-				@Override
-				public void expired(String guid, Tailer tailer) {
-					tailer.stop();
-					tailer = null;
-				}
-			}).build();//
+	private final Map<String, TailSession> sessions;
+	private final BiFunction<File, Consumer<String>, TailerHandle> tailerFactory;
 
-	public Map<String, Vector<String>> lineMap = ExpiringMap//
-			.builder()//
-			.expiration(20, TimeUnit.SECONDS)//
-			.expirationPolicy(ExpirationPolicy.ACCESSED)//
-			.build();//
+	public BLogFileTailer() {
+		this(20, TimeUnit.SECONDS, (file, handler) -> new FileTailer(file, handler, 1000));
+	}
+
+	BLogFileTailer(long expiry, TimeUnit unit, BiFunction<File, Consumer<String>, TailerHandle> tailerFactory) {
+		this.tailerFactory = tailerFactory;
+		this.sessions = ExpiringMap.builder()
+			.expiration(expiry, unit)
+			.expirationPolicy(ExpirationPolicy.ACCESSED)
+			.<String, TailSession>expirationListener((guid, session) -> session.stop())
+			.build();
+	}
+
+	public List<String> readLines(String guid, String path) {
+		File file;
+		try {
+			file = new File(path).getCanonicalFile();
+		} catch (IOException e) {
+			throw new IllegalArgumentException("Cannot resolve log path", e);
+		}
+		// Bind the path and publish one started Tailer atomically for this viewer.
+		synchronized (sessions) {
+			TailSession session = sessions.get(guid);
+			if (session == null) {
+				session = new TailSession(file);
+				session.tailer = tailerFactory.apply(file, session::append);
+				try {
+					session.tailer.start();
+				} catch (RuntimeException e) {
+					session.stop();
+					throw e;
+				}
+				sessions.put(guid, session);
+			} else if (!session.file.equals(file)) {
+				throw new IllegalArgumentException("Viewer is already bound to a different log path");
+			}
+			return session.snapshot();
+		}
+	}
 
 	public String run(String guid, String path) {
+		StringBuilder html = new StringBuilder();
+		for (String line : readLines(guid, path)) {
+			html.append("<div>").append(HtmlUtil.escape(line)).append("</div>");
+		}
+		return html.toString();
+	}
 
-		if (tailerMap.get(guid) == null) {
-			Tailer tailer = new Tailer(new File(path), new LineHandler() {
+	private static final class TailSession {
+		private final File file;
+		private final ArrayDeque<String> lines = new ArrayDeque<>();
+		private TailerHandle tailer;
+		private boolean stopped;
 
-				@Override
-				public void handle(String line) {
-					if (lineMap.get(guid) == null) {
-						lineMap.put(guid, new Vector<String>());
-					}
+		private TailSession(File file) {
+			this.file = file;
+		}
 
-					lineMap.get(guid).add("<div>" + line + "</div>");
+		private synchronized void append(String line) {
+			if (!stopped) {
+				lines.addLast(line);
+				while (lines.size() > 500) {
+					lines.removeFirst();
 				}
-			}, 50);
-			tailer.start(true);
-
-			tailerMap.put(guid, tailer);
-		}
-
-		List<String> list = lineMap.get(guid);
-		if (list != null && list.size() > 0) {
-
-			// 清除到500行
-			while (list.size() > 500) {
-				list.remove(0);
 			}
-
-			return StrUtil.join("", list);
 		}
-		return "";
+
+		private synchronized List<String> snapshot() {
+			return List.copyOf(lines);
+		}
+
+		private synchronized void stop() {
+			if (!stopped) {
+				stopped = true;
+				tailer.stop();
+				lines.clear();
+			}
+		}
+	}
+
+	interface TailerHandle {
+		void start();
+		void stop();
+	}
+
+	/** One cursor covers initial history and appends, so the handoff cannot skip bytes. */
+	static class FileTailer implements TailerHandle {
+		private final File file;
+		private final Consumer<String> handler;
+		private final long periodMillis;
+		private RandomAccessFile cursor;
+		private ScheduledExecutorService executor;
+		private boolean stopped;
+
+		FileTailer(File file, Consumer<String> handler, long periodMillis) {
+			this.file = file;
+			this.handler = handler;
+			this.periodMillis = periodMillis;
+		}
+
+		@Override
+		public synchronized void start() {
+			try {
+				cursor = new RandomAccessFile(file, "r");
+				seekInitialStart();
+				readAvailable(50).forEach(handler);
+				executor = Executors.newSingleThreadScheduledExecutor(task -> {
+					Thread thread = new Thread(task, "nginx-log-tailer");
+					thread.setDaemon(true);
+					return thread;
+				});
+				executor.scheduleWithFixedDelay(() -> {
+					try {
+						readAvailable(500).forEach(handler);
+					} catch (RuntimeException e) {
+						stop();
+						throw e;
+					}
+				}, 0, periodMillis, TimeUnit.MILLISECONDS);
+			} catch (IOException e) {
+				throw new UncheckedIOException(e);
+			}
+		}
+
+		private void seekInitialStart() throws IOException {
+			long length = cursor.length();
+			long end = length;
+			int separators = 0;
+			int next = -1;
+			byte[] block = new byte[8192];
+			while (end > 0) {
+				long start = Math.max(0, end - block.length);
+				int size = (int) (end - start);
+				cursor.seek(start);
+				cursor.readFully(block, 0, size);
+				for (int i = size - 1; i >= 0; i--) {
+					int value = block[i] & 0xff;
+					if ((value == '\n' || value == '\r') && !(value == '\r' && next == '\n')
+						&& start + i != length - 1 && ++separators == 50) {
+						cursor.seek(start + i + 1);
+						return;
+					}
+					next = value;
+				}
+				end = start;
+			}
+			cursor.seek(0);
+		}
+
+		private synchronized List<String> readAvailable(int limit) {
+			if (stopped) {
+				return List.of();
+			}
+			try {
+				long length = cursor.length();
+				if (length < cursor.getFilePointer()) {
+					cursor.seek(0);
+				}
+				ArrayDeque<String> batch = new ArrayDeque<>();
+				while (cursor.getFilePointer() < length) {
+					String line = cursor.readLine();
+					if (line == null) {
+						break;
+					}
+					batch.addLast(new String(line.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8));
+					if (batch.size() > limit) {
+						batch.removeFirst();
+					}
+				}
+				return List.copyOf(batch);
+			} catch (IOException e) {
+				throw new UncheckedIOException(e);
+			}
+		}
+
+		@Override
+		public synchronized void stop() {
+			if (!stopped) {
+				stopped = true;
+				if (executor != null) {
+					executor.shutdownNow();
+				}
+				if (cursor != null) {
+					try {
+						cursor.close();
+					} catch (IOException e) {
+						throw new UncheckedIOException(e);
+					}
+				}
+			}
+		}
 	}
 
 }
