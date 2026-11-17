@@ -48,6 +48,8 @@ RUN    apk add --update --no-cache \
        logrotate \
        tini \
        acme.sh \
+    # Alpine loads Lua at 30_; its upstream module must follow it.
+    && mv /etc/nginx/modules/20_http_lua_upstream.conf /etc/nginx/modules/40_http_lua_upstream.conf \
     && fc-cache -f -v \
     && ln -sf /usr/share/zoneinfo/${TZ} /etc/localtime \
     && echo "${TZ}" > /etc/timezone \

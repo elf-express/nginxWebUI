@@ -1,5 +1,5 @@
 #!/bin/sh
-# Smoke test: the image can load lua-cs-bouncer and the nwu wrapper under nginx.
+# Smoke test: the image can load the packaged modules, lua-cs-bouncer and the nwu wrapper under nginx.
 # `nginx -t` does not run init_by_lua, so after the syntax check nginx is really started
 # with a stub LAPI (127.0.0.1:18082, live mode) and the whole access path is exercised:
 #   LAPI up   : probe succeeds (state lapiOk:true), allowlisted and clean IPs get 200,
@@ -14,6 +14,8 @@ IMAGE="${1:?usage: lua-smoke.sh <image>}"
 INNER='
 set -eu
 mkdir -p /tmp/smoke/logs && chmod 777 /tmp/smoke /tmp/smoke/logs
+# Packaged load_module directives use paths relative to the explicit nginx prefix.
+ln -s /usr/lib/nginx/modules /tmp/smoke/modules
 for f in /usr/local/lib/nginxwebui/html/protection-paused.html \
          /var/lib/crowdsec/lua/templates/ban.html \
          /etc/nginx/nwu/crowdsec_lua_paths.conf; do
@@ -27,8 +29,7 @@ MODE=live
 BAN_TEMPLATE_PATH=/var/lib/crowdsec/lua/templates/ban.html
 CONF
 cat > /tmp/smoke/nginx.conf <<CONF
-load_module /usr/lib/nginx/modules/ndk_http_module.so;
-load_module /usr/lib/nginx/modules/ngx_http_lua_module.so;
+include /etc/nginx/modules/*.conf;
 pid /tmp/smoke/nginx.pid;
 error_log /tmp/smoke/logs/error.log info;
 events {}
