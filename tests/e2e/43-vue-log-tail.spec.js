@@ -315,10 +315,10 @@ test.describe('Vue log viewer through the real list iframe', () => {
     });
     const { viewer } = await logApp.open(record);
     await expect(textOf(viewer)).toHaveText('old-generation');
-    const originalSize = fs.statSync(record.file).size;
+    const originalSize = fs.readFileSync(record.file).byteLength;
     fs.renameSync(record.file, `${record.file}.1`);
     fs.writeFileSync(record.file, 'new-generation\n');
-    expect(fs.statSync(record.file).size).toBe(originalSize);
+    expect(fs.readFileSync(record.file).byteLength).toBe(originalSize);
     await expect(textOf(viewer)).toHaveText('new-generation');
     fs.appendFileSync(record.file, 'after-replacement\n');
     await expect(textOf(viewer)).toHaveText('new-generation\nafter-replacement');
