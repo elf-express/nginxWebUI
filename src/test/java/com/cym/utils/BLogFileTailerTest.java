@@ -15,6 +15,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
@@ -22,6 +23,8 @@ import java.util.stream.IntStream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+
+import com.cym.utils.BLogFileTailer.LineUpdate;
 
 class BLogFileTailerTest {
 
@@ -85,7 +88,7 @@ class BLogFileTailerTest {
 		Path file = write("handoff.log", List.of("initial"));
 		BLogFileTailer reader = new BLogFileTailer(20, TimeUnit.SECONDS, (source, handler) -> {
 			TrackedTailer tailer = new TrackedTailer(source, line -> {
-				if (line.equals("initial")) {
+				if (line.line().equals("initial")) {
 					try {
 						Files.writeString(file, "追加🙂\r\n\r\n", StandardCharsets.UTF_8, StandardOpenOption.APPEND);
 					} catch (java.io.IOException e) {
@@ -191,10 +194,92 @@ class BLogFileTailerTest {
 		assertTrue(expired.stopped.await(3, TimeUnit.SECONDS));
 		assertEquals(1, expired.stops);
 		assertEquals(List.of("new"), reader.readLines("viewer-a", replacement.toString()));
-		expired.handler.accept("late callback from expired file");
+		expired.handler.accept(new LineUpdate("late callback from expired file", false));
 		assertEquals(List.of("new"), reader.readLines("viewer-a", replacement.toString()));
 		assertEquals(List.of("old"), old);
 		assertEquals(2, tailers.size());
+	}
+
+	@Test
+	void unterminatedLineGrowsWithoutChangingOldSnapshot() throws Exception {
+		Path file = directory.resolve("fragment.log");
+		Files.writeString(file, "prefix", StandardCharsets.UTF_8);
+		BLogFileTailer reader = reader(20, TimeUnit.SECONDS);
+		List<String> old = reader.readLines("viewer-a", file.toString());
+		assertEquals(List.of("prefix"), old);
+		Files.writeString(file, " suffix\n", StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+		await(() -> tailers.get(0).deliveries.get() >= 2);
+		assertEquals(List.of("prefix suffix"), reader.readLines("viewer-a", file.toString()));
+		assertEquals(List.of("prefix"), old);
+	}
+
+	@Test
+	void splitUtf8CharacterIsReconciledAfterIntermediateRead() throws Exception {
+		Path file = write("split-utf8.log", List.of());
+		BLogFileTailer reader = reader(20, TimeUnit.SECONDS);
+		reader.readLines("viewer-a", file.toString());
+		Files.write(file, new byte[] { 'p', 'r', 'e', 'f', 'i', 'x', ' ', (byte) 0xe4 }, StandardOpenOption.APPEND);
+		await(() -> tailers.get(0).deliveries.get() >= 1);
+		List<String> intermediate = reader.readLines("viewer-a", file.toString());
+		List<String> preserved = List.copyOf(intermediate);
+		Files.write(file, new byte[] { (byte) 0xb8, (byte) 0xad, '\n' }, StandardOpenOption.APPEND);
+		await(() -> tailers.get(0).deliveries.get() >= 2);
+		assertEquals(List.of("prefix 中"), reader.readLines("viewer-a", file.toString()));
+		assertEquals(preserved, intermediate);
+	}
+
+	@Test
+	void splitCrLfDoesNotInventBlankLines() throws Exception {
+		Path file = directory.resolve("split-crlf.log");
+		Files.writeString(file, "first\r", StandardCharsets.UTF_8);
+		BLogFileTailer reader = reader(20, TimeUnit.SECONDS);
+		List<String> old = reader.readLines("viewer-a", file.toString());
+		Files.writeString(file, "\nsecond\r", StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+		await(() -> tailers.get(0).deliveries.get() >= 2);
+		assertEquals(List.of("first", "second"), reader.readLines("viewer-a", file.toString()));
+		Files.writeString(file, "\nthird\n", StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+		await(() -> reader.readLines("viewer-a", file.toString()).contains("third"));
+		assertEquals(List.of("first", "second", "third"), reader.readLines("viewer-a", file.toString()));
+		assertEquals(List.of("first"), old);
+	}
+
+	@Test
+	void completingFragmentRetains500LineLimit() throws Exception {
+		Path file = write("fragment-cap.log", List.of());
+		BLogFileTailer reader = reader(20, TimeUnit.SECONDS);
+		reader.readLines("viewer-a", file.toString());
+		Files.writeString(file, String.join("\n", IntStream.rangeClosed(1, 500)
+			.mapToObj(i -> "line-" + i).toList()), StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+		await(() -> reader.readLines("viewer-a", file.toString()).size() == 500);
+		List<String> old = reader.readLines("viewer-a", file.toString());
+		Files.writeString(file, " suffix\nline-501\n", StandardCharsets.UTF_8, StandardOpenOption.APPEND);
+		await(() -> reader.readLines("viewer-a", file.toString()).contains("line-501"));
+		List<String> snapshot = reader.readLines("viewer-a", file.toString());
+		assertEquals(500, snapshot.size());
+		assertEquals("line-2", snapshot.get(0));
+		assertEquals("line-500 suffix", snapshot.get(498));
+		assertEquals("line-501", snapshot.get(499));
+		assertEquals("line-500", old.get(499));
+	}
+
+	@Test
+	void backgroundReadErrorClearsSessionAndRetries() throws Exception {
+		Path file = write("background-error.log", List.of("old"));
+		BLogFileTailer reader = reader(20, TimeUnit.SECONDS);
+		List<String> old = reader.readLines("viewer-a", file.toString());
+		TrackedTailer failed = tailers.get(0);
+		java.lang.reflect.Field cursorField = BLogFileTailer.FileTailer.class.getDeclaredField("cursor");
+		cursorField.setAccessible(true);
+		((java.io.RandomAccessFile) cursorField.get(failed)).close();
+		assertTrue(failed.stopped.await(3, TimeUnit.SECONDS), "real closed-cursor read must fail in background");
+		assertThrows(java.io.UncheckedIOException.class, () -> reader.readLines("viewer-a", file.toString()));
+		Files.writeString(file, "replacement\n", StandardCharsets.UTF_8, StandardOpenOption.TRUNCATE_EXISTING);
+		assertEquals(List.of("replacement"), reader.readLines("viewer-a", file.toString()));
+		failed.handler.accept(new LineUpdate("late callback from failed reader", false));
+		assertEquals(List.of("replacement"), reader.readLines("viewer-a", file.toString()));
+		assertEquals(List.of("old"), old);
+		assertEquals(2, tailers.size());
+		assertEquals(1, failed.stops);
 	}
 
 	@Test
@@ -227,14 +312,23 @@ class BLogFileTailerTest {
 	}
 
 	private static class TrackedTailer extends BLogFileTailer.FileTailer {
-		private final Consumer<String> handler;
+		private final Consumer<LineUpdate> handler;
 		private final CountDownLatch stopped = new CountDownLatch(1);
 		private volatile int starts;
 		private volatile int stops;
+		private final AtomicInteger deliveries;
 
-		TrackedTailer(File file, Consumer<String> handler) {
-			super(file, handler, 10);
+		TrackedTailer(File file, Consumer<LineUpdate> handler) {
+			this(file, handler, new AtomicInteger());
+		}
+
+		private TrackedTailer(File file, Consumer<LineUpdate> handler, AtomicInteger deliveries) {
+			super(file, line -> {
+				handler.accept(line);
+				deliveries.incrementAndGet();
+			}, 10);
 			this.handler = handler;
+			this.deliveries = deliveries;
 		}
 
 		@Override

@@ -23,13 +23,13 @@ import net.jodah.expiringmap.ExpiringMap;
 @Component
 public class BLogFileTailer {
 	private final Map<String, TailSession> sessions;
-	private final BiFunction<File, Consumer<String>, TailerHandle> tailerFactory;
+	private final BiFunction<File, Consumer<LineUpdate>, TailerHandle> tailerFactory;
 
 	public BLogFileTailer() {
 		this(20, TimeUnit.SECONDS, (file, handler) -> new FileTailer(file, handler, 1000));
 	}
 
-	BLogFileTailer(long expiry, TimeUnit unit, BiFunction<File, Consumer<String>, TailerHandle> tailerFactory) {
+	BLogFileTailer(long expiry, TimeUnit unit, BiFunction<File, Consumer<LineUpdate>, TailerHandle> tailerFactory) {
 		this.tailerFactory = tailerFactory;
 		this.sessions = ExpiringMap.builder()
 			.expiration(expiry, unit)
@@ -61,6 +61,13 @@ public class BLogFileTailer {
 			} else if (!session.file.equals(file)) {
 				throw new IllegalArgumentException("Viewer is already bound to a different log path");
 			}
+			try {
+				session.tailer.checkFailure();
+			} catch (RuntimeException e) {
+				sessions.remove(guid, session);
+				session.discardFailed();
+				throw e;
+			}
 			return session.snapshot();
 		}
 	}
@@ -83,9 +90,12 @@ public class BLogFileTailer {
 			this.file = file;
 		}
 
-		private synchronized void append(String line) {
+		private synchronized void append(LineUpdate update) {
 			if (!stopped) {
-				lines.addLast(line);
+				if (update.replaceLast() && !lines.isEmpty()) {
+					lines.removeLast();
+				}
+				lines.addLast(update.line());
 				while (lines.size() > 500) {
 					lines.removeFirst();
 				}
@@ -96,11 +106,20 @@ public class BLogFileTailer {
 			return List.copyOf(lines);
 		}
 
+		private synchronized void discardFailed() {
+			// checkFailure only reports a failure after the reader has closed itself.
+			stopped = true;
+			lines.clear();
+		}
+
 		private synchronized void stop() {
 			if (!stopped) {
 				stopped = true;
-				tailer.stop();
-				lines.clear();
+				try {
+					tailer.stop();
+				} finally {
+					lines.clear();
+				}
 			}
 		}
 	}
@@ -108,18 +127,25 @@ public class BLogFileTailer {
 	interface TailerHandle {
 		void start();
 		void stop();
+		/** Report background failure only after closing this reader's resources. */
+		void checkFailure();
 	}
+
+	record LineUpdate(String line, boolean replaceLast) { }
 
 	/** One cursor covers initial history and appends, so the handoff cannot skip bytes. */
 	static class FileTailer implements TailerHandle {
 		private final File file;
-		private final Consumer<String> handler;
+		private final Consumer<LineUpdate> handler;
 		private final long periodMillis;
 		private RandomAccessFile cursor;
 		private ScheduledExecutorService executor;
 		private boolean stopped;
+		private long unfinishedStart = -1;
+		private boolean skipLineFeed;
+		private volatile RuntimeException failure;
 
-		FileTailer(File file, Consumer<String> handler, long periodMillis) {
+		FileTailer(File file, Consumer<LineUpdate> handler, long periodMillis) {
 			this.file = file;
 			this.handler = handler;
 			this.periodMillis = periodMillis;
@@ -140,7 +166,13 @@ public class BLogFileTailer {
 					try {
 						readAvailable(500).forEach(handler);
 					} catch (RuntimeException e) {
-						stop();
+						synchronized (this) {
+							try {
+								stop();
+							} finally {
+								failure = e;
+							}
+						}
 						throw e;
 					}
 				}, 0, periodMillis, TimeUnit.MILLISECONDS);
@@ -174,7 +206,7 @@ public class BLogFileTailer {
 			cursor.seek(0);
 		}
 
-		private synchronized List<String> readAvailable(int limit) {
+		private synchronized List<LineUpdate> readAvailable(int limit) {
 			if (stopped) {
 				return List.of();
 			}
@@ -182,14 +214,42 @@ public class BLogFileTailer {
 				long length = cursor.length();
 				if (length < cursor.getFilePointer()) {
 					cursor.seek(0);
+					unfinishedStart = -1;
+					skipLineFeed = false;
+				} else if (length == cursor.getFilePointer()) {
+					return List.of();
 				}
-				ArrayDeque<String> batch = new ArrayDeque<>();
+				// Re-read the whole exposed fragment, retaining undecoded UTF-8 bytes in the file.
+				boolean replaceLast = unfinishedStart >= 0;
+				if (replaceLast) {
+					cursor.seek(unfinishedStart);
+					unfinishedStart = -1;
+				}
+				ArrayDeque<LineUpdate> batch = new ArrayDeque<>();
 				while (cursor.getFilePointer() < length) {
+					if (skipLineFeed) {
+						skipLineFeed = false;
+						long position = cursor.getFilePointer();
+						if (cursor.read() == '\n') {
+							continue;
+						}
+						cursor.seek(position);
+					}
+					long start = cursor.getFilePointer();
 					String line = cursor.readLine();
 					if (line == null) {
 						break;
 					}
-					batch.addLast(new String(line.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8));
+					long end = cursor.getFilePointer();
+					cursor.seek(end - 1);
+					int last = cursor.read();
+					skipLineFeed = last == '\r';
+					if (last != '\r' && last != '\n') {
+						unfinishedStart = start;
+					}
+					batch.addLast(new LineUpdate(new String(line.getBytes(StandardCharsets.ISO_8859_1),
+						StandardCharsets.UTF_8), replaceLast));
+					replaceLast = false;
 					if (batch.size() > limit) {
 						batch.removeFirst();
 					}
@@ -201,9 +261,18 @@ public class BLogFileTailer {
 		}
 
 		@Override
+		public synchronized void checkFailure() {
+			if (failure != null) {
+				throw failure;
+			}
+		}
+
+		@Override
 		public synchronized void stop() {
 			if (!stopped) {
 				stopped = true;
+				unfinishedStart = -1;
+				skipLineFeed = false;
 				if (executor != null) {
 					executor.shutdownNow();
 				}
