@@ -31,10 +31,18 @@ function dockerExec(cmd) {
   }
 }
 
-// 整組是「對 deploy container 的 integration test」 — 本機 dev 沒跑 stack 就 skip,
-// 避免讓整個 suite 跑紅。CI / staging 有跑 docker compose 時自然會執行。
+// 整組是「對 deploy container 的 integration test」，用 `npm run test:realip` 跑（不在 test:fast 內）。
+// 本機沒跑容器時 skip；E2E_REQUIRE_CONTAINER=1 時改為失敗（CI 的 image job 會先起容器並設這個變數）。
+const REQUIRE_CONTAINER = process.env.E2E_REQUIRE_CONTAINER === '1';
+
 test.describe('Real IP + Cloudflare + GeoIP', () => {
-  test.skip(!containerRunning(), `container "${CONTAINER}" not running — integration test requires deployed stack (docker compose up)`);
+  const running = containerRunning();
+  test.beforeAll(() => {
+    if (REQUIRE_CONTAINER && !running) {
+      throw new Error(`container "${CONTAINER}" not running but E2E_REQUIRE_CONTAINER=1`);
+    }
+  });
+  test.skip(!REQUIRE_CONTAINER && !running, `container "${CONTAINER}" not running — integration test requires deployed stack (docker compose up)`);
 
   test('realip.conf 應存在且包含 Cloudflare IP 段', () => {
     const conf = dockerExec('cat /etc/nginx/geoip/realip.conf');

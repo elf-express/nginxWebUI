@@ -34,6 +34,7 @@
 - Specs 在 `tests/e2e/`，編號 `01-login` … `35-*` 外加獨立的 `flag-svg-integrity`。`35` 用了兩次（`35-asn-catalog-profile`、`35-mcp`），`36` 已用（`36-i18n-js-escape`），`37-spa-basic` 是 Vue basic 頁，`38-allowlist-include`、`39-crowdsec-tab`、`40-crowdsec-guard`、`41-crowdsec-waf-events` 已用，下一支新 spec 是 `42`。
 - `35-mcp`、`39-crowdsec-tab`、`41-crowdsec-waf-events` 會自己另起 server（18081 + `--mcp.token`、18082 + `CROWDSEC_*` 環境變數、18083 + 指向檔內假 LAPI 的 `CROWDSEC_*`，資料各落在已被 gitignore 的 `test-data/mcp/`、`test-data/crowdsec/`、`test-data/waf/`）。`35-mcp` 的共用實例（18080）沒帶 token，所以它同時守得住「未啟用時 404」；`39-crowdsec-tab` 的共用實例（18080）沒設定 CrowdSec，用來驗「未設定」提示與 ASN 橫幅可見。
 - **PG smoke：** `npm run test:pg` —— docker 起 postgres:18-alpine（port 15432），跑 01+33 驗證 PostgreSQL 上的登入與 server 儲存（主套件只跑 SQLite，跨 DB 行為差異靠這層抓）。
+- **部署容器檢查：** `npm run test:realip` —— 只跑 09-realip（docker exec 檢查 realip.conf、mmdb、cron），要先有名為 `nginxwebui` 的容器；`test:fast` 不含這支。CI 的 image job 用剛建的映像起容器並設 `E2E_REQUIRE_CONTAINER=1`，容器沒起來就失敗而不是 skip。
 - 簡/繁按鈕文字用 regex 比對：`/批量輸入|批量输入/`。
 - Layui 元件用 `page.evaluate()` 驅動。
 - 執行：`npm test`（headed）· `npm run test:fast`（headless/CI）· `npm run test:fast -- 08-crowdsec`（單檔）· `npm run report`（http://localhost:9400）。

@@ -254,6 +254,94 @@
 				</executions>
 			</plugin>
 
+			<!-- 覆蓋率（E-150）：JUnit 跑完後在 prepare-package 產報告（target/site/jacoco/）並檢查門檻。
+			     -DskipTests 時沒有 jacoco.exec，report／check 會自動略過。 -->
+			<plugin>
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>0.8.16</version>
+				<executions>
+					<execution>
+						<id>prepare-agent</id>
+						<goals>
+							<goal>prepare-agent</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>report</id>
+						<phase>prepare-package</phase>
+						<goals>
+							<goal>report</goal>
+						</goals>
+					</execution>
+					<!-- 認證路徑的行覆蓋率門檻，依目前實測值取下限，只能往上調。
+					     LoginController 目前沒有單元測試，先記 0.00，補測試後調高。 -->
+					<execution>
+						<id>check</id>
+						<phase>prepare-package</phase>
+						<goals>
+							<goal>check</goal>
+						</goals>
+						<configuration>
+							<rules>
+							<rule>
+								<element>CLASS</element>
+								<includes>
+									<include>com.cym.config.AppFilter</include>
+								</includes>
+								<limits>
+									<limit>
+										<counter>LINE</counter>
+										<value>COVEREDRATIO</value>
+										<minimum>0.51</minimum>
+									</limit>
+								</limits>
+							</rule>
+							<rule>
+								<element>PACKAGE</element>
+								<includes>
+									<include>com.cym.controller.api</include>
+								</includes>
+								<limits>
+									<limit>
+										<counter>LINE</counter>
+										<value>COVEREDRATIO</value>
+										<minimum>0.06</minimum>
+									</limit>
+								</limits>
+							</rule>
+							<rule>
+								<element>CLASS</element>
+								<includes>
+									<include>com.cym.controller.adminPage.LoginController</include>
+								</includes>
+								<limits>
+									<limit>
+										<counter>LINE</counter>
+										<value>COVEREDRATIO</value>
+										<minimum>0.00</minimum>
+									</limit>
+								</limits>
+							</rule>
+							<rule>
+								<element>CLASS</element>
+								<includes>
+									<include>com.cym.service.AdminService</include>
+								</includes>
+								<limits>
+									<limit>
+										<counter>LINE</counter>
+										<value>COVEREDRATIO</value>
+										<minimum>0.27</minimum>
+									</limit>
+								</limits>
+							</rule>
+							</rules>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
