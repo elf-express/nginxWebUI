@@ -2,15 +2,20 @@ package com.cym.controller.adminPage;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 
 import org.noear.solon.annotation.Controller;
 import org.noear.solon.annotation.Inject;
 import org.noear.solon.annotation.Mapping;
+import org.noear.solon.annotation.Post;
 import org.noear.solon.core.handle.ModelAndView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.cym.config.AppFilter;
+import com.cym.ext.LogTailData;
 import com.cym.model.Log;
 import com.cym.service.LogService;
 import com.cym.service.SettingService;
@@ -23,6 +28,7 @@ import com.cym.utils.SystemTool;
 
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.URLUtil;
+import cn.hutool.core.util.StrUtil;
 
 @Controller
 @Mapping("/adminPage/log")
@@ -75,9 +81,9 @@ public class LogController extends BaseController {
 	}
 
 	@Mapping("tail")
-	public ModelAndView tail(ModelAndView modelAndView, String id, String protocol) {
+	public ModelAndView tail(ModelAndView modelAndView, String id, String protocol, String legacy) {
 		modelAndView.put("id", id);
-		modelAndView.view("/adminPage/log/tail.html");
+		modelAndView.view("1".equals(legacy) ? "/adminPage/log/tail.html" : "/adminPage/log/tailSpa.html");
 		return modelAndView;
 	}
 
@@ -92,11 +98,52 @@ public class LogController extends BaseController {
 	public JsonResult tailCmd(String id, String guid) {
 		Log log = sqlHelper.findById(id, Log.class);
 		if (!FileUtil.exist(log.getPath())) {
+			bLogFileTailer.invalidate(guid, log.getPath());
 			return renderSuccess("");
 		}
 
 		String rs = bLogFileTailer.run(guid, log.getPath());
 		return renderSuccess(rs);
+	}
+
+	@Post
+	@Mapping("tailData")
+	public JsonResult tailData(String id, String guid) {
+		if (StrUtil.isBlank(id)) {
+			return renderError(m.get("logStr.invalidId"));
+		}
+		if (StrUtil.isBlank(guid)) {
+			return renderError(m.get("logStr.invalidGuid"));
+		}
+		Log log = sqlHelper.findById(id, Log.class);
+		if (log == null) {
+			return renderError(m.get("logStr.invalidId"));
+		}
+		String path = log.getPath();
+		try {
+			if (StrUtil.isBlank(path)) {
+				return renderSuccess(new LogTailData("unreadable", path, List.of()));
+			}
+			Path file = Path.of(path);
+			if (Files.notExists(file)) {
+				bLogFileTailer.invalidate(guid, path);
+				return renderSuccess(new LogTailData("missing", path, List.of()));
+			}
+			if (!Files.isRegularFile(file) || !Files.isReadable(file)) {
+				bLogFileTailer.invalidate(guid, path);
+				return renderSuccess(new LogTailData("unreadable", path, List.of()));
+			}
+		} catch (RuntimeException e) {
+			return renderSuccess(new LogTailData("unreadable", path, List.of()));
+		}
+		try {
+			return renderSuccess(new LogTailData("ready", path, bLogFileTailer.readLines(guid, path)));
+		} catch (IllegalArgumentException e) {
+			return renderError(m.get("logStr.invalidGuid"));
+		} catch (RuntimeException e) {
+			// The reader closes failed sessions before reporting an error; the next poll can rebuild it.
+			return renderSuccess(new LogTailData("unreadable", path, List.of()));
+		}
 	}
 
 }

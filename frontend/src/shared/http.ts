@@ -6,11 +6,18 @@ export interface JsonResult<T> {
 }
 
 /** 後端回 success=false 時 message 是後端訊息；HTTP 錯誤或回應無法解析時 message 為空字串 */
-export class ApiError extends Error {}
+export class ApiError extends Error {
+  constructor(message: string, readonly status?: number) {
+    super(message)
+  }
+}
 
 export class SessionExpiredError extends Error {}
 
 export type Params = Record<string, string | number>
+export interface RequestOptions {
+  signal?: AbortSignal
+}
 
 // 一律用同源相對路徑：遠端模式下 AppFilter 會把 /adminPage/** 轉發給遠端，前端不必區分本機或遠端
 const LOGIN_PATH = '/adminPage/login'
@@ -23,13 +30,14 @@ export function setRedirect(fn: (url: string) => void): void {
   redirect = fn
 }
 
-async function request<T>(method: 'GET' | 'POST', url: string, params: Params = {}): Promise<T> {
+async function request<T>(method: 'GET' | 'POST', url: string, params: Params = {}, options?: RequestOptions): Promise<T> {
   const form = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) {
     form.append(key, String(value))
   }
 
   const init: RequestInit = { method, credentials: 'same-origin', headers: { Accept: 'application/json' } }
+  if (options?.signal) init.signal = options.signal
   let target = url
   if (method === 'GET') {
     const query = form.toString()
@@ -50,13 +58,14 @@ async function request<T>(method: 'GET' | 'POST', url: string, params: Params = 
     throw new SessionExpiredError(res.url)
   }
   if (!res.ok) {
-    throw new ApiError('')
+    throw new ApiError('', res.status)
   }
 
   let data: JsonResult<T>
   try {
     data = (await res.json()) as JsonResult<T>
-  } catch {
+  } catch (err) {
+    if (typeof err === 'object' && err !== null && 'name' in err && err.name === 'AbortError') throw err
     throw new ApiError('')
   }
   if (!data.success) {
@@ -65,10 +74,10 @@ async function request<T>(method: 'GET' | 'POST', url: string, params: Params = 
   return data.obj as T
 }
 
-export function get<T>(url: string, params?: Params): Promise<T> {
-  return request<T>('GET', url, params)
+export function get<T>(url: string, params?: Params, options?: RequestOptions): Promise<T> {
+  return request<T>('GET', url, params, options)
 }
 
-export function post<T = void>(url: string, params?: Params): Promise<T> {
-  return request<T>('POST', url, params)
+export function post<T = void>(url: string, params?: Params, options?: RequestOptions): Promise<T> {
+  return request<T>('POST', url, params, options)
 }

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+<#include "/adminPage/common.html"/>
+<link href="${ctx}/js/spa/logTail.css?v=${jsrandom}" rel="stylesheet" />
+</head>
+<body>
+  <div id="logTailApp" data-log-id="${(id!'')?html}"></div>
+  <script type="module">
+    import('${ctx}/js/spa/logTail.js?v=${jsrandom}')
+      .catch(function () {
+        // Entry download/parse failure occurs before shared/bootstrap can load.
+        var params = new URLSearchParams(location.search);
+        params.set('legacy', '1');
+        location.replace(location.pathname + '?' + params.toString());
+      });
+  </script>
+</body>
+</html>

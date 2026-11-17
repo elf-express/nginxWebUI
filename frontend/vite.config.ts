@@ -14,11 +14,12 @@ export default defineConfig({
       input: {
         basic: fileURLToPath(new URL('./src/pages/basic/main.ts', import.meta.url)),
         crowdsecGuard: fileURLToPath(new URL('./src/pages/crowdsecGuard/main.ts', import.meta.url)),
+        logTail: fileURLToPath(new URL('./src/pages/logTail/main.ts', import.meta.url)),
       },
       output: {
         entryFileNames: '[name].js',
         chunkFileNames: 'chunks/[name]-[hash].js',
-        assetFileNames: '[name][extname]',
+        assetFileNames: (asset) => asset.names.includes('LogTailPage.css') ? 'logTail[extname]' : '[name][extname]',
       },
     },
   },

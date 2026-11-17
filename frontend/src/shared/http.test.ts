@@ -45,7 +45,37 @@ it('success=false 丟出帶後端訊息的 ApiError', async () => {
 it('HTTP 錯誤丟出空訊息的 ApiError', async () => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(fakeResponse({}, { ok: false, status: 500 })))
 
-  await expect(get('/adminPage/basic/pageData')).rejects.toEqual(new ApiError(''))
+  await expect(get('/adminPage/basic/pageData')).rejects.toEqual(new ApiError('', 500))
+})
+
+it.each([get, post])('forwards an optional abort signal while preserving same-origin credentials', async (send) => {
+  const controller = new AbortController()
+  const fetchMock = vi.fn().mockResolvedValue(fakeResponse({ success: true, status: '200' }))
+  vi.stubGlobal('fetch', fetchMock)
+
+  await send('/adminPage/log/tailData', { id: '7' }, { signal: controller.signal })
+
+  expect(fetchMock.mock.calls[0][1]).toMatchObject({ signal: controller.signal, credentials: 'same-origin' })
+})
+
+it('retains the HTTP status for distinguishing a missing endpoint', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(fakeResponse({}, { ok: false, status: 404 })))
+
+  await expect(post('/adminPage/log/tailData')).rejects.toMatchObject({ message: '', status: 404 })
+})
+
+it('keeps aborted fetch failures identifiable', async () => {
+  const aborted = new DOMException('cancelled', 'AbortError')
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(aborted))
+
+  await expect(get('/adminPage/log/tailData')).rejects.toBe(aborted)
+})
+
+it('keeps an aborted response body identifiable', async () => {
+  const aborted = new DOMException('cancelled while reading', 'AbortError')
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(fakeResponse(null, { json: async () => { throw aborted } })))
+
+  await expect(post('/adminPage/log/tailData')).rejects.toBe(aborted)
 })
 
 it('回應不是 JSON 丟出空訊息的 ApiError', async () => {
