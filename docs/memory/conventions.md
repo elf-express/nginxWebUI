@@ -23,6 +23,8 @@
 
 ## Backend
 
+- **後台請求的方法與 CSRF 規則（E-161，`AppFilter` → `AdminCsrfGuard`）：** `/adminPage/**` 的 GET/HEAD 只放行 `AdminCsrfGuard.SAFE_GET_PATHS` 列的唯讀端點，其餘回 405；非 GET 一律要帶與 session 綁定的 token（header `X-CSRF-Token` 或表單欄位 `_csrf`），否則 403。新端點預設只收 POST；要開放 GET 必須確認它不改資料、不觸發動作，再加進白名單（`AdminCsrfGuardTest` 會檢查白名單都是真路由、名稱不像變更動作）。前端不用自己處理：舊頁由 `base.js` 自動帶（jQuery AJAX、POST 表單），Vue 頁由 `shared/http.ts` 的 `post()` 帶；自己寫 `fetch` 才要加 `csrfToken()`。session cookie 與 `NWUI_CSRF` 都是 `SameSite=Strict`。
+
 - Controllers 分兩處：`controller/adminPage/`（頁面控制器，含 CrowdSec / Geo / Asn / ProtectionCert / SiteResource / Geoip）與 `controller/api/`（REST API：basic/cert/denyAllow/nginx/param/password/server/upstream/www 的 `*Api` 加上 `Token` / `Upload`）—— `controller/` 根目錄不放東西。
 - Services：`@Component` + `@Inject SqlHelper sqlHelper;`。持久化一律走 `SqlHelper`（自寫 ORM，不是 JPA —— 見 [stack-and-layout.md](stack-and-layout.md) 的 cheatsheet）。
 - 主鍵：一律 `SnowFlakeUtils.getId()`（snowflake；存成 String，產生時是 Long）。
@@ -31,7 +33,8 @@
 
 ## Testing（詳見 [docs/superpowers/plans/playwright-guide.md](../superpowers/plans/playwright-guide.md)）
 
-- Specs 在 `tests/e2e/`，編號 `01-login` … `35-*` 外加獨立的 `flag-svg-integrity`。`35` 用了兩次（`35-asn-catalog-profile`、`35-mcp`），`36` 已用（`36-i18n-js-escape`），`37-spa-basic` 是 Vue basic 頁，`38-allowlist-include`、`39-crowdsec-tab`、`40-crowdsec-guard`、`41-crowdsec-waf-events` 已用，下一支新 spec 是 `42`。
+- Specs 在 `tests/e2e/`，編號 `01-login` … `35-*` 外加獨立的 `flag-svg-integrity`。`35` 用了兩次（`35-asn-catalog-profile`、`35-mcp`），`36` 已用（`36-i18n-js-escape`），`37-spa-basic` 是 Vue basic 頁，`38-allowlist-include`、`39-crowdsec-tab`、`40-crowdsec-guard`、`41-crowdsec-waf-events`、`42-crowdsec-waf-rules`、`43-vue-log-tail`、`44-login-no-secrets`、`45-admin-csrf` 已用，下一支新 spec 是 `46`。
+- **後台 POST 要帶 CSRF token（E-161）：** 測試直接打後台 POST 端點用 `helpers.js` 的 `csrfPost(page, url, opts)`，不要用裸的 `page.request.post`（會回 403）；在頁面內用 `fetch` 時 header 帶 `'X-CSRF-Token': csrfToken()`。
 - `35-mcp`、`39-crowdsec-tab`、`41-crowdsec-waf-events` 會自己另起 server（18081 + `--mcp.token`、18082 + `CROWDSEC_*` 環境變數、18083 + 指向檔內假 LAPI 的 `CROWDSEC_*`，資料各落在已被 gitignore 的 `test-data/mcp/`、`test-data/crowdsec/`、`test-data/waf/`）。`35-mcp` 的共用實例（18080）沒帶 token，所以它同時守得住「未啟用時 404」；`39-crowdsec-tab` 的共用實例（18080）沒設定 CrowdSec，用來驗「未設定」提示與 ASN 橫幅可見。
 - **PG smoke：** `npm run test:pg` —— docker 起 postgres:18-alpine（port 15432），跑 01+33 驗證 PostgreSQL 上的登入與 server 儲存（主套件只跑 SQLite，跨 DB 行為差異靠這層抓）。
 - **部署容器檢查：** `npm run test:realip` —— 只跑 09-realip（docker exec 檢查 realip.conf、mmdb、cron），要先有名為 `nginxwebui` 的容器；`test:fast` 不含這支。CI 的 image job 用剛建的映像起容器並設 `E2E_REQUIRE_CONTAINER=1`，容器沒起來就失敗而不是 skip。

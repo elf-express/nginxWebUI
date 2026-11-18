@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { login } = require('./helpers');
+const { login, csrfPost } = require('./helpers');
 
 // E-376 Task 2：白名單 geo 與國家 map 拆成 include 檔，nginx.conf 只留 include。
 test.describe.serial('白名單 geo 與國家 map include 檔', () => {
@@ -25,11 +25,11 @@ test.describe.serial('白名單 geo 與國家 map include 檔', () => {
       const at = html.indexOf(LIST_NAME);
       const row = at >= 0 ? /denyAllowNS\.del\('([^']+)'\)/.exec(html.slice(at)) : null;
       if (row) {
-        await page.request.post(baseURL + '/adminPage/denyAllow/del', { form: { id: row[1] } });
+        await csrfPost(page, baseURL + '/adminPage/denyAllow/del', { form: { id: row[1] } });
       }
       // 還原全域國家規則
       if (originalRule) {
-        await page.request.post(baseURL + '/adminPage/geo/addOver', {
+        await csrfPost(page, baseURL + '/adminPage/geo/addOver', {
           form: {
             id: originalRule.id,
             mode: String(originalRule.mode),
@@ -38,7 +38,7 @@ test.describe.serial('白名單 geo 與國家 map include 檔', () => {
           },
         });
       } else if (createdRuleId) {
-        await page.request.post(baseURL + '/adminPage/geo/del', { form: { id: createdRuleId } });
+        await csrfPost(page, baseURL + '/adminPage/geo/del', { form: { id: createdRuleId } });
       }
     } finally {
       await context.close();
@@ -46,7 +46,7 @@ test.describe.serial('白名單 geo 與國家 map include 檔', () => {
   });
 
   test('白名單與國家 map 都在 include 檔，nginx.conf 只含 include', async () => {
-    const add = await (await page.request.post(baseURL + '/adminPage/denyAllow/addOver', {
+    const add = await (await csrfPost(page, baseURL + '/adminPage/denyAllow/addOver', {
       form: { id: '', name: LIST_NAME, type: 'allow', ip: ALLOW_IP },
     })).json();
     expect(add.success).toBe(true);
@@ -60,14 +60,14 @@ test.describe.serial('白名單 geo 與國家 map include 檔', () => {
     if (originalRule) {
       form.id = originalRule.id;
     }
-    const save = await (await page.request.post(baseURL + '/adminPage/geo/addOver', { form })).json();
+    const save = await (await csrfPost(page, baseURL + '/adminPage/geo/addOver', { form })).json();
     expect(save.success).toBe(true);
     if (!originalRule) {
       const after = await (await page.request.get(baseURL + '/adminPage/geo/detail')).json();
       createdRuleId = after.obj.id;
     }
 
-    const loaded = await (await page.request.get(baseURL + '/adminPage/conf/loadConf')).json();
+    const loaded = await (await csrfPost(page, baseURL + '/adminPage/conf/loadConf')).json();
     expect(loaded.success).toBe(true);
     const conf = loaded.obj.conf;
     expect(conf).toContain('include conf.d/allowlist_http.conf;');

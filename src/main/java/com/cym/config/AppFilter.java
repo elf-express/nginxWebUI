@@ -18,6 +18,7 @@ import org.noear.solon.annotation.Component;
 import org.noear.solon.annotation.Inject;
 import org.noear.solon.core.exception.StatusException;
 import org.noear.solon.core.handle.Context;
+import org.noear.solon.core.handle.Cookie;
 import org.noear.solon.core.handle.Filter;
 import org.noear.solon.core.handle.FilterChain;
 import org.noear.solon.core.handle.UploadedFile;
@@ -99,6 +100,9 @@ public class AppFilter implements Filter {
 
 	private void doFilterDo(Context ctx, FilterChain chain) throws Throwable {
 		String path = ctx.path().toLowerCase();
+
+		// session cookie 與 CSRF token cookie 一律 SameSite=Strict（E-161）
+		SameSiteCookies.install(ctx);
 
 		// MCP 端點:未設定 mcp.token 一律 404(opt-in,既有部署升級後行為不變);
 		// 設定了則檢查 Authorization: Bearer <token>。
@@ -256,6 +260,11 @@ public class AppFilter implements Filter {
 			return false;
 		}
 
+		// 方法與 CSRF 檢查要在下面轉發遠端之前：轉發一律以 POST 送出，遠端節點分不出原本是不是 GET
+		if (!csrfInterceptor(ctx, isCredit)) {
+			return false;
+		}
+
 		String localType = (String) ctx.session("localType");
 		if (localType != null //
 				&& localType.equals("remote") //
@@ -304,6 +313,52 @@ public class AppFilter implements Filter {
 		}
 
 		return true;
+	}
+
+	/**
+	 * 後台請求的方法與 CSRF 檢查（E-161）：GET/HEAD 只能打唯讀白名單，其餘要帶與 session 綁定的 token。
+	 * 以 creditKey 認證的請求（主控端轉發給遠端節點）不靠瀏覽器 cookie，只套方法規則。
+	 */
+	private boolean csrfInterceptor(Context ctx, boolean isCredit) {
+		String sessionToken = isCredit ? null : ensureCsrfToken(ctx);
+		String requestToken = ctx.header(AdminCsrfGuard.HEADER);
+		if (StrUtil.isEmpty(requestToken)) {
+			requestToken = ctx.param(AdminCsrfGuard.PARAM);
+		}
+
+		AdminCsrfGuard.Verdict verdict = AdminCsrfGuard.check(ctx.method(), ctx.path(), isCredit, sessionToken, requestToken);
+		if (verdict == AdminCsrfGuard.Verdict.ALLOW) {
+			return true;
+		}
+
+		JsonResult result = new JsonResult();
+		result.setSuccess(false);
+		if (verdict == AdminCsrfGuard.Verdict.METHOD_NOT_ALLOWED) {
+			ctx.status(405);
+			ctx.headerSet("Allow", "POST");
+			result.setStatus("405");
+			result.setMsg(m.get("commonStr.methodNotAllowed"));
+		} else {
+			ctx.status(403);
+			result.setStatus("403");
+			result.setMsg(m.get("commonStr.csrfRejected"));
+		}
+		ctx.contentType("application/json;charset=utf-8");
+		ctx.output(JSONUtil.toJsonPrettyStr(result));
+		return false;
+	}
+
+	/** 取得 session 的 CSRF token，沒有就產生；cookie 與 session 不一致時重發 cookie 給前端讀取 */
+	private String ensureCsrfToken(Context ctx) {
+		String token = (String) ctx.session(AdminCsrfGuard.SESSION_KEY);
+		if (StrUtil.isEmpty(token)) {
+			token = AdminCsrfGuard.newToken();
+			ctx.sessionSet(AdminCsrfGuard.SESSION_KEY, token);
+		}
+		if (!token.equals(ctx.cookie(AdminCsrfGuard.COOKIE))) {
+			ctx.cookieSet(new Cookie(AdminCsrfGuard.COOKIE, token).path("/").httpOnly(false));
+		}
+		return token;
 	}
 
 	private void frontInterceptor(Context ctx) {

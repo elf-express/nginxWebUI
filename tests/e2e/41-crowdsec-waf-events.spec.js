@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const http = require('http');
-const { PROJECT_ROOT, JAR_PATH, TEST_ADMIN, TEST_PASS, TEST_CAPTCHA, login } = require('./helpers');
+const { PROJECT_ROOT, JAR_PATH, TEST_ADMIN, TEST_PASS, TEST_CAPTCHA, login, csrfPost } = require('./helpers');
 
 // 「CrowdSec 防護」頁的「WAF 事件」分頁（E-394，Vue）：
 //   1) 共用測試 server（18080，沒有 CROWDSEC_* 環境變數）→「沒有 machine 憑證」提示、立即同步、保留天數驗證與保存、
@@ -27,7 +27,7 @@ const UA = 'Mozilla/5.0 e394-e2e';
 const SQLI_URI = '/search?q=1%27%20UNION%20SELECT%20password%20FROM%20users--';
 
 async function api(page, p, form) {
-  const res = form ? await page.request.post(p, { form }) : await page.request.get(p);
+  const res = form ? await csrfPost(page, p, { form }) : await page.request.get(p);
   const json = await res.json();
   expect(json.success, JSON.stringify(json)).toBe(true);
   return json.obj;
@@ -155,7 +155,7 @@ test.describe('WAF 事件分頁（共用 server，沒有 CrowdSec 變數）', ()
 
   test.afterEach(async ({ page }) => {
     // 保留天數還原成預設值，不影響其他測試
-    await page.request.post('/adminPage/crowdsecGuard/waf/retention', { form: { days: '30' } });
+    await csrfPost(page, '/adminPage/crowdsecGuard/waf/retention', { form: { days: '30' } });
   });
 
   test('沒有 machine 憑證時顯示提示，立即同步也回同一個提示', async ({ page }) => {
@@ -163,13 +163,13 @@ test.describe('WAF 事件分頁（共用 server，沒有 CrowdSec 變數）', ()
     await expect(app.locator('.waf-notice-notConfigured')).toBeVisible();
     await app.getByRole('button', { name: SYNC_NOW }).click();
     await expect(page.locator('.ant-message')).toContainText(/machine/);
-    const res = await page.request.post('/adminPage/crowdsecGuard/waf/sync');
+    const res = await csrfPost(page, '/adminPage/crowdsecGuard/waf/sync');
     expect((await res.json()).obj.outcome).toBe('notConfigured');
   });
 
   test('保留天數：後端只收 1–365 的整數，存好後重新整理仍保留', async ({ page }) => {
     for (const days of ['0', '366', 'abc', '7.5']) {
-      const res = await page.request.post('/adminPage/crowdsecGuard/waf/retention', { form: { days } });
+      const res = await csrfPost(page, '/adminPage/crowdsecGuard/waf/retention', { form: { days } });
       expect((await res.json()).success, days).toBe(false);
     }
     let app = await openWafTab(page);

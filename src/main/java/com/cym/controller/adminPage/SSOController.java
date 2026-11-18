@@ -124,6 +124,17 @@ public class SSOController extends BaseController {
 		Context.current().sessionSet("admin", admin);
 		Context.current().sessionRemove("imgCode"); // 立刻销毁验证码
 
-		ctx.redirect("/adminPage/monitor");
+		ctx.contentType("text/html;charset=utf-8");
+		ctx.output(SSO_LANDING_HTML);
 	}
+
+	/**
+	 * SSO 回呼後的跳轉頁：由本站頁面導向後台首頁。
+	 * session cookie 是 SameSite=Strict，從 SSO 提供者轉址過來的整條 302 鏈都算跨站、不會帶 cookie，
+	 * 直接 302 到首頁會被當成未登入。
+	 */
+	static final String SSO_LANDING_HTML = "<!DOCTYPE html><html><head><meta charset=\"utf-8\">"
+			+ "<meta http-equiv=\"refresh\" content=\"0;url=/adminPage/monitor\"></head>"
+			+ "<body><script>location.replace('/adminPage/monitor')</script>"
+			+ "<a href=\"/adminPage/monitor\">/adminPage/monitor</a></body></html>";
 }

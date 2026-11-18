@@ -1,12 +1,12 @@
 const { test, expect } = require('@playwright/test');
-const { login } = require('./helpers');
+const { login, csrfPost } = require('./helpers');
 
 // common.html 把 messages 逐條輸出成 JS 字串常值；值裡的引號沒跳脫時整段 script 會語法錯誤，
 // 之後所有 *Str 全域變數都不存在，登入頁的 layer 也打不開。英文語系有含引號的字串，所以用 en_US 驗。
 test.describe('i18n 字串輸出成 JS 時正確跳脫', () => {
 
   async function setLang(page, lang) {
-    const res = await page.request.post('/adminPage/login/changeLang', { form: { lang } });
+    const res = await csrfPost(page, '/adminPage/login/changeLang', { form: { lang } });
     expect(res.ok()).toBeTruthy();
   }
 

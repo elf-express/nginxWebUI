@@ -169,6 +169,23 @@ async function login(page) {
   await page.waitForURL('**/adminPage/monitor', { timeout: 10000 });
 }
 
+/**
+ * 後台 CSRF token（E-161）：登入後由 NWUI_CSRF cookie 帶給前端，POST 時放進 X-CSRF-Token header。
+ * 測試直接用 page.request 打 POST 端點時要自己帶，瀏覽器內的請求由前端程式帶。
+ */
+async function csrfHeaders(page) {
+  const url = page.url();
+  const cookies = await page.context().cookies(url.startsWith('http') ? url : undefined);
+  const token = cookies.find((c) => c.name === 'NWUI_CSRF');
+  return token ? { 'X-CSRF-Token': token.value } : {};
+}
+
+/** 帶 CSRF token 的 page.request.post */
+async function csrfPost(page, url, options = {}) {
+  const headers = { ...(await csrfHeaders(page)), ...(options.headers || {}) };
+  return page.request.post(url, { ...options, headers });
+}
+
 module.exports = {
   PROJECT_ROOT,
   JAR_PATH,
@@ -182,4 +199,6 @@ module.exports = {
   startApp,
   stopApp,
   login,
+  csrfHeaders,
+  csrfPost,
 };

@@ -194,4 +194,97 @@ class AppFilterTest {
 		assertEquals(1, run(ctx));
 		assertNull(ctx.redirectUrl());
 	}
+
+	// ===== E-161：後台變更端點的方法限制與 CSRF token =====
+
+	private void assertMethodNotAllowed(FakeContext ctx) throws Throwable {
+		assertEquals(0, run(ctx), "GET 不得執行變更端點");
+		assertTrue(ctx.getHandled());
+		assertEquals(405, ctx.status());
+	}
+
+	private void assertCsrfRejected(FakeContext ctx) throws Throwable {
+		assertEquals(0, run(ctx), "缺少或錯誤的 CSRF token 不得執行變更端點");
+		assertTrue(ctx.getHandled());
+		assertEquals(403, ctx.status());
+		JSONObject body = JSONUtil.parseObj(ctx.outputText());
+		assertFalse(body.getBool("success"));
+		assertEquals(m.get("commonStr.csrfRejected"), body.getStr("msg"));
+	}
+
+	private FakeContext loggedIn(String path) {
+		return new FakeContext(path).session("isLogin", true).session("csrfToken", "tok-1");
+	}
+
+	@Test
+	void getToDelAllIsMethodNotAllowed() throws Throwable {
+		assertMethodNotAllowed(loggedIn("/adminPage/bak/delAll"));
+	}
+
+	@Test
+	void getToChangePassOverIsMethodNotAllowed() throws Throwable {
+		assertMethodNotAllowed(loggedIn("/adminPage/admin/changePassOver").param("id", "1").param("pass", "x").param("auth", "false"));
+	}
+
+	@Test
+	void postWithoutTokenIsRejected() throws Throwable {
+		assertCsrfRejected(loggedIn("/adminPage/bak/delAll").method("POST"));
+	}
+
+	@Test
+	void postWithWrongTokenIsRejected() throws Throwable {
+		assertCsrfRejected(loggedIn("/adminPage/bak/delAll").method("POST").header("X-CSRF-Token", "tok-2"));
+	}
+
+	@Test
+	void postWithTokenInHeaderReachesHandler() throws Throwable {
+		FakeContext ctx = loggedIn("/adminPage/bak/delAll").method("POST").header("X-CSRF-Token", "tok-1");
+		assertEquals(1, run(ctx));
+	}
+
+	@Test
+	void postWithTokenInFormFieldReachesHandler() throws Throwable {
+		FakeContext ctx = loggedIn("/adminPage/server").method("POST").param("_csrf", "tok-1");
+		assertEquals(1, run(ctx));
+	}
+
+	@Test
+	void postWithCreditKeySkipsToken() throws Throwable {
+		String key = creditService.make("1");
+		FakeContext ctx = new FakeContext("/adminPage/bak/delAll").method("POST").param("creditKey", key);
+		assertEquals(1, run(ctx));
+	}
+
+	@Test
+	void getToReadOnlyPageIssuesTokenCookie() throws Throwable {
+		FakeContext ctx = new FakeContext(ADMIN_PAGE).session("isLogin", true);
+
+		assertEquals(1, run(ctx));
+		String token = (String) ctx.session("csrfToken");
+		assertTrue(token != null && token.length() >= 40, "登入後的第一個請求要產生 session token");
+		assertEquals(token, ctx.setCookie("NWUI_CSRF").value);
+		assertFalse(ctx.setCookie("NWUI_CSRF").httpOnly, "前端要讀得到 token cookie");
+	}
+
+	@Test
+	void tokenCookieIsNotRewrittenWhenAlreadyCurrent() throws Throwable {
+		FakeContext ctx = loggedIn(ADMIN_PAGE).cookie("NWUI_CSRF", "tok-1");
+
+		assertEquals(1, run(ctx));
+		assertNull(ctx.setCookie("NWUI_CSRF"));
+	}
+
+	@Test
+	void remoteModeDoesNotForwardGetToMutatingEndpoint() throws Throwable {
+		// 遠端模式下 AppFilter 會把請求轉成 POST 送到遠端節點，所以方法檢查必須在轉發之前
+		FakeContext ctx = loggedIn("/adminPage/bak/delAll").session("localType", "remote");
+		assertMethodNotAllowed(ctx);
+		assertNull(ctx.redirectUrl(), "不應嘗試轉發到遠端");
+	}
+
+	@Test
+	void loginEndpointsAreNotGuarded() throws Throwable {
+		FakeContext ctx = new FakeContext("/adminPage/login/login").method("POST");
+		assertEquals(1, run(ctx));
+	}
 }

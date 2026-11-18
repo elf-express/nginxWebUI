@@ -75,7 +75,7 @@ test.describe('ASN catalog + profile', () => {
     const apiRes = await page.evaluate(async () => {
       const r = await fetch(ctx + '/adminPage/asn/addIntent', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrfToken() },
         body: 'asn=15169&duration=24h&note=e2e-light-block',
       });
       return r.json();

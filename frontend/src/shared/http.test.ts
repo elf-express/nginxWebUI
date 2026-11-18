@@ -36,6 +36,19 @@ it('POST 以表單編碼送出', async () => {
   expect(init.body.toString()).toBe('id=1%2C2')
 })
 
+it('POST 從 NWUI_CSRF cookie 帶 X-CSRF-Token header，GET 不帶', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(fakeResponse({ success: true, status: '200' }))
+  vi.stubGlobal('fetch', fetchMock)
+  document.cookie = 'NWUI_CSRF=tok%2D1; path=/'
+
+  await post('/adminPage/basic/del', { id: '1' })
+  await get('/adminPage/basic/pageData')
+
+  expect(fetchMock.mock.calls[0][1].headers).toMatchObject({ 'X-CSRF-Token': 'tok-1' })
+  expect(fetchMock.mock.calls[1][1].headers).not.toHaveProperty('X-CSRF-Token')
+  document.cookie = 'NWUI_CSRF=; path=/; max-age=0'
+})
+
 it('success=false 丟出帶後端訊息的 ApiError', async () => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(fakeResponse({ success: false, status: '500', msg: '名稱重複' })))
 
