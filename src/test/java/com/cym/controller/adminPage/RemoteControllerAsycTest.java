@@ -21,7 +21,9 @@ import org.noear.solon.core.handle.ContextHolder;
 import com.cym.ext.AsycPack;
 import com.cym.model.Admin;
 import com.cym.model.Remote;
+import com.cym.service.AdminService;
 import com.cym.service.ConfService;
+import com.cym.service.RemoteService;
 import com.cym.service.SettingService;
 import com.cym.testsupport.FakeContext;
 import com.cym.testsupport.InMemorySqlHelper;
@@ -79,6 +81,12 @@ class RemoteControllerAsycTest {
 		controller = new RemoteController();
 		ReflectUtil.setFieldValue(controller, "sqlHelper", sqlHelper);
 		ReflectUtil.setFieldValue(controller, "m", m);
+		AdminService adminService = new AdminService();
+		ReflectUtil.setFieldValue(adminService, "sqlHelper", sqlHelper);
+		RemoteService remoteService = new RemoteService();
+		ReflectUtil.setFieldValue(remoteService, "sqlHelper", sqlHelper);
+		ReflectUtil.setFieldValue(remoteService, "adminService", adminService);
+		ReflectUtil.setFieldValue(controller, "remoteService", remoteService);
 		ReflectUtil.setFieldValue(controller, "confService", new ConfService() {
 			@Override
 			public void setAsycPack(AsycPack asycPack) {
@@ -93,8 +101,10 @@ class RemoteControllerAsycTest {
 		source.setCreditKey(CREDIT_KEY);
 		sqlHelper.insertOrUpdate(source);
 
+		// 超管：E-66 的群組授權一律放行，這裡只測同步資料的取得
 		Admin admin = new Admin();
 		admin.setName("admin");
+		admin.setType(0);
 		ContextHolder.currentSet(new FakeContext("/adminPage/remote/asyc").session("admin", admin));
 	}
 

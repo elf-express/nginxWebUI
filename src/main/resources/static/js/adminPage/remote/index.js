@@ -441,7 +441,8 @@ function edit(id) {
 			if (data.success) {
 				var remote = data.obj;
 				$("#id").val(remote.id);
-				$("#pass").val(remote.pass);
+				// 密码不会回传，编辑时须重新输入远程节点密码
+				$("#pass").val("");
 				$("#name").val(remote.name);
 				$("#ip").val(remote.ip);
 				$("#port").val(remote.port);

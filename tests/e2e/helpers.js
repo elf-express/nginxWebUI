@@ -186,6 +186,26 @@ async function csrfPost(page, url, options = {}) {
   return page.request.post(url, { ...options, headers });
 }
 
+/**
+ * 獨立 APIRequestContext（request.newContext 或 page.request）版的 CSRF header：
+ * token cookie 在登入後第一個後台請求才發，還沒有時先讀一次後台首頁
+ */
+async function apiCsrfHeaders(api) {
+  const find = async () => (await api.storageState()).cookies.find((c) => c.name === 'NWUI_CSRF');
+  let token = await find();
+  if (!token) {
+    await api.get('/adminPage/monitor');
+    token = await find();
+  }
+  return token ? { 'X-CSRF-Token': token.value } : {};
+}
+
+/** 帶 CSRF token 的 APIRequestContext.post */
+async function apiPost(api, url, options = {}) {
+  const headers = { ...(await apiCsrfHeaders(api)), ...(options.headers || {}) };
+  return api.post(url, { ...options, headers });
+}
+
 module.exports = {
   PROJECT_ROOT,
   JAR_PATH,
@@ -201,4 +221,6 @@ module.exports = {
   login,
   csrfHeaders,
   csrfPost,
+  apiCsrfHeaders,
+  apiPost,
 };

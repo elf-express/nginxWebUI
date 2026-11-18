@@ -196,12 +196,12 @@ public class AppFilter implements Filter {
 			ctx.sessionSet("limit", ctx.param("limit"));
 		}
 
-		// 管理员过滤器
+		// 管理员过滤器：只看 session 裡的帳號類型，只有超管（type=0）放行。
+		// 請求參數 showAdmin 只給選單顯示用（frontInterceptor），不參與授權。
 		if (path.toLowerCase().contains("/adminPage/admin".toLowerCase())) {
 			Admin admin = (Admin) ctx.session("admin");
-			String showAdmin = ctx.param("showAdmin");
 
-			if (admin.getType() != 0 && !"true".equals(showAdmin)) {
+			if (admin == null || !Integer.valueOf(0).equals(admin.getType())) {
 				JsonResult result = new JsonResult();
 				result.setSuccess(false);
 				result.setStatus("401");
