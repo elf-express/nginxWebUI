@@ -76,6 +76,8 @@ const test = base.extend({
         await row.getByRole('button', { name: /^(追蹤|追踪|Tail)$/ }).click({ timeout: 5000 });
         const iframe = target.locator('iframe[src*="/adminPage/log/tail?"]');
         await expect(iframe).toHaveCount(1);
+        // Layui opens the layer with a 0.3s scale animation; geometry is final only after it ends.
+        await iframe.evaluate((el) => Promise.all((el.closest('.layui-layer')?.getAnimations({ subtree: true }) ?? []).map((a) => a.finished)));
         // FrameLocator is retained so navigation/fallback still targets this iframe.
         const viewer = target.frameLocator('iframe[src*="/adminPage/log/tail?"]');
         if (requireVue) await expect(viewer.getByRole('heading', { name: labels[lang].title })).toBeVisible({ timeout: 5000 });
@@ -163,16 +165,29 @@ test.describe('Vue log viewer through the real list iframe', () => {
 
   test('scroll and native selection survive updates until explicit follow clears selection', async ({ logApp }) => {
     const record = await logApp.create(lines(1, 50, 'selection').join('\n') + '\n');
-    const { viewer } = await logApp.open(record);
+    const { viewer, iframe } = await logApp.open(record);
     const region = regionOf(viewer);
     await expect(textOf(viewer)).toContainText('selection-50');
     await expect(button(viewer, 'follow')).toHaveAttribute('aria-pressed', 'true');
-    const box = await region.boundingBox();
+    await expect.poll(() => region.evaluate((el) => el.scrollHeight - el.clientHeight - el.scrollTop)).toBeLessThanOrEqual(4);
     // Select at the bottom while following is still enabled: selection itself,
     // independently of an earlier upward scroll, must freeze the snapshot.
-    await logApp.page.mouse.move(box.x + 18, box.y + box.height - 24);
+    // Drag across the rendered glyphs of the last line, located through a DOM Range.
+    const frameBox = await iframe.boundingBox();
+    const frameInset = await iframe.evaluate((el) => ({ x: el.clientLeft, y: el.clientTop }));
+    const lastLine = await textOf(viewer).evaluate((el) => {
+      const node = el.firstChild;
+      const start = node.data.lastIndexOf('selection-50');
+      const range = document.createRange();
+      range.setStart(node, start);
+      range.setEnd(node, start + 'selection-50'.length);
+      const rect = range.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, y: rect.top + rect.height / 2 };
+    });
+    const y = frameBox.y + frameInset.y + lastLine.y;
+    await logApp.page.mouse.move(frameBox.x + frameInset.x + lastLine.left + 2, y);
     await logApp.page.mouse.down();
-    await logApp.page.mouse.move(box.x + 125, box.y + box.height - 24, { steps: 10 });
+    await logApp.page.mouse.move(frameBox.x + frameInset.x + lastLine.right - 2, y, { steps: 10 });
     await logApp.page.mouse.up();
     await expect.poll(() => region.evaluate(() => getSelection().toString().length)).toBeGreaterThan(0);
     await expect(button(viewer, 'follow')).toHaveAttribute('aria-pressed', 'false');
