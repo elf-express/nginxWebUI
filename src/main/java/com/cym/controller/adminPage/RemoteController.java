@@ -3,6 +3,7 @@ package com.cym.controller.adminPage;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.lang.reflect.Field;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -38,8 +39,12 @@ import com.cym.utils.SystemTool;
 import cn.hutool.core.codec.Base64;
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.lang.TypeReference;
+import cn.hutool.core.util.ReflectUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.http.HttpRequest;
+import cn.hutool.http.HttpResponse;
 import cn.hutool.http.HttpUtil;
+import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 
 @Controller
@@ -389,8 +394,10 @@ public class RemoteController extends BaseController {
 			json = getAsycPack(asycData);
 		} else {
 			// 远程
-			json = HttpUtil.get(remoteFrom.getProtocol() + "://" + remoteFrom.getIp() + ":" + remoteFrom.getPort() + "/adminPage/remote/getAsycPack?creditKey=" + remoteFrom.getCreditKey()
-					+ "&asycData=" + StrUtil.join(",", Arrays.asList(asycData)), 1000);
+			json = fetchRemoteAsycPack(remoteFrom, asycData);
+			if (json == null) {
+				return renderError(m.get("remoteStr.asycFail"));
+			}
 		}
 
 		String adminName = getAdmin().getName();
@@ -424,6 +431,46 @@ public class RemoteController extends BaseController {
 		AsycPack asycPack = confService.getAsycPack(asycData);
 
 		return JSONUtil.toJsonPrettyStr(asycPack);
+	}
+
+	/**
+	 * 以 POST 向來源節點取同步資料（新版節點的 getAsycPack 只收 POST，E-161）。
+	 * 連線失敗、HTTP 非 2xx、回傳錯誤 JSON 或沒有任何同步欄位時回 null。
+	 */
+	String fetchRemoteAsycPack(Remote remoteFrom, String[] asycData) {
+		String url = remoteFrom.getProtocol() + "://" + remoteFrom.getIp() + ":" + remoteFrom.getPort() + "/adminPage/remote/getAsycPack";
+		Map<String, Object> form = new HashMap<>();
+		form.put("creditKey", remoteFrom.getCreditKey());
+		form.put("asycData", asycData == null ? "" : StrUtil.join(",", Arrays.asList(asycData)));
+
+		try (HttpResponse response = HttpRequest.post(url).form(form).timeout(1000).execute()) {
+			if (!response.isOk()) {
+				logger.warn("getAsycPack from {} returned HTTP {}", url, response.getStatus());
+				return null;
+			}
+			String body = response.body();
+			return isAsycPack(body) ? body : null;
+		} catch (Exception e) {
+			logger.error(e.getMessage(), e);
+			return null;
+		}
+	}
+
+	/** 是否為含至少一個同步欄位的 AsycPack JSON；後台錯誤回應（含 success 欄位）不算 */
+	static boolean isAsycPack(String json) {
+		if (!JSONUtil.isTypeJSONObject(json)) {
+			return false;
+		}
+		JSONObject obj = JSONUtil.parseObj(json);
+		if (obj.containsKey("success")) {
+			return false;
+		}
+		for (Field field : ReflectUtil.getFields(AsycPack.class)) {
+			if (obj.get(field.getName()) != null) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	@Mapping("setAsycPack")
