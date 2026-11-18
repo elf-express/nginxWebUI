@@ -323,8 +323,13 @@ class RemoteControllerTest {
 	void asycFromOrToOtherGroupNodeIsRejected() {
 		loginAs(limited);
 
-		assertFalse(controller.asyc(nodeB.getId(), new String[] { nodeA.getId() }, new String[] { "http" }).isSuccess());
-		assertFalse(controller.asyc(nodeA.getId(), new String[] { nodeB.getId() }, new String[] { "http" }).isSuccess());
+		// 斷言錯誤訊息：取資料失敗（remoteStr.asycFail）也會 success=false，只看 success 分不出是被群組擋下
+		JsonResult<?> fromOther = controller.asyc(nodeB.getId(), new String[] { nodeA.getId() }, new String[] { "http" });
+		assertFalse(fromOther.isSuccess());
+		assertEquals(m().get("remoteStr.noPermission"), fromOther.getMsg());
+		JsonResult<?> toOther = controller.asyc(nodeA.getId(), new String[] { nodeB.getId() }, new String[] { "http" });
+		assertFalse(toOther.isSuccess());
+		assertEquals(m().get("remoteStr.noPermission"), toOther.getMsg());
 	}
 
 	@Test

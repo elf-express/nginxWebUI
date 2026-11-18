@@ -121,7 +121,9 @@ test.describe('遠端節點群組隔離（E-66）', () => {
     expect(detail.success).toBe(false);
     expect(detail.obj ?? null).toBeNull();
 
-    const change = await (await apiPost(limitedApi, '/adminPage/remote/change', { form: { id: ids.nodeB } })).json();
+    const changeRes = await apiPost(limitedApi, '/adminPage/remote/change', { form: { id: ids.nodeB } });
+    expect(changeRes.status(), '應被群組授權擋下，不是 CSRF').toBe(200);
+    const change = await changeRes.json();
     expect(change.success).toBe(false);
 
     const local = (await allTable(limitedApi)).find((r) => r.id === 'local');

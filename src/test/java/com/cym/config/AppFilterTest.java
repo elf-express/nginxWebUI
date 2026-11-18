@@ -454,6 +454,18 @@ class AppFilterTest {
 	}
 
 	@Test
+	void restrictedAdminIsRejectedOnReadOnlyAdminGets() throws Throwable {
+		// GET 白名單內的管理員頁與查詢會通過 CSRF 檢查，超管檢查是唯一防線
+		Admin restricted = storedAdmin("limited", 1);
+		for (String path : new String[] { "/adminPage/admin", "/adminPage/admin/detail", "/adminPage/admin/getGroupTree" }) {
+			FakeContext ctx = loggedIn(path, restricted).method("GET");
+
+			assertEquals(0, run(ctx), path);
+			assertNotPermission(ctx);
+		}
+	}
+
+	@Test
 	void restrictedAdminStillReachesOtherAdminPages() throws Throwable {
 		Admin restricted = storedAdmin("limited", 1);
 		FakeContext ctx = loggedIn(ADMIN_PAGE, restricted);

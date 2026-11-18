@@ -197,7 +197,11 @@ async function apiCsrfHeaders(api) {
     await api.get('/adminPage/monitor');
     token = await find();
   }
-  return token ? { 'X-CSRF-Token': token.value } : {};
+  if (!token) {
+    // 拿不到 token 時請求會被 403 擋下，測試可能因錯的原因通過，直接失敗
+    throw new Error('NWUI_CSRF cookie not found: is this API context logged in?');
+  }
+  return { 'X-CSRF-Token': token.value };
 }
 
 /** 帶 CSRF token 的 APIRequestContext.post */
