@@ -1,9 +1,9 @@
 const { test, expect } = require('@playwright/test');
-const { login } = require('./helpers');
+const { login, csrfPost } = require('./helpers');
 
 test('Stream preview combines persisted sources with unsaved draft without saving it', async ({ page }) => {
   await login(page);
-  const created = await page.request.post('/adminPage/stream/saveBlock', { form: { header: 'server', rawContent: 'listen 19401;\nproxy_pass 127.0.0.1:9000;' } });
+  const created = await csrfPost(page, '/adminPage/stream/saveBlock', { form: { header: 'server', rawContent: 'listen 19401;\nproxy_pass 127.0.0.1:9000;' } });
   const saved = await created.json();
   expect(saved.success).toBeTruthy();
   const id = saved.obj.id;
@@ -36,7 +36,7 @@ test('Stream preview combines persisted sources with unsaved draft without savin
     await expect(page.locator('tr', { hasText: 'listen 19403;' })).toHaveCount(0);
     await expect(page.locator('tr', { hasText: 'listen 19401;' })).toHaveCount(1);
   } finally {
-    await page.request.post('/adminPage/stream/del', { form: { id } });
+    await csrfPost(page, '/adminPage/stream/del', { form: { id } });
   }
 });
 
@@ -64,5 +64,5 @@ test('three Stream server blocks retain distinct bodies and reject outer stream 
   await page.locator('#blockParse').click();
   await expect(page.locator('#blockError')).not.toBeEmpty();
   await expect(page.locator('#blockBody')).toHaveValue('stream { server { listen 9300; } }');
-  for (const id of ids) await page.request.post('/adminPage/stream/del', { form: { id } });
+  for (const id of ids) await csrfPost(page, '/adminPage/stream/del', { form: { id } });
 });

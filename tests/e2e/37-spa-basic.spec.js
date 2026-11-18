@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { login } = require('./helpers');
+const { login, csrfPost } = require('./helpers');
 
 // basic 頁 Vue 版（E-206 Phase 0）：預設新頁、功能與舊頁等價、legacy 逃生口、
 // bundle／字典失敗回落、資料失敗可重試、session 過期導回登入。
@@ -207,13 +207,13 @@ test.describe('basic 頁 Vue 版', () => {
 
   test('英文語系顯示英文字串', async ({ page }) => {
     try {
-      const res = await page.request.post('/adminPage/login/changeLang', { form: { lang: 'en_US' } });
+      const res = await csrfPost(page, '/adminPage/login/changeLang', { form: { lang: 'en_US' } });
       expect((await res.json()).success).toBe(true);
       await page.goto('/adminPage/basic');
       await expect(page.locator('#app h1')).toHaveText('Basic configuration');
       await expect(page.getByRole('button', { name: /Add basic parameter/ })).toBeVisible();
     } finally {
-      await page.request.post('/adminPage/login/changeLang', { form: { lang: 'zh' } });
+      await csrfPost(page, '/adminPage/login/changeLang', { form: { lang: 'zh' } });
     }
   });
 });

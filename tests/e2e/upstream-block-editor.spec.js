@@ -1,9 +1,9 @@
 const { test, expect } = require('@playwright/test');
-const { login } = require('./helpers');
+const { login, csrfPost } = require('./helpers');
 
 test('legacy upstream conversion requires a reviewed snapshot and preserves text on failed save', async ({ page }) => {
   await login(page);
-  const seeded = await page.request.post('/adminPage/upstream/addOver', { form: {
+  const seeded = await csrfPost(page, '/adminPage/upstream/addOver', { form: {
     upstreamJson: JSON.stringify({ name: 'e287_legacy_ui', proxyType: 0 }),
     upstreamParamJson: '[]',
     upstreamServerJson: JSON.stringify([{ server: '127.0.0.1', port: 8089, enable: 1, status: 'none' }])
@@ -28,7 +28,7 @@ test('legacy upstream conversion requires a reviewed snapshot and preserves text
   await page.evaluate(id => edit(id), id);
   await expect(page.locator('#blockBody')).toHaveValue('server 127.0.0.1:8089;');
   await expect(page.locator('#blockMonitorNote')).toBeVisible();
-  await page.request.post('/adminPage/upstream/del', { form: { id } });
+  await csrfPost(page, '/adminPage/upstream/del', { form: { id } });
 });
 
 test('three upstream drafts persist independently; full paste confirms title and rejects multiple roots', async ({ page }) => {
@@ -83,6 +83,6 @@ test('three upstream drafts persist independently; full paste confirms title and
   for (let i = 0; i < 3; i++) {
     const row = page.locator('tr', { hasText: 'e287_ui_' + i });
     const id = await row.locator('input[name="ids"]').inputValue();
-    await page.request.post('/adminPage/upstream/del', { form: { id } });
+    await csrfPost(page, '/adminPage/upstream/del', { form: { id } });
   }
 });

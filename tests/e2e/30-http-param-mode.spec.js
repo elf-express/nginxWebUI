@@ -50,7 +50,7 @@ test.describe('http 參數配置頁 — 參數面板三態 mode', () => {
       const status = await page.evaluate(async () => {
         const res = await fetch('/adminPage/http/saveEnable', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrfToken() },
           body: 'checkedIds=',
         });
         return res.status;

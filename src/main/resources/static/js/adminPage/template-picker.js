@@ -33,7 +33,7 @@
 						loadError.value = '';
 						return fetch(ctx + '/adminPage/template/getTemplate', {
 							method: 'POST',
-							headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+							headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrfToken() },
 							credentials: 'same-origin'
 						})
 							.then(function(res) { return res.json(); })

@@ -50,7 +50,7 @@ test.describe('ASN 封鎖管理', () => {
     await page.evaluate(async () => {
       await fetch(ctx + '/adminPage/asn/addOver', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrfToken() },
         body: 'asn=9999&orgName=TestASN&enable=true'
       });
     });
@@ -75,7 +75,7 @@ test.describe('ASN 封鎖管理', () => {
     await page.evaluate(async () => {
       await fetch(ctx + '/adminPage/asn/addOver', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-Token': csrfToken() },
         body: 'asn=7777&orgName=DeleteMe&enable=true'
       });
     });

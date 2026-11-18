@@ -96,6 +96,52 @@ $.ajaxSetup({
 	cache: false
 });
 
+// CSRF token（E-161）：登入後伺服器放在 NWUI_CSRF cookie，後台的非 GET 請求都要帶上
+function csrfToken() {
+	var match = document.cookie.match(/(?:^|;\s*)NWUI_CSRF=([^;]*)/);
+	return match ? decodeURIComponent(match[1]) : '';
+}
+
+function isSameOrigin(url) {
+	try {
+		return new URL(url, location.href).origin === location.origin;
+	} catch (e) {
+		return false;
+	}
+}
+
+// 同源的非 GET AJAX（含 layui 表格、上傳、zTree）自動帶 X-CSRF-Token header
+$.ajaxPrefilter(function(options, originalOptions, jqXHR) {
+	if (!/^(GET|HEAD)$/i.test(options.type) && isSameOrigin(options.url)) {
+		jqXHR.setRequestHeader('X-CSRF-Token', csrfToken());
+	}
+});
+
+// 以 POST 送往同源的表單（分頁／搜尋、匯入）補上 _csrf 欄位
+function addCsrfField(form) {
+	if (String(form.method).toLowerCase() !== 'post' || !isSameOrigin(form.action)) {
+		return;
+	}
+	var field = form.querySelector('input[name="_csrf"]');
+	if (!field) {
+		field = document.createElement('input');
+		field.type = 'hidden';
+		field.name = '_csrf';
+		form.appendChild(field);
+	}
+	field.value = csrfToken();
+}
+
+$(document).on('submit', 'form', function() {
+	addCsrfField(this);
+});
+
+$(function() {
+	$('form').each(function() {
+		addCsrfField(this);
+	});
+});
+
 
 function gohref(url) {
 	location.href = url;

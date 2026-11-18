@@ -30,13 +30,20 @@ export function setRedirect(fn: (url: string) => void): void {
   redirect = fn
 }
 
+/** 後台 CSRF token（E-161）：登入後伺服器放在 NWUI_CSRF cookie，POST 時放進 X-CSRF-Token header */
+function csrfToken(): string {
+  const match = document.cookie.match(/(?:^|;\s*)NWUI_CSRF=([^;]*)/)
+  return match ? decodeURIComponent(match[1]) : ''
+}
+
 async function request<T>(method: 'GET' | 'POST', url: string, params: Params = {}, options?: RequestOptions): Promise<T> {
   const form = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) {
     form.append(key, String(value))
   }
 
-  const init: RequestInit = { method, credentials: 'same-origin', headers: { Accept: 'application/json' } }
+  const headers: Record<string, string> = { Accept: 'application/json' }
+  const init: RequestInit = { method, credentials: 'same-origin', headers }
   if (options?.signal) init.signal = options.signal
   let target = url
   if (method === 'GET') {
@@ -45,6 +52,7 @@ async function request<T>(method: 'GET' | 'POST', url: string, params: Params = 
       target += `?${query}`
     }
   } else {
+    headers['X-CSRF-Token'] = csrfToken()
     init.body = form
   }
 
