@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 import com.cym.config.VersionConfig;
 import com.cym.controller.api.NginxApiController;
 import com.cym.ext.AsycPack;
+import com.cym.ext.RemoteView;
 import com.cym.ext.Tree;
 import com.cym.model.Admin;
 import com.cym.model.Group;
@@ -97,7 +98,7 @@ public class RemoteController extends BaseController {
 	@Mapping("allTable")
 	public Map<String, Object> allTable(Context context) {
 		Admin admin = getAdmin();
-		List<Remote> remoteList = sqlHelper.findAll(Remote.class);
+		List<Remote> remoteList = new ArrayList<>(remoteService.getRemoteByAdmin(admin));
 
 		for (Remote remote : remoteList) {
 			remote.setStatus(0);
@@ -169,9 +170,14 @@ public class RemoteController extends BaseController {
 			remoteList.add(remoteGroup);
 		}
 
+		List<RemoteView> viewList = new ArrayList<>();
+		for (Remote remote : remoteList) {
+			viewList.add(RemoteView.of(remote));
+		}
+
 		Map<String, Object> mapResult = new HashMap<String, Object>();
 		mapResult.put("code", 0);
-		mapResult.put("data", remoteList);
+		mapResult.put("data", viewList);
 
 		return mapResult;
 	}
@@ -263,7 +269,7 @@ public class RemoteController extends BaseController {
 		List<Remote> remotes = remoteService.getListByParent(null);
 
 		List<Tree> treeList = new ArrayList<>();
-		fillTreeRemote(groups, remotes, treeList);
+		fillTreeRemote(admin, groups, remotes, treeList);
 
 		Tree tree = new Tree();
 		tree.setName(m.get("remoteStr.local"));
@@ -274,7 +280,7 @@ public class RemoteController extends BaseController {
 		return renderSuccess(treeList);
 	}
 
-	private void fillTreeRemote(List<Group> groups, List<Remote> remotes, List<Tree> treeList) {
+	private void fillTreeRemote(Admin admin, List<Group> groups, List<Remote> remotes, List<Tree> treeList) {
 		for (Group group : groups) {
 			if (!hasParentIn(group.getParentId(), groups)) {
 				Tree tree = new Tree();
@@ -283,7 +289,7 @@ public class RemoteController extends BaseController {
 
 				List<Tree> treeSubList = new ArrayList<>();
 
-				fillTreeRemote(groupService.getListByParent(group.getId()), remoteService.getListByParent(group.getId()), treeSubList);
+				fillTreeRemote(admin, groupService.getListByParent(group.getId()), remoteService.getListByParent(group.getId()), treeSubList);
 
 				tree.setChildren(treeSubList);
 
@@ -292,6 +298,9 @@ public class RemoteController extends BaseController {
 		}
 
 		for (Remote remote : remotes) {
+			if (!remoteService.canAccess(admin, remote)) {
+				continue;
+			}
 			Tree tree = new Tree();
 			tree.setName(remote.getIp() + "【" + remote.getDescr() + "】");
 			tree.setValue(remote.getId());
@@ -305,6 +314,13 @@ public class RemoteController extends BaseController {
 	public JsonResult cmdOver(String[] remoteId, String cmd, Integer interval) {
 		if (remoteId == null || remoteId.length == 0) {
 			return renderSuccess(m.get("remoteStr.noSelect"));
+		}
+
+		Admin admin = getAdmin();
+		for (String id : remoteId) {
+			if (!"local".equals(id) && !remoteService.canAccess(admin, sqlHelper.findById(id, Remote.class))) {
+				return renderError(m.get("remoteStr.noPermission"));
+			}
 		}
 
 		StringBuilder rs = new StringBuilder();
@@ -382,7 +398,17 @@ public class RemoteController extends BaseController {
 			return renderError(m.get("remoteStr.noChoice"));
 		}
 
+		Admin admin = getAdmin();
 		Remote remoteFrom = sqlHelper.findById(fromId, Remote.class);
+		if (remoteFrom != null && !remoteService.canAccess(admin, remoteFrom)) {
+			return renderError(m.get("remoteStr.noPermission"));
+		}
+		for (String remoteToId : remoteId) {
+			if (!remoteToId.equals("local") && !remoteToId.equals("本地") && !remoteService.canAccess(admin, sqlHelper.findById(remoteToId, Remote.class))) {
+				return renderError(m.get("remoteStr.noPermission"));
+			}
+		}
+
 		String json;
 		if (remoteFrom == null) {
 			// 本地
@@ -393,7 +419,7 @@ public class RemoteController extends BaseController {
 					+ "&asycData=" + StrUtil.join(",", Arrays.asList(asycData)), 1000);
 		}
 
-		String adminName = getAdmin().getName();
+		String adminName = admin.getName();
 
 		for (String remoteToId : remoteId) {
 			if (remoteToId.equals("local") || remoteToId.equals("本地")) {
@@ -439,6 +465,17 @@ public class RemoteController extends BaseController {
 	public JsonResult addOver(Remote remote, String code, String auth) {
 		remote.setIp(remote.getIp().trim());
 
+		Admin admin = getAdmin();
+		if (StrUtil.isNotEmpty(remote.getId())) {
+			Remote stored = sqlHelper.findById(remote.getId(), Remote.class);
+			if (stored != null && !remoteService.canAccess(admin, stored)) {
+				return renderError(m.get("remoteStr.noPermission"));
+			}
+		}
+		if (!remoteService.canAccess(admin, remote)) {
+			return renderError(m.get("remoteStr.noPermission"));
+		}
+
 		if (remoteService.hasSame(remote)) {
 			return renderError(m.get("remoteStr.sameIp"));
 		}
@@ -483,11 +520,18 @@ public class RemoteController extends BaseController {
 
 	@Mapping("detail")
 	public JsonResult detail(String id) {
-		return renderSuccess(sqlHelper.findById(id, Remote.class));
+		Remote remote = sqlHelper.findById(id, Remote.class);
+		if (!remoteService.canAccess(getAdmin(), remote)) {
+			return renderError(m.get("remoteStr.noPermission"));
+		}
+		return renderSuccess(RemoteView.of(remote));
 	}
 
 	@Mapping("del")
 	public JsonResult del(String id) {
+		if (!remoteService.canAccess(getAdmin(), sqlHelper.findById(id, Remote.class))) {
+			return renderError(m.get("remoteStr.noPermission"));
+		}
 		sqlHelper.deleteById(id, Remote.class);
 
 		return renderSuccess();
@@ -497,6 +541,9 @@ public class RemoteController extends BaseController {
 	public JsonResult content(String id) {
 
 		Remote remote = sqlHelper.findById(id, Remote.class);
+		if (!remoteService.canAccess(getAdmin(), remote)) {
+			return renderError(m.get("remoteStr.noPermission"));
+		}
 
 		String rs = HttpUtil.get(remote.getProtocol() + "://" + remote.getIp() + ":" + remote.getPort() + "/adminPage/remote/readContent?creditKey=" + remote.getCreditKey());
 
@@ -524,6 +571,9 @@ public class RemoteController extends BaseController {
 			context.sessionSet("localType", "local");
 			context.sessionRemove("remote");
 		} else {
+			if (!remoteService.canAccess(getAdmin(), remote)) {
+				return renderError(m.get("remoteStr.noPermission"));
+			}
 			context.sessionSet("localType", "remote");
 			context.sessionSet("remote", remote);
 		}
@@ -553,6 +603,9 @@ public class RemoteController extends BaseController {
 	@Mapping("setMonitor")
 	public JsonResult setMonitor(String id, Integer monitor) {
 		if (!"local".equals(id)) {
+			if (!remoteService.canAccess(getAdmin(), sqlHelper.findById(id, Remote.class))) {
+				return renderError(m.get("remoteStr.noPermission"));
+			}
 			Remote remote = new Remote();
 			remote.setId(id);
 			remote.setMonitor(monitor);
