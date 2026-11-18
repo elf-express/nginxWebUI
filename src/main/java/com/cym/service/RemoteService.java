@@ -1,5 +1,6 @@
 package com.cym.service;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -94,6 +95,40 @@ public class RemoteService {
 			return sqlHelper.findListByIds(groupIds, Group.class);
 		}
 
+	}
+
+	private static boolean isSuperAdmin(Admin admin) {
+		return admin != null && admin.getType() != null && admin.getType() == 0;
+	}
+
+	/** 帳號可存取的節點：超級管理員為全部節點；受限帳號只有被指派群組內的節點，未分組節點不含在內 */
+	public List<Remote> getRemoteByAdmin(Admin admin) {
+		if (admin == null) {
+			return new ArrayList<>();
+		}
+		if (isSuperAdmin(admin)) {
+			return sqlHelper.findAll(Remote.class);
+		}
+		List<String> groupIds = adminService.getGroupIds(admin.getId());
+		if (groupIds == null || groupIds.isEmpty()) {
+			return new ArrayList<>();
+		}
+		return sqlHelper.findListByQuery(new ConditionAndWrapper().in("parentId", groupIds), Remote.class);
+	}
+
+	/** 帳號能否存取這個節點（依節點的 parentId 判斷）；沒有帳號或節點時一律為否 */
+	public boolean canAccess(Admin admin, Remote remote) {
+		if (admin == null || remote == null) {
+			return false;
+		}
+		if (isSuperAdmin(admin)) {
+			return true;
+		}
+		if (StrUtil.isEmpty(remote.getParentId())) {
+			return false;
+		}
+		List<String> groupIds = adminService.getGroupIds(admin.getId());
+		return groupIds != null && groupIds.contains(remote.getParentId());
 	}
 
 }
