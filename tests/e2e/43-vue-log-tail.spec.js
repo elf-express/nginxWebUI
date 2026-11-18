@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { randomUUID } = require('crypto');
-const { TEST_DATA_DIR, BASE_URL, login } = require('./helpers');
+const { TEST_DATA_DIR, BASE_URL, login, csrfPost } = require('./helpers');
 
 const labels = {
   zh_TW: { title: '日誌檢視器', copy: '複製顯示內容', pause: '暫停顯示', resume: '恢復顯示', follow: '跟隨最新內容', wrap: '自動換行', region: '日誌內容', toolbar: '日誌操作', manual: '手動複製' },
@@ -44,7 +44,7 @@ const test = base.extend({
   logApp: async ({ page, context }, use) => {
     // Every test explicitly selects the server's actual locale, not browser-only locale.
     await login(page);
-    await page.request.post('/adminPage/login/changeLang', { form: { lang: 'zh_TW' } });
+    await csrfPost(page, '/adminPage/login/changeLang', { form: { lang: 'zh_TW' } });
     const root = fs.mkdtempSync(path.join(TEST_DATA_DIR, 'e478-viewer-'));
     fixtureRoots.add(root);
     const records = [];
@@ -54,7 +54,7 @@ const test = base.extend({
       async create(content = 'fixture\n', name = `${randomUUID()}.log`) {
         const file = path.join(root, name).replace(/\\/g, '/');
         if (content !== null) fs.writeFileSync(file, content, 'utf8');
-        const result = await (await page.request.post('/adminPage/log/addOver', { form: { path: file } })).json();
+        const result = await (await csrfPost(page, '/adminPage/log/addOver', { form: { path: file } })).json();
         expect(result.success, 'register own server-side log fixture').toBe(true);
         await page.goto('/adminPage/log?limit=100');
         const row = page.getByRole('row').filter({ has: page.getByRole('cell', { name: file, exact: true }) });
@@ -93,11 +93,11 @@ const test = base.extend({
       for (const other of extraPages) await other.close();
       // Restore only session/locale state that this spec changes, then delete our own IDs.
       await page.unrouteAll({ behavior: 'wait' });
-      await page.request.post('/adminPage/remote/change', { form: { id: 'local' } });
-      await page.request.post('/adminPage/login/changeLang', { form: { lang: 'zh_TW' } });
+      await csrfPost(page, '/adminPage/remote/change', { form: { id: 'local' } });
+      await csrfPost(page, '/adminPage/login/changeLang', { form: { lang: 'zh_TW' } });
       await login(page);
       for (const record of records) {
-        const result = await (await page.request.post('/adminPage/log/del', { form: { id: record.id } })).json();
+        const result = await (await csrfPost(page, '/adminPage/log/del', { form: { id: record.id } })).json();
         expect(result.success, `delete own fixture ${record.id}`).toBe(true);
       }
       // Windows holds the reader handle until the existing 20-second idle lease
@@ -479,13 +479,13 @@ test.describe('Vue log viewer through the real list iframe', () => {
     let remoteId;
     try {
       const port = stub.address().port;
-      const saved = await (await logApp.page.request.post('/adminPage/remote/addOver', { form: { ip: '127.0.0.1', port, protocol: 'http', name: 'stub', pass: 'stub', code: '', auth: '', descr: `e478-${randomUUID()}` } })).json();
+      const saved = await (await csrfPost(logApp.page, '/adminPage/remote/addOver', { form: { ip: '127.0.0.1', port, protocol: 'http', name: 'stub', pass: 'stub', code: '', auth: '', descr: `e478-${randomUUID()}` } })).json();
       expect(saved.success).toBe(true);
       const remotes = await (await logApp.page.request.get('/adminPage/remote/allTable')).json();
       remoteId = remotes.data.find((remote) => remote.ip === '127.0.0.1' && remote.port === port).id;
       const { viewer, iframe } = await logApp.open(record);
       await expect(textOf(viewer)).toHaveText('local-only');
-      await logApp.page.request.post('/adminPage/remote/change', { form: { id: remoteId } });
+      await csrfPost(logApp.page, '/adminPage/remote/change', { form: { id: remoteId } });
       await iframe.evaluate((el) => { el.contentWindow.location.reload(); });
       await expect(textOf(viewer)).toHaveText('remote-stub-only');
       const forwarded = calls.filter((call) => call.path.endsWith('/tailData')).at(-1);
@@ -501,8 +501,8 @@ test.describe('Vue log viewer through the real list iframe', () => {
       await expect.poll(() => iframe.evaluate((el) => el.contentWindow.location.pathname), { timeout: 15000 }).toBe('/adminPage/login/noServer');
       expect(await iframe.evaluate((el) => el.contentWindow.location.search)).not.toContain('legacy=1');
     } finally {
-      await logApp.page.request.post('/adminPage/remote/change', { form: { id: 'local' } });
-      if (remoteId) await logApp.page.request.post('/adminPage/remote/del', { form: { id: remoteId } });
+      await csrfPost(logApp.page, '/adminPage/remote/change', { form: { id: 'local' } });
+      if (remoteId) await csrfPost(logApp.page, '/adminPage/remote/del', { form: { id: remoteId } });
       await new Promise((resolve) => stub.close(resolve));
     }
   });
@@ -511,7 +511,7 @@ test.describe('Vue log viewer through the real list iframe', () => {
     for (const [width, height] of [[1440, 900], [1280, 800], [900, 640], [360, 540]]) {
       test(`${lang} toolbar and text remain operable at ${width}x${height} without CDN`, async ({ logApp }, testInfo) => {
         const record = await logApp.create('layout\t  spacing ' + 'long'.repeat(400) + '\nsecond\n');
-        await logApp.page.request.post('/adminPage/login/changeLang', { form: { lang } });
+        await csrfPost(logApp.page, '/adminPage/login/changeLang', { form: { lang } });
         const requests = [];
         logApp.page.on('request', (req) => { if (/https?:\/\/(?!localhost:18080(?:\/|$)|127\.0\.0\.1:18080(?:\/|$))/.test(req.url())) requests.push(req.url()); });
         // Resize before opening the percentage-sized legacy layer, whose live

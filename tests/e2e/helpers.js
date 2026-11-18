@@ -169,6 +169,47 @@ async function login(page) {
   await page.waitForURL('**/adminPage/monitor', { timeout: 10000 });
 }
 
+/**
+ * 後台 CSRF token（E-161）：登入後由 NWUI_CSRF cookie 帶給前端，POST 時放進 X-CSRF-Token header。
+ * 測試直接用 page.request 打 POST 端點時要自己帶，瀏覽器內的請求由前端程式帶。
+ */
+async function csrfHeaders(page) {
+  const url = page.url();
+  const cookies = await page.context().cookies(url.startsWith('http') ? url : undefined);
+  const token = cookies.find((c) => c.name === 'NWUI_CSRF');
+  return token ? { 'X-CSRF-Token': token.value } : {};
+}
+
+/** 帶 CSRF token 的 page.request.post */
+async function csrfPost(page, url, options = {}) {
+  const headers = { ...(await csrfHeaders(page)), ...(options.headers || {}) };
+  return page.request.post(url, { ...options, headers });
+}
+
+/**
+ * 獨立 APIRequestContext（request.newContext 或 page.request）版的 CSRF header：
+ * token cookie 在登入後第一個後台請求才發，還沒有時先讀一次後台首頁
+ */
+async function apiCsrfHeaders(api) {
+  const find = async () => (await api.storageState()).cookies.find((c) => c.name === 'NWUI_CSRF');
+  let token = await find();
+  if (!token) {
+    await api.get('/adminPage/monitor');
+    token = await find();
+  }
+  if (!token) {
+    // 拿不到 token 時請求會被 403 擋下，測試可能因錯的原因通過，直接失敗
+    throw new Error('NWUI_CSRF cookie not found: is this API context logged in?');
+  }
+  return { 'X-CSRF-Token': token.value };
+}
+
+/** 帶 CSRF token 的 APIRequestContext.post */
+async function apiPost(api, url, options = {}) {
+  const headers = { ...(await apiCsrfHeaders(api)), ...(options.headers || {}) };
+  return api.post(url, { ...options, headers });
+}
+
 module.exports = {
   PROJECT_ROOT,
   JAR_PATH,
@@ -182,4 +223,8 @@ module.exports = {
   startApp,
   stopApp,
   login,
+  csrfHeaders,
+  csrfPost,
+  apiCsrfHeaders,
+  apiPost,
 };

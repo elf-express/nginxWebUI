@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { login } = require('./helpers');
+const { login, csrfPost } = require('./helpers');
 
 test.describe('防火牆管理 — 6 tab + IP 資料庫交叉驗證', () => {
   test.beforeEach(async ({ page }) => {
@@ -56,7 +56,7 @@ test.describe('黑白名單全站自動生效 — 綁定 UI 已移除', () => {
 
     // 用 page.request 呼叫 API（繼承 page 的 cookie，已通過認證）
     // 新增黑名單
-    const denyResp = await page.request.post('/adminPage/denyAllow/addOver', {
+    const denyResp = await csrfPost(page, '/adminPage/denyAllow/addOver', {
       form: {
         name: denyName,
         type: 'deny',
@@ -68,7 +68,7 @@ test.describe('黑白名單全站自動生效 — 綁定 UI 已移除', () => {
     expect(denyBody.success).toBeTruthy();
 
     // 新增白名單
-    const allowResp = await page.request.post('/adminPage/denyAllow/addOver', {
+    const allowResp = await csrfPost(page, '/adminPage/denyAllow/addOver', {
       form: {
         name: allowName,
         type: 'allow',
@@ -87,7 +87,7 @@ test.describe('黑白名單全站自動生效 — 綁定 UI 已移除', () => {
     expect(await page.locator("button[onclick='setDenyAllow()']").count()).toBe(0);
 
     // (b) http 層級 conf 自動掛上中央黑白名單 include(不需任何綁定操作)
-    const previewResp = await page.request.post('/adminPage/main/preview', {
+    const previewResp = await csrfPost(page, '/adminPage/main/preview', {
       form: { type: 'http' },
     });
     expect(previewResp.ok()).toBeTruthy();

@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const http = require('http');
-const { PROJECT_ROOT, JAR_PATH, TEST_DATA_DIR, TEST_ADMIN, TEST_PASS, TEST_CAPTCHA, login } = require('./helpers');
+const { PROJECT_ROOT, JAR_PATH, TEST_DATA_DIR, TEST_ADMIN, TEST_PASS, TEST_CAPTCHA, login, csrfPost } = require('./helpers');
 
 // 「CrowdSec 防護 → WAF 規則」分頁（E-395，Vue）：
 //   1) 共用測試 server（18080）沒有 crowdsec 容器：規則目錄直接寫進 <home>/crowdsec-waf/catalog/，
@@ -43,10 +43,10 @@ async function pickOption(page, name) {
 
 // 操作日誌列表只有按鈕，內容要逐筆讀 detail
 async function operateLogHas(page, text) {
-  const list = await (await page.request.post('/adminPage/operateLog', { form: { curr: '1', limit: '100' } })).text();
+  const list = await (await csrfPost(page, '/adminPage/operateLog', { form: { curr: '1', limit: '100' } })).text();
   const ids = [...list.matchAll(/detail\('(\d+)'\)/g)].map((m) => m[1]);
   for (const id of ids) {
-    const detail = await (await page.request.get(`/adminPage/operateLog/detail?id=${id}`)).text();
+    const detail = await (await csrfPost(page, `/adminPage/operateLog/detail`, { form: { id } })).text();
     if (detail.includes(text)) {
       return true;
     }
@@ -66,7 +66,7 @@ test.describe.serial('WAF 規則分頁（共用 server，規則目錄與結果�
       const page = await context.newPage();
       await login(page);
       writeCatalog();
-      await page.request.post('/adminPage/crowdsecGuard/wafRules/apply', {
+      await csrfPost(page, '/adminPage/crowdsecGuard/wafRules/apply', {
         form: {
           changes: JSON.stringify([
             { scope: 'category', ruleKey: 'crs-sqli', action: 'count', excludedServerIds: '' },
@@ -85,7 +85,7 @@ test.describe.serial('WAF 規則分頁（共用 server，規則目錄與結果�
     fs.rmSync(WAF_DIR, { recursive: true, force: true });
     await page.goto('/adminPage/crowdsecGuard#rules');
     await expect(page.locator('.waf-no-catalog')).toBeVisible();
-    const res = await page.request.post('/adminPage/crowdsecGuard/wafRules/apply', { form: { changes: '[]' } });
+    const res = await csrfPost(page, '/adminPage/crowdsecGuard/wafRules/apply', { form: { changes: '[]' } });
     expect((await res.json()).success).toBe(false);
   });
 
@@ -120,7 +120,7 @@ test.describe.serial('WAF 規則分頁（共用 server，規則目錄與結果�
   test('調整分類與單條、排除站台，套用後寫出設定與操作日誌，重新整理仍保留', async ({ page }) => {
     writeCatalog();
     const serverJson = JSON.stringify({ proxyType: 0, serverName: 'waf-e2e.test', listen: '18991', enable: true, def: 0 });
-    await page.request.post('/adminPage/server/addOver', { form: { serverJson, serverParamJson: '[]', locationJson: '[]' } });
+    await csrfPost(page, '/adminPage/server/addOver', { form: { serverJson, serverParamJson: '[]', locationJson: '[]' } });
     const servers = (await (await page.request.get('/adminPage/crowdsecGuard/servers')).json()).obj;
     const site = servers.find((s) => s.name === 'waf-e2e.test');
     expect(site, 'waf-e2e.test 站台建立失敗').toBeTruthy();
@@ -148,7 +148,7 @@ test.describe.serial('WAF 規則分頁（共用 server，規則目錄與結果�
       await expect(page.locator('.waf-not-applied')).toHaveCount(0);
       expect(await operateLogHas(page, '[CrowdSec WAF] apply')).toBe(true);
     } finally {
-      await page.request.post('/adminPage/server/del', { form: { id: site.id } });
+      await csrfPost(page, '/adminPage/server/del', { form: { id: site.id } });
     }
   });
 
@@ -169,13 +169,13 @@ test.describe.serial('WAF 規則分頁（共用 server，規則目錄與結果�
   test('站台網域改過後顯示尚未套用，沒有變更也能重新套用', async ({ page }) => {
     writeCatalog();
     const serverJson = (extra) => JSON.stringify({ proxyType: 0, serverName: 'waf-sync.test', listen: '18992', enable: true, def: 0, ...extra });
-    await page.request.post('/adminPage/server/addOver', { form: { serverJson: serverJson({}), serverParamJson: '[]', locationJson: '[]' } });
+    await csrfPost(page, '/adminPage/server/addOver', { form: { serverJson: serverJson({}), serverParamJson: '[]', locationJson: '[]' } });
     const servers = (await (await page.request.get('/adminPage/crowdsecGuard/servers')).json()).obj;
     const site = servers.find((s) => s.name === 'waf-sync.test');
     expect(site, 'waf-sync.test 站台建立失敗').toBeTruthy();
     try {
       // 排除這個站台的 942100，並模擬監看程式套用成功（custom.yaml 同時存成 last-good.yaml）
-      const res = await page.request.post('/adminPage/crowdsecGuard/wafRules/apply', {
+      const res = await csrfPost(page, '/adminPage/crowdsecGuard/wafRules/apply', {
         form: { changes: JSON.stringify([{ scope: 'rule', ruleKey: '942100', action: 'inherit', excludedServerIds: site.id }]) },
       });
       expect((await res.json()).success).toBe(true);
@@ -185,7 +185,7 @@ test.describe.serial('WAF 規則分頁（共用 server，規則目錄與結果�
       await expect(page.locator('.waf-not-applied')).toHaveCount(0);
 
       // 改掉被排除站台的 server_name：資料庫設定產生的設定和生效的不同了
-      await page.request.post('/adminPage/server/addOver', {
+      await csrfPost(page, '/adminPage/server/addOver', {
         form: { serverJson: serverJson({ id: site.id, serverName: 'waf-sync-renamed.test' }), serverParamJson: '[]', locationJson: '[]' },
       });
       await page.reload();
@@ -203,13 +203,13 @@ test.describe.serial('WAF 規則分頁（共用 server，規則目錄與結果�
       await expect(page.locator('.waf-status')).toContainText(/套用成功|应用成功|Applied/, { timeout: 10000 });
       await expect(page.locator('.waf-not-applied')).toHaveCount(0);
     } finally {
-      await page.request.post('/adminPage/server/del', { form: { id: site.id } });
+      await csrfPost(page, '/adminPage/server/del', { form: { id: site.id } });
     }
   });
 
   test('後端拒絕不合法的設定', async ({ page }) => {
     writeCatalog();
-    const res = await page.request.post('/adminPage/crowdsecGuard/wafRules/apply', {
+    const res = await csrfPost(page, '/adminPage/crowdsecGuard/wafRules/apply', {
       form: { changes: JSON.stringify([{ scope: 'rule', ruleKey: '942100', action: 'block', excludedServerIds: '' }]) },
     });
     const json = await res.json();
@@ -349,7 +349,7 @@ test.describe('WAF 事件的「誤判？調整規則」（假 LAPI）', () => {
     page = await context.newPage();
     await login(page);
     // 背景排程每分鐘第 30 秒也會同步；先同步一次，不必等排程
-    const res = await page.request.post('/adminPage/crowdsecGuard/waf/sync');
+    const res = await csrfPost(page, '/adminPage/crowdsecGuard/waf/sync');
     const json = await res.json();
     expect(json.success, JSON.stringify(json)).toBe(true);
     expect(json.obj.outcome).toBe('ok');

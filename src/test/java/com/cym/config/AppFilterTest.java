@@ -199,6 +199,99 @@ class AppFilterTest {
 		assertNull(ctx.redirectUrl());
 	}
 
+	// ===== E-161：後台變更端點的方法限制與 CSRF token =====
+
+	private void assertMethodNotAllowed(FakeContext ctx) throws Throwable {
+		assertEquals(0, run(ctx), "GET 不得執行變更端點");
+		assertTrue(ctx.getHandled());
+		assertEquals(405, ctx.status());
+	}
+
+	private void assertCsrfRejected(FakeContext ctx) throws Throwable {
+		assertEquals(0, run(ctx), "缺少或錯誤的 CSRF token 不得執行變更端點");
+		assertTrue(ctx.getHandled());
+		assertEquals(403, ctx.status());
+		JSONObject body = JSONUtil.parseObj(ctx.outputText());
+		assertFalse(body.getBool("success"));
+		assertEquals(m.get("commonStr.csrfRejected"), body.getStr("msg"));
+	}
+
+	private FakeContext loggedIn(String path) {
+		return new FakeContext(path).session("isLogin", true).session("csrfToken", "tok-1");
+	}
+
+	@Test
+	void getToDelAllIsMethodNotAllowed() throws Throwable {
+		assertMethodNotAllowed(loggedIn("/adminPage/bak/delAll"));
+	}
+
+	@Test
+	void getToChangePassOverIsMethodNotAllowed() throws Throwable {
+		assertMethodNotAllowed(loggedIn("/adminPage/admin/changePassOver").param("id", "1").param("pass", "x").param("auth", "false"));
+	}
+
+	@Test
+	void postWithoutTokenIsRejected() throws Throwable {
+		assertCsrfRejected(loggedIn("/adminPage/bak/delAll").method("POST"));
+	}
+
+	@Test
+	void postWithWrongTokenIsRejected() throws Throwable {
+		assertCsrfRejected(loggedIn("/adminPage/bak/delAll").method("POST").header("X-CSRF-Token", "tok-2"));
+	}
+
+	@Test
+	void postWithTokenInHeaderReachesHandler() throws Throwable {
+		FakeContext ctx = loggedIn("/adminPage/bak/delAll").method("POST").header("X-CSRF-Token", "tok-1");
+		assertEquals(1, run(ctx));
+	}
+
+	@Test
+	void postWithTokenInFormFieldReachesHandler() throws Throwable {
+		FakeContext ctx = loggedIn("/adminPage/server").method("POST").param("_csrf", "tok-1");
+		assertEquals(1, run(ctx));
+	}
+
+	@Test
+	void postWithCreditKeySkipsToken() throws Throwable {
+		String key = creditService.make("1");
+		FakeContext ctx = new FakeContext("/adminPage/bak/delAll").method("POST").param("creditKey", key);
+		assertEquals(1, run(ctx));
+	}
+
+	@Test
+	void getToReadOnlyPageIssuesTokenCookie() throws Throwable {
+		FakeContext ctx = new FakeContext(ADMIN_PAGE).session("isLogin", true);
+
+		assertEquals(1, run(ctx));
+		String token = (String) ctx.session("csrfToken");
+		assertTrue(token != null && token.length() >= 40, "登入後的第一個請求要產生 session token");
+		assertEquals(token, ctx.setCookie("NWUI_CSRF").value);
+		assertFalse(ctx.setCookie("NWUI_CSRF").httpOnly, "前端要讀得到 token cookie");
+	}
+
+	@Test
+	void tokenCookieIsNotRewrittenWhenAlreadyCurrent() throws Throwable {
+		FakeContext ctx = loggedIn(ADMIN_PAGE).cookie("NWUI_CSRF", "tok-1");
+
+		assertEquals(1, run(ctx));
+		assertNull(ctx.setCookie("NWUI_CSRF"));
+	}
+
+	@Test
+	void remoteModeDoesNotForwardGetToMutatingEndpoint() throws Throwable {
+		// 遠端模式下 AppFilter 會把請求轉成 POST 送到遠端節點，所以方法檢查必須在轉發之前
+		FakeContext ctx = loggedIn("/adminPage/bak/delAll").session("localType", "remote");
+		assertMethodNotAllowed(ctx);
+		assertNull(ctx.redirectUrl(), "不應嘗試轉發到遠端");
+	}
+
+	@Test
+	void loginEndpointsAreNotGuarded() throws Throwable {
+		FakeContext ctx = new FakeContext("/adminPage/login/login").method("POST");
+		assertEquals(1, run(ctx));
+	}
+
 	// ───────────── 管理員管理頁只給超管（E-64） ─────────────
 
 	private static final String ORIGINAL_HASH = "original-hash";
@@ -215,13 +308,17 @@ class AppFilterTest {
 		return admin;
 	}
 
-	/** 已登入的請求；session 裡的 admin 是另一個物件，避免測試改到資料庫那一筆 */
+	/**
+	 * 已登入、以 POST 帶正確 CSRF token 的請求（與畫面送出的方式相同，才會走到授權檢查）；
+	 * session 裡的 admin 是另一個物件，避免測試改到資料庫那一筆
+	 */
 	private FakeContext loggedIn(String path, Admin admin) {
 		Admin sessionAdmin = new Admin();
 		sessionAdmin.setId(admin.getId());
 		sessionAdmin.setName(admin.getName());
 		sessionAdmin.setType(admin.getType());
-		return new FakeContext(path).session("isLogin", true).session("admin", sessionAdmin);
+		return new FakeContext(path).method("POST").session("isLogin", true).session("admin", sessionAdmin)
+				.session("csrfToken", "tok-admin").header("X-CSRF-Token", "tok-admin");
 	}
 
 	private AdminController adminController() {
@@ -306,7 +403,8 @@ class AppFilterTest {
 	void creditKeyWithoutSessionAdminCannotUseAdminActions() throws Throwable {
 		Admin superAdmin = storedAdmin("root", 0);
 		String key = creditService.make(superAdmin.getId());
-		FakeContext ctx = new FakeContext("/adminPage/admin/del").param("creditKey", key).param("showAdmin", "true");
+		// 主控端轉發給節點一律用 POST
+		FakeContext ctx = new FakeContext("/adminPage/admin/del").method("POST").param("creditKey", key).param("showAdmin", "true");
 
 		assertEquals(0, runAdminAction(ctx, "del", superAdmin));
 		assertNotPermission(ctx);
@@ -340,6 +438,30 @@ class AppFilterTest {
 				default -> assertEquals(MAIL_PASS, body.getJSONObject("obj").getStr("mail_pass"), label);
 				}
 			}
+		}
+	}
+
+	@Test
+	void getToAdminActionIsRejectedBeforeAuthorization() throws Throwable {
+		// 方法檢查（AppFilter.adminInterceptor）在超管檢查之前：GET 一律 405，不論帳號類型
+		Admin restricted = storedAdmin("limited", 1);
+		Admin superAdmin = storedAdmin("root", 0);
+		FakeContext ctx = loggedIn("/adminPage/admin/del", restricted).method("GET");
+
+		assertEquals(0, runAdminAction(ctx, "del", superAdmin));
+		assertEquals(405, ctx.status());
+		assertNotNull(sqlHelper.findById(superAdmin.getId(), Admin.class));
+	}
+
+	@Test
+	void restrictedAdminIsRejectedOnReadOnlyAdminGets() throws Throwable {
+		// GET 白名單內的管理員頁與查詢會通過 CSRF 檢查，超管檢查是唯一防線
+		Admin restricted = storedAdmin("limited", 1);
+		for (String path : new String[] { "/adminPage/admin", "/adminPage/admin/detail", "/adminPage/admin/getGroupTree" }) {
+			FakeContext ctx = loggedIn(path, restricted).method("GET");
+
+			assertEquals(0, run(ctx), path);
+			assertNotPermission(ctx);
 		}
 	}
 

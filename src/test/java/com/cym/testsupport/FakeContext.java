@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.noear.solon.core.handle.ContextEmpty;
+import org.noear.solon.core.handle.Cookie;
 
 /** 測試用的請求：可設定 path、header、參數與 session，並記下輸出與轉址（不經 Solon 啟動）。 */
 public class FakeContext extends ContextEmpty {
@@ -12,6 +13,9 @@ public class FakeContext extends ContextEmpty {
 	private final Map<String, String> headers = new HashMap<>();
 	private final Map<String, String> params = new HashMap<>();
 	private final Map<String, Object> session = new HashMap<>();
+	private final Map<String, String> cookies = new HashMap<>();
+	private final Map<String, Cookie> setCookies = new HashMap<>();
+	private String method = "GET";
 	private final StringBuilder output = new StringBuilder();
 	private String redirectUrl;
 
@@ -35,6 +39,23 @@ public class FakeContext extends ContextEmpty {
 		return this;
 	}
 
+	/** HTTP 方法，預設 GET */
+	public FakeContext method(String method) {
+		this.method = method;
+		return this;
+	}
+
+	/** 請求帶的 cookie */
+	public FakeContext cookie(String name, String value) {
+		cookies.put(name, value);
+		return this;
+	}
+
+	/** 回應設定的 cookie；沒設定時為 null */
+	public Cookie setCookie(String name) {
+		return setCookies.get(name);
+	}
+
 	/** 已寫出的回應內容 */
 	public String outputText() {
 		return output.toString();
@@ -53,6 +74,21 @@ public class FakeContext extends ContextEmpty {
 	@Override
 	public String url() {
 		return "http://localhost:8080" + path;
+	}
+
+	@Override
+	public String method() {
+		return method;
+	}
+
+	@Override
+	public String cookie(String name) {
+		return cookies.get(name);
+	}
+
+	@Override
+	public void cookieSet(Cookie cookie) {
+		setCookies.put(cookie.name, cookie);
 	}
 
 	@Override

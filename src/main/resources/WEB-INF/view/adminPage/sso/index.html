@@ -141,6 +141,7 @@ input[type='radio'] {
 		const formData = new FormData(form);
 		const response = await fetch('/adminPage/sso/save', {
 			method: 'POST',
+			headers: { 'X-CSRF-Token': csrfToken() },
 			body: formData
 		});
 		const data = await response.json();

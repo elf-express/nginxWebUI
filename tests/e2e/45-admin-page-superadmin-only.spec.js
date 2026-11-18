@@ -3,7 +3,7 @@
  * 受限帳號（type=1）不論帶不帶 showAdmin=true 都被拒，資料不變；超管照常可用。
  */
 const { test, expect, request } = require('@playwright/test');
-const { BASE_URL, TEST_ADMIN, TEST_PASS, TEST_CAPTCHA } = require('./helpers');
+const { BASE_URL, TEST_ADMIN, TEST_PASS, TEST_CAPTCHA, apiPost } = require('./helpers');
 
 const b64 = (v) => Buffer.from(Buffer.from(v).toString('base64')).toString('base64');
 
@@ -34,11 +34,11 @@ async function adminId(api, name) {
 
 /** 由超管建立受限帳號並設定密碼，回傳 id */
 async function createLimitedAdmin(root, { name, pass }) {
-  const added = await (await root.post('/adminPage/admin/addOver', { form: { name, api: 'false', type: '1' } })).json();
+  const added = await (await apiPost(root, '/adminPage/admin/addOver', { form: { name, api: 'false', type: '1' } })).json();
   expect(added.success).toBe(true);
   const id = await adminId(root, name);
   expect(id).toBeTruthy();
-  const changed = await (await root.post('/adminPage/admin/changePassOver', { form: { id, pass, auth: 'false' } })).json();
+  const changed = await (await apiPost(root, '/adminPage/admin/changePassOver', { form: { id, pass, auth: 'false' } })).json();
   expect(changed.success).toBe(true);
   return id;
 }
@@ -58,7 +58,7 @@ test.describe('管理員管理端點只給超管（E-64）', () => {
   test.afterAll(async () => {
     const ids = [limitedId, victimId].filter(Boolean).join(',');
     if (ids) {
-      await root.post('/adminPage/admin/del', { form: { id: ids } });
+      await apiPost(root, '/adminPage/admin/del', { form: { id: ids } });
     }
     await root.dispose();
   });
@@ -76,7 +76,7 @@ test.describe('管理員管理端點只給超管（E-64）', () => {
         ['getMailSetting', {}],
       ];
       for (const [action, form] of attempts) {
-        const body = await (await limited.post(`/adminPage/admin/${action}`, { form: { ...form, ...extra } })).json();
+        const body = await (await apiPost(limited, `/adminPage/admin/${action}`, { form: { ...form, ...extra } })).json();
         expect(body.success, action).toBe(false);
         expect(body.status, action).toBe('401');
         expect(body.obj ?? null, action).toBeNull();
@@ -95,7 +95,7 @@ test.describe('管理員管理端點只給超管（E-64）', () => {
   }
 
   test('超管照常可讀郵件設定', async () => {
-    const body = await (await root.post('/adminPage/admin/getMailSetting')).json();
+    const body = await (await apiPost(root, '/adminPage/admin/getMailSetting')).json();
     expect(body.success).toBe(true);
     expect(body.status).toBe('200');
   });
