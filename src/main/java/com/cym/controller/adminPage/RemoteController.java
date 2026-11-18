@@ -199,6 +199,9 @@ public class RemoteController extends BaseController {
 
 	@Mapping("addGroupOver")
 	public JsonResult addGroupOver(Group group) {
+		if (!remoteService.canManageGroups(getAdmin())) {
+			return renderError(m.get("remoteStr.noPermission"));
+		}
 		if (StrUtil.isNotEmpty(group.getParentId()) && StrUtil.isNotEmpty(group.getId()) && group.getId().equals(group.getParentId())) {
 			return renderError(m.get("remoteStr.parentGroupMsg"));
 		}
@@ -209,12 +212,17 @@ public class RemoteController extends BaseController {
 
 	@Mapping("groupDetail")
 	public JsonResult groupDetail(String id) {
+		if (!remoteService.canReadGroup(getAdmin(), id)) {
+			return renderError(m.get("remoteStr.noPermission"));
+		}
 		return renderSuccess(sqlHelper.findById(id, Group.class));
 	}
 
 	@Mapping("delGroup")
 	public JsonResult delGroup(String id) {
-
+		if (!remoteService.canManageGroups(getAdmin())) {
+			return renderError(m.get("remoteStr.noPermission"));
+		}
 		groupService.delete(id);
 		return renderSuccess();
 	}
