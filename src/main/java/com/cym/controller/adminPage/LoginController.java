@@ -143,7 +143,10 @@ public class LoginController extends BaseController {
 		Context.current().sessionSet("admin", admin);
 		Context.current().sessionRemove("imgCode"); // 立刻销毁验证码
 
-		return renderSuccess(admin);
+		// 只回傳前端需要的自動登入 key，不回傳密碼雜湊、TOTP 密鑰與 API token
+		Map<String, Object> map = new HashMap<>();
+		map.put("autoKey", admin.getAutoKey());
+		return renderSuccess(map);
 	}
 
 	@Mapping("autoLogin")
@@ -158,8 +161,7 @@ public class LoginController extends BaseController {
 			Context.current().sessionSet("admin", admin);
 			Context.current().sessionRemove("imgCode"); // 立刻销毁验证码
 
-
-			return renderSuccess(admin);
+			return renderSuccess();
 		} else {
 			return renderError();
 		}
@@ -183,25 +185,33 @@ public class LoginController extends BaseController {
 			code = Base64.decodeStr(Base64.decodeStr(code));
 		}
 
-		// 验证码
-		if (remote == null) {
-			String captcha = (String) Context.current().session("captcha");
-			if (!code.equals(captcha)) {
-				Context.current().sessionRemove("captcha"); // 销毁验证码
-				return renderError(m.get("loginStr.backError1")); // 验证码不正确
-			}
+		// 验证码：远程节点呼叫比对 getRemoteCode 产生的远程验证码，否则比对 session 验证码
+		boolean isRemote = remote != null;
+		String captcha = isRemote ? settingService.get("remoteCode") : (String) Context.current().session("captcha");
+		boolean captchaOk = isRemote ? StrUtil.isNotEmpty(captcha) && captcha.equalsIgnoreCase(code) : StrUtil.isNotEmpty(code) && code.equals(captcha);
+		if (!captchaOk) {
+			destroyCaptcha(isRemote);
+			return renderError(m.get("loginStr.backError1")); // 验证码不正确
 		}
 
 		Admin admin = adminService.login(name, pass);
 		if (admin == null) {
+			destroyCaptcha(isRemote);
 			return renderError(m.get("loginStr.backError2")); // 用户名密码错误
 		}
 
-		Admin ad = new Admin();
-		ad.setAuth(admin.getAuth());
-		ad.setKey(admin.getKey());
+		// 验证码保留给接着的 login／getCredit 使用；只回传是否开启两步验证
+		Map<String, Object> map = new HashMap<>();
+		map.put("auth", Boolean.TRUE.equals(admin.getAuth()));
+		return renderSuccess(map);
+	}
 
-		return renderSuccess(ad);
+	private void destroyCaptcha(boolean isRemote) {
+		if (isRemote) {
+			settingService.remove("remoteCode");
+		} else {
+			Context.current().sessionRemove("captcha");
+		}
 	}
 
 	@Mapping("getCredit")
@@ -221,21 +231,23 @@ public class LoginController extends BaseController {
 			code = Base64.decodeStr(Base64.decodeStr(code));
 		}
 
+		// 远程验证码先于密码检查，任何失败都销毁验证码
+		String imgCode = settingService.get("remoteCode");
+		if (StrUtil.isEmpty(imgCode) || !imgCode.equalsIgnoreCase(code)) {
+			settingService.remove("remoteCode");
+			return renderError(m.get("loginStr.backError1")); // 验证码不正确
+		}
+
 		// 用户名密码
 		Admin admin = adminService.login(name, pass);
 		if (admin == null) {
+			settingService.remove("remoteCode");
 			return renderError(m.get("loginStr.backError2")); // 用户名密码错误
 		}
 
-		if (!admin.getAuth()) {
-			String imgCode = settingService.get("remoteCode");
-			if (StrUtil.isEmpty(imgCode) || StrUtil.isNotEmpty(imgCode) && !imgCode.equalsIgnoreCase(code)) {
-				return renderError(m.get("loginStr.backError1")); // 验证码不正确
-			}
-		} else {
-			if (!authUtils.testKey(admin.getKey(), auth)) {
-				return renderError(m.get("loginStr.backError6")); // 身份码不正确
-			}
+		if (admin.getAuth() && !authUtils.testKey(admin.getKey(), auth)) {
+			settingService.remove("remoteCode");
+			return renderError(m.get("loginStr.backError6")); // 身份码不正确
 		}
 
 		settingService.remove("remoteCode"); // 立刻销毁验证码
@@ -320,7 +332,12 @@ public class LoginController extends BaseController {
 
 		SpecCaptcha specCaptcha = new SpecCaptcha(100, 40, 4);
 		specCaptcha.setCharType(Captcha.TYPE_ONLY_NUMBER);
-		settingService.set("remoteCode", specCaptcha.text());
+		// 測試模式：使用固定驗證碼（僅在啟動參數指定 --project.testCaptcha=xxxx 時生效）
+		if (StrUtil.isNotEmpty(testCaptcha)) {
+			settingService.set("remoteCode", testCaptcha);
+		} else {
+			settingService.set("remoteCode", specCaptcha.text());
+		}
 		specCaptcha.out(Context.current().outputStream());
 	}
 

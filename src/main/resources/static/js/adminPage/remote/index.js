@@ -843,11 +843,42 @@ function testMail() {
 
 
 
+// 远程节点是否开启两步验证；null 表示尚未用图形验证码向远程节点确认
+var remoteAuth = null;
+
 function addOver() {
 	if ($("#ip").val().trim() == '' || $("#port").val().trim() == '' || $("#name").val().trim() == '' || $("#pass").val().trim() == '') {
 		layer.msg(remoteStr.notFill);
 		return;
 	}
+
+	// 先输入远程节点的图形验证码，确认帐密后再视需要输入两步验证码
+	remoteAuth = null;
+	$("#codeInput").val("");
+	$("#authInput").val("");
+	$("#imgCode").show();
+	$("#authCode").hide();
+	refreshCode();
+	codeIndex = layer.open({
+		type: 1,
+		title: remoteStr.verify,
+		area: ['500px', '200px'], // 宽高
+		content: $('#codeDiv')
+	});
+}
+
+function addOverSubmit() {
+	$("#code").val($("#codeInput").val());
+	$("#auth").val($("#authInput").val());
+
+	if (remoteAuth === null) {
+		checkRemoteAuth();
+	} else {
+		submitRemote();
+	}
+}
+
+function checkRemoteAuth() {
 	showLoad();
 	$.ajax({
 		type: 'POST',
@@ -857,23 +888,18 @@ function addOver() {
 		success: function(data) {
 			closeLoad();
 			if (data.success) {
-				if (String(data.obj.auth) == 'true') {
-					$("#authCode").show();
+				remoteAuth = String(data.obj.auth) == 'true';
+				if (remoteAuth) {
+					// 两步验证：图形验证码已通过，改输入身份验证码
 					$("#imgCode").hide();
+					$("#authCode").show();
+					$("#authInput").focus();
 				} else {
-					$("#authCode").hide();
-					$("#imgCode").show();
+					submitRemote();
 				}
-
-				refreshCode();
-				codeIndex = layer.open({
-					type: 1,
-					title: remoteStr.verify,
-					area: ['500px', '200px'], // 宽高
-					content: $('#codeDiv')
-				});
 			} else {
 				layer.msg(data.msg);
+				refreshCode();
 			}
 		},
 		error: function() {
@@ -881,12 +907,9 @@ function addOver() {
 			layer.alert(commonStr.errorInfo);
 		}
 	});
-
 }
 
-function addOverSubmit() {
-	$("#code").val($("#codeInput").val());
-	$("#auth").val($("#authInput").val());
+function submitRemote() {
 	showLoad();
 	$.ajax({
 		type: 'POST',
@@ -899,6 +922,12 @@ function addOverSubmit() {
 				location.reload();
 			} else {
 				layer.msg(data.msg);
+				// 远程验证码已失效，回到图形验证码重新确认
+				remoteAuth = null;
+				$("#codeInput").val("");
+				$("#authInput").val("");
+				$("#imgCode").show();
+				$("#authCode").hide();
 				refreshCode();
 			}
 		},

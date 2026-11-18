@@ -455,11 +455,12 @@ public class RemoteController extends BaseController {
 	}
 
 	@Mapping("getAuth")
-	public JsonResult getAuth(Remote remote) {
+	public JsonResult getAuth(Remote remote, String code) {
 		try {
 			Map<String, Object> map = new HashMap<>();
 			map.put("name", Base64.encode(Base64.encode(remote.getName())));
 			map.put("pass", Base64.encode(Base64.encode(remote.getPass())));
+			map.put("code", Base64.encode(Base64.encode(StrUtil.nullToEmpty(code))));
 			map.put("remote", 1);
 
 			String rs = HttpUtil.post(remote.getProtocol() + "://" + remote.getIp() + ":" + remote.getPort() + "/adminPage/login/getAuth", map, 3000);

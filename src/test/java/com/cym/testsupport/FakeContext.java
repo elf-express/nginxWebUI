@@ -77,6 +77,11 @@ public class FakeContext extends ContextEmpty {
 	}
 
 	@Override
+	public void sessionRemove(String name) {
+		session.remove(name);
+	}
+
+	@Override
 	public void output(byte[] bytes) {
 		output.append(new String(bytes, StandardCharsets.UTF_8));
 	}
