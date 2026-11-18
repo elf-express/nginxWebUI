@@ -372,6 +372,22 @@ test.describe('Vue log viewer through the real list iframe', () => {
     expect(await viewer.locator('#log-container').evaluate(() => window.__legacyExecuted)).toBeUndefined();
   });
 
+  test('legacy entry renders unescaped tailCmd HTML from an older node as inert text (E-67)', async ({ logApp }) => {
+    const record = await logApp.create('placeholder\n');
+    // Pre-E-478 nodes reached through the remote proxy return log lines as raw HTML.
+    const raw = '<div>e67-before <img src=x onerror="window.__e67Executed=1"> <b>e67-bold</b></div><div>e67-second</div>';
+    await logApp.page.route('**/adminPage/log/tailCmd', (route) => route.fulfill({
+      status: 200, contentType: 'application/json', body: JSON.stringify({ success: true, status: '200', obj: raw }),
+    }));
+    const { iframe, viewer } = await logApp.open(record, logApp.page, 'zh_TW', false);
+    const legacy = new URL(await iframe.getAttribute('src'), BASE_URL);
+    legacy.searchParams.set('legacy', '1');
+    await iframe.evaluate((el, url) => { el.src = url; }, legacy.toString());
+    await expect(viewer.locator('#log-container > div')).toHaveText(['e67-before e67-bold', 'e67-second']);
+    expect(await viewer.locator('#log-container img,#log-container b').count()).toBe(0);
+    expect(await viewer.locator('#log-container').evaluate(() => window.__e67Executed)).toBeUndefined();
+  });
+
   for (const fault of ['bundle', 'dictionary', 'api404']) {
     test(`${fault} failure falls back once and preserves every query parameter`, async ({ logApp }) => {
       const record = await logApp.create('fallback-literal\n');
