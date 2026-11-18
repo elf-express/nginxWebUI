@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { login } = require('./helpers');
+const { login, csrfPost } = require('./helpers');
 
 test.describe('國家存取控制', () => {
 
@@ -48,7 +48,7 @@ test.describe('國家存取控制', () => {
     await login(page);
 
     // 直接透過 API 儲存（避免 UI tab 切換和折疊面板的互動問題）
-    const saveResponse = await page.request.post(baseURL + '/adminPage/geo/addOver', {
+    const saveResponse = await csrfPost(page, baseURL + '/adminPage/geo/addOver', {
       form: {
         mode: '0',
         countries: 'TW',

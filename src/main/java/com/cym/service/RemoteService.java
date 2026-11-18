@@ -131,4 +131,24 @@ public class RemoteService {
 		return groupIds != null && groupIds.contains(remote.getParentId());
 	}
 
+	/** 帳號能否讀取這個群組：超級管理員為全部群組；受限帳號只有被指派的群組；沒有帳號時一律為否 */
+	public boolean canReadGroup(Admin admin, String groupId) {
+		if (admin == null) {
+			return false;
+		}
+		if (isSuperAdmin(admin)) {
+			return true;
+		}
+		if (StrUtil.isEmpty(groupId)) {
+			return false;
+		}
+		List<String> groupIds = adminService.getGroupIds(admin.getId());
+		return groupIds != null && groupIds.contains(groupId);
+	}
+
+	/** 帳號能否新增、修改、刪除群組：只有超級管理員 */
+	public boolean canManageGroups(Admin admin) {
+		return isSuperAdmin(admin);
+	}
+
 }

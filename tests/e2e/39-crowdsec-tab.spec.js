@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const http = require('http');
-const { PROJECT_ROOT, JAR_PATH, TEST_ADMIN, TEST_PASS, TEST_CAPTCHA, login } = require('./helpers');
+const { PROJECT_ROOT, JAR_PATH, TEST_ADMIN, TEST_PASS, TEST_CAPTCHA, login, csrfPost } = require('./helpers');
 
 // 「CrowdSec 防護」頁的「連線設定」分頁（E-390 起在「防護與憑證」頁，E-385 搬到獨立頁面，Vue）：
 //   1) 共用測試 server（18080，沒有任何 CROWDSEC_* 環境變數）→「未設定」提示、寬限秒數保存與後端驗證、
@@ -59,7 +59,7 @@ async function getChallenge(page) {
 }
 
 function saveChallenge(page, form) {
-  return page.request.post('/adminPage/crowdsec/saveChallenge', { form: { ...CHALLENGE_DEFAULTS, ...form } });
+  return csrfPost(page, '/adminPage/crowdsec/saveChallenge', { form: { ...CHALLENGE_DEFAULTS, ...form } });
 }
 
 async function openAsnTab(page) {
@@ -104,7 +104,7 @@ test.describe('CrowdSec 分頁（共用 server，沒有 CrowdSec 變數）', () 
 
   test.afterEach(async ({ page }) => {
     // 寬限秒數與驗證頁設定還原成預設值，不影響其他測試
-    await page.request.post('/adminPage/crowdsec/saveConfig', { form: { graceSeconds: '120' } });
+    await csrfPost(page, '/adminPage/crowdsec/saveConfig', { form: { graceSeconds: '120' } });
     await saveChallenge(page, {});
   });
 
@@ -144,7 +144,7 @@ test.describe('CrowdSec 分頁（共用 server，沒有 CrowdSec 變數）', () 
 
   test('後端拒絕不是 10–3600 整數的寬限秒數', async ({ page }) => {
     for (const value of ['5', '3601', 'abc']) {
-      const res = await page.request.post('/adminPage/crowdsec/saveConfig', { form: { graceSeconds: value } });
+      const res = await csrfPost(page, '/adminPage/crowdsec/saveConfig', { form: { graceSeconds: value } });
       expect((await res.json()).success).toBe(false);
     }
     expect((await getConfig(page)).graceSeconds).toBe(120);

@@ -3,7 +3,7 @@
  * 任何遠端節點回應都不含連線密碼與 creditKey，超級管理員行為不變。
  */
 const { test, expect, request } = require('@playwright/test');
-const { BASE_URL, TEST_ADMIN, TEST_PASS, TEST_CAPTCHA, login } = require('./helpers');
+const { BASE_URL, TEST_ADMIN, TEST_PASS, TEST_CAPTCHA, login, apiPost } = require('./helpers');
 
 const b64 = (v) => Buffer.from(Buffer.from(v).toString('base64')).toString('base64');
 const PORT = new URL(BASE_URL).port;
@@ -31,7 +31,7 @@ async function allTable(api) {
 /** 以本服務自己當遠端節點；ip 不同才不會被判定重複 */
 async function addNode(api, ip, descr, parentId) {
   await api.get('/adminPage/login/getRemoteCode');
-  const body = await (await api.post('/adminPage/remote/addOver', {
+  const body = await (await apiPost(api, '/adminPage/remote/addOver', {
     form: {
       protocol: 'http', ip, port: PORT, descr, parentId,
       name: TEST_ADMIN, pass: TEST_PASS, code: TEST_CAPTCHA, auth: '', monitor: '0',
@@ -51,7 +51,7 @@ test.describe('遠端節點群組隔離（E-66）', () => {
     admin = page.request;
 
     for (const name of [GROUP_A, GROUP_B]) {
-      expect((await (await admin.post('/adminPage/remote/addGroupOver', { form: { name } })).json()).success).toBe(true);
+      expect((await (await apiPost(admin, '/adminPage/remote/addGroupOver', { form: { name } })).json()).success).toBe(true);
     }
     let rows = await allTable(admin);
     ids.groupA = rows.find((r) => r.type === 1 && r.descr === GROUP_A).id;
@@ -64,12 +64,12 @@ test.describe('遠端節點群組隔離（E-66）', () => {
     ids.nodeB = rows.find((r) => r.descr === NODE_B).id;
 
     // 只屬於 A 群組的受限帳號
-    expect((await (await admin.post('/adminPage/admin/addOver', {
+    expect((await (await apiPost(admin, '/adminPage/admin/addOver', {
       form: { name: LIMITED, api: 'false', type: '1', parentId: ids.groupA },
     })).json()).success).toBe(true);
     await page.goto('/adminPage/admin');
     ids.limited = await page.locator('tr', { hasText: LIMITED }).locator('input[name="ids"]').getAttribute('value');
-    expect((await (await admin.post('/adminPage/admin/changePassOver', {
+    expect((await (await apiPost(admin, '/adminPage/admin/changePassOver', {
       form: { id: ids.limited, pass: LIMITED_PASS, auth: 'false' },
     })).json()).success).toBe(true);
 
@@ -89,13 +89,13 @@ test.describe('遠端節點群組隔離（E-66）', () => {
       return;
     }
     for (const id of [ids.nodeA, ids.nodeB]) {
-      if (id) await admin.post('/adminPage/remote/del', { form: { id } });
+      if (id) await apiPost(admin, '/adminPage/remote/del', { form: { id } });
     }
     for (const id of [ids.groupA, ids.groupB]) {
-      if (id) await admin.post('/adminPage/remote/delGroup', { form: { id } });
+      if (id) await apiPost(admin, '/adminPage/remote/delGroup', { form: { id } });
     }
     if (ids.limited) {
-      await admin.post('/adminPage/admin/del', { form: { id: ids.limited } });
+      await apiPost(admin, '/adminPage/admin/del', { form: { id: ids.limited } });
     }
   });
 
@@ -121,11 +121,39 @@ test.describe('遠端節點群組隔離（E-66）', () => {
     expect(detail.success).toBe(false);
     expect(detail.obj ?? null).toBeNull();
 
-    const change = await (await limitedApi.post('/adminPage/remote/change', { form: { id: ids.nodeB } })).json();
+    const changeRes = await apiPost(limitedApi, '/adminPage/remote/change', { form: { id: ids.nodeB } });
+    expect(changeRes.status(), '應被群組授權擋下，不是 CSRF').toBe(200);
+    const change = await changeRes.json();
     expect(change.success).toBe(false);
 
     const local = (await allTable(limitedApi)).find((r) => r.id === 'local');
     expect(local.select).toBe(true);
+  });
+
+  test('受限帳號只能讀自己的群組，不能新增、修改、刪除群組（E-183）', async () => {
+    const own = await (await limitedApi.get('/adminPage/remote/groupDetail', { params: { id: ids.groupA } })).json();
+    expect(own.success).toBe(true);
+    expect(own.obj.id).toBe(ids.groupA);
+
+    const other = await (await limitedApi.get('/adminPage/remote/groupDetail', { params: { id: ids.groupB } })).json();
+    expect(other.success).toBe(false);
+    expect(other.obj ?? null).toBeNull();
+
+    const rename = await (await limitedApi.post('/adminPage/remote/addGroupOver', {
+      form: { id: ids.groupB, name: `${GROUP_B}-hijacked` },
+    })).json();
+    expect(rename.success).toBe(false);
+    const create = await (await limitedApi.post('/adminPage/remote/addGroupOver', {
+      form: { name: `${GROUP_A}-new` },
+    })).json();
+    expect(create.success).toBe(false);
+    const del = await (await limitedApi.post('/adminPage/remote/delGroup', { form: { id: ids.groupB } })).json();
+    expect(del.success).toBe(false);
+
+    const rows = await allTable(admin);
+    expect(rows.find((r) => r.id === ids.groupB).descr).toBe(GROUP_B);
+    expect(rows.find((r) => r.id === ids.nodeB).parentId).toBe(ids.groupB);
+    expect(rows.some((r) => r.descr === `${GROUP_A}-new`)).toBe(false);
   });
 
   test('超級管理員仍看得到全部節點，回應不含憑證', async () => {

@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { login, BASE_URL } = require('./helpers');
+const { login, BASE_URL, csrfPost } = require('./helpers');
 
 test.describe('黑白名單 Tag 編輯器', () => {
 
@@ -7,7 +7,7 @@ test.describe('黑白名單 Tag 編輯器', () => {
     await login(page);
 
     // 先透過 API 新增一筆
-    const addResp = await page.request.post(baseURL + '/adminPage/denyAllow/addOver', {
+    const addResp = await csrfPost(page, baseURL + '/adminPage/denyAllow/addOver', {
       form: { id: '', name: 'TestList', ip: '192.168.1.1\n10.0.0.1\n172.16.0.0/12' }
     });
     const addData = await addResp.json();

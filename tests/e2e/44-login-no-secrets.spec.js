@@ -3,7 +3,7 @@
  * getAuth 帶 remote 參數時仍要驗證碼。新增遠端節點改為先輸入遠端圖形驗證碼。
  */
 const { test, expect, request } = require('@playwright/test');
-const { BASE_URL, TEST_ADMIN, TEST_PASS, TEST_CAPTCHA, login } = require('./helpers');
+const { BASE_URL, TEST_ADMIN, TEST_PASS, TEST_CAPTCHA, login, csrfPost } = require('./helpers');
 
 const b64 = (v) => Buffer.from(Buffer.from(v).toString('base64')).toString('base64');
 const SECRET_FIELDS = ['pass', 'key', 'token'];
@@ -83,7 +83,7 @@ test.describe('登入端點不回傳機密（E-65）', () => {
     expect(added).toHaveLength(1);
 
     for (const r of added) {
-      await page.request.post('/adminPage/remote/del', { form: { id: r.id } });
+      await csrfPost(page, '/adminPage/remote/del', { form: { id: r.id } });
     }
   });
 

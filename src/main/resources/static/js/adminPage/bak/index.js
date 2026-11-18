@@ -150,7 +150,7 @@ function replace(id){
 function delAll(){
 	if(confirm(bakStr.clearNotice)){
 		$.ajax({
-			type : 'GET',
+			type : 'POST',
 			url : ctx + '/adminPage/bak/delAll',
 			dataType : 'json',
 		

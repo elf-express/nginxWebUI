@@ -1,12 +1,12 @@
 const { test, expect } = require('@playwright/test');
-const { login } = require('./helpers');
+const { login, csrfPost } = require('./helpers');
 
 // 「CrowdSec 防護」頁（E-385，Vue）。共用測試 server（18080）沒有 CROWDSEC_* 環境變數。
 const CDN = /esm\.sh|cdn\.jsdelivr\.net|unpkg\.com|cdnjs\.cloudflare\.com/;
 
 async function api(page, path, form) {
   const res = form
-    ? await page.request.post(path, { form })
+    ? await csrfPost(page, path, { form })
     : await page.request.get(path);
   const json = await res.json();
   expect(json.success, JSON.stringify(json)).toBe(true);
@@ -189,7 +189,7 @@ test.describe('CrowdSec 防護頁', () => {
 
   test('空表格依介面語系顯示 ant 元件的文字，不是英文 No data', async ({ page }) => {
     const setLang = async (lang) => {
-      const res = await page.request.post('/adminPage/login/changeLang', { form: { lang } });
+      const res = await csrfPost(page, '/adminPage/login/changeLang', { form: { lang } });
       expect((await res.json()).success).toBe(true);
     };
     try {
