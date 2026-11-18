@@ -130,6 +130,32 @@ test.describe('遠端節點群組隔離（E-66）', () => {
     expect(local.select).toBe(true);
   });
 
+  test('受限帳號只能讀自己的群組，不能新增、修改、刪除群組（E-183）', async () => {
+    const own = await (await limitedApi.get('/adminPage/remote/groupDetail', { params: { id: ids.groupA } })).json();
+    expect(own.success).toBe(true);
+    expect(own.obj.id).toBe(ids.groupA);
+
+    const other = await (await limitedApi.get('/adminPage/remote/groupDetail', { params: { id: ids.groupB } })).json();
+    expect(other.success).toBe(false);
+    expect(other.obj ?? null).toBeNull();
+
+    const rename = await (await limitedApi.post('/adminPage/remote/addGroupOver', {
+      form: { id: ids.groupB, name: `${GROUP_B}-hijacked` },
+    })).json();
+    expect(rename.success).toBe(false);
+    const create = await (await limitedApi.post('/adminPage/remote/addGroupOver', {
+      form: { name: `${GROUP_A}-new` },
+    })).json();
+    expect(create.success).toBe(false);
+    const del = await (await limitedApi.post('/adminPage/remote/delGroup', { form: { id: ids.groupB } })).json();
+    expect(del.success).toBe(false);
+
+    const rows = await allTable(admin);
+    expect(rows.find((r) => r.id === ids.groupB).descr).toBe(GROUP_B);
+    expect(rows.find((r) => r.id === ids.nodeB).parentId).toBe(ids.groupB);
+    expect(rows.some((r) => r.descr === `${GROUP_A}-new`)).toBe(false);
+  });
+
   test('超級管理員仍看得到全部節點，回應不含憑證', async () => {
     const rowIds = (await allTable(admin)).map((r) => r.id);
     expect(rowIds).toEqual(expect.arrayContaining([ids.nodeA, ids.nodeB, ids.groupA, ids.groupB]));

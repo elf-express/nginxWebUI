@@ -343,6 +343,98 @@ class RemoteControllerTest {
 		assertFalse(json.contains("node-free"), "指令清單含未分組的節點: " + json);
 	}
 
+	// ───────────── 群組端點（E-183） ─────────────
+
+	private Group renamed(Group source, String name) {
+		Group edit = new Group();
+		edit.setId(source.getId());
+		edit.setName(name);
+		return edit;
+	}
+
+	@Test
+	void groupDetailOfOwnGroupIsAllowed() {
+		loginAs(limited);
+
+		JsonResult<?> result = controller.groupDetail(groupA.getId());
+
+		assertTrue(result.isSuccess());
+		assertEquals(groupA.getId(), ((Group) result.getObj()).getId());
+	}
+
+	@Test
+	void groupDetailOfOtherGroupIsRejected() {
+		loginAs(limited);
+
+		JsonResult<?> result = controller.groupDetail(groupB.getId());
+
+		assertFalse(result.isSuccess());
+		assertEquals(m().get("remoteStr.noPermission"), result.getMsg());
+		assertNull(result.getObj());
+	}
+
+	@Test
+	void limitedAdminCannotRenameOtherGroup() {
+		loginAs(limited);
+
+		JsonResult<?> result = controller.addGroupOver(renamed(groupB, "hijacked"));
+
+		assertFalse(result.isSuccess());
+		assertEquals(m().get("remoteStr.noPermission"), result.getMsg());
+		assertEquals("B", sqlHelper.findById(groupB.getId(), Group.class).getName());
+	}
+
+	@Test
+	void limitedAdminCannotRenameOwnGroup() {
+		loginAs(limited);
+
+		assertFalse(controller.addGroupOver(renamed(groupA, "renamed")).isSuccess());
+
+		assertEquals("A", sqlHelper.findById(groupA.getId(), Group.class).getName());
+	}
+
+	@Test
+	void limitedAdminCannotCreateGroup() {
+		loginAs(limited);
+		Group created = new Group();
+		created.setName("new");
+
+		assertFalse(controller.addGroupOver(created).isSuccess());
+
+		assertEquals(2, sqlHelper.findAll(Group.class).size());
+	}
+
+	@Test
+	void limitedAdminCannotDeleteOtherGroup() {
+		loginAs(limited);
+
+		JsonResult<?> result = controller.delGroup(groupB.getId());
+
+		assertFalse(result.isSuccess());
+		assertEquals(m().get("remoteStr.noPermission"), result.getMsg());
+		assertNotNull(sqlHelper.findById(groupB.getId(), Group.class));
+		assertEquals(groupB.getId(), sqlHelper.findById(nodeB.getId(), Remote.class).getParentId());
+	}
+
+	@Test
+	void limitedAdminCannotDeleteOwnGroup() {
+		loginAs(limited);
+
+		assertFalse(controller.delGroup(groupA.getId()).isSuccess());
+
+		assertNotNull(sqlHelper.findById(groupA.getId(), Group.class));
+		assertEquals(groupA.getId(), sqlHelper.findById(nodeA.getId(), Remote.class).getParentId());
+	}
+
+	@Test
+	void noAdminInSessionCannotUseGroupEndpoints() {
+		assertFalse(controller.groupDetail(groupA.getId()).isSuccess());
+		assertFalse(controller.addGroupOver(renamed(groupA, "renamed")).isSuccess());
+		assertFalse(controller.delGroup(groupA.getId()).isSuccess());
+
+		assertEquals("A", sqlHelper.findById(groupA.getId(), Group.class).getName());
+	}
+
 	@Test
 	void noAdminInSessionSeesNoNodes() {
 		assertFalse(controller.detail(nodeA.getId()).isSuccess());
@@ -397,6 +489,27 @@ class RemoteControllerTest {
 		assertTrue(controller.del(nodeB.getId()).isSuccess());
 
 		assertNull(sqlHelper.findById(nodeB.getId(), Remote.class));
+	}
+
+	@Test
+	void superAdminCanReadCreateRenameAndDeleteAnyGroup() {
+		loginAs(superAdmin);
+
+		JsonResult<?> detail = controller.groupDetail(groupB.getId());
+		assertTrue(detail.isSuccess());
+		assertEquals(groupB.getId(), ((Group) detail.getObj()).getId());
+
+		Group created = new Group();
+		created.setName("C");
+		assertTrue(controller.addGroupOver(created).isSuccess());
+		assertEquals(3, sqlHelper.findAll(Group.class).size());
+
+		assertTrue(controller.addGroupOver(renamed(groupB, "B2")).isSuccess());
+		assertEquals("B2", sqlHelper.findById(groupB.getId(), Group.class).getName());
+
+		assertTrue(controller.delGroup(groupB.getId()).isSuccess());
+		assertNull(sqlHelper.findById(groupB.getId(), Group.class));
+		assertNull(sqlHelper.findById(nodeB.getId(), Remote.class).getParentId());
 	}
 
 	private MessageUtils m() {
