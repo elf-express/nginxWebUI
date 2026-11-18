@@ -1,6 +1,8 @@
 package com.cym.testsupport;
 
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -14,6 +16,8 @@ public class FakeContext extends ContextEmpty {
 	private final Map<String, Object> session = new HashMap<>();
 	private final StringBuilder output = new StringBuilder();
 	private String redirectUrl;
+	private int status = 200;
+	private String contentType;
 
 	public FakeContext(String path) {
 		this.path = path;
@@ -84,6 +88,42 @@ public class FakeContext extends ContextEmpty {
 	@Override
 	public void output(byte[] bytes) {
 		output.append(new String(bytes, StandardCharsets.UTF_8));
+	}
+
+	/** 經 outputStream() 寫出的內容同樣記進輸出 */
+	@Override
+	public OutputStream outputStream() {
+		return new OutputStream() {
+			@Override
+			public void write(int b) {
+				output(new byte[] { (byte) b });
+			}
+
+			@Override
+			public void write(byte[] b, int off, int len) {
+				output(Arrays.copyOfRange(b, off, off + len));
+			}
+		};
+	}
+
+	@Override
+	public int status() {
+		return status;
+	}
+
+	@Override
+	protected void statusDoSet(int status) {
+		this.status = status;
+	}
+
+	@Override
+	public String contentType() {
+		return contentType;
+	}
+
+	@Override
+	protected void contentTypeDoSet(String contentType) {
+		this.contentType = contentType;
 	}
 
 	@Override
