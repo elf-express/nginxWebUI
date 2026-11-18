@@ -35,6 +35,7 @@ import com.cym.service.SettingService;
 import com.cym.utils.BaseController;
 import com.cym.utils.JsonResult;
 import com.cym.utils.NginxUtils;
+import com.cym.utils.RemoteCaptchaFetcher;
 import com.cym.utils.SystemTool;
 
 import cn.hutool.core.codec.Base64;
@@ -672,34 +673,19 @@ public class RemoteController extends BaseController {
 		return renderSuccess();
 	}
 
+	/** 新增／編輯遠端節點時代為讀取對方的驗證碼圖片；限制見 RemoteCaptchaFetcher */
 	@Mapping("/src")
 	public void src(String url) throws Exception {
-
-//		response.addHeader("Content-Type", "image/jpeg");
-//		response.setHeader("content-disposition", "attachment;filename=code.jpg"); // 设置文件名
-
-		byte[] buffer = new byte[1024];
-		URL downUrl = new URL(url);
-		BufferedInputStream bis = null;
-		try {
-			bis = new BufferedInputStream(downUrl.openConnection().getInputStream());
-			OutputStream os = Context.current().outputStream();
-			int i = bis.read(buffer);
-			while (i != -1) {
-				os.write(buffer, 0, i);
-				i = bis.read(buffer);
-			}
-		} catch (Exception e) {
-			logger.error(e.getMessage(), e);
-		} finally {
-			if (bis != null) {
-				try {
-					bis.close();
-				} catch (IOException e) {
-					logger.error(e.getMessage(), e);
-				}
-			}
+		Context ctx = Context.current();
+		RemoteCaptchaFetcher.Image image = RemoteCaptchaFetcher.fetch(url);
+		if (image == null) {
+			logger.warn("remote/src rejected url: {}", StrUtil.maxLength(StrUtil.nullToEmpty(url), 200));
+			ctx.status(400);
+			return;
 		}
-
+		ctx.contentType(image.contentType());
+		ctx.headerSet("Cache-Control", "no-cache");
+		ctx.headerSet("X-Content-Type-Options", "nosniff");
+		ctx.output(image.body());
 	}
 }
