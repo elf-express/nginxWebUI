@@ -163,9 +163,12 @@ test.describe('Vue log viewer through the real list iframe', () => {
 
   test('scroll and native selection survive updates until explicit follow clears selection', async ({ logApp }) => {
     const record = await logApp.create(lines(1, 50, 'selection').join('\n') + '\n');
-    const { viewer } = await logApp.open(record);
+    const { viewer, iframe } = await logApp.open(record);
     const region = regionOf(viewer);
     await expect(textOf(viewer)).toContainText('selection-50');
+    // Child visibility does not wait for the outer Layui iframe to stop scaling.
+    // Hover waits for that pointer target to be stable before sampling drag coordinates.
+    await iframe.hover();
     await expect(button(viewer, 'follow')).toHaveAttribute('aria-pressed', 'true');
     const box = await region.boundingBox();
     // Select at the bottom while following is still enabled: selection itself,
